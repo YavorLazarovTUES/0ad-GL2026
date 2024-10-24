@@ -42,6 +42,7 @@ EOF
 }
 
 without_nvtt=false
+with_system_cpp_httplib=false
 with_system_cxxtest=false
 with_system_nvtt=false
 with_system_mozjs=false
@@ -59,6 +60,7 @@ while [ "$#" -gt 0 ]; do
 		--fetch-only) build_sh_options="$build_sh_options --fetch-only" ;;
 		--force-rebuild) build_sh_options="$build_sh_options --force-rebuild" ;;
 		--without-nvtt) without_nvtt=true ;;
+		--with-system-cpp-httplib) with_system_cpp_httplib=true ;;
 		--with-system-cxxtest) with_system_cxxtest=true ;;
 		--with-system-nvtt) with_system_nvtt=true ;;
 		--with-system-mozjs) with_system_mozjs=true ;;
@@ -90,6 +92,10 @@ export MAKE JOBS
 # Build/update bundled external libraries
 echo "Building third-party dependencies..."
 
+if [ "$with_system_cpp_httplib" = "false" ]; then
+	# shellcheck disable=SC2086
+	./source/cpp-httplib/build.sh $build_sh_options || die "cpp-httplib build failed"
+fi
 if [ "$with_system_cxxtest" = "false" ]; then
 	# shellcheck disable=SC2086
 	./source/cxxtest-4.4/build.sh $build_sh_options || die "cxxtest build failed"

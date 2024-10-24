@@ -234,6 +234,25 @@ extern_lib_defs = {
 			})
 		end,
 	},
+	cpp_httplib = {
+		compile_settings = function()
+			if not _OPTIONS["with-system-cpp-httplib"] then
+				add_source_include_paths("cpp-httplib")
+			end
+		end,
+		link_settings = function()
+			if not _OPTIONS["with-system-cpp-httplib"] then
+				add_source_lib_paths("cpp-httplib")
+			end
+			add_default_links({
+				win_names  = { "cpp-httplib" },
+				unix_names = { "cpp-httplib" },
+				osx_names = { "cpp-httplib" },
+				dbg_suffix = "",
+				no_delayload = 1,
+			})
+		end,
+	},
 	cxxtest = {
 		compile_settings = function()
 			if not _OPTIONS["with-system-cxxtest"] then

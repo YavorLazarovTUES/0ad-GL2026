@@ -48,6 +48,7 @@ newoption { category = "Pyrogenesis", trigger = "sanitize-address", description 
 newoption { category = "Pyrogenesis", trigger = "sanitize-thread", description = "Enable TSAN if available" }
 newoption { category = "Pyrogenesis", trigger = "sanitize-undefined-behaviour", description = "Enable UBSAN if available" }
 newoption { category = "Pyrogenesis", trigger = "strip-binaries", description = "Strip created binaries" }
+newoption { category = "Pyrogenesis", trigger = "with-system-cpp-httplib", description = "Search standard paths for cpp-httplib, instead of using bundled copy" }
 newoption { category = "Pyrogenesis", trigger = "with-system-cxxtest", description = "Search standard paths for cxxtest, instead of using bundled copy" }
 newoption { category = "Pyrogenesis", trigger = "with-lto", description = "Enable Link Time Optimization (LTO)" }
 newoption { category = "Pyrogenesis", trigger = "with-system-mozjs", description = "Search standard paths for libmozjs128, instead of using bundled copy" }
