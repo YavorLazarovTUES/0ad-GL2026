@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,15 +20,15 @@
 
 #include "lib/code_annotation.h"
 #include "simulation2/helpers/Player.h"
-#include "third_party/mongoose/mongoose.h"
 
 #include <condition_variable>
 #include <exception>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
-struct mg_context;
+namespace httplib { class Server; }
 
 namespace RL
 {
@@ -93,7 +93,7 @@ class Interface
 {
 	NONCOPYABLE(Interface);
 public:
-	Interface(const char* server_address);
+	Interface(std::string const serverAddress);
 	~Interface();
 
 	/**
@@ -103,9 +103,6 @@ public:
 	void TryApplyMessage();
 
 private:
-	static void* MgCallback(mg_event event, struct mg_connection *conn, const struct mg_request_info *request_info);
-	static std::string GetRequestContent(struct mg_connection *conn);
-
 	/**
 	 * Process commands, update the simulation by one turn.
 	 * @return the gamestate after processing commands.
@@ -170,7 +167,8 @@ private:
 	std::condition_variable m_MsgApplied;
 	std::string m_Code;
 
-	mg_context* m_Context;
+	std::unique_ptr<httplib::Server> m_HttpServer;
+	std::thread m_HttpServerThread;
 };
 
 }

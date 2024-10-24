@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -36,6 +36,8 @@
 typedef intptr_t ssize_t;
 // prevent wxWidgets from (incompatibly) redefining it
 #define HAVE_SSIZE_T
+// prevent cpp-httplib from (incompatibly) redefining it
+#define _SSIZE_T_DEFINED
 
 // VC9 defines off_t as long, but we need 64-bit file offsets even in
 // 32-bit builds. to avoid conflicts, we have to define _OFF_T_DEFINED,

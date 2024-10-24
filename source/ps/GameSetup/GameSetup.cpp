@@ -381,6 +381,7 @@ void ShutdownNetworkAndUI()
 
 	g_RenderingOptions.ClearHooks();
 
+	g_Profiler2.ShutDownHTTP();
 	g_Profiler2.ShutdownGPU();
 
 	if (hasRenderer)

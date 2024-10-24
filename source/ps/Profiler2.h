@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -90,11 +90,12 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 class CProfiler2GPU;
 namespace Renderer::Backend { class IDeviceCommandContext; }
-struct mg_context;
+namespace httplib { class Server; }
 
 // Note: Lots of functions are defined inline, to hypothetically
 // minimise performance overhead.
@@ -388,7 +389,8 @@ private:
 
 	int m_FrameNumber;
 
-	mg_context* m_MgContext;
+	std::unique_ptr<httplib::Server> m_HttpServer;
+	std::thread m_HttpServerThread;
 
 	CProfiler2GPU* m_GPU;
 

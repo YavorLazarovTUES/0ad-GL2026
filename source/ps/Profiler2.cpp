@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -28,6 +28,7 @@
 #include "lib/code_generation.h"
 #include "lib/os_path.h"
 #include "lib/path.h"
+#include "network/HttpServer.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
 #include "ps/ConfigDB.h"
@@ -35,13 +36,13 @@
 #include "ps/Profiler2GPU.h"
 #include "ps/Pyrogenesis.h"
 #include "ps/TaskManager.h"
-#include "third_party/mongoose/mongoose.h"
 
 #include <algorithm>
 #include <cstdio>
 #include <fmt/format.h>
 #include <fstream>
 #include <functional>
+#include <httplib.h>
 #include <iomanip>
 #include <map>
 #include <set>
@@ -64,7 +65,7 @@ const u8 CProfiler2::RESYNC_MAGIC[8] = {0x11, 0x22, 0x33, 0x44, 0xf4, 0x93, 0xbe
 thread_local CProfiler2::ThreadStorage* CProfiler2::m_CurrentStorage = nullptr;
 
 CProfiler2::CProfiler2() :
-	m_Initialised(false), m_FrameNumber(0), m_MgContext(NULL), m_GPU(NULL)
+	m_Initialised{false}, m_FrameNumber{0}, m_HttpServer{nullptr}, m_HttpServerThread{}, m_GPU{nullptr}
 {
 }
 
@@ -73,103 +74,6 @@ CProfiler2::~CProfiler2()
 	if (m_Initialised)
 		Shutdown();
 }
-
-/**
- * Mongoose callback. Run in an arbitrary thread (possibly concurrently with other requests).
- */
-static void* MgCallback(mg_event event, struct mg_connection *conn, const struct mg_request_info *request_info)
-{
-	CProfiler2* profiler = (CProfiler2*)request_info->user_data;
-	ENSURE(profiler);
-
-	void* handled = (void*)""; // arbitrary non-NULL pointer to indicate successful handling
-
-	const char* header200 =
-		"HTTP/1.1 200 OK\r\n"
-		"Access-Control-Allow-Origin: *\r\n" // TODO: not great for security
-		"Content-Type: text/plain; charset=utf-8\r\n\r\n";
-
-	const char* header404 =
-		"HTTP/1.1 404 Not Found\r\n"
-		"Content-Type: text/plain; charset=utf-8\r\n\r\n"
-		"Unrecognised URI";
-
-	const char* header400 =
-		"HTTP/1.1 400 Bad Request\r\n"
-		"Content-Type: text/plain; charset=utf-8\r\n\r\n"
-		"Invalid request";
-
-	switch (event)
-	{
-	case MG_NEW_REQUEST:
-	{
-		std::stringstream stream;
-
-		std::string uri = request_info->uri;
-
-		if (uri == "/download")
-			Future{g_TaskManager, std::bind_front(&CProfiler2::SaveToFile, profiler)}.Get();
-		else if (uri == "/overview")
-		{
-			Future{g_TaskManager,
-				std::bind_front(&CProfiler2::ConstructJSONOverview, profiler, std::ref(stream))}.Get();
-		}
-		else if (uri == "/query")
-		{
-			if (!request_info->query_string)
-			{
-				mg_printf(conn, "%s (no query string)", header400);
-				return handled;
-			}
-
-			// Identify the requested thread
-			char buf[256];
-			int len = mg_get_var(request_info->query_string, strlen(request_info->query_string), "thread", buf, ARRAY_SIZE(buf));
-			if (len < 0)
-			{
-				mg_printf(conn, "%s (no 'thread')", header400);
-				return handled;
-			}
-			std::string thread(buf);
-
-			const char* err = Future{g_TaskManager,
-				std::bind_front(&CProfiler2::ConstructJSONResponse, profiler, std::ref(stream),
-					std::ref(thread))}.Get();
-
-			if (err)
-			{
-				mg_printf(conn, "%s (%s)", header400, err);
-				return handled;
-			}
-		}
-		else
-		{
-			mg_printf(conn, "%s", header404);
-			return handled;
-		}
-
-		mg_printf(conn, "%s", header200);
-		std::string str = stream.str();
-		mg_write(conn, str.c_str(), str.length());
-		return handled;
-	}
-
-	case MG_HTTP_ERROR:
-		return NULL;
-
-	case MG_EVENT_LOG:
-		// Called by Mongoose's cry()
-		LOGERROR("Mongoose error: %s", request_info->log_message);
-		return NULL;
-
-	case MG_INIT_SSL:
-		return NULL;
-
-	default:
-		debug_warn(L"Invalid Mongoose event type");
-		return NULL;
-	}
-};
 
 void CProfiler2::Initialise()
 {
@@ -190,23 +94,53 @@ void CProfiler2::EnableHTTP()
 	ENSURE(m_Initialised);
 	LOGMESSAGERENDER("Starting profiler2 HTTP server");
 
+	std::lock_guard lock{m_Mutex};
+
 	// Ignore multiple enablings
-	if (m_MgContext)
+	if (m_HttpServer)
 		return;
 
-	using namespace std::literals;
-	const std::string listeningPort{CConfigDB::GetIfInitialised("profiler2.server.port", "8000"s)};
-	const std::string listeningServer{CConfigDB::GetIfInitialised("profiler2.server", "127.0.0.1"s)};
-	const std::string numThreads{CConfigDB::GetIfInitialised("profiler2.server.threads", "6"s)};
+	m_HttpServer = PS::Net::createHttpServer();
 
-	std::string listening_ports = fmt::format("{0}:{1}", listeningServer, listeningPort);
-	const char* options[] = {
-		"listening_ports", listening_ports.c_str(),
-		"num_threads", numThreads.c_str(),
-		nullptr
-	};
-	m_MgContext = mg_start(MgCallback, this, options);
-	ENSURE(m_MgContext);
+	m_HttpServer->Get("/download", [this](const httplib::Request &, httplib::Response &) {
+		SaveToFile();
+	});
+
+	m_HttpServer->Get("/overview", [this](const httplib::Request &, httplib::Response &res) {
+		std::stringstream stream;
+		ConstructJSONOverview(stream);
+		res.set_content(stream.str(), "application/json");
+	});
+
+	m_HttpServer->Get("/query", [this](const httplib::Request &req, httplib::Response &res) {
+		if (!req.has_param("thread"))
+		{
+			res.set_content("Request \"query\" needs parameter \"thread\"", "text/plain");
+			res.status = httplib::StatusCode::BadRequest_400;
+			return;
+		}
+
+		std::string thread = req.get_param_value("thread");
+		std::stringstream stream;
+		ConstructJSONResponse(stream, thread);
+		res.set_content(stream.str(), "application/json");
+	});
+
+	m_HttpServer->set_post_routing_handler([](const httplib::Request&, httplib::Response& res) {
+		// TODO: Not ideal for security reasons
+		res.set_header("Access-Control-Allow-Origin", "*");
+	});
+
+	m_HttpServerThread = std::thread([this](){
+		using namespace std::literals;
+		const int listeningPort{CConfigDB::GetIfInitialised("profiler2.server.port", 8000)};
+		const std::string listeningServer{CConfigDB::GetIfInitialised("profiler2.server", "127.0.0.1"s)};
+
+		if (!m_HttpServer->listen(listeningServer, listeningPort))
+		{
+			LOGERROR("Failed to start http server");
+		}
+	});
 }
 
 void CProfiler2::EnableGPU()
@@ -228,25 +162,33 @@ void CProfiler2::ShutdownGPU()
 void CProfiler2::ShutDownHTTP()
 {
 	LOGMESSAGERENDER("Shutting down profiler2 HTTP server");
-	if (m_MgContext)
-	{
-		mg_stop(m_MgContext);
-		m_MgContext = NULL;
-	}
+	std::lock_guard lock{m_Mutex};
+
+	if (!m_HttpServer)
+		return;
+
+	m_HttpServer->stop();
+	if(m_HttpServerThread.joinable())
+		m_HttpServerThread.join();
+	m_HttpServer.reset();
 }
 
 void CProfiler2::Toggle()
 {
-	// TODO: Maybe we can open the browser to the profiler page automatically
-	if (m_GPU && m_MgContext)
+	LOGMESSAGERENDER("Toggle profiler http");
+	if (m_GPU && m_HttpServer)
 	{
 		ShutdownGPU();
 		ShutDownHTTP();
 	}
-	else if (!m_GPU && !m_MgContext)
+	else if (!m_GPU && !m_HttpServer)
 	{
 		EnableGPU();
 		EnableHTTP();
+	}
+	else
+	{
+		LOGMESSAGERENDER("Toggle profile bad state!");
 	}
 }
 
@@ -255,12 +197,7 @@ void CProfiler2::Shutdown()
 	ENSURE(m_Initialised);
 
 	ENSURE(!m_GPU); // must shutdown GPU before profiler
-
-	if (m_MgContext)
-	{
-		mg_stop(m_MgContext);
-		m_MgContext = NULL;
-	}
+	ENSURE(!m_HttpServer); // must shutdown HTTP server before profiler
 
 	// the destructor is not called for the main thread
 	// we have to call it manually to avoid memory leaks
