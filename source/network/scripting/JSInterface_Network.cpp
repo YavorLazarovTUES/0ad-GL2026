@@ -105,13 +105,11 @@ void StartNetworkHost(const CStrW& playerName, const u16 serverPort, const CStr&
 	g_NetServer->SetControllerSecret(secret);
 
 	g_Game = new CGame(storeReplay);
-	g_NetClient = new CNetClient(g_Game);
-	g_NetClient->SetUserName(playerName);
+	const std::string hostJID{hasLobby ? g_XmppClient->GetJID() : ""};
+	g_NetClient = new CNetClient(g_Game, playerName, hostJID);
 
 	if (hasLobby)
 	{
-		CStr hostJID = g_XmppClient->GetJID();
-
 		/**
 		 * Password security - we want 0 A.D. to protect players from malicious hosts. We assume that clients
 		 * might mistakenly send a personal password instead of the game password (e.g. enter their mail account's password on autopilot).
@@ -130,7 +128,6 @@ void StartNetworkHost(const CStrW& playerName, const u16 serverPort, const CStr&
 		 */
 		CStr hashedPass = HashCryptographically(password, hostJID + password + PS_SERIALIZATION_VERSION);
 		g_NetServer->SetPassword(hashedPass);
-		g_NetClient->SetHostJID(hostJID);
 		g_NetClient->SetGamePassword(hashedPass);
 	}
 
@@ -152,8 +149,7 @@ void StartNetworkJoin(const CStrW& playerName, const CStr& serverAddress, u16 se
 	ENSURE(!g_Game);
 
 	g_Game = new CGame(storeReplay);
-	g_NetClient = new CNetClient(g_Game);
-	g_NetClient->SetUserName(playerName);
+	g_NetClient = new CNetClient(g_Game, playerName);
 	g_NetClient->SetupServerData(serverAddress, serverPort);
 
 	if (!g_NetClient->SetupConnection(nullptr))
@@ -178,9 +174,7 @@ void StartNetworkJoinLobby(const CStrW& playerName, const CStr& hostJID, const C
 
 	CStr hashedPass = HashCryptographically(password, hostJID + password + PS_SERIALIZATION_VERSION);
 	g_Game = new CGame(true);
-	g_NetClient = new CNetClient(g_Game);
-	g_NetClient->SetUserName(playerName);
-	g_NetClient->SetHostJID(hostJID);
+	g_NetClient = new CNetClient(g_Game, playerName, hostJID);
 	g_NetClient->SetGamePassword(hashedPass);
 	g_NetClient->SetupConnectionViaLobby();
 }

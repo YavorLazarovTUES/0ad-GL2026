@@ -74,8 +74,10 @@ public:
 	/**
 	 * Construct a client associated with the given game object.
 	 * The game must exist for the lifetime of this object.
+	 * The user's name will be displayed to all players.
+	 * The JID of the host is needed for the secure lobby authentication.
 	 */
-	CNetClient(CGame* game);
+	CNetClient(CGame* game, const CStrW& username = L"anonymous", const CStr& hostJID = {});
 
 	virtual ~CNetClient();
 
@@ -91,18 +93,6 @@ public:
 	}
 
 	void TraceMember(JSTracer *trc);
-
-	/**
-	 * Set the user's name that will be displayed to all players.
-	 * This must not be called after the connection setup.
-	 */
-	void SetUserName(const CStrW& username);
-
-	/**
-	 * Store the JID of the host.
-	 * This is needed for the secure lobby authentication.
-	 */
-	void SetHostJID(const CStr& jid);
 
 	void SetControllerSecret(const std::string& secret);
 

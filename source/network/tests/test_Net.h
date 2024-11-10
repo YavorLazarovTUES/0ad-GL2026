@@ -252,13 +252,9 @@ public:
 
 		server.UpdateInitAttributes(&attrs, scriptInterface);
 
-		CNetClient client1(&client1Game);
-		CNetClient client2(&client2Game);
-		CNetClient client3(&client3Game);
-
-		client1.SetUserName(L"alice");
-		client2.SetUserName(L"bob");
-		client3.SetUserName(L"charlie");
+		CNetClient client1(&client1Game, L"alice");
+		CNetClient client2(&client2Game, L"bob");
+		CNetClient client3(&client3Game, L"charlie");
 
 		clients.push_back(&client1);
 		clients.push_back(&client2);
@@ -313,8 +309,7 @@ public:
 		debug_printf("==== Connecting client 2B\n");
 
 		CGame client2BGame(false);
-		CNetClient client2B(&client2BGame);
-		client2B.SetUserName(L"bob");
+		CNetClient client2B(&client2BGame, L"bob");
 		clients.push_back(&client2B);
 
 		client2B.SetupServerData("127.0.0.1", PS_DEFAULT_PORT);

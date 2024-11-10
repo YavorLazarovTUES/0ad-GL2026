@@ -65,9 +65,10 @@ constexpr u32 NETWORK_BAD_PING = DEFAULT_TURN_LENGTH * COMMAND_DELAY_MP / 2;
 
 CNetClient *g_NetClient = NULL;
 
-CNetClient::CNetClient(CGame* game) :
+CNetClient::CNetClient(CGame* game, const CStrW& username, const CStr& hostJID) :
 	m_Session(NULL),
-	m_UserName(L"anonymous"),
+	m_UserName{username},
+	m_HostJID{hostJID},
 	m_HostID((u32)-1), m_ClientTurnManager(NULL), m_Game(game),
 	m_LastConnectionCheck(0),
 	m_ServerAddress(),
@@ -152,18 +153,6 @@ void CNetClient::TraceMember(JSTracer *trc)
 {
 	for (JS::Heap<JS::Value>& guiMessage : m_GuiMessageQueue)
 		JS::TraceEdge(trc, &guiMessage, "m_GuiMessageQueue");
-}
-
-void CNetClient::SetUserName(const CStrW& username)
-{
-	ENSURE(!m_Session); // must be called before we start the connection
-
-	m_UserName = username;
-}
-
-void CNetClient::SetHostJID(const CStr& jid)
-{
-	m_HostJID = jid;
 }
 
 void CNetClient::SetGamePassword(const CStr& hashedPassword)
