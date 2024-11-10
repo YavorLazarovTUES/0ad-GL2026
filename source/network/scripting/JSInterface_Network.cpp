@@ -196,16 +196,14 @@ CStr GetPlayerGUID()
 	return g_NetClient->GetGUID();
 }
 
-JS::Value PollNetworkClient(const ScriptInterface& guiInterface)
+JS::Value PollNetworkClient(const ScriptRequest& rq)
 {
 	if (!g_NetClient)
 		return JS::UndefinedValue();
 
-	// Convert from net client context to GUI script context
-	ScriptRequest rqNet(g_NetClient->GetScriptInterface());
-	JS::RootedValue pollNet(rqNet.cx);
-	g_NetClient->GuiPoll(&pollNet);
-	return Script::CloneValueFromOtherCompartment(guiInterface, g_NetClient->GetScriptInterface(), pollNet);
+	JS::RootedValue message{rq.cx};
+	g_NetClient->GuiPoll(rq, &message);
+	return message;
 }
 
 void SendGameSetupMessage(const ScriptInterface& scriptInterface, JS::HandleValue attribs1)

@@ -27,6 +27,7 @@
 #include "ps/CStr.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/StructuredClone.h"
 
 #include <ctime>
 #include <deque>
@@ -80,19 +81,6 @@ public:
 	CNetClient(CGame* game, const CStrW& username = L"anonymous", const CStr& hostJID = {});
 
 	virtual ~CNetClient();
-
-	/**
-	 * We assume that adding a tracing function that's only called
-	 * during GC is better for performance than using a
-	 * PersistentRooted<T> where each value needs to be added to
-	 * the root set.
-	 */
-	static void Trace(JSTracer *trc, void *data)
-	{
-		reinterpret_cast<CNetClient*>(data)->TraceMember(trc);
-	}
-
-	void TraceMember(JSTracer *trc);
 
 	void SetControllerSecret(const std::string& secret);
 
@@ -168,7 +156,7 @@ public:
 	 *
 	 * @return next message, or the value 'undefined' if the queue is empty
 	 */
-	void GuiPoll(JS::MutableHandleValue);
+	void GuiPoll(const ScriptRequest& rq, JS::MutableHandleValue ret);
 
 	/**
 	 * Add a message to the queue, to be read by GuiPoll.
@@ -181,7 +169,7 @@ public:
 
 		JS::RootedValue message(rq.cx);
 		Script::CreateObject(rq, &message, args...);
-		m_GuiMessageQueue.push_back(JS::Heap<JS::Value>(message));
+		m_GuiMessageQueue.push_back(Script::WriteStructuredClone(rq, message));
 	}
 
 	/**
@@ -356,7 +344,7 @@ private:
 	CStr m_GUID;
 
 	/// Queue of messages for GuiPoll
-	std::deque<JS::Heap<JS::Value>> m_GuiMessageQueue;
+	std::deque<Script::StructuredClone> m_GuiMessageQueue;
 
 	/// Serialized game state received when joining an in-progress game
 	std::string m_JoinSyncBuffer;

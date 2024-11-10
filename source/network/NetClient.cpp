@@ -77,8 +77,6 @@ CNetClient::CNetClient(CGame* game, const CStrW& username, const CStr& hostJID) 
 {
 	m_Game->SetTurnManager(NULL); // delete the old local turn manager so we don't accidentally use it
 
-	JS_AddExtraGCRootsTracer(GetScriptInterface().GetGeneralJSContext(), CNetClient::Trace, this);
-
 	// Set up transitions for session
 	AddTransition(NCS_UNCONNECTED, (uint)NMT_CONNECT_COMPLETE, NCS_CONNECT, &OnConnect, this);
 
@@ -146,13 +144,6 @@ CNetClient::~CNetClient()
 		m_ClientTurnManager->OnDestroyConnection();
 
 	DestroyConnection();
-	JS_RemoveExtraGCRootsTracer(GetScriptInterface().GetGeneralJSContext(), CNetClient::Trace, this);
-}
-
-void CNetClient::TraceMember(JSTracer *trc)
-{
-	for (JS::Heap<JS::Value>& guiMessage : m_GuiMessageQueue)
-		JS::TraceEdge(trc, &guiMessage, "m_GuiMessageQueue");
 }
 
 void CNetClient::SetGamePassword(const CStr& hashedPassword)
@@ -366,7 +357,7 @@ void CNetClient::CheckServerConnection()
 	}
 }
 
-void CNetClient::GuiPoll(JS::MutableHandleValue ret)
+void CNetClient::GuiPoll(const ScriptRequest& rq, JS::MutableHandleValue ret)
 {
 	if (m_GuiMessageQueue.empty())
 	{
@@ -374,7 +365,7 @@ void CNetClient::GuiPoll(JS::MutableHandleValue ret)
 		return;
 	}
 
-	ret.set(m_GuiMessageQueue.front());
+	Script::ReadStructuredClone(rq, m_GuiMessageQueue.front(), ret);
 	m_GuiMessageQueue.pop_front();
 }
 
@@ -386,7 +377,7 @@ std::string CNetClient::TestReadGuiMessages()
 	JS::RootedValue msg(rq.cx);
 	while (true)
 	{
-		GuiPoll(&msg);
+		GuiPoll(rq, &msg);
 		if (msg.isUndefined())
 			break;
 		r += Script::ToString(rq, &msg) + "\n";
