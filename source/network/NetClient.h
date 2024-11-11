@@ -156,7 +156,7 @@ public:
 	 *
 	 * @return next message, or the value 'undefined' if the queue is empty
 	 */
-	void GuiPoll(const ScriptRequest& rq, JS::MutableHandleValue ret);
+	JS::Value GuiPoll(const ScriptRequest& rq);
 
 	/**
 	 * Add a message to the queue, to be read by GuiPoll.

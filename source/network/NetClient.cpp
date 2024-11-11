@@ -357,16 +357,15 @@ void CNetClient::CheckServerConnection()
 	}
 }
 
-void CNetClient::GuiPoll(const ScriptRequest& rq, JS::MutableHandleValue ret)
+JS::Value CNetClient::GuiPoll(const ScriptRequest& rq)
 {
 	if (m_GuiMessageQueue.empty())
-	{
-		ret.setUndefined();
-		return;
-	}
+		return JS::UndefinedValue();
 
-	Script::ReadStructuredClone(rq, m_GuiMessageQueue.front(), ret);
+	JS::RootedValue ret{rq.cx};
+	Script::ReadStructuredClone(rq, m_GuiMessageQueue.front(), &ret);
 	m_GuiMessageQueue.pop_front();
+	return ret;
 }
 
 std::string CNetClient::TestReadGuiMessages()
@@ -374,10 +373,9 @@ std::string CNetClient::TestReadGuiMessages()
 	ScriptRequest rq(GetScriptInterface());
 
 	std::string r;
-	JS::RootedValue msg(rq.cx);
 	while (true)
 	{
-		GuiPoll(rq, &msg);
+		JS::RootedValue msg{rq.cx, GuiPoll(rq)};
 		if (msg.isUndefined())
 			break;
 		r += Script::ToString(rq, &msg) + "\n";

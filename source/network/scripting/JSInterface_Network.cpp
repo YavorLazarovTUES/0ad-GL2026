@@ -198,12 +198,7 @@ CStr GetPlayerGUID()
 
 JS::Value PollNetworkClient(const ScriptRequest& rq)
 {
-	if (!g_NetClient)
-		return JS::UndefinedValue();
-
-	JS::RootedValue message{rq.cx};
-	g_NetClient->GuiPoll(rq, &message);
-	return message;
+	return g_NetClient ? g_NetClient->GuiPoll(rq) : JS::UndefinedValue();
 }
 
 void SendGameSetupMessage(const ScriptInterface& scriptInterface, JS::HandleValue attribs1)
