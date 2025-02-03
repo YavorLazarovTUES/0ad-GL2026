@@ -148,6 +148,7 @@ AIInterface.prototype.GetFullRepresentation = function(flushEvents)
 	// all entities are changed in the initial state.
 	for (const id of Engine.GetEntitiesWithInterface(IID_AIProxy))
 		state.entities[id] = Engine.QueryInterface(id, IID_AIProxy).GetFullRepresentation();
+	this.changedEntities = {};
 	Engine.ProfileStop();
 
 	state.changedTemplateInfo = this.changedTemplateInfo;
