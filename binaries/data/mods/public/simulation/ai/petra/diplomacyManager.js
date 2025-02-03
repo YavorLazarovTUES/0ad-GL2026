@@ -22,8 +22,9 @@ import * as chat from "simulation/ai/petra/chatHelper.js";
  * to the other player, and AI players will actually be informed of the request by a DiplomacyRequest event
  * sent through AIInterface. It is expected that the other player will change their diplomacy stance to the stance
  * that we suggested within a period of time, or else the request will be deleted from this.sentDiplomacyRequests.
+ * When @c deserialized is true, do not call any random function inside constructor as that would cause oos.
  */
-export function DiplomacyManager(Config)
+export function DiplomacyManager(Config, deserialized)
 {
 	this.Config = Config;
 	this.nextTributeUpdate = 90;
@@ -34,7 +35,7 @@ export function DiplomacyManager(Config)
 	this.betrayWeighting = 150;
 	this.receivedDiplomacyRequests = new Map();
 	this.sentDiplomacyRequests = new Map();
-	this.sentDiplomacyRequestLapseTime = 120 + randFloat(10, 100);
+	this.sentDiplomacyRequestLapseTime = deserialized ? 175 : randFloat(130, 220);
 }
 
 /**

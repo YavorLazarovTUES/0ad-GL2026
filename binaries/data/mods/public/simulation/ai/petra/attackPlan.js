@@ -13,8 +13,10 @@ import { Worker } from "simulation/ai/petra/worker.js";
  * It deals with everything in an attack, from picking a target to picking a path to it
  * To making sure units are built, and pushing elements to the queue manager otherwise
  * It also handles the actual attack, though much work is needed on that.
+ * When @c deserialized is true, do not call any random function inside constructor
+ * as that would cause oos.
  */
-export function AttackPlan(gameState, config, uniqueID, type = AttackPlan.TYPE_DEFAULT, data)
+export function AttackPlan(gameState, config, uniqueID, type = AttackPlan.TYPE_DEFAULT, data, deserialized)
 {
 	this.Config = config;
 	this.name = uniqueID;
@@ -178,7 +180,7 @@ export function AttackPlan(gameState, config, uniqueID, type = AttackPlan.TYPE_D
 	}
 
 	// Put some randomness on the attack size
-	let variation = randFloat(0.8, 1.2);
+	let variation = deserialized ? 1 : randFloat(0.8, 1.2);
 	// and lower priority and smaller sizes for easier difficulty levels
 	if (this.Config.difficulty < difficulty.EASY)
 	{

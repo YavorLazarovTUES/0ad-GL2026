@@ -39,7 +39,7 @@ import { Worker } from "simulation/ai/petra/worker.js";
  *  -picking new CC locations.
  */
 
-export function Headquarters(config)
+export function Headquarters(config, deserialized)
 {
 	this.Config = config;
 	this.phasing = 0;	// existing values: 0 means no, i > 0 means phasing towards phase i
@@ -69,7 +69,7 @@ export function Headquarters(config)
 	this.tradeManager = new TradeManager(this.Config);
 	this.navalManager = new NavalManager(this.Config);
 	this.researchManager = new ResearchManager(this.Config);
-	this.diplomacyManager = new DiplomacyManager(this.Config);
+	this.diplomacyManager = new DiplomacyManager(this.Config, deserialized);
 	this.garrisonManager = new GarrisonManager(this.Config);
 	this.victoryManager = new VictoryManager(this.Config);
 	this.emergencyManager = new EmergencyManager(this.Config);
@@ -2444,7 +2444,7 @@ Headquarters.prototype.Deserialize = function(gameState, data)
 	this.researchManager = new ResearchManager(this.Config);
 	this.researchManager.Deserialize(data.researchManager);
 
-	this.diplomacyManager = new DiplomacyManager(this.Config);
+	this.diplomacyManager = new DiplomacyManager(this.Config, true);
 	this.diplomacyManager.Deserialize(data.diplomacyManager);
 
 	this.garrisonManager = new GarrisonManager(this.Config);

@@ -46,8 +46,10 @@ GameState.prototype.init = function(SharedScript, state, player)
 
 		if (techData._definesPair)
 		{
-			// Randomly pick a non-disabled choice from the phase-pair.
-			techName = pickRandom([techData._template.top, techData._template.bottom].filter(tech => !this.playerData.disabledTechnologies[tech])) || techData._template.top;
+			// Cannot call pickrandom because this function is called on rejoin and that causes oos.
+			// (reverting rP20750)
+			techName = this.playerData.disabledTechnologies[techData._template.bottom] ?
+				techData._template.top : techData._template.bottom;
 
 			const supersedes = techData._template.supersedes;
 			techData = clone(this.getTemplate(techName));
