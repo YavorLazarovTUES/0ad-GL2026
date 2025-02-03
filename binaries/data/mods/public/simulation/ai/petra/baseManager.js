@@ -111,7 +111,7 @@ BaseManager.prototype.assignEntity = function(gameState, ent)
 	this.workers.updateEnt(ent);
 	this.buildings.updateEnt(ent);
 	if (ent.resourceDropsiteTypes() && !ent.hasClass("Unit"))
-		this.assignResourceToDropsite(gameState, ent);
+		this.assignResourceToDropsite(gameState, ent, false);
 };
 
 BaseManager.prototype.setAnchor = function(gameState, anchorEntity)
@@ -171,7 +171,7 @@ BaseManager.prototype.setAnchorlessEntity = function(gameState, ent)
  * Assign the resources around the dropsites of this basis in three areas according to distance, and sort them in each area.
  * Moving resources (animals) and buildable resources (fields) are treated elsewhere.
  */
-BaseManager.prototype.assignResourceToDropsite = function(gameState, dropsite)
+BaseManager.prototype.assignResourceToDropsite = function(gameState, dropsite, deserialized)
 {
 	if (this.dropsites[dropsite.id()])
 	{
@@ -214,11 +214,11 @@ BaseManager.prototype.assignResourceToDropsite = function(gameState, dropsite)
 			if (dist < maxDistResourceSquare)
 			{
 				if (dist < maxDistResourceSquare/16)        // distmax/4
-					nearby.push({ "dropsite": dropsiteId, "id": supply.id(), "ent": supply, "dist": dist });
+					nearby.push({ "dropsite": dropsiteId, "id": supply.id(), "dist": dist });
 				else if (dist < maxDistResourceSquare/4)    // distmax/2
-					medium.push({ "dropsite": dropsiteId, "id": supply.id(), "ent": supply, "dist": dist });
+					medium.push({ "dropsite": dropsiteId, "id": supply.id(), "dist": dist });
 				else
-					faraway.push({ "dropsite": dropsiteId, "id": supply.id(), "ent": supply, "dist": dist });
+					faraway.push({ "dropsite": dropsiteId, "id": supply.id(), "dist": dist });
 			}
 		});
 
@@ -231,17 +231,20 @@ BaseManager.prototype.assignResourceToDropsite = function(gameState, dropsite)
 		if (debug)
 		{
 			faraway.forEach(function(res){
-				Engine.PostCommand(PlayerID,{"type": "set-shading-color", "entities": [res.ent.id()], "rgb": [2,0,0]});
+				Engine.PostCommand(PlayerID,{"type": "set-shading-color", "entities": [res.id], "rgb": [2,0,0]});
 			});
 			medium.forEach(function(res){
-				Engine.PostCommand(PlayerID,{"type": "set-shading-color", "entities": [res.ent.id()], "rgb": [0,2,0]});
+				Engine.PostCommand(PlayerID,{"type": "set-shading-color", "entities": [res.id], "rgb": [0,2,0]});
 			});
 			nearby.forEach(function(res){
-				Engine.PostCommand(PlayerID,{"type": "set-shading-color", "entities": [res.ent.id()], "rgb": [0,0,2]});
+				Engine.PostCommand(PlayerID,{"type": "set-shading-color", "entities": [res.id], "rgb": [0,0,2]});
 			});
 		}
 		*/
 	}
+
+	if (deserialized)
+		return;
 
 	// Allows all allies to use this dropsite except if base anchor to be sure to keep
 	// a minimum of resources for this base
@@ -418,7 +421,9 @@ BaseManager.prototype.getResourceLevel = function(gameState, type, distances = [
 			if (check[supply.id])    // avoid double counting as same resource can appear several time
 				continue;
 			check[supply.id] = true;
-			count += supply.ent.resourceSupplyAmount();
+			const supplyEntity = gameState.getEntityById(supply.id);
+			if (supplyEntity)
+				count += supplyEntity.resourceSupplyAmount();
 		}
 	return count;
 };
@@ -1208,7 +1213,8 @@ BaseManager.prototype.Serialize = function()
 		"gatherers": this.gatherers,
 		"neededDefenders": this.neededDefenders,
 		"territoryIndices": this.territoryIndices,
-		"timeNextIdleCheck": this.timeNextIdleCheck
+		"timeNextIdleCheck": this.timeNextIdleCheck,
+		"dropsiteSupplies": this.dropsiteSupplies
 	};
 };
 

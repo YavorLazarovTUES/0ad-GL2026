@@ -488,32 +488,35 @@ Worker.prototype.startGathering = function(gameState)
 		const gatherRates = ent.resourceGatherRates();
 		for (let i = 0; i < supplies.length; ++i)
 		{
+			const entity = gameState.getEntityById(supplies[i].id);
 			// exhausted resource, remove it from this list
-			if (!supplies[i].ent || !gameState.getEntityById(supplies[i].id))
+			if (!entity)
 			{
 				supplies.splice(i--, 1);
 				continue;
 			}
-			if (isSupplyFull(gameState, supplies[i].ent))
+			if (isSupplyFull(gameState, entity))
 				continue;
-			const inaccessibleTime = supplies[i].ent.getMetadata(PlayerID, "inaccessibleTime");
+			const inaccessibleTime = entity.getMetadata(PlayerID, "inaccessibleTime");
 			if (inaccessibleTime && gameState.ai.elapsedTime < inaccessibleTime)
 				continue;
-			const supplyType = supplies[i].ent.get("ResourceSupply/Type");
+			const supplyType = entity.get("ResourceSupply/Type");
 			if (!gatherRates[supplyType])
 				continue;
 			// check if available resource is worth one additionnal gatherer (except for farms)
-			const nbGatherers = supplies[i].ent.resourceSupplyNumGatherers() + worker.base.GetTCGatherer(supplies[i].id);
-			if (supplies[i].ent.resourceSupplyType().specific != "grain" && nbGatherers > 0 &&
-			    supplies[i].ent.resourceSupplyAmount()/(1+nbGatherers) < 30)
+			const nbGatherers = entity.resourceSupplyNumGatherers() + worker.base.GetTCGatherer(supplies[i].id);
+			if (entity.resourceSupplyType().specific != "grain" && nbGatherers > 0 &&
+				entity.resourceSupplyAmount()/(1+nbGatherers) < 30)
+			{
 				continue;
+			}
 			// not in ennemy territory
-			const territoryOwner = gameState.ai.HQ.territoryMap.getOwner(supplies[i].ent.position());
+			const territoryOwner = gameState.ai.HQ.territoryMap.getOwner(entity.position());
 			if (territoryOwner != 0 && !gameState.isPlayerAlly(territoryOwner))  // player is its own ally
 				continue;
 			worker.base.AddTCGatherer(supplies[i].id);
 			ent.setMetadata(PlayerID, "supply", supplies[i].id);
-			ret = supplies[i].ent;
+			ret = entity;
 			break;
 		}
 		return ret;

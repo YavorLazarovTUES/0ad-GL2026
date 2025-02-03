@@ -64,7 +64,6 @@ BasesManager.prototype.postinit = function(gameState)
 		if (baseID === undefined)
 			continue;
 		const base = this.getBaseByID(baseID);
-		base.assignResourceToDropsite(gameState, ent);
 	}
 };
 
@@ -239,7 +238,7 @@ BasesManager.prototype.checkEvents = function(gameState, events)
 		const base = this.getBaseByID(ent.getMetadata(PlayerID, "base"));
 		base.buildings.updateEnt(ent);
 		if (ent.resourceDropsiteTypes())
-			base.assignResourceToDropsite(gameState, ent);
+			base.assignResourceToDropsite(gameState, ent, false);
 
 		if (ent.getMetadata(PlayerID, "baseAnchor") === true)
 		{
