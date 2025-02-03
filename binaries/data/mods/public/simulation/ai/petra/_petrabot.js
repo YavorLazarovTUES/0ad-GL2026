@@ -134,6 +134,9 @@ PetraBot.prototype.OnUpdate = function(sharedScript)
 
 PetraBot.prototype.Serialize = function()
 {
+	if (this.isDeserialized)
+		return this.data;
+
 	const savedEvents = {};
 	for (const key in this.savedEvents)
 	{
