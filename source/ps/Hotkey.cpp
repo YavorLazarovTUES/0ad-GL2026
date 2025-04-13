@@ -26,6 +26,7 @@
 #include "ps/Globals.h"
 #include "ps/KeyName.h"
 #include "ps/Profiler2.h"
+#include "ps/VideoMode.h"
 
 #include <SDL_events.h>
 #include <SDL_mouse.h>
@@ -429,7 +430,7 @@ InReaction HotkeyInputActualHandler(const SDL_Event& ev)
 			SDL_Event hotkeyPressNotification{};
 			hotkeyPressNotification.type = hotkey.retriggered ? SDL_HOTKEYPRESS_SILENT : SDL_HOTKEYPRESS;
 			hotkeyPressNotification.user.data1 = const_cast<char*>(hotkey.mapping->name.c_str());
-			in_push_priority_event(hotkeyPressNotification);
+			g_VideoMode.m_InputManager.PushPriorityEvent(hotkeyPressNotification);
 		}
 
 		// Send a HotkeyDown event on every key, mouseButton and mouseWheel event.
@@ -444,7 +445,7 @@ InReaction HotkeyInputActualHandler(const SDL_Event& ev)
 		SDL_Event hotkeyDownNotification{};
 		hotkeyDownNotification.type = SDL_HOTKEYDOWN;
 		hotkeyDownNotification.user.data1 = const_cast<char*>(hotkey.mapping->name.c_str());
-		in_push_priority_event(hotkeyDownNotification);
+		g_VideoMode.m_InputManager.PushPriorityEvent(hotkeyDownNotification);
 	}
 
 	// Release instantaneous events (e.g. mouse wheel) right away.
@@ -457,7 +458,7 @@ InReaction HotkeyInputActualHandler(const SDL_Event& ev)
 		SDL_Event hotkeyNotification{};
 		hotkeyNotification.type = hotkey.wasRetriggered ? SDL_HOTKEYUP_SILENT : SDL_HOTKEYUP;
 		hotkeyNotification.user.data1 = const_cast<char*>(hotkey.name);
-		in_push_priority_event(hotkeyNotification);
+		g_VideoMode.m_InputManager.PushPriorityEvent(hotkeyNotification);
 	}
 
 	return IN_PASS;
@@ -481,7 +482,7 @@ void ResetActiveHotkeys()
 		SDL_Event hotkeyNotification;
 		hotkeyNotification.type = hotkey.retriggered ? SDL_HOTKEYUP_SILENT : SDL_HOTKEYUP;
 		hotkeyNotification.user.data1 = const_cast<char*>(hotkey.mapping->name.c_str());
-		in_push_priority_event(hotkeyNotification);
+		g_VideoMode.m_InputManager.PushPriorityEvent(hotkeyNotification);
 	}
 	pressedHotkeys.clear();
 	activeScancodes.clear();

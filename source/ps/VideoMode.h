@@ -18,6 +18,7 @@
 #ifndef INCLUDED_VIDEOMODE
 #define INCLUDED_VIDEOMODE
 
+#include "ps/Input.h"
 #include "renderer/backend/Backend.h"
 
 #include <memory>
@@ -144,7 +145,10 @@ private:
 	bool m_IsInitialised = false;
 
 	SDL_Window* m_Window = nullptr;
+public:
+	Input::Manager m_InputManager;
 
+private:
 	// Initial desktop settings.
 	// Frequency is in Hz, and BPP means bits per pixels (not bytes per pixels).
 	int m_PreferredW = 0;

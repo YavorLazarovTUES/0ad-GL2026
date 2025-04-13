@@ -32,6 +32,7 @@
 #include "ps/Filesystem.h"
 #include "ps/Globals.h"
 #include "ps/Hotkey.h"
+#include "ps/VideoMode.h"
 
 #include <SDL_events.h>
 #include <SDL_keyboard.h>
@@ -52,16 +53,18 @@ private:
 
 	void fakeInput(const char* key, bool keyDown)
 	{
-		SDL_Event ev;
-		ev.type = keyDown ? SDL_KEYDOWN : SDL_KEYUP;
-		ev.key.repeat = 0;
-		ev.key.keysym.scancode = SDL_GetScancodeFromName(key);
-		GlobalsInputHandler(ev);
-		HotkeyInputPrepHandler(ev);
-		HotkeyInputActualHandler(ev);
+		{
+			SDL_Event ev;
+			ev.type = keyDown ? SDL_KEYDOWN : SDL_KEYUP;
+			ev.key.repeat = 0;
+			ev.key.keysym.scancode = SDL_GetScancodeFromName(key);
+			GlobalsInputHandler(ev);
+			HotkeyInputPrepHandler(ev);
+			HotkeyInputActualHandler(ev);
+		}
 		hotkeyPress = false;
 		hotkeyUp = false;
-		while(in_poll_priority_event(ev))
+		for (const SDL_Event& ev : g_VideoMode.m_InputManager.PollEvents())
 		{
 			hotkeyUp |= ev.type == SDL_HOTKEYUP;
 			hotkeyPress |= ev.type == SDL_HOTKEYPRESS;

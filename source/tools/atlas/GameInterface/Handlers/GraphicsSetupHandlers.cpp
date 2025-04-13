@@ -21,7 +21,6 @@
 
 #include "gui/GUIManager.h"
 #include "lib/debug.h"
-#include "lib/input.h"
 #include "lib/sysdep/os.h"
 #include "lib/timer.h"
 #include "ps/CLogger.h"
@@ -29,6 +28,7 @@
 #include "ps/Filesystem.h"
 #include "ps/GameSetup/Config.h"
 #include "ps/GameSetup/GameSetup.h"
+#include "ps/Input.h"
 #include "ps/Profile.h"
 #include "ps/VideoMode.h"
 #include "renderer/Renderer.h"
@@ -74,6 +74,7 @@ const int g_InitFlags = INIT_HAVE_VMODE | INIT_NO_GUI;
 std::optional<FileLogger> g_FileLogger;
 
 std::optional<ScriptInterface> g_ScriptInterface;
+std::unique_ptr<InputHandlers> g_InputHandlers;
 }
 
 MESSAGEHANDLER(Init)
@@ -131,7 +132,7 @@ MESSAGEHANDLER(InitGraphics)
 	g_VideoMode.CreateBackendDevice(false);
 
 	g_ScriptInterface.emplace("Engine", "GUIManager", *g_ScriptContext);
-	InitGraphics(g_AtlasGameLoop->args, g_InitFlags, {}, *g_ScriptContext, *g_ScriptInterface);
+	g_InputHandlers = InitGraphics(g_AtlasGameLoop->args, g_InitFlags, {}, *g_ScriptContext, *g_ScriptInterface);
 }
 
 
@@ -143,7 +144,7 @@ MESSAGEHANDLER(Shutdown)
 
 	AtlasView::DestroyViews();
 	g_AtlasGameLoop->view = AtlasView::GetView_None();
-
+	g_InputHandlers.reset();
 	ShutdownNetworkAndUI();
 	g_ScriptInterface.reset();
 	ShutdownConfigAndSubsequent();
@@ -252,9 +253,8 @@ QUERYHANDLER(RenderLoop)
 	RendererIncrementalLoad();
 
 	// Pump SDL events (e.g. hotkeys)
-	SDL_Event ev{};
-	while (in_poll_priority_event(ev))
-		in_dispatch_event(ev);
+	for (SDL_Event& ev : g_VideoMode.m_InputManager.PollEvents())
+		g_VideoMode.m_InputManager.DispatchEvent(ev);
 
 	if (g_GUI)
 		g_GUI->TickObjects();

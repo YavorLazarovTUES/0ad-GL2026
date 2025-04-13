@@ -42,29 +42,4 @@ enum InReaction
 	IN_HANDLED = 2
 };
 
-typedef InReaction (*InHandler)(const SDL_Event&);
-
-// register an input handler, which will receive all subsequent events first.
-// events are passed to other handlers if handler returns IN_PASS.
-extern void in_add_handler(InHandler handler);
-
-// remove all registered input handlers
-extern void in_reset_handlers();
-
-// send event to each handler (newest first) until one returns true
-extern void in_dispatch_event(const SDL_Event& event);
-
-// push an event onto the back of a high-priority queue - the new event will
-// be returned by in_poll_event before any standard SDL events
-extern void in_push_priority_event(const SDL_Event& event);
-
-// reads events that were pushed by in_push_priority_event
-// returns 1 if an event was read, 0 otherwise.
-extern int in_poll_priority_event(SDL_Event& event);
-
-// reads events that were pushed by in_push_priority_event, or, if there are
-// no high-priority events) reads from the SDL event queue with SDL_PollEvent.
-// returns 1 if an event was read, 0 otherwise.
-extern int in_poll_event(SDL_Event& event);
-
 #endif	// #ifndef INCLUDED_INPUT

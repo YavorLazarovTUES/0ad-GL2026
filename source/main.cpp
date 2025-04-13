@@ -41,7 +41,6 @@ that of Atlas depending on commandline parameters.
 #include "lib/file/file_system.h"
 #include "lib/file/vfs/vfs.h"
 #include "lib/frequency_filter.h"
-#include "lib/input.h"
 #include "lib/path.h"
 #include "lib/posix/posix_types.h"
 #include "lib/secure_crt.h"
@@ -66,6 +65,7 @@ that of Atlas depending on commandline parameters.
 #include "ps/GameSetup/Paths.h"
 #include "ps/Globals.h"
 #include "ps/Hotkey.h"
+#include "ps/Input.h"
 #include "ps/Loader.h"
 #include "ps/Mod.h"
 #include "ps/ModInstaller.h"
@@ -281,8 +281,7 @@ static void PumpEvents()
 
 	PROFILE3("dispatch events");
 
-	SDL_Event ev{};
-	while (in_poll_event(ev))
+	for (const SDL_Event& ev : g_VideoMode.m_InputManager.PollEvents())
 	{
 		PROFILE2("event");
 		if (g_GUI)
@@ -292,7 +291,7 @@ static void PumpEvents()
 			std::string data = Script::StringifyJSON(rq, &tmpVal);
 			PROFILE2_ATTR("%s", data.c_str());
 		}
-		in_dispatch_event(ev);
+		g_VideoMode.m_InputManager.DispatchEvent(ev);
 	}
 
 	g_TouchInput.Frame();
@@ -524,19 +523,6 @@ static void NonVisualFrame()
 		QuitEngine(EXIT_SUCCESS);
 }
 
-static void MainControllerInit()
-{
-	// add additional input handlers only needed by this controller:
-
-	// must be registered after gui_handler. Should mayhap even be last.
-	in_add_handler(MainInputHandler);
-}
-
-static void MainControllerShutdown()
-{
-	in_reset_handlers();
-}
-
 static std::optional<RL::Interface> CreateRLInterface(const CmdLineArgs& args)
 {
 	if (!args.Has("rl-interface"))
@@ -751,58 +737,82 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 		std::optional<DAP::Interface> dapInterface{CreateDAPInterface(args)};
 #endif // CONFIG2_DAP_INTERFACE
 
-		std::optional<ScriptInterface> guiScriptInterface;
-
-		if (isVisual)
 		{
-			guiScriptInterface.emplace("Engine", "gui", *g_ScriptContext);
-			InitGraphics(args, 0, installedMods, *g_ScriptContext, *guiScriptInterface);
-			MainControllerInit();
-		}
-		else if (!InitNonVisual(args))
-			g_Shutdown = ShutdownType::Quit;
-
-		try
-		{
-			// MSVC doesn't support copy elision in ternary expressions. So we use a lambda instead.
-			std::optional<RL::Interface> rlInterface{[&]() -> std::optional<RL::Interface>
+			class VisualData
+			{
+			public:
+				VisualData(const CmdLineArgs& args, std::vector<CStr>& installedMods)
 				{
-					if (g_Shutdown == ShutdownType::None)
-						return CreateRLInterface(args);
+					inputHandlers = InitGraphics(args, 0, installedMods, *g_ScriptContext,
+						scriptInterface);
+				}
+
+				VisualData(const VisualData&) = delete;
+				VisualData& operator=(const VisualData&) = delete;
+				VisualData(VisualData&&) = delete;
+				VisualData& operator=(VisualData&) = delete;
+				~VisualData() = default;
+
+			private:
+				ScriptInterface scriptInterface{"Engine", "gui", *g_ScriptContext};
+				std::unique_ptr<InputHandlers> inputHandlers;
+				Input::Handler<InReaction(&)(const SDL_Event&)> mainInputHandler{
+					g_VideoMode.m_InputManager, Input::Slot::PRIMARY, MainInputHandler};
+			};
+
+			// MSVC doesn't support copy elision in ternary expressions. So we use a lambda instead.
+			const std::optional<VisualData> visualData{[&]() -> std::optional<VisualData>
+				{
+					if (isVisual)
+						return std::make_optional<VisualData>(args, installedMods);
 					else
 						return std::nullopt;
 				}()};
+			if (!isVisual && !InitNonVisual(args))
+				g_Shutdown = ShutdownType::Quit;
 
-			while (g_Shutdown == ShutdownType::None)
+			try
 			{
-				if (isVisual)
+				// MSVC doesn't support copy elision in ternary expressions. So we use a lambda instead.
+				std::optional<RL::Interface> rlInterface{[&]() -> std::optional<RL::Interface>
+					{
+						if (g_Shutdown == ShutdownType::None)
+							return CreateRLInterface(args);
+						else
+							return std::nullopt;
+					}()};
+
+				while (g_Shutdown == ShutdownType::None)
+				{
+					if (isVisual)
+					{
 #if CONFIG2_DAP_INTERFACE
-				Frame(rlInterface ? &*rlInterface : nullptr, fixedFrameFrequency, dapInterface ? &*dapInterface : nullptr);
+						Frame(rlInterface ? &*rlInterface : nullptr, fixedFrameFrequency,
+							dapInterface ? &*dapInterface : nullptr);
 #else
-					Frame(rlInterface ? &*rlInterface : nullptr, fixedFrameFrequency);
+						Frame(rlInterface ? &*rlInterface : nullptr, fixedFrameFrequency);
 #endif
-				else if(rlInterface)
-					rlInterface->TryApplyMessage();
-				else
-					NonVisualFrame();
+					}
+					else if(rlInterface)
+						rlInterface->TryApplyMessage();
+					else
+						NonVisualFrame();
+				}
+
+			}
+			catch (const RL::SetupError&)
+			{
+				rlInterfaceError = true;
 			}
 
+			ShutdownNetworkAndUI();
 		}
-		catch (const RL::SetupError&)
-		{
-		      rlInterfaceError = true;
-		}
-
-		ShutdownNetworkAndUI();
-		guiScriptInterface.reset();
 
 #if CONFIG2_DAP_INTERFACE
 		dapInterface.reset();
 #endif // CONFIG2_DAP_INTERFACE
 
 		ShutdownConfigAndSubsequent();
-		MainControllerShutdown();
-
 	} while (g_Shutdown == ShutdownType::Restart);
 
 	if (rlInterfaceError)

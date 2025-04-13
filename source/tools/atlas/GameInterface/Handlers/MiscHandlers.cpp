@@ -26,6 +26,7 @@
 #include "maths/MathUtil.h"
 #include "ps/Game.h"
 #include "ps/GameSetup/Config.h"
+#include "ps/VideoMode.h"
 #include "renderer/Renderer.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "simulation2/components/ICmpSoundManager.h"
@@ -118,7 +119,7 @@ MESSAGEHANDLER(GuiMouseButtonEvent)
 	msg->pos->GetScreenSpace(x, y);
 	ev.button.x = static_cast<u16>(Clamp<int>(x, 0, g_xres));
 	ev.button.y = static_cast<u16>(Clamp<int>(y, 0, g_yres));
-	in_dispatch_event(ev);
+	g_VideoMode.m_InputManager.DispatchEvent(ev);
 }
 
 MESSAGEHANDLER(GuiMouseMotionEvent)
@@ -129,7 +130,7 @@ MESSAGEHANDLER(GuiMouseMotionEvent)
 	msg->pos->GetScreenSpace(x, y);
 	ev.motion.x = static_cast<u16>(Clamp<int>(x, 0, g_xres));
 	ev.motion.y = static_cast<u16>(Clamp<int>(y, 0, g_yres));
-	in_dispatch_event(ev);
+	g_VideoMode.m_InputManager.DispatchEvent(ev);
 }
 
 MESSAGEHANDLER(GuiKeyEvent)
@@ -138,7 +139,7 @@ MESSAGEHANDLER(GuiKeyEvent)
 	ev.type = msg->pressed ? SDL_KEYDOWN : SDL_KEYUP;
 	ev.key.keysym.sym = static_cast<SDL_Keycode>(static_cast<int>(msg->sdlkey));
 	ev.key.keysym.scancode = SDL_GetScancodeFromKey(static_cast<SDL_Keycode>(static_cast<int>(msg->sdlkey)));
-	in_dispatch_event(ev);
+	g_VideoMode.m_InputManager.DispatchEvent(ev);
 }
 
 MESSAGEHANDLER(GuiCharEvent)
@@ -151,13 +152,13 @@ MESSAGEHANDLER(GuiCharEvent)
 	ev.text.type = SDL_TEXTEDITING;
 	ev.text.text[0] = static_cast<char>(msg->sdlkey);
 	ev.text.text[1] = '\0';
-	in_dispatch_event(ev);
+	g_VideoMode.m_InputManager.DispatchEvent(ev);
 
 	ev.type = SDL_TEXTINPUT;
 	ev.text.type = SDL_TEXTINPUT;
 	ev.text.text[0] = static_cast<char>(msg->sdlkey);
 	ev.text.text[1] = '\0';
-	in_dispatch_event(ev);
+	g_VideoMode.m_InputManager.DispatchEvent(ev);
 }
 
 } // namespace AtlasMessage

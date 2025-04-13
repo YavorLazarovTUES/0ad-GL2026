@@ -32,6 +32,7 @@
 #include "ps/GameSetup/GameSetup.h"
 #include "ps/Hotkey.h"
 #include "ps/XML/Xeromyces.h"
+#include "ps/VideoMode.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptConversions.h"
@@ -166,11 +167,10 @@ public:
 		hotkeyNotification.key.repeat = 0;
 
 		// Init input and poll the event.
-		InitInput();
-		in_push_priority_event(hotkeyNotification);
-		SDL_Event ev;
-		while (in_poll_event(ev))
-			in_dispatch_event(ev);
+		const std::unique_ptr<InputHandlers> _{MakeInputHandlers()};
+		g_VideoMode.m_InputManager.PushPriorityEvent(hotkeyNotification);
+		for (SDL_Event& ev : g_VideoMode.m_InputManager.PollEvents())
+			g_VideoMode.m_InputManager.DispatchEvent(ev);
 
 		const ScriptInterface& pageScriptInterface = *(g_GUI->GetActiveGUI()->GetScriptInterface());
 		ScriptRequest prq(pageScriptInterface);
@@ -191,9 +191,9 @@ public:
 
 		// We are listening to KeyDown events, so repeat shouldn't matter.
 		hotkeyNotification.key.repeat = 1;
-		in_push_priority_event(hotkeyNotification);
-		while (in_poll_event(ev))
-			in_dispatch_event(ev);
+		g_VideoMode.m_InputManager.PushPriorityEvent(hotkeyNotification);
+		for (SDL_Event& ev : g_VideoMode.m_InputManager.PollEvents())
+			g_VideoMode.m_InputManager.DispatchEvent(ev);
 
 		hotkey_pressed_value = false;
 		Script::GetProperty(prq, global, "state_before", &js_hotkey_pressed_value);
@@ -206,9 +206,9 @@ public:
 		TS_ASSERT_EQUALS(hotkey_pressed_value, true);
 
 		hotkeyNotification.type = SDL_KEYUP;
-		in_push_priority_event(hotkeyNotification);
-		while (in_poll_event(ev))
-			in_dispatch_event(ev);
+		g_VideoMode.m_InputManager.PushPriorityEvent(hotkeyNotification);
+		for (SDL_Event& ev : g_VideoMode.m_InputManager.PollEvents())
+			g_VideoMode.m_InputManager.DispatchEvent(ev);
 
 		hotkey_pressed_value = true;
 		Script::GetProperty(prq, global, "state_before", &js_hotkey_pressed_value);

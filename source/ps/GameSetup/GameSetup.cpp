@@ -35,7 +35,6 @@
 #include "lib/file/vfs/vfs.h"
 #include "lib/file/vfs/vfs_path.h"
 #include "lib/file/vfs/vfs_util.h"
-#include "lib/input.h"
 #include "lib/path.h"
 #include "lib/status.h"
 #include "lib/sysdep/os.h"
@@ -254,44 +253,41 @@ static void InitPs(bool setup_gui, const CStrW& gui_page, ScriptInterface* srcSc
 	g_GUI->SwitchPage(gui_page, srcScriptInterface, initData);
 }
 
-void InitInput()
+[[nodiscard]] std::unique_ptr<InputHandlers> MakeInputHandlers()
 {
 	g_Joystick.Initialise();
 
-	// register input handlers
-	// This stack is constructed so the first added, will be the last
-	//  one called. This is important, because each of the handlers
-	//  has the potential to block events to go further down
-	//  in the chain. I.e. the last one in the list added, is the
-	//  only handler that can block all messages before they are
-	//  processed.
-	in_add_handler(game_view_handler);
+	std::unique_ptr<InputHandlers> handlers{std::make_unique<InputHandlers>()};
+	handlers->emplace(g_VideoMode.m_InputManager, Input::Slot::GAME_VIEW, game_view_handler);
 
-	in_add_handler(CProfileViewer::InputThunk);
+	handlers->emplace(g_VideoMode.m_InputManager, Input::Slot::PROFILE_VIEWER, CProfileViewer::InputThunk);
 
-	in_add_handler(HotkeyInputActualHandler);
+	handlers->emplace(g_VideoMode.m_InputManager, Input::Slot::HOTKEY_INPUT, HotkeyInputActualHandler);
 
 	// gui_handler needs to be registered after (i.e. called before!) the
 	// hotkey handler so that input boxes can be typed in without
 	// setting off hotkeys.
-	in_add_handler(gui_handler);
+	handlers->emplace(g_VideoMode.m_InputManager, Input::Slot::GUI, gui_handler);
 	// Likewise for the console.
-	in_add_handler(conInputHandler);
+	handlers->emplace(g_VideoMode.m_InputManager, Input::Slot::CONSOLE, conInputHandler);
 
-	in_add_handler(touch_input_handler);
+	handlers->emplace(g_VideoMode.m_InputManager, Input::Slot::TOUCH_INPUT, touch_input_handler);
 
 	// Should be called after scancode map update (i.e. after the global input, but before UI).
 	// This never blocks the event, but it does some processing necessary for hotkeys,
 	// which are triggered later down the input chain.
 	// (by calling this before the UI, we can use 'EventWouldTriggerHotkey' in the UI).
-	in_add_handler(HotkeyInputPrepHandler);
+	handlers->emplace(g_VideoMode.m_InputManager, Input::Slot::HOTKEY_INPUT_PREPARATION,
+		HotkeyInputPrepHandler);
 
 	// These two must be called first (i.e. pushed last)
 	// GlobalsInputHandler deals with some important global state,
 	// such as which scancodes are being pressed, mouse buttons pressed, etc.
 	// while HotkeyStateChange updates the map of active hotkeys.
-	in_add_handler(GlobalsInputHandler);
-	in_add_handler(HotkeyStateChange);
+	handlers->emplace(g_VideoMode.m_InputManager, Input::Slot::GLOBAL, GlobalsInputHandler);
+	handlers->emplace(g_VideoMode.m_InputManager, Input::Slot::HOTKEY_STATE_CHANGE, HotkeyStateChange);
+
+	return handlers;
 }
 
 
@@ -635,8 +631,9 @@ bool Init(const CmdLineArgs& args, int flags)
 	return true;
 }
 
-void InitGraphics(const CmdLineArgs& args, int flags, const std::vector<CStr>& installedMods,
-	ScriptContext& scriptContext, ScriptInterface& scriptInterface)
+[[nodiscard]] std::unique_ptr<InputHandlers> InitGraphics(const CmdLineArgs& args, int flags,
+	const std::vector<CStr>& installedMods, ScriptContext& scriptContext,
+	ScriptInterface& scriptInterface)
 {
 	const bool setup_vmode = (flags & INIT_HAVE_VMODE) == 0;
 
@@ -678,7 +675,7 @@ void InitGraphics(const CmdLineArgs& args, int flags, const std::vector<CStr>& i
 	// create renderer
 	new CRenderer(g_VideoMode.GetBackendDevice());
 
-	InitInput();
+	std::unique_ptr<InputHandlers> handlers{MakeInputHandlers()};
 
 	// TODO: Is this the best place for this?
 	if (VfsDirectoryExists(L"maps/"))
@@ -709,6 +706,8 @@ void InitGraphics(const CmdLineArgs& args, int flags, const std::vector<CStr>& i
 		//	(delete game data, switch GUI page, show error, etc.)
 		CancelLoad(CStr(e.what()).FromUTF8());
 	}
+
+	return handlers;
 }
 
 bool InitNonVisual(const CmdLineArgs& args)
