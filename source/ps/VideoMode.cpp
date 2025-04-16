@@ -39,6 +39,7 @@
 #include "ps/Filesystem.h"
 #include "ps/Game.h"
 #include "ps/GameSetup/Config.h"
+#include "ps/Hotkey.h"
 #include "ps/Pyrogenesis.h"
 #include "renderer/Renderer.h"
 #include "renderer/backend/IDevice.h"
@@ -278,6 +279,36 @@ void CVideoMode::CCursor::SetCursor(const CStrW& name)
 void CVideoMode::CCursor::ResetCursor()
 {
 	SetCursor(DEFAULT_CURSOR_NAME);
+}
+
+Input::Reaction CVideoMode::InputHandler::operator()(const SDL_Event& ev)
+{
+	if (ev.type == SDL_HOTKEYPRESS)
+	{
+		if (static_cast<const char*>(ev.user.data1) == "mousegrabtoggle"sv)
+		{
+			SDL_Window* const window{videoMode.GetWindow()};
+			const SDL_bool willGrabMouse{SDL_GetWindowGrab(window) ? SDL_FALSE : SDL_TRUE};
+			SDL_SetWindowGrab(window, willGrabMouse);
+			return Input::Reaction::HANDLED;
+		}
+	}
+	if (ev.type == SDL_WINDOWEVENT && !videoMode.m_IsFullscreen)
+	{
+		switch (ev.window.event)
+		{
+		case SDL_WINDOWEVENT_RESIZED:
+			videoMode.m_ResizedW = ev.window.data1;
+			videoMode.m_ResizedH = ev.window.data2;
+			break;
+		case SDL_WINDOWEVENT_MOVED:
+			videoMode.m_WindowedX = ev.window.data1;
+			videoMode.m_WindowedY = ev.window.data2;
+			break;
+		}
+	}
+
+	return Input::Reaction::PASS;
 }
 
 CVideoMode::CVideoMode() :
@@ -736,27 +767,23 @@ Renderer::Backend::ISwapChain* CVideoMode::GetOrCreateSwapChain()
 	return m_SwapChain.get();
 }
 
-bool CVideoMode::ResizeWindow(int w, int h)
+bool CVideoMode::OnceAFrameWork()
 {
 	ENSURE(m_IsInitialised);
 
-	// Ignore if not windowed
-	if (m_IsFullscreen)
-		return true;
-
 	// Ignore if the size hasn't changed
-	if (w == m_WindowedW && h == m_WindowedH)
+	if ((m_ResizedH == 0 && m_ResizedW == 0) || (m_ResizedW == m_WindowedW && m_ResizedH == m_WindowedH))
 		return true;
 
 	int bpp = GetBestBPP();
 
-	if (!SetVideoMode(w, h, bpp, false))
+	if (!SetVideoMode(m_ResizedW, m_ResizedH, bpp, false))
 		return false;
 
-	m_WindowedW = w;
-	m_WindowedH = h;
+	m_WindowedW = m_ResizedW;
+	m_WindowedH = m_ResizedH;
 
-	UpdateRenderer(w, h);
+	UpdateRenderer(m_ResizedW, m_ResizedH);
 
 	return true;
 }
@@ -842,15 +869,6 @@ bool CVideoMode::ToggleFullscreen()
 bool CVideoMode::IsInFullscreen() const
 {
 	return m_IsFullscreen;
-}
-
-void CVideoMode::UpdatePosition(int x, int y)
-{
-	if (!m_IsFullscreen)
-	{
-		m_WindowedX = x;
-		m_WindowedY = y;
-	}
 }
 
 void CVideoMode::UpdateRenderer(int w, int h)

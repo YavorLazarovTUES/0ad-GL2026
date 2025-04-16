@@ -168,14 +168,6 @@ enum ShutdownType
 static ShutdownType g_Shutdown = ShutdownType::None;
 static int g_ExitStatus{EXIT_SUCCESS};
 
-// to avoid redundant and/or recursive resizing, we save the new
-// size after VIDEORESIZE messages and only update the video mode
-// once per frame.
-// these values are the latest resize message, and reset to 0 once we've
-// updated the video mode
-static int g_ResizedW;
-static int g_ResizedH;
-
 static std::chrono::high_resolution_clock::time_point lastFrameTime;
 
 bool IsQuitRequested()
@@ -199,18 +191,6 @@ static Input::Reaction MainInputHandler(const SDL_Event& ev)
 {
 	switch(ev.type)
 	{
-	case SDL_WINDOWEVENT:
-		switch(ev.window.event)
-		{
-		case SDL_WINDOWEVENT_RESIZED:
-			g_ResizedW = ev.window.data1;
-			g_ResizedH = ev.window.data2;
-			break;
-		case SDL_WINDOWEVENT_MOVED:
-			g_VideoMode.UpdatePosition(ev.window.data1, ev.window.data2);
-		}
-		break;
-
 	case SDL_QUIT:
 		QuitEngine(EXIT_SUCCESS);
 		break;
@@ -260,12 +240,6 @@ static Input::Reaction MainInputHandler(const SDL_Event& ev)
 		{
 			g_Profiler2.Toggle();
 			return Input::Reaction::HANDLED;
-		}
-		else if (hotkey == "mousegrabtoggle")
-		{
-			SDL_Window* const window{g_VideoMode.GetWindow()};
-			const SDL_bool willGrabMouse{SDL_GetWindowGrab(window) ? SDL_FALSE : SDL_TRUE};
-			SDL_SetWindowGrab(window, willGrabMouse);
 		}
 		break;
 	}
@@ -449,12 +423,7 @@ static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency)
 	if (g_Shutdown != ShutdownType::None)
 		return;
 
-	// respond to pumped resize events
-	if (g_ResizedW || g_ResizedH)
-	{
-		g_VideoMode.ResizeWindow(g_ResizedW, g_ResizedH);
-		g_ResizedW = g_ResizedH = 0;
-	}
+	g_VideoMode.OnceAFrameWork();
 
 	if (g_NetClient)
 		g_NetClient->Poll();
