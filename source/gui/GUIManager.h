@@ -237,10 +237,15 @@ private:
 	PS::StaticVector<SGUIPage, 16> GetCopyOfFrozenStack() const;
 
 	CTemplateLoader m_TemplateLoader;
+
+	struct InputHandler
+	{
+		CGUIManager& gui;
+		Input::Reaction operator()(const SDL_Event& ev);
+	};
+	Input::Handler<InputHandler> m_InputHandler;
 };
 
 extern CGUIManager* g_GUI;
-
-extern Input::Reaction gui_handler(const SDL_Event& ev);
 
 #endif // INCLUDED_GUIMANAGER

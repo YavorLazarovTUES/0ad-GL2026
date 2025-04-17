@@ -78,17 +78,11 @@ CGUIManager* g_GUI = nullptr;
 // multiple pages, instead of treating them as completely independent, to save
 // memory and loading time.
 
-
-// called from main loop when (input) events are received.
-// event is passed to other handlers if false is returned.
 // trampoline: we don't want to make the HandleEvent implementation static
-Input::Reaction gui_handler(const SDL_Event& ev)
+Input::Reaction CGUIManager::InputHandler::operator()(const SDL_Event& ev)
 {
-	if (!g_GUI)
-		return Input::Reaction::PASS;
-
 	PROFILE("GUI event handler");
-	return g_GUI->HandleEvent(ev);
+	return gui.HandleEvent(ev);
 }
 
 static Status ReloadChangedFileCB(void* param, const VfsPath& path)
@@ -98,7 +92,8 @@ static Status ReloadChangedFileCB(void* param, const VfsPath& path)
 
 CGUIManager::CGUIManager(ScriptContext& scriptContext, ScriptInterface& scriptInterface) :
 	m_ScriptContext{scriptContext},
-	m_ScriptInterface{scriptInterface}
+	m_ScriptInterface{scriptInterface},
+	m_InputHandler{g_VideoMode.m_InputManager, Input::Slot::GUI, {*this}}
 {
 	m_ScriptInterface.SetCallbackData(this);
 	m_ScriptInterface.LoadGlobalScripts();
