@@ -188,8 +188,6 @@ protected:
 	Stats m_Stats;
 
 	bool m_ShouldPreloadResourcesBeforeNextFrame = false;
-
-	ScreenShotType m_ScreenShotType = ScreenShotType::NONE;
 };
 
 #define g_Renderer CRenderer::GetSingleton()

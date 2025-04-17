@@ -54,6 +54,7 @@
 #include "ps/GameSetup/Config.h"
 #include "ps/Globals.h"
 #include "ps/memory/LinearAllocator.h"
+#include "ps/Hotkey.h"
 #include "ps/Profile.h"
 #include "ps/ProfileViewer.h"
 #include "ps/Profiler2.h"
@@ -76,6 +77,7 @@
 #include "tools/atlas/GameInterface/GameLoop.h"
 #include "tools/atlas/GameInterface/View.h"
 
+#include <SDL_events.h>
 #include <cstdlib>
 #include <string>
 #include <unordered_map>
@@ -371,6 +373,35 @@ public:
 		std::vector<Renderer::Backend::SVertexAttributeFormat>,
 		std::unique_ptr<Renderer::Backend::IVertexInputLayout>, VertexAttributesHash> vertexInputLayouts;
 
+	ScreenShotType m_ScreenShotType{ScreenShotType::NONE};
+
+	struct InputHandler
+	{
+		ScreenShotType& screenshotType;
+
+		Input::Reaction operator()(const SDL_Event& ev)
+		{
+			if (ev.type != SDL_HOTKEYPRESS)
+				return Input::Reaction::PASS;
+
+			std::string_view hotkey{static_cast<const char*>(ev.user.data1)};
+			if (hotkey == "screenshot")
+			{
+				screenshotType = ScreenShotType::DEFAULT;
+				return Input::Reaction::HANDLED;
+			}
+			if (hotkey == "bigscreenshot")
+			{
+				screenshotType = ScreenShotType::BIG;
+				return Input::Reaction::HANDLED;
+			}
+			return Input::Reaction::PASS;
+		}
+	};
+
+	Input::Handler<InputHandler> m_InputHandler{g_VideoMode.m_InputManager, Input::Slot::SCREENSHOT,
+		{m_ScreenShotType}};
+
 	Internals(Renderer::Backend::IDevice* device) :
 		device(device),
 		deviceCommandContext(device->CreateCommandContext()),
@@ -508,11 +539,11 @@ void CRenderer::RenderFrame(const bool needsPresent)
 	if (!ShouldRender())
 		return;
 
-	if (m_ScreenShotType == ScreenShotType::BIG)
+	if (m->m_ScreenShotType == ScreenShotType::BIG)
 	{
 		RenderBigScreenShot(needsPresent);
 	}
-	else if (m_ScreenShotType == ScreenShotType::DEFAULT)
+	else if (m->m_ScreenShotType == ScreenShotType::DEFAULT)
 	{
 		RenderScreenShot(needsPresent);
 	}
@@ -727,7 +758,7 @@ void CRenderer::RenderFrame2D(const bool renderGUI, const bool renderLogger)
 
 void CRenderer::RenderScreenShot(const bool needsPresent)
 {
-	m_ScreenShotType = ScreenShotType::NONE;
+	m->m_ScreenShotType = ScreenShotType::NONE;
 
 	// get next available numbered filename
 	// note: %04d -> always 4 digits, so sorting by filename works correctly.
@@ -779,7 +810,7 @@ void CRenderer::RenderScreenShot(const bool needsPresent)
 
 void CRenderer::RenderBigScreenShot(const bool needsPresent)
 {
-	m_ScreenShotType = ScreenShotType::NONE;
+	m->m_ScreenShotType = ScreenShotType::NONE;
 
 	// If the game hasn't started yet then use WriteScreenshot to generate the image.
 	if (!g_Game)
@@ -985,7 +1016,7 @@ void CRenderer::PreloadResourcesBeforeNextFrame()
 
 void CRenderer::MakeScreenShotOnNextFrame(ScreenShotType screenShotType)
 {
-	m_ScreenShotType = screenShotType;
+	m->m_ScreenShotType = screenShotType;
 }
 
 Renderer::Backend::IDeviceCommandContext* CRenderer::GetDeviceCommandContext()
