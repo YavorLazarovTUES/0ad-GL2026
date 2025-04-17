@@ -268,8 +268,6 @@ static void InitPs(bool setup_gui, const CStrW& gui_page, ScriptInterface* srcSc
 	// hotkey handler so that input boxes can be typed in without
 	// setting off hotkeys.
 	handlers->emplace(g_VideoMode.m_InputManager, Input::Slot::GUI, gui_handler);
-	// Likewise for the console.
-	handlers->emplace(g_VideoMode.m_InputManager, Input::Slot::CONSOLE, conInputHandler);
 
 	handlers->emplace(g_VideoMode.m_InputManager, Input::Slot::TOUCH_INPUT, touch_input_handler);
 

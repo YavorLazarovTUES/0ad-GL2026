@@ -60,12 +60,15 @@
 #include <SDL_stdinc.h>
 #include <algorithm>
 #include <cmath>
+#include <concepts>
 #include <cstring>
 #include <cwchar>
 #include <iterator>
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
 #include <js/Value.h>
+#include <numeric>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -76,11 +79,44 @@ namespace
 // For text being typed into the console.
 constexpr int CONSOLE_BUFFER_SIZE = 1024;
 
+template<std::invocable<std::string> Function>
+void ShowQuitHotkeys(bool& quitHotkeyWasShown, Function insertMessage)
+{
+	if (std::exchange(quitHotkeyWasShown, true))
+		return;
+
+	const std::string str{std::accumulate(g_HotkeyMap.begin(), g_HotkeyMap.end(), std::string{},
+		[](std::string acc, const std::pair<const SDL_Scancode_, KeyMapping>& key)
+		{
+			if (std::get<1>(key).front().name != "console.toggle")
+				return acc;
+
+			return acc + (acc.empty() ? "Press " : " / ") +
+				FindScancodeName(static_cast<SDL_Scancode>(std::get<0>(key)));
+		})};
+
+	if (!str.empty())
+		insertMessage(str + " to quit.");
+}
+
+template<std::invocable<std::string> Function>
+void SetVisible(const bool visible, bool& quitHotkeyWasShown, Function insertMessage)
+{
+	// TODO: this should be based on input focus, not visibility
+	if (visible)
+	{
+		ShowQuitHotkeys(quitHotkeyWasShown, std::move(insertMessage));
+		SDL_StartTextInput();
+		return;
+	}
+	SDL_StopTextInput();
+}
 } // anonymous namespace
 
 CConsole* g_Console = 0;
 
-CConsole::CConsole()
+CConsole::CConsole() :
+	m_InputHandler{g_VideoMode.m_InputManager, Input::Slot::CONSOLE, {*this}}
 {
 	m_Toggle = false;
 	m_Visible = false;
@@ -137,37 +173,6 @@ void CConsole::UpdateScreenSize(int w, int h)
 	float height = h * 0.6f;
 	m_Width = w / g_VideoMode.GetScale();
 	m_Height = height / g_VideoMode.GetScale();
-}
-
-void CConsole::ShowQuitHotkeys()
-{
-	if (m_QuitHotkeyWasShown)
-		return;
-
-	std::string str;
-	for (const std::pair<const SDL_Scancode_, KeyMapping>& key : g_HotkeyMap)
-		if (key.second.front().name == "console.toggle")
-			str += (str.empty() ? "Press " : " / ") + FindScancodeName(static_cast<SDL_Scancode>(key.first));
-
-	if (!str.empty())
-		InsertMessage(str + " to quit.");
-
-	m_QuitHotkeyWasShown = true;
-}
-
-void CConsole::ToggleVisible()
-{
-	m_Toggle = true;
-	m_Visible = !m_Visible;
-
-	// TODO: this should be based on input focus, not visibility
-	if (m_Visible)
-	{
-		ShowQuitHotkeys();
-		SDL_StartTextInput();
-		return;
-	}
-	SDL_StopTextInput();
 }
 
 void CConsole::SetVisible(bool visible)
@@ -579,12 +584,6 @@ void CConsole::InsertMessage(const std::string& message)
 	}
 }
 
-const wchar_t* CConsole::GetBuffer()
-{
-	m_Buffer[m_BufferLength] = 0;
-	return m_Buffer.get();
-}
-
 void CConsole::SetBuffer(const wchar_t* szMessage)
 {
 	int oldBufferPos = m_BufferPos;	// remember since FlushBuffer will set it to 0
@@ -692,44 +691,45 @@ static bool isUnprintableChar(SDL_Keysym key)
 	}
 }
 
-Input::Reaction conInputHandler(const SDL_Event& ev)
+Input::Reaction CConsole::InputHandler::operator()(const SDL_Event& ev)
 {
-	if (!g_Console)
-		return Input::Reaction::PASS;
-
 	if (static_cast<int>(ev.type) == SDL_HOTKEYPRESS)
 	{
-		std::string hotkey = static_cast<const char*>(ev.user.data1);
+		std::string_view hotkey{static_cast<const char*>(ev.user.data1)};
 
 		if (hotkey == "console.toggle")
 		{
 			ResetActiveHotkeys();
-			g_Console->ToggleVisible();
+			console.m_Toggle = true;
+			console.m_Visible = !console.m_Visible;
+			::SetVisible(console.m_Visible, console.m_QuitHotkeyWasShown, [&](auto&&... args){
+				console.InsertMessage(std::forward<decltype(args)>(args)...);
+			});
 			return Input::Reaction::HANDLED;
 		}
-		else if (g_Console->IsActive() && hotkey == "copy")
+		if (!console.IsActive())
+			return Input::Reaction::PASS;
+		if (hotkey == "copy")
 		{
-			std::string text = utf8_from_wstring(g_Console->GetBuffer());
-			SDL_SetClipboardText(text.c_str());
+			console.m_Buffer[console.m_BufferLength] = 0;
+			SDL_SetClipboardText(utf8_from_wstring(console.m_Buffer.get()).c_str());
 			return Input::Reaction::HANDLED;
 		}
-		else if (g_Console->IsActive() && hotkey == "paste")
+		if (hotkey == "paste")
 		{
 			char* utf8_text = SDL_GetClipboardText();
 			if (!utf8_text)
 				return Input::Reaction::HANDLED;
 
-			std::wstring text = wstring_from_utf8(utf8_text);
+			for (wchar_t c : wstring_from_utf8(utf8_text))
+				console.InsertChar(0, c);
 			SDL_free(utf8_text);
-
-			for (wchar_t c : text)
-				g_Console->InsertChar(0, c);
 
 			return Input::Reaction::HANDLED;
 		}
 	}
 
-	if (!g_Console->IsActive())
+	if (!console.IsActive())
 		return Input::Reaction::PASS;
 
 	// In SDL2, we no longer get Unicode wchars via SDL_Keysym
@@ -739,7 +739,7 @@ Input::Reaction conInputHandler(const SDL_Event& ev)
 		// TODO: this could be more efficient with an interface to insert UTF-8 strings directly
 		std::wstring wstr = wstring_from_utf8(ev.text.text);
 		for (size_t i = 0; i < wstr.length(); ++i)
-			g_Console->InsertChar(0, wstr[i]);
+			console.InsertChar(0, wstr[i]);
 		return Input::Reaction::HANDLED;
 	}
 	// TODO: text editing events for IME support
@@ -753,7 +753,7 @@ Input::Reaction conInputHandler(const SDL_Event& ev)
 	if (ev.type == SDL_KEYDOWN && isUnprintableChar(ev.key.keysym) &&
 		!HotkeyIsPressed("console.toggle"))
 	{
-		g_Console->InsertChar(sym, 0);
+		console.InsertChar(sym, 0);
 		return Input::Reaction::HANDLED;
 	}
 
