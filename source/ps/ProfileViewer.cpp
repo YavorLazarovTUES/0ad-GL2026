@@ -35,6 +35,7 @@
 #include "ps/Hotkey.h"
 #include "ps/Profile.h"
 #include "ps/Pyrogenesis.h"
+#include "ps/VideoMode.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptRequest.h"
 
@@ -69,8 +70,25 @@ public:
 	void TableIsDeleted(AbstractProfileTable* table);
 	void NavigateTree(int id);
 
+	void SaveToFile();
+
 	/// File for saved profile output (reset when the game is restarted)
 	std::ofstream outputStream;
+
+	/**
+	 * Input: Filter and handle any input events that the profile display is
+	 * interested in.
+	 *
+	 * In particular, this function handles enable/disable of the profile
+	 * display as well as navigating the information tree.
+	 */
+	struct InputHandler
+	{
+		CProfileViewerInternals& profileViewer;
+		Input::Reaction operator()(const SDL_Event& ev);
+	};
+	Input::Handler<InputHandler> inputHandler{g_VideoMode.m_InputManager, Input::Slot::PROFILE_VIEWER,
+		{*this}};
 };
 
 
@@ -271,77 +289,68 @@ void CProfileViewer::RenderProfile(CCanvas2D& canvas)
 
 
 // Handle input
-Input::Reaction CProfileViewer::Input(const SDL_Event& ev)
+Input::Reaction CProfileViewerInternals::InputHandler::operator()(const SDL_Event& ev)
 {
 	switch(ev.type)
 	{
 	case SDL_KEYDOWN:
 	{
-		if (!m->profileVisible)
+		if (!profileViewer.profileVisible)
 			break;
 
 		int k = ev.key.keysym.sym;
 		if (k >= SDLK_0 && k <= SDLK_9)
 		{
-			m->NavigateTree(k - SDLK_0);
+			profileViewer.NavigateTree(k - SDLK_0);
 			return Input::Reaction::HANDLED;
 		}
 		break;
 	}
 	case SDL_HOTKEYPRESS:
-		std::string hotkey = static_cast<const char*>(ev.user.data1);
+		std::string_view hotkey = static_cast<const char*>(ev.user.data1);
 
-		if( hotkey == "profile.toggle" )
+		if (hotkey == "profile.toggle")
 		{
-			if (!m->profileVisible)
+			if (!profileViewer.profileVisible)
 			{
-				if (m->rootTables.size())
+				if (profileViewer.rootTables.size())
 				{
-					m->profileVisible = true;
-					m->path.push_back(m->rootTables[0]);
+					profileViewer.profileVisible = true;
+					profileViewer.path.push_back(profileViewer.rootTables[0]);
 				}
 			}
 			else
 			{
 				size_t i;
 
-				for(i = 0; i < m->rootTables.size(); ++i)
+				for(i = 0; i < profileViewer.rootTables.size(); ++i)
 				{
-					if (m->rootTables[i] == m->path[0])
+					if (profileViewer.rootTables[i] == profileViewer.path[0])
 						break;
 				}
 				i++;
 
-				m->path.clear();
-				if (i < m->rootTables.size())
+				profileViewer.path.clear();
+				if (i < profileViewer.rootTables.size())
 				{
-					m->path.push_back(m->rootTables[i]);
+					profileViewer.path.push_back(profileViewer.rootTables[i]);
 				}
 				else
 				{
-					m->profileVisible = false;
+					profileViewer.profileVisible = false;
 				}
 			}
 			return Input::Reaction::HANDLED;
 		}
 		else if( hotkey == "profile.save" )
 		{
-			SaveToFile();
+			profileViewer.SaveToFile();
 			return Input::Reaction::HANDLED;
 		}
 		break;
 	}
 	return Input::Reaction::PASS;
 }
-
-Input::Reaction CProfileViewer::InputThunk(const SDL_Event& ev)
-{
-	if (CProfileViewer::IsInitialised())
-		return g_ProfileViewer.Input(ev);
-
-	return Input::Reaction::PASS;
-}
-
 
 // Add a table to the list of roots
 void CProfileViewer::AddRootTable(AbstractProfileTable* table, bool front)
@@ -528,38 +537,43 @@ namespace
 
 void CProfileViewer::SaveToFile()
 {
+	m->SaveToFile();
+}
+
+void CProfileViewerInternals::SaveToFile()
+{
 	// Open the file, if necessary. If this method is called several times,
 	// the profile results will be appended to the previous ones from the same
 	// run.
-	if (! m->outputStream.is_open())
+	if (!outputStream.is_open())
 	{
 		// Open the file. (It will be closed when the CProfileViewer
 		// destructor is called.)
-		OsPath path = psLogDir()/"profile.txt";
-		m->outputStream.open(OsString(path), std::ofstream::out | std::ofstream::trunc);
+		const OsPath filePath{psLogDir()/"profile.txt"};
+		outputStream.open(OsString(filePath), std::ofstream::out | std::ofstream::trunc);
 
-		if (m->outputStream.fail())
+		if (outputStream.fail())
 		{
 			LOGERROR("Failed to open profile log file");
 			return;
 		}
 		else
 		{
-			LOGMESSAGERENDER("Profiler snapshot saved to '%s'", path.string8());
+			LOGMESSAGERENDER("Profiler snapshot saved to '%s'", filePath.string8());
 		}
 	}
 
 	time_t t;
 	time(&t);
-	m->outputStream << "================================================================\n\n";
-	m->outputStream << "PS profiler snapshot - " << asctime(localtime(&t));
+	outputStream << "================================================================\n\n";
+	outputStream << "PS profiler snapshot - " << asctime(localtime(&t));
 
-	std::vector<AbstractProfileTable*> tables = m->rootTables;
+	std::vector<AbstractProfileTable*> tables = rootTables;
 	sort(tables.begin(), tables.end(), SortByName);
-	for_each(tables.begin(), tables.end(), WriteTable(m->outputStream));
+	for_each(tables.begin(), tables.end(), WriteTable(outputStream));
 
-	m->outputStream << "\n\n================================================================\n";
-	m->outputStream.flush();
+	outputStream << "\n\n================================================================\n";
+	outputStream.flush();
 }
 
 void CProfileViewer::ShowTable(const CStr& table)

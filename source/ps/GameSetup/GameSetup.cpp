@@ -260,8 +260,6 @@ static void InitPs(bool setup_gui, const CStrW& gui_page, ScriptInterface* srcSc
 	std::unique_ptr<InputHandlers> handlers{std::make_unique<InputHandlers>()};
 	handlers->emplace(g_VideoMode.m_InputManager, Input::Slot::GAME_VIEW, game_view_handler);
 
-	handlers->emplace(g_VideoMode.m_InputManager, Input::Slot::PROFILE_VIEWER, CProfileViewer::InputThunk);
-
 	handlers->emplace(g_VideoMode.m_InputManager, Input::Slot::HOTKEY_INPUT, HotkeyInputActualHandler);
 
 	handlers->emplace(g_VideoMode.m_InputManager, Input::Slot::TOUCH_INPUT, touch_input_handler);

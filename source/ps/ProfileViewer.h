@@ -23,7 +23,6 @@
 #define INCLUDED_PROFILE_VIEWER
 
 #include "ps/CStr.h"
-#include "ps/Input.h"
 #include "ps/Singleton.h"
 
 #include <cstddef>
@@ -144,20 +143,6 @@ public:
 	void RenderProfile(CCanvas2D& canvas);
 
 	/**
-	 * Input: Filter and handle any input events that the profile display
-	 * is interested in.
-	 *
-	 * In particular, this function handles enable/disable of the profile
-	 * display as well as navigating the information tree.
-	 *
-	 * @param ev The incoming event.
-	 *
-	 * @return IN_PASS or IN_HANDLED depending on whether the event relates
-	 * to the profiling display.
-	 */
-	Input::Reaction Input(const SDL_Event& ev);
-
-	/**
 	 * AddRootTable: Add a new profile table as a root table (i.e. the
 	 * tables that you cycle through via the profile hotkey).
 	 *
@@ -169,15 +154,6 @@ public:
 	 * else it will be the last.
 	 */
 	void AddRootTable(AbstractProfileTable* table, bool front = false);
-
-	/**
-	 * InputThunk: Delegate to the singleton's Input() member function
-	 * if the singleton has been initialized.
-	 *
-	 * This allows our input handler to be installed via in_add_handler
-	 * like a normal, global function input handler.
-	 */
-	static Input::Reaction InputThunk(const SDL_Event& ev);
 
 	/**
 	 * SaveToFile: Save the current profiler data (for all profile tables)
