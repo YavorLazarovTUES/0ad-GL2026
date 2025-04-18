@@ -46,9 +46,11 @@
 #include "ps/Game.h"
 #include "ps/Globals.h"
 #include "ps/Hotkey.h"
+#include "ps/Input.h"
 #include "ps/Loader.h"
 #include "ps/Profile.h"
 #include "ps/TouchInput.h"
+#include "ps/VideoMode.h"
 #include "ps/World.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
@@ -129,6 +131,14 @@ public:
 	 * on the fly replacement. It's guaranteed that the pointer is never nulllptr.
 	 */
 	std::unique_ptr<ICameraController> CameraController;
+
+	struct InputHandler
+	{
+		CGameViewImpl& gameView;
+		Input::Reaction operator()(const SDL_Event& ev);
+	};
+	Input::Handler<InputHandler> m_InputHandler{g_VideoMode.m_InputManager, Input::Slot::GAME_VIEW,
+		{*this}};
 };
 
 #define IMPLEMENT_BOOLEAN_SETTING(NAME) \
@@ -353,19 +363,12 @@ entity_id_t CGameView::GetFollowedEntity()
 	return m->CameraController->GetFollowedEntity();
 }
 
-Input::Reaction game_view_handler(const SDL_Event& ev)
+Input::Reaction CGameViewImpl::InputHandler::operator()(const SDL_Event& ev)
 {
 	// put any events that must be processed even if inactive here
 	if (!g_app_has_focus || !g_Game || !g_Game->IsGameStarted() || g_Game->GetView()->GetCinema()->IsPlaying())
 		return Input::Reaction::PASS;
 
-	CGameView *pView=g_Game->GetView();
-
-	return pView->HandleEvent(ev);
-}
-
-Input::Reaction CGameView::HandleEvent(const SDL_Event& ev)
-{
 	switch(ev.type)
 	{
 	case SDL_HOTKEYPRESS:
@@ -402,5 +405,5 @@ Input::Reaction CGameView::HandleEvent(const SDL_Event& ev)
 	}
 	}
 
-	return m->CameraController->HandleEvent(ev);
+	return gameView.CameraController->HandleEvent(ev);
 }
