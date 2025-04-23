@@ -37,17 +37,30 @@ function createReplaySelectionData(selectedDirectory)
 /**
  * Starts the selected visual replay, or shows an error message in case of incompatibility.
  */
-function startReplay()
+function startReplayHandler()
 {
-	var selected = Engine.GetGUIObjectByName("replaySelection").selected;
-	if (selected == -1)
-		return;
+	return new Promise(resolve =>
+	{
+		const startReplay = () =>
+		{
+			const selected = Engine.GetGUIObjectByName("replaySelection").selected;
+			if (selected == -1)
+				return;
 
-	var replay = g_ReplaysFiltered[selected];
-	if (isReplayCompatible(replay))
-		reallyStartVisualReplay(replay.directory);
-	else
-		displayReplayCompatibilityError(replay);
+			const replay = g_ReplaysFiltered[selected];
+			if (!isReplayCompatible(replay))
+			{
+				displayReplayCompatibilityError(replay);
+				return;
+			}
+
+			const ret = reallyStartVisualReplay(replay.directory);
+			if (ret !== undefined)
+				resolve(ret);
+		};
+		Engine.GetGUIObjectByName("startReplayButton").onPress = startReplay;
+		Engine.GetGUIObjectByName("replaySelection").onMouseLeftDoubleClickItem = startReplay;
+	});
 }
 
 /**
@@ -60,20 +73,23 @@ function reallyStartVisualReplay(replayDirectory)
 	if (!Engine.StartVisualReplay(replayDirectory))
 	{
 		warn('Replay "' + escapeText(Engine.GetReplayDirectoryName(replayDirectory)) + '" not found! Please click on reload cache.');
-		return;
+		return undefined;
 	}
 
-	Engine.SwitchGuiPage("page_loading.xml", {
-		"attribs": Engine.GetReplayAttributes(replayDirectory),
-		"playerAssignments": {
-			"local": {
-				"name": singleplayerName(),
-				"player": -1
-			}
-		},
-		"savedGUIData": "",
-		"replaySelectionData": createReplaySelectionData(replayDirectory)
-	});
+	return {
+		"page": "page_loading.xml",
+		"argument": {
+			"attribs": Engine.GetReplayAttributes(replayDirectory),
+			"playerAssignments": {
+				"local": {
+					"name": singleplayerName(),
+					"player": -1
+				}
+			},
+			"savedGUIData": "",
+			"replaySelectionData": createReplaySelectionData(replayDirectory)
+		}
+	};
 }
 
 /**
@@ -106,15 +122,26 @@ function displayReplayCompatibilityError(replay)
  */
 function showReplaySummary()
 {
-	const selected = Engine.GetGUIObjectByName("replaySelection").selected;
-	if (selected == -1)
-		return;
+	return new Promise(closePageCallback =>
+	{
+		Engine.GetGUIObjectByName("summaryButton").onPress = () =>
+		{
+			const selected = Engine.GetGUIObjectByName("replaySelection").selected;
+			if (selected == -1)
+				return;
 
-	const replay = g_ReplaysFiltered[selected];
-	if (isReplayCompatible(replay))
-		reallyShowReplaySummary(replay.directory);
-	else
-		displayReplayCompatibilityError(replay);
+			const replay = g_ReplaysFiltered[selected];
+			if (!isReplayCompatible(replay))
+			{
+				displayReplayCompatibilityError(replay);
+				return;
+			}
+
+			const ret = reallyShowReplaySummary(replay.directory);
+			if (ret !== undefined)
+				closePageCallback(ret);
+		};
+	});
 }
 
 function reallyShowReplaySummary(directory)
@@ -125,19 +152,22 @@ function reallyShowReplaySummary(directory)
 	if (!simData)
 	{
 		messageBox(500, 200, translate("No summary data available."), translate("Error"));
-		return;
+		return undefined;
 	}
 
-	Engine.SwitchGuiPage("page_summary.xml", {
-		"sim": simData,
-		"gui": {
-			"dialog": false,
-			"isReplay": true,
-			"replayDirectory": directory,
-			"replaySelectionData": createReplaySelectionData(directory),
-			"summarySelection": g_SummarySelection
+	return {
+		"page": "page_summary.xml",
+		"argument": {
+			"sim": simData,
+			"gui": {
+				"dialog": false,
+				"isReplay": true,
+				"replayDirectory": directory,
+				"replaySelectionData": createReplaySelectionData(directory),
+				"summarySelection": g_SummarySelection
+			}
 		}
-	});
+	};
 }
 
 function reloadCache()

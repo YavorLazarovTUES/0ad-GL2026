@@ -64,7 +64,6 @@
 
 				<action on="SelectionChange">displayReplayDetails();</action>
 				<action on="SelectionColumnChange">displayReplayList();</action>
-				<action on="MouseLeftDoubleClickItem">startReplay();</action>
 
 				<!-- Columns -->
 				<column id="months" textcolor="172 172 212" width="12%">
@@ -224,9 +223,8 @@
 		<object name="bottomPanel" size="25 100%-56 100%-5 100%-24" >
 
 			<!-- Main Menu Button -->
-			<object type="button" style="StoneButton" size="0 0 19% 100%">
+			<object name="mainMenu" type="button" style="StoneButton" size="0 0 19% 100%">
 				<translatableAttribute id="caption">Main Menu</translatableAttribute>
-				<action on="Press">Engine.SwitchGuiPage("page_pregame.xml");</action>
 			</object>
 
 			<!-- Delete Button -->
@@ -245,13 +243,11 @@
 			<!-- Summary Button -->
 			<object name="summaryButton" type="button" style="StoneButton" size="60% 0 79% 100%" hotkey="summary">
 				<translatableAttribute id="caption">Summary</translatableAttribute>
-				<action on="Press">showReplaySummary();</action>
 			</object>
 
 			<!-- Start Replay Button -->
 			<object name="startReplayButton" type="button" style="StoneButton" size="80% 0 99% 100%">
 				<translatableAttribute id="caption">Start Replay</translatableAttribute>
-				<action on="Press">startReplay();</action>
 			</object>
 
 		</object>

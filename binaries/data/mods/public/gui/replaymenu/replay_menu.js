@@ -58,12 +58,13 @@ var g_MapCache = new MapCache();
 /**
  * Initializes globals, loads replays and displays the list.
  */
-function init(data)
+async function init(data)
 {
 	if (!g_Settings)
 	{
-		Engine.SwitchGuiPage("page_pregame.xml");
-		return;
+		return { [Engine.openRequest]: {
+			"page": "page_pregame.xml"
+		} };
 	}
 
 	g_SummarySelection = data && data.summarySelection;
@@ -72,12 +73,23 @@ function init(data)
 
 	if (!g_Replays)
 	{
-		Engine.SwitchGuiPage("page_pregame.xml");
-		return;
+		return { [Engine.openRequest]: {
+			"page": "page_pregame.xml"
+		} };
 	}
 
 	initHotkeyTooltips();
 	displayReplayList();
+
+	const closePromise = new Promise(closePageCallback =>
+	{
+		Engine.GetGUIObjectByName("mainMenu").onPress = closePageCallback.bind(undefined, {
+			"page": "page_pregame.xml"
+		});
+	});
+
+	const ret = await Promise.race([ closePromise, startReplayHandler(), showReplaySummary() ]);
+	return { [Engine.openRequest]: ret };
 }
 
 /**
