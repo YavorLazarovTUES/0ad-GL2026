@@ -50,7 +50,7 @@ async function waitOnEvent(loadSavedGame, joinFromLobby)
 			if (continueResult === cancelTag)
 			{
 				if (cancelSetup())
-					return;
+					return undefined;
 				continue;
 			}
 			try
@@ -60,7 +60,7 @@ async function waitOnEvent(loadSavedGame, joinFromLobby)
 			catch(e)
 			{
 				if (cancelSetup())
-					return;
+					return undefined;
 				continue;
 			}
 		}
@@ -70,11 +70,16 @@ async function waitOnEvent(loadSavedGame, joinFromLobby)
 			{
 				Engine.GetGUIObjectByName("multiplayerPages").onTick = resolve;
 			}));
-			if (tickResult === cancelTag || await onTick(loadSavedGame))
+			if (tickResult === cancelTag)
+				break;
+			const result = await onTick(loadSavedGame);
+			if (typeof result === "object")
+				return result;
+			if (result)
 				break;
 		}
 		if (cancelSetup())
-			return;
+			return undefined;
 	}
 }
 
@@ -100,7 +105,7 @@ async function init(attribs)
 				Engine.GetGUIObjectByName("confirmPasswordButton").onPress = resolve;
 			}));
 			if (passwordResult === cancelTag)
-				return;
+				return undefined;
 		}
 		try
 		{
@@ -111,7 +116,7 @@ async function init(attribs)
 		catch(e)
 		{
 			if (cancelSetup())
-				return;
+				return undefined;
 		}
 		break;
 	}
@@ -134,7 +139,7 @@ async function init(attribs)
 		break;
 	}
 
-	await waitOnEvent(attribs.loadSavedGame,
+	return waitOnEvent(attribs.loadSavedGame,
 		attribs.multiplayerGameType === "join" && Engine.HasXmppClient());
 }
 
@@ -293,14 +298,14 @@ async function pollAndHandleNetworkClient(loadSavedGame)
 				break;
 
 			case "start":
-				Engine.SwitchGuiPage("page_loading.xml", {
-					"attribs": message.initAttributes,
-					"isRejoining": g_IsRejoining,
-					"playerAssignments": g_PlayerAssignments
-				});
-
-				// Process further pending netmessages in the session page
-				return false;
+				return {
+					"page": "page_loading.xml",
+					"argument": {
+						"attribs": message.initAttributes,
+						"isRejoining": g_IsRejoining,
+						"playerAssignments": g_PlayerAssignments
+					}
+				};
 
 			case "chat":
 				break;
@@ -384,12 +389,14 @@ async function handleAuthenticated(message, loadSavedGame)
 		return true;
 	}
 
-	Engine.SwitchGuiPage("page_gamesetup.xml", {
-		"savedGame": savegameID, // Undefined or the savegame ID
-		"serverName": g_ServerName,
-		"hasPassword": g_ServerHasPassword
-	});
-	return false; // don't process any more messages - leave them for the game GUI loop
+	return {
+		"page": "page_gamesetup.xml",
+		"argument": {
+			"savedGame": savegameID, // Undefined or the savegame ID
+			"serverName": g_ServerName,
+			"hasPassword": g_ServerHasPassword
+		}
+	};
 }
 
 function switchSetupPage(newPage)

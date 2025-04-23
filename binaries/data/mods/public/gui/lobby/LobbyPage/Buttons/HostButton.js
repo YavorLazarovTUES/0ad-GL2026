@@ -3,10 +3,10 @@
  */
 class HostButton
 {
-	constructor(dialog, xmppMessages, button, loadSavedGame)
+	constructor(closePageCallback, dialog, xmppMessages, button, loadSavedGame)
 	{
 		this.hostButton = button;
-		this.hostButton.onPress = this.onPress.bind(this, loadSavedGame);
+		this.hostButton.onPress = this.onPress.bind(this, closePageCallback, loadSavedGame);
 		this.hostButton.hidden = dialog;
 
 		const onConnectionStatusChange = this.onConnectionStatusChange.bind(this);
@@ -20,13 +20,16 @@ class HostButton
 		this.hostButton.enabled = Engine.IsXmppClientConnected();
 	}
 
-	onPress(loadSavedGame)
+	async onPress(closePageCallback, loadSavedGame)
 	{
-		Engine.OpenChildPage("page_gamesetup_mp.xml", {
+		const ret = await Engine.OpenChildPage("page_gamesetup_mp.xml", {
 			"loadSavedGame": loadSavedGame,
 			"multiplayerGameType": "host",
 			"name": g_Nickname,
 			"rating": Engine.LobbyGetPlayerRating(g_Nickname)
 		});
+
+		if (ret !== undefined)
+			closePageCallback({ [Engine.openRequest]: ret });
 	}
 }

@@ -235,25 +235,40 @@ export const mainMenuItems = [
 				// Translation: Join a game by specifying the host's IP address.
 				"caption": translate("Connect by IP"),
 				"tooltip": translate("Joining an existing multiplayer game at a given IP address."),
-				"onPress": Engine.OpenChildPage.bind(null, "page_gamesetup_mp.xml", {
-					"multiplayerGameType": "join"
-				})
+				"onPress": async(closePageCallback) =>
+				{
+					const ret = await Engine.OpenChildPage("page_gamesetup_mp.xml", {
+						"multiplayerGameType": "join"
+					});
+					if (ret !== undefined)
+						closePageCallback({ [Engine.openRequest]: ret });
+				}
 			},
 			{
 				"caption": translate("Host New Game"),
 				"tooltip": translate("Host a new multiplayer game. Other players can connect directly to you via your IP address."),
-				"onPress": Engine.OpenChildPage.bind(null, "page_gamesetup_mp.xml", {
-					"multiplayerGameType": "host",
-					"loadSavedGame": false
-				})
+				"onPress": async(closePageCallback) =>
+				{
+					const ret = await Engine.OpenChildPage("page_gamesetup_mp.xml", {
+						"multiplayerGameType": "host",
+						"loadSavedGame": false
+					});
+					if (ret !== undefined)
+						closePageCallback({ [Engine.openRequest]: ret });
+				}
 			},
 			{
 				"caption": translate("Host Saved Game"),
 				"tooltip": translate("Continue playing a game from a savegame."),
-				"onPress": Engine.OpenChildPage.bind(null, "page_gamesetup_mp.xml", {
-					"multiplayerGameType": "host",
-					"loadSavedGame": true
-				})
+				"onPress": async(closePageCallback) =>
+				{
+					const ret = await Engine.OpenChildPage("page_gamesetup_mp.xml", {
+						"multiplayerGameType": "host",
+						"loadSavedGame": true
+					});
+					if (ret !== undefined)
+						closePageCallback({ [Engine.openRequest]: ret });
+				}
 			},
 			{
 				"caption": translate("Replays"),
