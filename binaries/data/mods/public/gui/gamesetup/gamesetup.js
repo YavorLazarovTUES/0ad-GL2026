@@ -43,9 +43,10 @@ var g_SetupWindow;
 
 function init(initData, hotloadData)
 {
-	g_SetupWindow = new SetupWindow(initData, hotloadData);
-	return g_IsNetworked ? g_SetupWindow.controls.netMessages.pollPendingMessages() :
-		new Promise(() => {});
+	return Promise.race([new Promise(closePageCallback =>
+	{
+		g_SetupWindow = new SetupWindow(initData, hotloadData, closePageCallback);
+	}), ...(g_IsNetworked ? [g_SetupWindow.controls.netMessages.pollPendingMessages()] : [])]);
 }
 
 function getHotloadData()

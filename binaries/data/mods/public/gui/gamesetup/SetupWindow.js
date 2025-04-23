@@ -11,7 +11,7 @@ class SetupWindowPages
  */
 class SetupWindow
 {
-	constructor(initData, hotloadData)
+	constructor(initData, hotloadData, closePageCallback)
 	{
 		if (!g_Settings)
 			return;
@@ -38,7 +38,7 @@ class SetupWindow
 		const playerAssignmentsController =
 			new PlayerAssignmentsController(this, netMessages, isSavedGame);
 		const gameSettingsController = new GameSettingsController(this, netMessages,
-			playerAssignmentsController, mapCache, isSavedGame);
+			playerAssignmentsController, mapCache, closePageCallback, isSavedGame);
 		const readyController = new ReadyController(netMessages, gameSettingsController, playerAssignmentsController);
 		const lobbyGameRegistrationController = g_IsController && Engine.HasXmppClient() &&
 			new LobbyGameRegistrationController(initData, this, netMessages, mapCache, playerAssignmentsController);
@@ -57,7 +57,10 @@ class SetupWindow
 		// These are the pages within the setup window that may use the controls defined above
 		this.pages = {};
 		for (const name in SetupWindowPages)
-			this.pages[name] = new SetupWindowPages[name](this, isSavedGame);
+		{
+			this.pages[name] = new SetupWindowPages[name](this, isSavedGame,
+				this.closePage.bind(this, closePageCallback));
+		}
 
 		netMessages.registerNetMessageHandler("netwarn", addNetworkWarning);
 		setTimeout(displayGamestateNotifications, 1000);
@@ -113,7 +116,7 @@ class SetupWindow
 		updateTimers();
 	}
 
-	closePage()
+	closePage(closePageCallback)
 	{
 		for (const handler of this.closePageHandlers)
 			handler();
@@ -121,10 +124,22 @@ class SetupWindow
 		Engine.DisconnectNetworkGame();
 
 		if (this.backPage)
-			Engine.SwitchGuiPage(this.backPage.page, this.backPage?.data);
-		else if (Engine.HasXmppClient())
-			Engine.SwitchGuiPage("page_lobby.xml", { "dialog": false });
-		else
-			Engine.SwitchGuiPage("page_pregame.xml");
+		{
+			closePageCallback({ [Engine.openRequest]: {
+				"page": this.backPage.page,
+				"argument": this.backPage?.data
+			} });
+		}
+		if (Engine.HasXmppClient())
+		{
+			closePageCallback({ [Engine.openRequest]: {
+				"page": "page_lobby.xml",
+				"argument": { "dialog": false }
+			} });
+		}
+		closePageCallback({ [Engine.openRequest]: {
+			"page": "page_pregame.xml"
+		} });
+
 	}
 }
