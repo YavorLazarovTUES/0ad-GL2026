@@ -31,27 +31,3 @@ function displayGamestateNotifications()
 
 	setTimeout(displayGamestateNotifications, 1000);
 }
-
-/**
- * This function is called from the engine whenever starting a game fails.
- */
-function cancelOnLoadGameError(msg)
-{
-	Engine.EndGame();
-
-	if (Engine.HasXmppClient())
-		Engine.StopXmppClient();
-
-	Engine.SwitchGuiPage("page_pregame.xml");
-
-	if (msg)
-		Engine.OpenChildPage("page_msgbox.xml", {
-			"width": 500,
-			"height": 200,
-			"message": msg,
-			"title": translate("Loading Aborted"),
-			"mode": 2
-		});
-
-	Engine.ResetCursor();
-}
