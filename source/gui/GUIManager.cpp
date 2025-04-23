@@ -65,6 +65,7 @@ namespace
 const CStr EVENT_NAME_GAME_LOAD_PROGRESS = "GameLoadProgress";
 const CStr EVENT_NAME_WINDOW_RESIZED = "WindowResized";
 constexpr const char* START_ATLAS{"startAtlas"};
+constexpr const char* OPEN_REQUEST{"openRequest"};
 
 } // anonymous namespace
 
@@ -152,7 +153,7 @@ JS::Value CGUIManager::OpenChildPage(const CStrW& pageName, Script::StructuredCl
 			CGUI& currentPage = *m_PageStack.back().gui;
 			// Make sure we unfocus anything on the current page.
 			currentPage.SendFocusMessage(GUIM_LOST_FOCUS);
-			return m_PageStack.back().ReplacePromise(*currentPage.GetScriptInterface());
+			return m_PageStack.back().GetPromise();
 		}()};
 
 	// Emplace the page prior to loading its contents, because that may open
@@ -185,11 +186,12 @@ void CGUIManager::SGUIPage::LoadPage(ScriptContext& scriptContext)
 	gui.reset(new CGUI(scriptContext));
 	const ScriptRequest rq{gui->GetScriptInterface()};
 
+	for (const char* name : {START_ATLAS, OPEN_REQUEST})
 	{
-		JS::RootedString jsName{rq.cx, JS_NewStringCopyZ(rq.cx, START_ATLAS)};
+		JS::RootedString jsName{rq.cx, JS_NewStringCopyZ(rq.cx, name)};
 		JS::RootedValue symbol{rq.cx, JS::SymbolValue(JS::NewSymbol(rq.cx, jsName))};
 		JS::RootedValue nativeScope{rq.cx, JS::ObjectValue(*rq.nativeScope)};
-		Script::SetProperty(rq, nativeScope, START_ATLAS, symbol, true);
+		Script::SetProperty(rq, nativeScope, name, symbol, true);
 	}
 	gui->AddObjectTypes();
 
@@ -267,16 +269,19 @@ void CGUIManager::SGUIPage::LoadPage(ScriptContext& scriptContext)
 	*localPromise = returnObject ? returnObject : JS::NewPromiseObject(rq.cx, nullptr);
 }
 
-JS::Value CGUIManager::SGUIPage::ReplacePromise(ScriptInterface& scriptInterface)
+JS::Value CGUIManager::SGUIPage::GetPromise()
 {
-	const ScriptRequest rq{scriptInterface};
-	receivingPromise = std::make_shared<JS::PersistentRootedObject>(rq.cx,
+	const ScriptRequest rq{gui->GetScriptInterface()};
+	if (receivingPromise == nullptr)
+	{
+		receivingPromise = std::make_shared<JS::PersistentRootedObject>(rq.cx,
 			JS::NewPromiseObject(rq.cx, nullptr));
+	}
 
 	return JS::ObjectValue(**receivingPromise);
 }
 
-std::optional<CGUIManager::SGUIPage::CloseResult> CGUIManager::SGUIPage::MaybeClose(const bool topmostPage)
+std::optional<CGUIManager::SGUIPage::CloseResult> CGUIManager::SGUIPage::MaybeClose(const bool isRootPage)
 {
 	if (JS::GetPromiseState(*sendingPromise) == JS::PromiseState::Pending)
 		return std::nullopt;
@@ -287,9 +292,29 @@ std::optional<CGUIManager::SGUIPage::CloseResult> CGUIManager::SGUIPage::MaybeCl
 	const ScriptRequest rq{gui->GetScriptInterface()};
 	JS::RootedValue arg{rq.cx, JS::GetPromiseResult(*sendingPromise)};
 	const bool rejected{JS::GetPromiseState(*sendingPromise) == JS::PromiseState::Rejected};
-	if (topmostPage)
+
+	JS::RootedValue nativeScope{rq.cx, JS::ObjectValue(*rq.nativeScope)};
+	if (arg.isObject())
 	{
-		JS::RootedValue nativeScope{rq.cx, JS::ObjectValue(*rq.nativeScope)};
+		JS::RootedObject argObject{rq.cx, &arg.toObject()};
+		JS::RootedValue symbol{rq.cx};
+		Script::GetProperty(rq, nativeScope, OPEN_REQUEST, &symbol);
+		JS::RootedId key{rq.cx, JS::PropertyKey::Symbol(symbol.toSymbol())};
+		JS::RootedValue openRequest{rq.cx};
+		if (JS_GetPropertyById(rq.cx, argObject, key, &openRequest) &&
+			Script::HasProperty(rq, openRequest, "page"))
+		{
+			std::wstring page;
+			Script::GetProperty(rq, openRequest, "page", page);
+			JS::RootedValue openArg{rq.cx};
+			Script::GetProperty(rq, openRequest, "argument", &openArg);
+			return CGUIManager::SGUIPage::OpenRequest{page,
+				Script::WriteStructuredClone(rq, openArg)};
+		}
+	}
+
+	if (isRootPage)
+	{
 		JS::RootedValue symbol{rq.cx};
 		Script::GetProperty(rq, nativeScope, START_ATLAS, &symbol);
 		bool equals;
@@ -297,12 +322,12 @@ std::optional<CGUIManager::SGUIPage::CloseResult> CGUIManager::SGUIPage::MaybeCl
 			throw std::runtime_error{"Error while comparing return value to a symbol."};
 
 		if (equals)
-			return CGUIManager::SGUIPage::CloseResult{nullptr, rejected};
+			return CGUIManager::SGUIPage::Close{nullptr, rejected};
 	}
-	return CGUIManager::SGUIPage::CloseResult{Script::WriteStructuredClone(rq, arg), rejected};
+	return CGUIManager::SGUIPage::Close{Script::WriteStructuredClone(rq, arg), rejected};
 }
 
-void CGUIManager::SGUIPage::Refocus(const CloseResult& result)
+void CGUIManager::SGUIPage::Refocus(const Close& result)
 {
 	ENSURE(receivingPromise);
 
@@ -432,10 +457,15 @@ std::optional<bool> CGUIManager::TickObjects()
 			break;
 		ENSURE(m_PageStack.size() == stackSize);
 		m_PageStack.pop_back();
-		if (m_PageStack.empty())
-			return !result.value().arg;
+		if (const SGUIPage::OpenRequest* request{std::get_if<SGUIPage::OpenRequest>(&result.value())})
+			OpenChildPage(request->path, request->arg);
+		else if (const SGUIPage::Close& ret{std::get<SGUIPage::Close>(result.value())};
+			m_PageStack.empty())
+		{
+			return !ret.arg;
+		}
 		else
-			m_PageStack.back().Refocus(result.value());
+			m_PageStack.back().Refocus(ret);
 
 		m_ScriptContext.RunJobs();
 	}

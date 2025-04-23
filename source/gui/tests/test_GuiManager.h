@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -324,5 +324,22 @@ public:
 
 		TS_ASSERT_THROWS(g_GUI->OpenChildPage(L"await/page.xml",
 			Script::WriteStructuredClone(rq, JS::NullHandleValue)), const std::bad_variant_access&);
+	}
+
+	void test_OpenRequest()
+	{
+		const ScriptRequest rq{g_GUI->GetScriptInterface()};
+		g_GUI->OpenChildPage(L"OpenRequest/Root/Page.xml",
+			Script::WriteStructuredClone(rq, JS::UndefinedHandleValue));
+		TS_ASSERT_EQUALS(g_GUI->GetPageCount(), 2);
+
+		g_GUI->TickObjects();
+
+		const ScriptRequest pageRq{g_GUI->GetActiveGUI()->GetScriptInterface()};
+		JS::RootedValue global{pageRq.cx, pageRq.globalValue()};
+		std::string result;
+		TS_ASSERT(ScriptFunction::Call(pageRq, global, "closePageCallback", result));
+
+		TS_ASSERT_STR_EQUALS(result, "Entry Continuation");
 	}
 };

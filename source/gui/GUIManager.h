@@ -34,6 +34,7 @@
 #include <optional>
 #include <string>
 #include <unordered_set>
+#include <variant>
 
 class CCanvas2D;
 class CGUI;
@@ -155,29 +156,36 @@ private:
 		void LoadPage(ScriptContext& context);
 
 		/**
-		 * A new promise gets set. A reference to that promise is returned. The promise will settle when
-		 * the page is closed.
+		 * A reference to the promise is returned. The promise will settle when the page is closed.
 		 */
-		JS::Value ReplacePromise(ScriptInterface& scriptInterface);
+		JS::Value GetPromise();
 
-		struct CloseResult
+		struct Close
 		{
 			Script::StructuredClone arg;
 			bool rejected;
 		};
+
+		struct OpenRequest
+		{
+			std::wstring path;
+			Script::StructuredClone arg;
+		};
+
+		using CloseResult = std::variant<Close, OpenRequest>;
 		/**
 		 * If the page should be closed this function closes the page and
 		 * returns the result of the @c init function.
 		 * If this page wasn't closed an empty optional is returned.
 		 */
-		std::optional<CloseResult> MaybeClose(const bool topmostPage);
+		std::optional<CloseResult> MaybeClose(const bool isRootPage);
 
 		/**
 		 * This function should be called when a child page got closed. The
 		 * result of the closed page should be the argument of this
 		 * function. This function resolves the @c receivingPromise.
 		 */
-		void Refocus(const CloseResult& result);
+		void Refocus(const Close& result);
 
 		std::wstring m_Name;
 		std::unordered_set<VfsPath> inputs; // for hotloading
