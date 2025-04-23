@@ -1,4 +1,4 @@
-function init(initData)
+async function init(initData)
 {
 	// This doesn't use the autostart/ folder as those are intended for CLI commands and the duplication isn't big enough.
 
@@ -8,8 +8,11 @@ function init(initData)
 
 	settings.launchGame(initData.playerAssignments, initData.storeReplay);
 
-	Engine.SwitchGuiPage("page_loading.xml", {
-		"attribs": settings.finalizedAttributes,
-		"playerAssignments": initData.playerAssignments
-	});
+	return { [Engine.openRequest]: {
+		"page": "page_loading.xml",
+		"argument": {
+			"attribs": settings.finalizedAttributes,
+			"playerAssignments": initData.playerAssignments
+		}
+	} };
 }
