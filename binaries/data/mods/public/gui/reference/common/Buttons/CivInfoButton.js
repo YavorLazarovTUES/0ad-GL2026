@@ -12,12 +12,12 @@ class CivInfoButton
 
 	onPress()
 	{
-		this.parentPage.closePageCallback({ [Engine.openRequest] : {
+		this.parentPage.closePageCallback({ [Engine.openRequest]: {
 			"page": "page_civinfo.xml",
 			"argument": {
 				"civ": this.parentPage.activeCiv
 			}
-		}});
+		} });
 	}
 
 }

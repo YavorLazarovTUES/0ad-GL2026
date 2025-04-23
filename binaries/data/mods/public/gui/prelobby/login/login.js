@@ -1,7 +1,5 @@
 function init()
 {
-	g_LobbyMessages.connected = onLogin;
-
 	Engine.GetGUIObjectByName("continue").caption = translate("Connect");
 
 	// Shorten the displayed password for visual reasons only
@@ -14,7 +12,7 @@ function init()
 
 	updateFeedback();
 
-	return cancelButton();
+	return Promise.race([ onLoggedin(), cancelButton() ]);
 }
 
 function updateFeedback()
@@ -42,15 +40,19 @@ function continueButton()
 
 	Engine.ConnectXmppClient();
 }
-/**
- * The data from Engine.SendGetBoardList() is used for the leaderboard, but also for autocompletion in the profile player search field.
- */
-function onLogin(message)
+
+async function onLoggedin()
 {
+	await new Promise(resolve => { g_LobbyMessages.connected = resolve; });
 	saveCredentials();
 
-	Engine.SwitchGuiPage("page_lobby.xml", {
-		"dialog": false
-	});
+	// The data from Engine.SendGetBoardList() is used for the leaderboard, but also for
+	// autocompletion in the profile player search field.
 	Engine.SendGetBoardList();
+	return {
+		"page": "page_lobby.xml",
+		"argument": {
+			"dialog": false
+		}
+	};
 }

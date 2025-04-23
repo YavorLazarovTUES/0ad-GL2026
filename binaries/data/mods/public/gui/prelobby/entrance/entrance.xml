@@ -21,9 +21,8 @@
 				<action on="Press">registerButton();</action>
 			</object>
 
-			<object type="button" size="50%-140 50 50%+140 78" style="ModernButtonRed">
+			<object name="login" type="button" size="50%-140 50 50%+140 78" style="ModernButtonRed">
 				<translatableAttribute id="caption">Login to an existing account</translatableAttribute>
-				<action on="Press">loginButton();</action>
 			</object>
 
 			<object name="cancel" type="button" size="18 100%-46 50%-5 100%-18" style="ModernButtonRed" hotkey="cancel">

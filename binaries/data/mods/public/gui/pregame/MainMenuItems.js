@@ -222,10 +222,13 @@ export const mainMenuItems = [
 					(Engine.StartXmppClient ? "" : translate("Launch the multiplayer lobby. \\[DISABLED BY BUILD]")),
 				"enabled": () => !!Engine.StartXmppClient,
 				"hotkey": "lobby",
-				"onPress": () =>
+				"onPress": async(closePageCallback) =>
 				{
-					if (Engine.StartXmppClient)
-						Engine.OpenChildPage("page_prelobby_entrance.xml");
+					if (!Engine.StartXmppClient)
+						return;
+					const ret = await Engine.OpenChildPage("page_prelobby_entrance.xml");
+					if (ret)
+						closePageCallback({ [Engine.openRequest]: ret });
 				}
 			},
 			{

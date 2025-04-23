@@ -25,12 +25,12 @@ class CivInfoPage extends ReferencePage
 
 	switchToStructreePage()
 	{
-		this.closePageCallback({ [Engine.openRequest] : {
+		this.closePageCallback({ [Engine.openRequest]: {
 			"page": "page_structree.xml",
 			"argument": {
 				"civ": this.activeCiv
 			}
-		}});
+		} });
 	}
 
 	closePage()
