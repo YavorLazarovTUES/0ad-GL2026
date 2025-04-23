@@ -12,12 +12,12 @@ class StructreeButton
 
 	onPress()
 	{
-		this.parentPage.closePageCallback({
-			"nextPage": "page_structree.xml",
-			"args": {
+		this.parentPage.closePageCallback({ [Engine.openRequest] : {
+			"page": "page_structree.xml",
+			"argument": {
 				"civ": this.parentPage.activeCiv
 			}
-		});
+		}});
 	}
 
 }

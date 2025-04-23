@@ -301,24 +301,6 @@ function getBuildString()
 	});
 }
 
-/**
- * Opens a page. If that page completes with an object with a @a nextPage
- *	property that page is opened with the @a args property of that object.
- *	That continues untill there is no @a nextPage property in the completion
- *	value. If there is no @a nextPage in the completion value the
- *	@a completionValue is returned.
- * @param {String} page - The page first opened.
- * @param args - passed to the first page opened.
- */
-async function pageLoop(page, args)
-{
-	let completionValue = { "nextPage": page, "args": args };
-	while (completionValue?.nextPage != null)
-		completionValue = await Engine.OpenChildPage(completionValue.nextPage, completionValue.args);
-
-	return completionValue;
-}
-
 function formatXmppAnnouncement(subject, text)
 {
 	var message = "";

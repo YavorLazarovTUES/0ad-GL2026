@@ -25,7 +25,7 @@ class CivInfoButton
 
 	async openPage(page)
 	{
-		this.civInfo = await pageLoop(page, this.civInfo.args);
+		this.civInfo = await Engine.OpenChildPage(page, this.civInfo.args);
 	}
 }
 

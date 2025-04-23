@@ -34,7 +34,7 @@ class CivIcon
 		closeOpenDialogs();
 		g_PauseControl.implicitPause();
 
-		this.dialogSelection = await pageLoop(
+		this.dialogSelection = await Engine.OpenChildPage(
 			page,
 			{
 				// If an Observer triggers `openPage()` via hotkey, g_ViewedPlayer could be -1 or 0

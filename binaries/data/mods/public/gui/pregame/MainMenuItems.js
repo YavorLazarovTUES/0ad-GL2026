@@ -47,7 +47,7 @@ export const mainMenuItems = [
 				"hotkey": "structree",
 				"onPress": () =>
 				{
-					pageLoop("page_structree.xml");
+					Engine.OpenChildPage("page_structree.xml");
 				}
 			},
 			{
@@ -56,7 +56,7 @@ export const mainMenuItems = [
 				"hotkey": "civinfo",
 				"onPress": () =>
 				{
-					pageLoop("page_civinfo.xml");
+					Engine.OpenChildPage("page_civinfo.xml");
 				}
 			},
 			{
