@@ -194,7 +194,6 @@
 
 		<object name="cancelButton" type="button" style="ModernButtonRed" size="100%-932 100%-44 100%-752 100%-16" hotkey="cancel">
 			<translatableAttribute id="caption">Cancel</translatableAttribute>
-			<action on="Press">closePage();</action>
 		</object>
 
 		<object type="button" style="ModernButtonRed" size="100%-748 100%-44 100%-568 100%-16">

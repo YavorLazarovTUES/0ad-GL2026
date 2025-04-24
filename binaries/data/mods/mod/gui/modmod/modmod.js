@@ -71,6 +71,9 @@ function init(data, hotloadData)
 	return new Promise(closePageCallback =>
 	{
 		Engine.GetGUIObjectByName("quitButton").onPress = closePageCallback;
+		Engine.GetGUIObjectByName("cancelButton").onPress = closePageCallback.bind(undefined, {
+			[Engine.openRequest]: { "page": "page_pregame.xml" }
+		});
 	});
 }
 
@@ -291,11 +294,6 @@ function filterMod(folder)
 		return negateFilter;
 
 	return !negateFilter;
-}
-
-function closePage()
-{
-	Engine.SwitchGuiPage("page_pregame.xml", {});
 }
 
 /**

@@ -1,6 +1,7 @@
-function init()
+async function init()
 {
-	Engine.SwitchGuiPage("page_modmod.xml", {
-		"cancelbutton": false
-	});
+	return { [Engine.openRequest]: {
+		"page": "page_modmod.xml",
+		"argument": { "cancelbutton": false }
+	} };
 }
