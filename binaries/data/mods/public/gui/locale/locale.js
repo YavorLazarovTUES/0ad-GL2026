@@ -19,22 +19,31 @@ function init()
 	var localeText = Engine.GetGUIObjectByName("localeText");
 	localeText.caption = currentLocale;
 
-	return new Promise(closePageCallback =>
+	const cancel = new Promise(closePageCallback =>
 	{
-		Engine.GetGUIObjectByName("cancelButton").onPress = closePageCallback;
+		Engine.GetGUIObjectByName("cancelButton").onPress = closePageCallback.bind(undefined, false);
 	});
+
+	return Promise.race([ cancel, applySelectedLocale() ]);
 }
 
 function applySelectedLocale()
 {
-	var localeText = Engine.GetGUIObjectByName("localeText");
-	if (!Engine.SaveLocale(localeText.caption))
+	return new Promise(closePageCallback =>
 	{
-		warn("Selected locale could not be saved in the configuration!");
-		return;
-	}
-	Engine.ReevaluateCurrentLocaleAndReload();
-	Engine.SwitchGuiPage("page_pregame.xml");
+		Engine.GetGUIObjectByName("apply").onPress = () =>
+		{
+			var localeText = Engine.GetGUIObjectByName("localeText");
+			if (!Engine.SaveLocale(localeText.caption))
+			{
+				warn("Selected locale could not be saved in the configuration!");
+				return;
+			}
+
+			Engine.ReevaluateCurrentLocaleAndReload();
+			closePageCallback(true);
+		};
+	});
 }
 
 function languageSelectionChanged()

@@ -41,9 +41,8 @@
 				<action on="Press">openAdvancedMenu();</action>
 			</object>
 
-			<object type="button" style="ModernButtonRed" size="66%+5 100%-60 100% 100%-32">
+			<object name="apply" type="button" style="ModernButtonRed" size="66%+5 100%-60 100% 100%-32">
 				<translatableAttribute id="caption">Accept</translatableAttribute>
-				<action on="Press">applySelectedLocale();</action>
 			</object>
 		</object>
 	</object>
