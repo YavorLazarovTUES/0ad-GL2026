@@ -3,8 +3,9 @@
  */
 class JoinButton
 {
-	constructor(dialog, gameList)
+	constructor(closePageCallback, dialog, gameList)
 	{
+		this.closePageCallback = closePageCallback;
 		this.gameList = gameList;
 
 		this.joinButton = Engine.GetGUIObjectByName("joinButton");
@@ -50,7 +51,11 @@ class JoinButton
 				return;
 
 			Engine.StopXmppClient();
-			Engine.SwitchGuiPage("page_modmod.xml", { "cancelbutton": true });
+			delete Engine.GetGUIObjectByName("lobbyPage").onTick;
+			this.closePageCallback({ [Engine.openRequest]: {
+				"page": "page_modmod.xml",
+				"argument": { "cancelbutton": true }
+			} });
 			return;
 		}
 

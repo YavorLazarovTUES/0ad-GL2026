@@ -36,6 +36,7 @@ class QuitButton
 	returnToMainMenu()
 	{
 		Engine.StopXmppClient();
-		Engine.SwitchGuiPage("page_pregame.xml");
+		delete Engine.GetGUIObjectByName("lobbyPage").onTick;
+		this.closePageCallback({ [Engine.openRequest]: { "page": "page_pregame.xml" } });
 	}
 }
