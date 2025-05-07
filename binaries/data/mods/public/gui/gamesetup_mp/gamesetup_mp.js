@@ -243,13 +243,13 @@ function reportConnectionFail(reason)
 	);
 }
 
-function pollAndHandleNetworkClient(loadSavedGame)
+async function pollAndHandleNetworkClient(loadSavedGame)
 {
 	while (true)
 	{
-		var message = Engine.PollNetworkClient();
-		if (!message)
-			return false;
+		const message = await Engine.PollNetworkClient();
+		if (!g_IsConnecting)
+			continue;
 
 		log(sprintf("Net message: %(message)s", { "message": uneval(message) }));
 		// If we're rejoining an active game, we don't want to actually display

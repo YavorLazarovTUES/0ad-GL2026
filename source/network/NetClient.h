@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -144,19 +144,25 @@ public:
 
 	/**
 	 * Retrieves the next queued GUI message, and removes it from the queue.
-	 * The returned value is in the GetScriptInterface() JS context.
+	 * The returned value is in the JS context of the provided
+	 * @c ScriptInterface.
 	 *
 	 * This is the only mechanism for the networking code to send messages to
-	 * the GUI - it is pull-based (instead of push) so the engine code does not
-	 * need to know anything about the code structure of the GUI scripts.
+	 * the GUI.
 	 *
 	 * The structure of the messages is <code>{ "type": "...", ... }</code>.
 	 * The exact types and associated data are not specified anywhere - the
 	 * implementation and GUI scripts must make the same assumptions.
 	 *
-	 * @return next message, or the value 'undefined' if the queue is empty
+	 * @return a promise resolving to the next message.
 	 */
-	JS::Value GuiPoll(const ScriptRequest& rq);
+	JSObject* GetNextGUIMessage(const ScriptInterface& guiInterface);
+
+	/**
+	 * Has to be called bevore the @c ScriptInterface gets destroied so that
+	 * no future messages are sent to it.
+	 */
+	void Unregister(const ScriptInterface& guiInterface);
 
 	/**
 	 * Add a message to the queue, to be read by GuiPoll.
@@ -305,6 +311,8 @@ private:
 	 */
 	void PostPlayerAssignmentsToScript();
 
+	void FetchMessage();
+
 	CGame *m_Game;
 	CStrW m_UserName;
 
@@ -345,6 +353,18 @@ private:
 
 	/// Queue of messages for GuiPoll
 	std::deque<Script::StructuredClone> m_GuiMessageQueue;
+
+	struct GuiPollData
+	{
+		const ScriptInterface& interface;
+		/**
+		 * In the context of interface.
+		 * When the promise is pending @see Poll should fill it with a message.
+		 * When there it's fulfilled JavaScript code can take it.
+		 */
+		JS::PersistentRootedObject promise;
+	};
+	std::optional<GuiPollData> m_GuiMessagePoll;
 
 	/// Serialized game state received when joining an in-progress game
 	std::string m_JoinSyncBuffer;

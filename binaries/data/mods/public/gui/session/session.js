@@ -345,6 +345,8 @@ function init(initData, hotloadData)
 
 	setTimeout(displayGamestateNotifications, 1000);
 
+	if (g_IsNetworked)
+		return Promise.race([promise, handleNetMessages()]);
 	return promise;
 }
 
@@ -629,8 +631,6 @@ function onTick()
 	const now = Date.now();
 	const tickLength = now - g_LastTickTime;
 	g_LastTickTime = now;
-
-	handleNetMessages();
 
 	updateCursorAndTooltip();
 	updateTimers();

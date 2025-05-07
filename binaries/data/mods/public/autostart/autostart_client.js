@@ -1,5 +1,6 @@
 class AutoStartClient
 {
+	done = false;
 	constructor(cmdLineArgs)
 	{
 		this.playerAssignments = {};
@@ -16,30 +17,33 @@ class AutoStartClient
 			const message = sprintf(translate("Cannot join game: %(message)s."), { "message": e.message });
 			messageBox(400, 200, message, translate("Error"));
 		}
+
+		(async() =>
+		{
+			while (true)
+			{
+				const message = await Engine.PollNetworkClient();
+
+				switch (message.type)
+				{
+				case "players":
+					this.playerAssignments = message.newAssignments;
+					Engine.SendNetworkReady(2);
+					break;
+				case "start":
+					this.onLaunch(message);
+					// Process further pending netmessages in the session page.
+					this.done = true;
+					return;
+				default:
+				}
+			}
+		})();
 	}
 
 	onTick()
 	{
-		while (true)
-		{
-			const message = Engine.PollNetworkClient();
-			if (!message)
-				break;
-
-			switch (message.type)
-			{
-			case "players":
-				this.playerAssignments = message.newAssignments;
-				Engine.SendNetworkReady(2);
-				break;
-			case "start":
-				this.onLaunch(message);
-				// Process further pending netmessages in the session page.
-				return true;
-			default:
-			}
-		}
-		return false;
+		return this.done;
 	}
 
 	/**

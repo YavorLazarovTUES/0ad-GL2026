@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -41,6 +41,7 @@
 #include "lib/timer.h"
 #include "lib/utf8.h"
 #include "maths/Size2D.h"
+#include "network/NetClient.h"
 #include "ps/CLogger.h"
 #include "ps/Errors.h"
 #include "ps/Filesystem.h"
@@ -104,7 +105,11 @@ CGUI::CGUI(ScriptContext& context)
 	m_ScriptInterface->LoadGlobalScripts();
 }
 
-CGUI::~CGUI() = default;
+CGUI::~CGUI()
+{
+	if (g_NetClient)
+		g_NetClient->Unregister(*m_ScriptInterface);
+}
 
 InReaction CGUI::HandleEvent(const SDL_Event_* ev)
 {

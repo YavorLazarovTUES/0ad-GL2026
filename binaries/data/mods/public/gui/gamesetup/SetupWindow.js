@@ -110,7 +110,6 @@ class SetupWindow
 
 	onTick()
 	{
-		this.controls.netMessages.pollPendingMessages();
 		updateTimers();
 	}
 

@@ -40,6 +40,7 @@
 #include "ps/Profile.h"
 #include "ps/Threading.h"
 #include "scriptinterface/JSON.h"
+#include "scriptinterface/ScriptContext.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/system/TurnManager.h"
@@ -49,6 +50,7 @@
 #include <functional>
 #include <iterator>
 #include <js/GCAPI.h>
+#include <js/Promise.h>
 #include <js/TracingAPI.h>
 #include <map>
 #include <memory>
@@ -323,6 +325,7 @@ void CNetClient::Poll()
 
 	CheckServerConnection();
 	m_Session->ProcessPolledMessages();
+	FetchMessage();
 }
 
 void CNetClient::CheckServerConnection()
@@ -357,15 +360,35 @@ void CNetClient::CheckServerConnection()
 	}
 }
 
-JS::Value CNetClient::GuiPoll(const ScriptRequest& rq)
+JSObject* CNetClient::GetNextGUIMessage(const ScriptInterface& guiInterface)
 {
-	if (m_GuiMessageQueue.empty())
-		return JS::UndefinedValue();
+	const ScriptRequest rq{guiInterface};
+	m_GuiMessagePoll.emplace(GuiPollData{guiInterface, {rq.cx, JS::NewPromiseObject(rq.cx, nullptr)}});
 
-	JS::RootedValue ret{rq.cx};
-	Script::ReadStructuredClone(rq, m_GuiMessageQueue.front(), &ret);
+	FetchMessage();
+	return m_GuiMessagePoll.value().promise;
+}
+
+void CNetClient::Unregister(const ScriptInterface& guiInterface)
+{
+	if (m_GuiMessagePoll.has_value() && &m_GuiMessagePoll.value().interface == &guiInterface)
+		m_GuiMessagePoll.reset();
+}
+
+void CNetClient::FetchMessage()
+{
+	if (m_GuiMessageQueue.empty() || !m_GuiMessagePoll.has_value() ||
+		JS::GetPromiseState(m_GuiMessagePoll.value().promise) != JS::PromiseState::Pending)
+	{
+		return;
+	}
+
+	const ScriptRequest rq{m_GuiMessagePoll.value().interface};
+	JS::RootedValue message{rq.cx};
+	Script::ReadStructuredClone(rq, std::move(m_GuiMessageQueue.front()), &message);
 	m_GuiMessageQueue.pop_front();
-	return ret;
+
+	JS::ResolvePromise(rq.cx, m_GuiMessagePoll.value().promise, message);
 }
 
 std::string CNetClient::TestReadGuiMessages()
@@ -375,9 +398,13 @@ std::string CNetClient::TestReadGuiMessages()
 	std::string r;
 	while (true)
 	{
-		JS::RootedValue msg{rq.cx, GuiPoll(rq)};
-		if (msg.isUndefined())
+		JS::RootedObject promise{rq.cx, GetNextGUIMessage(GetScriptInterface())};
+		g_ScriptContext->RunJobs();
+
+		if (JS::GetPromiseState(promise) == JS::PromiseState::Pending)
 			break;
+
+		JS::RootedValue msg{rq.cx, JS::GetPromiseResult(promise)};
 		r += Script::ToString(rq, &msg) + "\n";
 	}
 	return r;

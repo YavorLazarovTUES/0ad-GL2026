@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -196,9 +196,12 @@ CStr GetPlayerGUID()
 	return g_NetClient->GetGUID();
 }
 
-JS::Value PollNetworkClient(const ScriptRequest& rq)
+JS::Value PollNetworkClient(const ScriptInterface& guiInterface)
 {
-	return g_NetClient ? g_NetClient->GuiPoll(rq) : JS::UndefinedValue();
+	if (!g_NetClient)
+		throw std::logic_error{"Network client not present"};
+
+	return JS::ObjectValue(*g_NetClient->GetNextGUIMessage(guiInterface));
 }
 
 void SendGameSetupMessage(const ScriptInterface& scriptInterface, JS::HandleValue attribs1)

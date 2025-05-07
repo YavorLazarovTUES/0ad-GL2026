@@ -417,13 +417,11 @@ function updateTutorial(notification)
  * Process every CNetMessage (see NetMessage.h, NetMessages.h) sent by the CNetServer.
  * Saves the received object to mainlog.html.
  */
-function handleNetMessages()
+async function handleNetMessages()
 {
 	while (true)
 	{
-		const msg = Engine.PollNetworkClient();
-		if (!msg)
-			return;
+		const msg = await Engine.PollNetworkClient();
 
 		log("Net message: " + uneval(msg));
 

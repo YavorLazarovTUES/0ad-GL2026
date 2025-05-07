@@ -27,13 +27,11 @@ class NetMessages
 			error("Unknown net message type: " + uneval(messageType));
 	}
 
-	pollPendingMessages()
+	async pollPendingMessages()
 	{
 		while (true)
 		{
-			const message = Engine.PollNetworkClient();
-			if (!message)
-				break;
+			const message = await Engine.PollNetworkClient();
 
 			log("Net message: " + uneval(message));
 
