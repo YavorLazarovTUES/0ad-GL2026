@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -85,7 +85,7 @@ class MiscSetup : public CxxTest::GlobalFixture
 
 		g_Profiler2.Initialise();
 		m_ScriptEngine = new ScriptEngine;
-		g_ScriptContext = ScriptContext::CreateContext();
+		g_ScriptContext = std::make_shared<ScriptContext>();
 
 		taskManager.emplace();
 

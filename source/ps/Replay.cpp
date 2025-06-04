@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -202,7 +202,7 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 
 	const int contextSize = 384 * 1024 * 1024;
 	const int heapGrowthBytesGCTrigger = 12 * 1024 * 1024;
-	g_ScriptContext = ScriptContext::CreateContext(contextSize, heapGrowthBytesGCTrigger);
+	g_ScriptContext = std::make_shared<ScriptContext>(contextSize, heapGrowthBytesGCTrigger);
 
 	std::vector<SimulationCommand> commands;
 	u32 turn = 0;

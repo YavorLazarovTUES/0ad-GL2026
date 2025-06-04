@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -415,7 +415,7 @@ void CNetServerWorker::Run()
 	g_Profiler2.RegisterCurrentThread("Net server");
 
 	// We create a new ScriptContext for this network thread, with a single ScriptInterface.
-	std::shared_ptr<ScriptContext> netServerContext = ScriptContext::CreateContext();
+	ScriptContext netServerContext;
 	m_ScriptInterface = new ScriptInterface("Engine", "Net server", netServerContext);
 	m_InitAttributes.init(m_ScriptInterface->GetGeneralJSContext(), JS::UndefinedValue());
 

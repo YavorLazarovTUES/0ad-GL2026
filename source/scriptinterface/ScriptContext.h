@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -47,9 +47,6 @@ class JobQueue;
 class ScriptContext
 {
 public:
-	ScriptContext(int contextSize, uint32_t heapGrowthBytesGCTrigger);
-	~ScriptContext();
-
 	/**
 	 * Returns a context, in which any number of ScriptInterfaces compartments can live.
 	 * Each context should only ever be used on a single thread.
@@ -57,10 +54,9 @@ public:
 	 * @param contextSize Maximum size in bytes of the new context
 	 * @param heapGrowthBytesGCTrigger Size in bytes of cumulated allocations after which a GC will be triggered
 	 */
-	static std::shared_ptr<ScriptContext> CreateContext(
-		int contextSize = DEFAULT_CONTEXT_SIZE,
+	ScriptContext(int contextSize = DEFAULT_CONTEXT_SIZE,
 		uint32_t heapGrowthBytesGCTrigger = DEFAULT_HEAP_GROWTH_BYTES_GCTRIGGER);
-
+	~ScriptContext();
 
 	/**
 	 * MaybeIncrementalGC checks if running a GC is worth the time that will take.

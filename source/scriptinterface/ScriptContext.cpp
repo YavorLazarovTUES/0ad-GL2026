@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -100,11 +100,6 @@ void GCSliceCallbackHook(JSContext*, JS::GCProgress progress, const JS::GCDescri
 	if (progress == JS::GCProgress::GC_SLICE_END)
 		printf("ending cycle ===========================================\n");
 	#endif
-}
-
-std::shared_ptr<ScriptContext> ScriptContext::CreateContext(int contextSize, uint32_t heapGrowthBytesGCTrigger)
-{
-	return std::make_shared<ScriptContext>(contextSize, heapGrowthBytesGCTrigger);
 }
 
 ScriptContext::ScriptContext(int contextSize, uint32_t heapGrowthBytesGCTrigger):

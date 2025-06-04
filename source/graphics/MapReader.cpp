@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -1320,9 +1320,7 @@ PS::Loader::Task CMapReader::RunMapGeneration(const CStrW& scriptFile)
 			const VfsPath scriptPath{scriptFile.empty() ? L"" :
 				static_cast<std::wstring>(RANDOM_MAP_PREFIX) + scriptFile};
 
-			const std::shared_ptr<ScriptContext> mapgenContext{ScriptContext::CreateContext(
-				MAP_GENERATION_CONTEXT_SIZE)};
-
+			ScriptContext mapgenContext{MAP_GENERATION_CONTEXT_SIZE};
 			ScriptInterface mapgenInterface{"Engine", "MapGenerator", mapgenContext,
 				[](const VfsPath& path){
 					// Only allow to load modules inside the maps folder.
