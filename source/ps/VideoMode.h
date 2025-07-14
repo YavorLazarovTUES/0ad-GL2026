@@ -18,6 +18,7 @@
 #ifndef INCLUDED_VIDEOMODE
 #define INCLUDED_VIDEOMODE
 
+#include "ps/CStrForward.h"
 #include "ps/Input.h"
 #include "renderer/backend/Backend.h"
 

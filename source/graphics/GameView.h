@@ -19,7 +19,7 @@
 #define INCLUDED_GAMEVIEW
 
 #include "lib/code_annotation.h"
-#include "lib/input.h" // InReaction - can't forward-declare enum
+#include "ps/Input.h"
 #include "renderer/Scene.h"
 #include "simulation2/system/Entity.h"
 
@@ -58,7 +58,7 @@ public:
 	void Render(Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
 	void RenderOverlays(Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
 
-	InReaction HandleEvent(const SDL_Event& ev);
+	Input::Reaction HandleEvent(const SDL_Event& ev);
 
 	CVector3D GetCameraPivot() const;
 	CVector3D GetCameraPosition() const;
@@ -98,6 +98,6 @@ private:
 	CGameViewImpl* m;
 };
 
-extern InReaction game_view_handler(const SDL_Event& ev);
+Input::Reaction game_view_handler(const SDL_Event& ev);
 
 #endif // INCLUDED_GAMEVIEW

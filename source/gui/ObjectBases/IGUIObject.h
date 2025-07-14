@@ -30,9 +30,9 @@
 #include "gui/SettingTypes/CGUIHotkey.h"
 #include "gui/SettingTypes/CGUISize.h"
 #include "lib/code_annotation.h"
-#include "lib/input.h"
 #include "maths/Rect.h"
 #include "ps/CStr.h"
+#include "ps/Input.h"
 
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
@@ -49,7 +49,6 @@ class JSTracer;
 class XMBData;
 class XMBElement;
 namespace JS { class HandleValueArray; }
-union SDL_Event;
 
 #define GUI_OBJECT(obj) \
 public: \
@@ -182,12 +181,12 @@ public:
 	 * @param eventName String representation of event name
 	 * @return IN_HANDLED if event was handled, or IN_PASS if skipped
 	 */
-	InReaction SendEvent(EGUIMessageType type, const CStr& eventName);
+	Input::Reaction SendEvent(EGUIMessageType type, const CStr& eventName);
 
 	/**
 	 * Same as SendEvent, but passes mouse coordinates and button state as an argument.
 	 */
-	InReaction SendMouseEvent(EGUIMessageType type, const CStr& eventName);
+	Input::Reaction SendMouseEvent(EGUIMessageType type, const CStr& eventName);
 
 	/**
 	 * All sizes are relative to resolution, and the calculation
@@ -292,7 +291,7 @@ protected:
 	 * Returns either IN_PASS or IN_HANDLED. If IN_HANDLED, then
 	 * the event won't be passed on and processed by other handlers.
 	 */
-	virtual InReaction PreemptEvent(const SDL_Event&) { return IN_PASS; }
+	virtual Input::Reaction PreemptEvent(const SDL_Event&);
 
 	/**
 	 * Some objects need to handle the text-related SDL_Event manually.
@@ -304,7 +303,7 @@ protected:
 	 * the key won't be passed on and processed by other handlers.
 	 * This is used for keys that the GUI uses.
 	 */
-	virtual InReaction ManuallyHandleKeys(const SDL_Event&) { return IN_PASS; }
+	virtual Input::Reaction ManuallyHandleKeys(const SDL_Event&);
 
 	/**
 	 * Applies the given style to the object.

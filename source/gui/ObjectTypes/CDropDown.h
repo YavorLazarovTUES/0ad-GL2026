@@ -33,11 +33,11 @@ GUI Object - Drop Down (list)
 #include "gui/ObjectBases/IGUIObject.h"
 #include "gui/ObjectTypes/CList.h"
 #include "gui/SettingTypes/CGUIColor.h"
-#include "lib/input.h"
 #include "lib/types.h"
 #include "maths/Rect.h"
 #include "maths/Vector2D.h"
 #include "ps/CStr.h"
+#include "ps/Input.h"
 
 #include <string>
 
@@ -68,7 +68,7 @@ public:
 	/**
 	 * Handle events manually to catch keyboard inputting.
 	 */
-	virtual InReaction ManuallyHandleKeys(const SDL_Event& ev);
+	virtual Input::Reaction ManuallyHandleKeys(const SDL_Event& ev);
 
 	/**
 	 * Draws the Button

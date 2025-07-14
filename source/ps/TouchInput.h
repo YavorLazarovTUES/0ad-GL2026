@@ -18,13 +18,11 @@
 #ifndef INCLUDED_TOUCHINPUT
 #define INCLUDED_TOUCHINPUT
 
-#include "lib/input.h"
 #include "maths/Vector2D.h"
 #include "maths/Vector3D.h"
+#include "ps/Input.h"
 
 #include <cstddef>
-
-union SDL_Event;
 
 /**
  * Maps touch events (e.g. on Android touchscreen devices) onto mouse events
@@ -41,7 +39,7 @@ public:
 	 */
 	bool IsEnabled();
 
-	InReaction HandleEvent(const SDL_Event& ev);
+	Input::Reaction HandleEvent(const SDL_Event& ev);
 
 	/**
 	 * Should be called once per frame to perform updates.
@@ -90,6 +88,6 @@ private:
 
 extern CTouchInput g_TouchInput;
 
-extern InReaction touch_input_handler(const SDL_Event& ev);
+extern Input::Reaction touch_input_handler(const SDL_Event& ev);
 
 #endif // INCLUDED_TOUCHINPUT

@@ -25,7 +25,6 @@
 #include "lib/external_libraries/libsdl.h"
 #include "lib/file/file_system.h"
 #include "lib/file/vfs/vfs.h"
-#include "lib/input.h"
 #include "lib/path.h"
 #include "ps/CStr.h"
 #include "ps/ConfigDB.h"

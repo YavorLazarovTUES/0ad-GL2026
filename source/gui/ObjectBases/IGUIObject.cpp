@@ -388,7 +388,7 @@ void IGUIObject::UnsetScriptHandler(const CStr& eventName)
 		m_pGUI.m_EventObjects.erase(it2);
 }
 
-InReaction IGUIObject::SendEvent(EGUIMessageType type, const CStr& eventName)
+Input::Reaction IGUIObject::SendEvent(EGUIMessageType type, const CStr& eventName)
 {
 	PROFILE2_EVENT("gui event");
 	PROFILE2_ATTR("type: %s", eventName.c_str());
@@ -399,10 +399,10 @@ InReaction IGUIObject::SendEvent(EGUIMessageType type, const CStr& eventName)
 
 	ScriptEvent(eventName);
 
-	return msg.skipped ? IN_PASS : IN_HANDLED;
+	return msg.skipped ? Input::Reaction::PASS : Input::Reaction::HANDLED;
 }
 
-InReaction IGUIObject::SendMouseEvent(EGUIMessageType type, const CStr& eventName)
+Input::Reaction IGUIObject::SendMouseEvent(EGUIMessageType type, const CStr& eventName)
 {
 	PROFILE2_EVENT("gui mouse event");
 	PROFILE2_ATTR("type: %s", eventName.c_str());
@@ -442,12 +442,12 @@ InReaction IGUIObject::SendMouseEvent(EGUIMessageType type, const CStr& eventNam
 	if ((type == GUIM_MOUSE_WHEEL_UP || type == GUIM_MOUSE_WHEEL_DOWN || type == GUIM_MOUSE_WHEEL_LEFT || type == GUIM_MOUSE_WHEEL_RIGHT) && msg.skipped)
 	{
 		if (GetParent())
-			msg.Skip(GetParent()->SendMouseEvent(type, eventName) == IN_PASS);
+			msg.Skip(GetParent()->SendMouseEvent(type, eventName) == Input::Reaction::PASS);
 		else
 			msg.Skip(false);
 	}
 
-	return msg.skipped ? IN_PASS : IN_HANDLED;
+	return msg.skipped ? Input::Reaction::PASS : Input::Reaction::HANDLED;
 }
 
 bool IGUIObject::ScriptEvent(const CStr& eventName,
@@ -567,4 +567,14 @@ void IGUIObject::DrawInArea(CCanvas2D& canvas, CRect& area)
 
 bool IGUIObject::IsHiddenOrGhostOrOutOfBoundaries() const {
 	return !m_IsInsideBoundaries || IsHiddenOrGhost();
+}
+
+Input::Reaction IGUIObject::PreemptEvent(const SDL_Event&)
+{
+	return Input::Reaction::PASS;
+}
+
+Input::Reaction IGUIObject::ManuallyHandleKeys(const SDL_Event&)
+{
+	return Input::Reaction::PASS;
 }

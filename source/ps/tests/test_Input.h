@@ -48,8 +48,7 @@ class TestInput : public CxxTest::TestSuite
 
 	static void PushPriorityEvent(Input::Manager& manager, const std::uint32_t eventType)
 	{
-		const SDL_Event ev{MakeEvent(eventType)};
-		manager.PushPriorityEvent(ev);
+		manager.PushPriorityEvent(MakeEvent(eventType));
 	}
 
 public:
@@ -116,12 +115,11 @@ public:
 		bool triggered{false};
 		Input::Handler _{manager, std::integral_constant<size_t, 0>{}, [&](const SDL_Event&){
 			triggered = true;
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}};
 
 		TS_ASSERT(!triggered);
-		SDL_Event ev{MakeEvent(GetEventType(1))};
-		manager.DispatchEvent(ev);
+		manager.DispatchEvent(MakeEvent(GetEventType(1)));
 		TS_ASSERT(triggered);
 	}
 
@@ -132,21 +130,20 @@ public:
 		const std::uint32_t filteredEventType{eventTypeStart + 1};
 		[[maybe_unused]] Input::Handler filter{manager, std::integral_constant<size_t, 0>{},
 			[&](const SDL_Event& ev){
-				return ev.type == filteredEventType ? IN_HANDLED : IN_PASS;
+				return ev.type == filteredEventType ? Input::Reaction::HANDLED :
+					Input::Reaction::PASS;
 			}};
 
 		bool triggered{false};
 		[[maybe_unused]] Input::Handler test{manager, std::integral_constant<size_t, 1>{},
 			[&](const SDL_Event&){
 				triggered = true;
-				return IN_HANDLED;
+				return Input::Reaction::HANDLED;
 			}};
 
-		SDL_Event ev0{MakeEvent(filteredEventType)};
-		manager.DispatchEvent(ev0);
+		manager.DispatchEvent(MakeEvent(filteredEventType));
 		TS_ASSERT(!triggered);
-		SDL_Event ev1{MakeEvent(eventTypeStart)};
-		manager.DispatchEvent(ev1);
+		manager.DispatchEvent(MakeEvent(eventTypeStart));
 		TS_ASSERT(triggered);
 	}
 
@@ -157,12 +154,11 @@ public:
 		{
 			Input::Handler _{manager, std::integral_constant<size_t, 0>{}, [&](const SDL_Event&){
 				triggered = true;
-				return IN_HANDLED;
+				return Input::Reaction::HANDLED;
 			}};
 		}
 
-		SDL_Event ev{MakeEvent(GetEventType(1))};
-		manager.DispatchEvent(ev);
+		manager.DispatchEvent(MakeEvent(GetEventType(1)));
 		TS_ASSERT(!triggered);
 	}
 };

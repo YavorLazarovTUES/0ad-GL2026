@@ -272,9 +272,9 @@ void CDropDown::HandleMessage(SGUIMessage& Message)
 		SetupText();
 }
 
-InReaction CDropDown::ManuallyHandleKeys(const SDL_Event& ev)
+Input::Reaction CDropDown::ManuallyHandleKeys(const SDL_Event& ev)
 {
-	InReaction result = IN_PASS;
+	Input::Reaction result{Input::Reaction::PASS};
 	bool update_highlight = false;
 
 	if (ev.type == SDL_KEYDOWN)
@@ -285,7 +285,7 @@ InReaction CDropDown::ManuallyHandleKeys(const SDL_Event& ev)
 		{
 		case '\r':
 			m_Open = false;
-			result = IN_HANDLED;
+			result = Input::Reaction::HANDLED;
 			break;
 
 		case SDLK_HOME:
@@ -295,7 +295,7 @@ InReaction CDropDown::ManuallyHandleKeys(const SDL_Event& ev)
 		case SDLK_PAGEUP:
 		case SDLK_PAGEDOWN:
 			if (!m_Open)
-				return IN_PASS;
+				return Input::Reaction::PASS;
 			// Set current selected item to highlighted, before
 			//  then really processing these in CList::ManuallyHandleKeys()
 			m_Selected.Set(m_ElementHighlight, true);
@@ -349,14 +349,14 @@ InReaction CDropDown::ManuallyHandleKeys(const SDL_Event& ev)
 					update_highlight = true;
 					GetScrollBar(0).SetPos(m_ItemsYPositions[closest] - 60);
 				}
-				result = IN_HANDLED;
+				result = Input::Reaction::HANDLED;
 			}
 			break;
 		}
 	}
 
-	if (CList::ManuallyHandleKeys(ev) == IN_HANDLED)
-		result = IN_HANDLED;
+	if (CList::ManuallyHandleKeys(ev) == Input::Reaction::HANDLED)
+		result = Input::Reaction::HANDLED;
 
 	if (update_highlight)
 		m_ElementHighlight = m_Selected;

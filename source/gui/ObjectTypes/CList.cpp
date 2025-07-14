@@ -260,9 +260,9 @@ void CList::HandleMessage(SGUIMessage& Message)
 	IGUITextOwner::HandleMessage(Message);
 }
 
-InReaction CList::ManuallyHandleKeys(const SDL_Event& ev)
+Input::Reaction CList::ManuallyHandleKeys(const SDL_Event& ev)
 {
-	InReaction result = IN_PASS;
+	Input::Reaction result{Input::Reaction::PASS};
 
 	if (ev.type == SDL_KEYDOWN)
 	{
@@ -273,39 +273,39 @@ InReaction CList::ManuallyHandleKeys(const SDL_Event& ev)
 		case SDLK_HOME:
 			SelectFirstElement();
 			UpdateAutoScroll();
-			result = IN_HANDLED;
+			result = Input::Reaction::HANDLED;
 			break;
 
 		case SDLK_END:
 			SelectLastElement();
 			UpdateAutoScroll();
-			result = IN_HANDLED;
+			result = Input::Reaction::HANDLED;
 			break;
 
 		case SDLK_UP:
 			SelectPrevElement();
 			UpdateAutoScroll();
-			result = IN_HANDLED;
+			result = Input::Reaction::HANDLED;
 			break;
 
 		case SDLK_DOWN:
 			SelectNextElement();
 			UpdateAutoScroll();
-			result = IN_HANDLED;
+			result = Input::Reaction::HANDLED;
 			break;
 
 		case SDLK_PAGEUP:
 			GetScrollBar(0).ScrollMinusPlenty();
-			result = IN_HANDLED;
+			result = Input::Reaction::HANDLED;
 			break;
 
 		case SDLK_PAGEDOWN:
 			GetScrollBar(0).ScrollPlusPlenty();
-			result = IN_HANDLED;
+			result = Input::Reaction::HANDLED;
 			break;
 
 		default: // Do nothing
-			result = IN_PASS;
+			result = Input::Reaction::PASS;
 		}
 	}
 

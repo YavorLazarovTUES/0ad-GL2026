@@ -22,7 +22,6 @@
 #include "graphics/Camera.h"
 #include "graphics/Terrain.h"
 #include "lib/external_libraries/libsdl.h"
-#include "lib/input.h"
 #include "maths/MathUtil.h"
 #include "maths/Matrix3D.h"
 #include "maths/Quaternion.h"
@@ -655,7 +654,7 @@ void CCameraController::FocusHeight(bool smooth)
 		m_PosY.Add(diff);
 }
 
-InReaction CCameraController::HandleEvent(const SDL_Event& ev)
+Input::Reaction CCameraController::HandleEvent(const SDL_Event& ev)
 {
 	switch (ev.type)
 	{
@@ -665,14 +664,14 @@ InReaction CCameraController::HandleEvent(const SDL_Event& ev)
 		if (hotkey == "camera.reset")
 		{
 			ResetCameraAngleZoom();
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "camera.togglebirdseyeview")
 		{
 			ToggleBirdsEyeView();
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
-		return IN_PASS;
+		return Input::Reaction::PASS;
 	}
 
 	case SDL_HOTKEYDOWN:
@@ -685,64 +684,64 @@ InReaction CCameraController::HandleEvent(const SDL_Event& ev)
 		if (hotkey == "camera.zoom.wheel.in")
 		{
 			m_Zoom.AddSmoothly(-m_ViewZoomSpeedWheel);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "camera.zoom.wheel.out")
 		{
 			m_Zoom.AddSmoothly(m_ViewZoomSpeedWheel);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "camera.rotate.wheel.cw")
 		{
 			m_RotateY.AddSmoothly(m_ViewRotateYSpeedWheel);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "camera.rotate.wheel.ccw")
 		{
 			m_RotateY.AddSmoothly(-m_ViewRotateYSpeedWheel);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "camera.scroll.speed.increase")
 		{
 			m_ViewScrollSpeed *= m_ViewScrollSpeedModifier;
 			LOGMESSAGERENDER("Scroll speed increased to %.1f", m_ViewScrollSpeed);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "camera.scroll.speed.decrease")
 		{
 			m_ViewScrollSpeed /= m_ViewScrollSpeedModifier;
 			LOGMESSAGERENDER("Scroll speed decreased to %.1f", m_ViewScrollSpeed);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "camera.rotate.speed.increase")
 		{
 			m_ViewRotateXSpeed *= m_ViewRotateSpeedModifier;
 			m_ViewRotateYSpeed *= m_ViewRotateSpeedModifier;
 			LOGMESSAGERENDER("Rotate speed increased to X=%.3f, Y=%.3f", m_ViewRotateXSpeed, m_ViewRotateYSpeed);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "camera.rotate.speed.decrease")
 		{
 			m_ViewRotateXSpeed /= m_ViewRotateSpeedModifier;
 			m_ViewRotateYSpeed /= m_ViewRotateSpeedModifier;
 			LOGMESSAGERENDER("Rotate speed decreased to X=%.3f, Y=%.3f", m_ViewRotateXSpeed, m_ViewRotateYSpeed);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "camera.zoom.speed.increase")
 		{
 			m_ViewZoomSpeed *= m_ViewZoomSpeedModifier;
 			LOGMESSAGERENDER("Zoom speed increased to %.1f", m_ViewZoomSpeed);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "camera.zoom.speed.decrease")
 		{
 			m_ViewZoomSpeed /= m_ViewZoomSpeedModifier;
 			LOGMESSAGERENDER("Zoom speed decreased to %.1f", m_ViewZoomSpeed);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
-		return IN_PASS;
+		return Input::Reaction::PASS;
 	}
 	}
 
-	return IN_PASS;
+	return Input::Reaction::PASS;
 }

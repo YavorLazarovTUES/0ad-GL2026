@@ -187,10 +187,10 @@ void CTouchInput::Frame()
 	}
 }
 
-InReaction CTouchInput::HandleEvent([[maybe_unused]] const SDL_Event& ev)
+Input::Reaction CTouchInput::HandleEvent(const SDL_Event& ev)
 {
 	if (!IsEnabled())
-		return IN_PASS;
+		return Input::Reaction::PASS;
 
 #if EMULATE_FINGERS_WITH_MOUSE
 	switch(ev.type)
@@ -282,16 +282,16 @@ InReaction CTouchInput::HandleEvent([[maybe_unused]] const SDL_Event& ev)
 			OnFingerUp(ev.tfinger.fingerId, g_xres * ev.tfinger.x, g_yres * ev.tfinger.y);
 		else if (ev.type == SDL_FINGERMOTION)
 			OnFingerMotion(ev.tfinger.fingerId, g_xres * ev.tfinger.x, g_yres * ev.tfinger.y);
-		return IN_HANDLED;
+		return Input::Reaction::HANDLED;
 	}
 	}
 
-	return IN_PASS;
+	return Input::Reaction::PASS;
 }
 
 CTouchInput g_TouchInput;
 
-InReaction touch_input_handler(const SDL_Event& ev)
+Input::Reaction touch_input_handler(const SDL_Event& ev)
 {
 	return g_TouchInput.HandleEvent(ev);
 }

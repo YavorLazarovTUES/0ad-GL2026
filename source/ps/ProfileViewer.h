@@ -22,15 +22,14 @@
 #ifndef INCLUDED_PROFILE_VIEWER
 #define INCLUDED_PROFILE_VIEWER
 
-#include "lib/input.h"
 #include "ps/CStr.h"
+#include "ps/Input.h"
 #include "ps/Singleton.h"
 
 #include <cstddef>
 #include <vector>
 
 class CCanvas2D;
-union SDL_Event;
 
 /**
  * Struct ProfileColumn: Describes one column of an AbstractProfileTable.
@@ -156,7 +155,7 @@ public:
 	 * @return IN_PASS or IN_HANDLED depending on whether the event relates
 	 * to the profiling display.
 	 */
-	InReaction Input(const SDL_Event& ev);
+	Input::Reaction Input(const SDL_Event& ev);
 
 	/**
 	 * AddRootTable: Add a new profile table as a root table (i.e. the
@@ -178,7 +177,7 @@ public:
 	 * This allows our input handler to be installed via in_add_handler
 	 * like a normal, global function input handler.
 	 */
-	static InReaction InputThunk(const SDL_Event& ev);
+	static Input::Reaction InputThunk(const SDL_Event& ev);
 
 	/**
 	 * SaveToFile: Save the current profiler data (for all profile tables)

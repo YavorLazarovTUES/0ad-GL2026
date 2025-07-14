@@ -19,13 +19,11 @@
 #define INCLUDED_PS_GLOBALS
 
 #include "lib/frequency_filter.h"
-#include "lib/input.h"
+#include "ps/Input.h"
 #include "ps/KeyName.h"
 
 #include <cstdint>
 #include <unordered_map>
-
-union SDL_Event;
 
 // thin abstraction layer on top of SDL.
 // game code should use it instead of SDL_GetMouseState etc. because
@@ -59,7 +57,7 @@ extern std::unordered_map<int32_t, bool> g_scancodes;
  */
 extern bool g_mouse_buttons[MOUSE_LAST - MOUSE_BASE];
 
-extern InReaction GlobalsInputHandler(const SDL_Event& ev);
+extern Input::Reaction GlobalsInputHandler(const SDL_Event& ev);
 
 extern PIFrequencyFilter g_frequencyFilter;
 

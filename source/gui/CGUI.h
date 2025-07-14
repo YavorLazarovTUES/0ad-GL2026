@@ -31,13 +31,13 @@
 #include "gui/SettingTypes/CGUIColor.h"
 #include "lib/code_annotation.h"
 #include "lib/file/vfs/vfs_path.h"
-#include "lib/input.h"
 #include "lib/types.h"
 #include "maths/Rect.h"
 #include "maths/Vector2D.h"
 #include "ps/CStr.h"
 #include "scriptinterface/ModuleLoader.h"
 #include "scriptinterface/StructuredClone.h"
+#include "ps/Input.h"
 
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
@@ -136,7 +136,7 @@ public:
 	 *
 	 * @param ev SDL Event, like mouse/keyboard input
 	 */
-	InReaction HandleEvent(const SDL_Event& ev);
+	Input::Reaction HandleEvent(const SDL_Event& ev);
 
 	/**
 	 * Load a GUI XML file into the GUI.

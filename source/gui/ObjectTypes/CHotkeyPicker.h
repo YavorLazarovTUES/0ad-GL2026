@@ -20,8 +20,8 @@
 
 #include "gui/CGUISetting.h"
 #include "gui/ObjectBases/IGUIObject.h"
-#include "lib/input.h"
 #include "ps/CStr.h"
+#include "ps/Input.h"
 
 #include <SDL_scancode.h>
 #include <vector>
@@ -53,7 +53,7 @@ public:
 	virtual void HandleMessage(SGUIMessage& Message);
 
 	// Pre-empt events: this is our sole purpose.
-	virtual InReaction PreemptEvent(const SDL_Event& ev);
+	virtual Input::Reaction PreemptEvent(const SDL_Event& ev);
 
 	struct Key
 	{

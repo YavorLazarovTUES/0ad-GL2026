@@ -271,7 +271,7 @@ void CProfileViewer::RenderProfile(CCanvas2D& canvas)
 
 
 // Handle input
-InReaction CProfileViewer::Input(const SDL_Event& ev)
+Input::Reaction CProfileViewer::Input(const SDL_Event& ev)
 {
 	switch(ev.type)
 	{
@@ -284,7 +284,7 @@ InReaction CProfileViewer::Input(const SDL_Event& ev)
 		if (k >= SDLK_0 && k <= SDLK_9)
 		{
 			m->NavigateTree(k - SDLK_0);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		break;
 	}
@@ -322,24 +322,24 @@ InReaction CProfileViewer::Input(const SDL_Event& ev)
 					m->profileVisible = false;
 				}
 			}
-			return( IN_HANDLED );
+			return Input::Reaction::HANDLED;
 		}
 		else if( hotkey == "profile.save" )
 		{
 			SaveToFile();
-			return( IN_HANDLED );
+			return Input::Reaction::HANDLED;
 		}
 		break;
 	}
-	return( IN_PASS );
+	return Input::Reaction::PASS;
 }
 
-InReaction CProfileViewer::InputThunk(const SDL_Event& ev)
+Input::Reaction CProfileViewer::InputThunk(const SDL_Event& ev)
 {
 	if (CProfileViewer::IsInitialised())
 		return g_ProfileViewer.Input(ev);
 
-	return IN_PASS;
+	return Input::Reaction::PASS;
 }
 
 

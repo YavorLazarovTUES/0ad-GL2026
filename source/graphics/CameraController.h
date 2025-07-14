@@ -21,7 +21,7 @@
 #include "graphics/ICameraController.h"
 #include "graphics/SmoothedValue.h"
 #include "lib/code_annotation.h"
-#include "lib/input.h"
+#include "ps/Input.h"
 #include "simulation2/system/Entity.h"
 
 #include <memory>
@@ -41,7 +41,7 @@ public:
 
 	void LoadConfig() override;
 
-	InReaction HandleEvent(const SDL_Event& ev) override;
+	Input::Reaction HandleEvent(const SDL_Event& ev) override;
 
 	CVector3D GetCameraPivot() const override;
 	CVector3D GetCameraPosition() const override;

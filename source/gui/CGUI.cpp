@@ -36,7 +36,6 @@
 #include "lib/debug.h"
 #include "lib/external_libraries/libsdl.h"
 #include "lib/file/vfs/vfs_util.h"
-#include "lib/input.h"
 #include "lib/path.h"
 #include "lib/timer.h"
 #include "lib/utf8.h"
@@ -111,9 +110,9 @@ CGUI::~CGUI()
 		g_NetClient->Unregister(m_ScriptInterface.get());
 }
 
-InReaction CGUI::HandleEvent(const SDL_Event& ev)
+Input::Reaction CGUI::HandleEvent(const SDL_Event& ev)
 {
-	InReaction ret = IN_PASS;
+	Input::Reaction ret = Input::Reaction::PASS;
 
 	if (ev.type == SDL_HOTKEYDOWN || ev.type == SDL_HOTKEYPRESS || ev.type == SDL_HOTKEYUP)
 	{
@@ -123,7 +122,7 @@ InReaction CGUI::HandleEvent(const SDL_Event& ev)
 
 		if (m_GlobalHotkeys.find(hotkey) != m_GlobalHotkeys.end() && m_GlobalHotkeys[hotkey].find(eventName) != m_GlobalHotkeys[hotkey].end())
 		{
-			ret = IN_HANDLED;
+			ret = Input::Reaction::HANDLED;
 
 			ScriptRequest rq(m_ScriptInterface);
 			JS::RootedObject globalObj(rq.cx, rq.glob);
@@ -188,7 +187,7 @@ InReaction CGUI::HandleEvent(const SDL_Event& ev)
 	// pNearest will after this point at the hovered object, possibly nullptr
 	IGUIObject* pNearest = FindObjectUnderMouse();
 
-	if (ret == IN_PASS)
+	if (ret == Input::Reaction::PASS)
 	{
 		// Now we'll call UpdateMouseOver on *all* objects,
 		// we'll input the one hovered, and they will each
@@ -286,7 +285,7 @@ InReaction CGUI::HandleEvent(const SDL_Event& ev)
 		m_MousePos = oldMousePos;
 
 	// Let GUI items handle keys after everything else, e.g. for input boxes.
-	if (ret == IN_PASS && GetFocusedObject())
+	if (ret == Input::Reaction::PASS && GetFocusedObject())
 	{
 		if (ev.type == SDL_KEYUP || ev.type == SDL_KEYDOWN ||
 			ev.type == SDL_HOTKEYUP || ev.type == SDL_HOTKEYDOWN ||

@@ -73,7 +73,7 @@ void InitVfs(const CmdLineArgs& args);
  */
 extern bool Init(const CmdLineArgs& args, int flags);
 
-using InputHandlers = std::queue<Input::Handler<InReaction(&)(const SDL_Event&)>>;
+using InputHandlers = std::queue<Input::Handler<Input::Reaction(&)(const SDL_Event&)>>;
 [[nodiscard]] std::unique_ptr<InputHandlers> MakeInputHandlers();
 
 /**

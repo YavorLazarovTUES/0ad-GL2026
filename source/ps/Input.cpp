@@ -48,7 +48,7 @@ void Manager::DispatchEvent(const SDL_Event& event)
 	// Looks like std::find_if, but std::find_if does not guarantee the order of the handlers.
 	for (const auto handler : m_Handlers)
 	{
-		if (handler && (*handler)(event) == IN_HANDLED)
+		if (handler && (*handler)(event) == Reaction::HANDLED)
 			return;
 	}
 }
@@ -114,6 +114,7 @@ Manager::PollEventsResult Manager::PollEvents()
 {
 	return PollEventsResult{*m_PriorityEvents};
 }
+
 
 HandlerBase::HandlerBase(HandlerBase*& pos) noexcept :
 	m_ToReset{pos}

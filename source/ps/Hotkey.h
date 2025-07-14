@@ -31,15 +31,13 @@
  * triggered. All with the hotkey name stored in ev.user.data1 as a const char*.
  */
 
-#include "lib/input.h"
 #include "lib/types.h"
 #include "ps/CStr.h"
 #include "ps/containers/StaticVector.h"
+#include "ps/Input.h"
 
 #include <unordered_map>
 #include <vector>
-
-union SDL_Event;
 
 // SDL_Scancode is an enum, we'll use an explicit int to avoid including SDL in this header.
 using SDL_Scancode_ = int;
@@ -85,17 +83,17 @@ extern void UnloadHotkeys();
 /**
  * Updates g_HotkeyMap.
  */
-extern InReaction HotkeyStateChange(const SDL_Event& ev);
+extern Input::Reaction HotkeyStateChange(const SDL_Event& ev);
 
 /**
  * Detects hotkeys that should fire. This allows using EventWillFireHotkey,
  * (and then possibly preventing those hotkeys from firing by handling the event).
  */
-extern InReaction HotkeyInputPrepHandler(const SDL_Event& ev);
+extern Input::Reaction HotkeyInputPrepHandler(const SDL_Event& ev);
 /**
  * Actually fires hotkeys.
  */
-extern InReaction HotkeyInputActualHandler(const SDL_Event& ev);
+extern Input::Reaction HotkeyInputActualHandler(const SDL_Event& ev);
 
 /**
  * @return whether the event @param ev will fire the hotkey @param keyname.

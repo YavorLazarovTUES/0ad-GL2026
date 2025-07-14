@@ -25,7 +25,6 @@
 #include "gui/ObjectBases/IGUITextOwner.h"
 #include "gui/SettingTypes/CGUIColor.h"
 #include "gui/SettingTypes/CGUIList.h"
-#include "lib/input.h"
 #include "lib/types.h"
 #include "maths/Rect.h"
 #include "ps/CStr.h"
@@ -89,7 +88,7 @@ protected:
 	/**
 	 * Handle events manually to catch keyboard inputting.
 	 */
-	virtual InReaction ManuallyHandleKeys(const SDL_Event& ev);
+	virtual Input::Reaction ManuallyHandleKeys(const SDL_Event& ev);
 
 	/**
 	 * Draws the List box

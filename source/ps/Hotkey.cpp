@@ -175,16 +175,16 @@ bool isPressed(const SKey& key)
 		return false;
 }
 
-InReaction HotkeyStateChange(const SDL_Event& ev)
+Input::Reaction HotkeyStateChange(const SDL_Event& ev)
 {
 	if (ev.type == SDL_HOTKEYPRESS || ev.type == SDL_HOTKEYPRESS_SILENT)
 		g_HotkeyStatus[static_cast<const char*>(ev.user.data1)] = true;
 	else if (ev.type == SDL_HOTKEYUP || ev.type == SDL_HOTKEYUP_SILENT)
 		g_HotkeyStatus[static_cast<const char*>(ev.user.data1)] = false;
-	return IN_PASS;
+	return Input::Reaction::PASS;
 }
 
-InReaction HotkeyInputPrepHandler(const SDL_Event& ev)
+Input::Reaction HotkeyInputPrepHandler(const SDL_Event& ev)
 {
 	int scancode = SDL_SCANCODE_UNKNOWN;
 
@@ -230,11 +230,11 @@ InReaction HotkeyInputPrepHandler(const SDL_Event& ev)
 			scancode = MOUSE_X1;
 			break;
 		}
-		return IN_PASS;
+		return Input::Reaction::PASS;
 
 
 	default:
-		return IN_PASS;
+		return Input::Reaction::PASS;
 	}
 
 	// Somewhat hackish:
@@ -273,7 +273,7 @@ InReaction HotkeyInputPrepHandler(const SDL_Event& ev)
 
 	// Check whether we have any hotkeys registered that include this scancode.
 	if (g_HotkeyMap.find(scancode) == g_HotkeyMap.end())
-		return IN_PASS;
+		return Input::Reaction::PASS;
 
 	currentEvent = &ev;
 
@@ -357,13 +357,13 @@ InReaction HotkeyInputPrepHandler(const SDL_Event& ev)
 			}
 		}
 
-	return IN_PASS;
+	return Input::Reaction::PASS;
 }
 
-InReaction HotkeyInputActualHandler(const SDL_Event& ev)
+Input::Reaction HotkeyInputActualHandler(const SDL_Event& ev)
 {
 	if (!currentEvent)
-		return IN_PASS;
+		return Input::Reaction::PASS;
 
 	bool isInstantaneous = ev.type == SDL_MOUSEWHEEL;
 
@@ -461,7 +461,7 @@ InReaction HotkeyInputActualHandler(const SDL_Event& ev)
 		g_VideoMode.m_InputManager.PushPriorityEvent(hotkeyNotification);
 	}
 
-	return IN_PASS;
+	return Input::Reaction::PASS;
 }
 
 bool EventWillFireHotkey(const SDL_Event& ev, const CStr& keyname)

@@ -195,7 +195,7 @@ void RestartEngine()
 }
 
 // main app message handler
-static InReaction MainInputHandler(const SDL_Event& ev)
+static Input::Reaction MainInputHandler(const SDL_Event& ev)
 {
 	switch(ev.type)
 	{
@@ -239,27 +239,27 @@ static InReaction MainInputHandler(const SDL_Event& ev)
 		if (hotkey == "exit")
 		{
 			QuitEngine(EXIT_SUCCESS);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "screenshot")
 		{
 			g_Renderer.MakeScreenShotOnNextFrame(CRenderer::ScreenShotType::DEFAULT);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "bigscreenshot")
 		{
 			g_Renderer.MakeScreenShotOnNextFrame(CRenderer::ScreenShotType::BIG);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "togglefullscreen")
 		{
 			g_VideoMode.ToggleFullscreen();
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "profile2.toggle")
 		{
 			g_Profiler2.Toggle();
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "mousegrabtoggle")
 		{
@@ -270,7 +270,7 @@ static InReaction MainInputHandler(const SDL_Event& ev)
 		break;
 	}
 
-	return IN_PASS;
+	return Input::Reaction::PASS;
 }
 
 
@@ -756,7 +756,7 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 			private:
 				ScriptInterface scriptInterface{"Engine", "gui", *g_ScriptContext};
 				std::unique_ptr<InputHandlers> inputHandlers;
-				Input::Handler<InReaction(&)(const SDL_Event&)> mainInputHandler{
+				Input::Handler<Input::Reaction(&)(const SDL_Event&)> mainInputHandler{
 					g_VideoMode.m_InputManager, Input::Slot::PRIMARY, MainInputHandler};
 			};
 

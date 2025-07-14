@@ -692,10 +692,10 @@ static bool isUnprintableChar(SDL_Keysym key)
 	}
 }
 
-InReaction conInputHandler(const SDL_Event& ev)
+Input::Reaction conInputHandler(const SDL_Event& ev)
 {
 	if (!g_Console)
-		return IN_PASS;
+		return Input::Reaction::PASS;
 
 	if (static_cast<int>(ev.type) == SDL_HOTKEYPRESS)
 	{
@@ -705,19 +705,19 @@ InReaction conInputHandler(const SDL_Event& ev)
 		{
 			ResetActiveHotkeys();
 			g_Console->ToggleVisible();
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (g_Console->IsActive() && hotkey == "copy")
 		{
 			std::string text = utf8_from_wstring(g_Console->GetBuffer());
 			SDL_SetClipboardText(text.c_str());
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (g_Console->IsActive() && hotkey == "paste")
 		{
 			char* utf8_text = SDL_GetClipboardText();
 			if (!utf8_text)
-				return IN_HANDLED;
+				return Input::Reaction::HANDLED;
 
 			std::wstring text = wstring_from_utf8(utf8_text);
 			SDL_free(utf8_text);
@@ -725,12 +725,12 @@ InReaction conInputHandler(const SDL_Event& ev)
 			for (wchar_t c : text)
 				g_Console->InsertChar(0, c);
 
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 	}
 
 	if (!g_Console->IsActive())
-		return IN_PASS;
+		return Input::Reaction::PASS;
 
 	// In SDL2, we no longer get Unicode wchars via SDL_Keysym
 	// we use text input events instead and they provide UTF-8 chars
@@ -740,12 +740,12 @@ InReaction conInputHandler(const SDL_Event& ev)
 		std::wstring wstr = wstring_from_utf8(ev.text.text);
 		for (size_t i = 0; i < wstr.length(); ++i)
 			g_Console->InsertChar(0, wstr[i]);
-		return IN_HANDLED;
+		return Input::Reaction::HANDLED;
 	}
 	// TODO: text editing events for IME support
 
 	if (ev.type != SDL_KEYDOWN && ev.type != SDL_KEYUP)
-		return IN_PASS;
+		return Input::Reaction::PASS;
 
 	int sym = ev.key.keysym.sym;
 
@@ -754,7 +754,7 @@ InReaction conInputHandler(const SDL_Event& ev)
 		!HotkeyIsPressed("console.toggle"))
 	{
 		g_Console->InsertChar(sym, 0);
-		return IN_HANDLED;
+		return Input::Reaction::HANDLED;
 	}
 
 	// We have a probably printable key - we should return HANDLED so it can't trigger hotkeys.
@@ -765,7 +765,7 @@ InReaction conInputHandler(const SDL_Event& ev)
 	if (EventWillFireHotkey(ev, "console.toggle") ||
 		g_scancodes[SDL_SCANCODE_LCTRL] || g_scancodes[SDL_SCANCODE_RCTRL] ||
 		g_scancodes[SDL_SCANCODE_LGUI] || g_scancodes[SDL_SCANCODE_RGUI])
-		return IN_PASS;
+		return Input::Reaction::PASS;
 
-	return IN_HANDLED;
+	return Input::Reaction::HANDLED;
 }

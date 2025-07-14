@@ -33,9 +33,11 @@
 #include "graphics/Terrain.h"
 #include "graphics/TerrainTextureManager.h"
 #include "graphics/TerritoryTexture.h"
+#include "graphics/Unit.h"
+#include "graphics/UnitManager.h"
 #include "lib/external_libraries/libsdl.h"
-#include "lib/input.h"
 #include "lib/posix/posix_types.h"
+#include "lib/timer.h"
 #include "lobby/XmppClient.h"
 #include "maths/BoundingBoxAligned.h"
 #include "maths/Frustum.h"
@@ -351,18 +353,18 @@ entity_id_t CGameView::GetFollowedEntity()
 	return m->CameraController->GetFollowedEntity();
 }
 
-InReaction game_view_handler(const SDL_Event& ev)
+Input::Reaction game_view_handler(const SDL_Event& ev)
 {
 	// put any events that must be processed even if inactive here
 	if (!g_app_has_focus || !g_Game || !g_Game->IsGameStarted() || g_Game->GetView()->GetCinema()->IsPlaying())
-		return IN_PASS;
+		return Input::Reaction::PASS;
 
 	CGameView *pView=g_Game->GetView();
 
 	return pView->HandleEvent(ev);
 }
 
-InReaction CGameView::HandleEvent(const SDL_Event& ev)
+Input::Reaction CGameView::HandleEvent(const SDL_Event& ev)
 {
 	switch(ev.type)
 	{
@@ -395,7 +397,7 @@ InReaction CGameView::HandleEvent(const SDL_Event& ev)
 				sceneRenderer.SetModelRenderMode(SOLID);
 				sceneRenderer.SetOverlayRenderMode(SOLID);
 			}
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 	}
 	}

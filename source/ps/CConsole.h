@@ -24,7 +24,7 @@
 
 #include "lib/code_annotation.h"
 #include "lib/file/vfs/vfs_path.h"
-#include "lib/input.h"
+#include "ps/Input.h"
 
 #include <cstddef>
 #include <deque>
@@ -34,7 +34,6 @@
 
 class CCanvas2D;
 class CTextRenderer;
-union SDL_Event;
 
 /**
  * In-game console.
@@ -137,6 +136,6 @@ private:
 
 extern CConsole* g_Console;
 
-extern InReaction conInputHandler(const SDL_Event& ev);
+extern Input::Reaction conInputHandler(const SDL_Event& ev);
 
 #endif // INCLUDED_CCONSOLE

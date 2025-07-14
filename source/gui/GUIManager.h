@@ -19,10 +19,10 @@
 #define INCLUDED_GUIMANAGER
 
 #include "lib/code_annotation.h"
-#include "lib/input.h"
 #include "lib/path.h"
 #include "lib/status.h"
 #include "ps/CStr.h"
+#include "ps/Input.h"
 #include "ps/TemplateLoader.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/StructuredClone.h"
@@ -43,7 +43,6 @@ class ScriptContext;
 namespace JS { class HandleValueArray; }
 namespace JS { class Value; }
 namespace PS { template <typename T, size_t N> class StaticVector; }
-union SDL_Event;
 
 /**
  * External interface to the GUI system.
@@ -99,7 +98,7 @@ public:
 	/**
 	 * Pass input events to the currently active GUI page.
 	 */
-	InReaction HandleEvent(const SDL_Event& ev);
+	Input::Reaction HandleEvent(const SDL_Event& ev);
 
 	/**
 	 * See CGUI::SendEventToAll; applies to the currently active page.
@@ -242,6 +241,6 @@ private:
 
 extern CGUIManager* g_GUI;
 
-extern InReaction gui_handler(const SDL_Event& ev);
+extern Input::Reaction gui_handler(const SDL_Event& ev);
 
 #endif // INCLUDED_GUIMANAGER

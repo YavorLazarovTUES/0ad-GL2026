@@ -18,7 +18,7 @@
 #ifndef INCLUDED_INPUT_HANDLER
 #define INCLUDED_INPUT_HANDLER
 
-#include "lib/input.h"
+#include "ps/Input.h"
 
 #include <array>
 #include <concepts>
@@ -29,10 +29,20 @@
 #include <type_traits>
 
 class ScriptRequest;
+union SDL_Event;
 
 namespace Input
 {
 class HandlerBase;
+
+enum class Reaction
+{
+	// Pass the event to the next handler in the chain.
+	PASS,
+
+	// We handled it. No other handlers will receive this event.
+	HANDLED
+};
 
 // A slot for each handler. Numbers are in invocation order. A handler can discard events. The first handler
 // is the only which gets all events.
@@ -152,7 +162,7 @@ protected:
 	HandlerBase& operator=(HandlerBase&&) = delete;
 
 public:
-	virtual InReaction operator()(const SDL_Event& event) = 0;
+	virtual Input::Reaction operator()(const SDL_Event& event) = 0;
 
 private:
 	// When the handler is destructed this position han to be changed to
@@ -177,7 +187,7 @@ public:
 	~Handler() final = default;
 
 private:
-	InReaction operator()(const SDL_Event& event) final
+	Input::Reaction operator()(const SDL_Event& event) final
 	{
 		return m_Callback(event);
 	}

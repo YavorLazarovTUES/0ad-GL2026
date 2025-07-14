@@ -21,6 +21,7 @@
 
 #include "gui/GUIManager.h"
 #include "lib/debug.h"
+#include "lib/external_libraries/libsdl.h"
 #include "lib/sysdep/os.h"
 #include "lib/timer.h"
 #include "ps/CLogger.h"
@@ -146,6 +147,7 @@ MESSAGEHANDLER(Shutdown)
 	g_AtlasGameLoop->view = AtlasView::GetView_None();
 	g_InputHandlers.reset();
 	ShutdownNetworkAndUI();
+	g_InputHandlers.reset();
 	g_ScriptInterface.reset();
 	ShutdownConfigAndSubsequent();
 	g_FileLogger.reset();

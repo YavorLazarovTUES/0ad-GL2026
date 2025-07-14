@@ -25,6 +25,10 @@
 #include <SDL_events.h>
 #include <SDL_video.h>
 #include <cstddef>
+#include "network/NetClient.h"
+#include "ps/GameSetup/Config.h"
+#include "ps/Input.h"
+#include "soundmanager/ISoundManager.h"
 
 bool g_app_minimized = false;
 bool g_app_has_focus = true;
@@ -40,7 +44,7 @@ bool g_mouse_buttons[MOUSE_LAST - MOUSE_BASE] = {0};
 PIFrequencyFilter g_frequencyFilter;
 
 // updates the state of the above; never swallows messages.
-InReaction GlobalsInputHandler(const SDL_Event& ev)
+Input::Reaction GlobalsInputHandler(const SDL_Event& ev)
 {
 	size_t c;
 
@@ -69,12 +73,12 @@ InReaction GlobalsInputHandler(const SDL_Event& ev)
 			g_mouse_active = false;
 			break;
 		}
-		return IN_PASS;
+		return Input::Reaction::PASS;
 
 	case SDL_MOUSEMOTION:
 		g_mouse_x = ev.motion.x;
 		g_mouse_y = ev.motion.y;
-		return IN_PASS;
+		return Input::Reaction::PASS;
 
 	case SDL_MOUSEBUTTONDOWN:
 	case SDL_MOUSEBUTTONUP:
@@ -86,15 +90,15 @@ InReaction GlobalsInputHandler(const SDL_Event& ev)
 			// don't complain: just ignore people with too many mouse buttons
 			//debug_warn(L"invalid mouse button");
 		}
-		return IN_PASS;
+		return Input::Reaction::PASS;
 
 	case SDL_KEYDOWN:
 	case SDL_KEYUP:
 		g_scancodes[ev.key.keysym.scancode] = (ev.type == SDL_KEYDOWN);
-		return IN_PASS;
+		return Input::Reaction::PASS;
 
 	default:
-		return IN_PASS;
+		return Input::Reaction::PASS;
 	}
 
 	UNREACHABLE;
