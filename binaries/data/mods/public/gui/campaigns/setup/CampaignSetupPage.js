@@ -4,15 +4,21 @@
  */
 class CampaignSetupPage extends AutoWatcher
 {
-	constructor()
+	constructor(closePageCallback)
 	{
 		super("render");
 
 		this.selectedIndex = -1;
 		this.templates = CampaignTemplate.getAvailableTemplates();
 
-		Engine.GetGUIObjectByName("mainMenuButton").onPress = () => Engine.SwitchGuiPage("page_pregame.xml");
-		Engine.GetGUIObjectByName("startCampButton").onPress = () => Engine.OpenChildPage("campaigns/new_modal/page.xml", this.selectedTemplate);
+		Engine.GetGUIObjectByName("mainMenuButton").onPress = closePageCallback.bind(undefined,
+			{ [Engine.openRequest]: { "page": "page_pregame.xml" } });
+		Engine.GetGUIObjectByName("startCampButton").onPress = async() =>
+		{
+			const ret = await Engine.OpenChildPage("campaigns/new_modal/page.xml", this.selectedTemplate);
+			if (ret !== undefined)
+				closePageCallback({ [Engine.openRequest]: ret });
+		};
 
 		this.campaignSelection = Engine.GetGUIObjectByName("campaignSelection");
 		this.campaignSelection.onMouseLeftDoubleClickItem = () =>
@@ -69,5 +75,8 @@ var g_CampaignSetupPage;
 
 function init()
 {
-	g_CampaignSetupPage = new CampaignSetupPage();
+	return new Promise(closePageCallback =>
+	{
+		g_CampaignSetupPage = new CampaignSetupPage(closePageCallback);
+	});
 }

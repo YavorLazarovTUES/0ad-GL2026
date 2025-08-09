@@ -32,14 +32,16 @@ class BrokenRun
  */
 class LoadModal extends AutoWatcher
 {
-	constructor(campaignTemplate)
+	constructor(closePageCallback)
 	{
 		super("render");
 
 		// _watch so render() is called anytime currentRuns are modified.
 		this.currentRuns = _watch(this.getRuns(), () => this.render());
 
-		Engine.GetGUIObjectByName('cancelButton').onPress = () => Engine.SwitchGuiPage("page_pregame.xml", {});
+		Engine.GetGUIObjectByName('cancelButton').onPress = closePageCallback.bind(undefined, {
+			[Engine.openRequest]: { "page": "page_pregame.xml" }
+		});
 		Engine.GetGUIObjectByName('deleteGameButton').onPress = () => this.deleteSelectedRun();
 		Engine.GetGUIObjectByName('startButton').onPress = () => this.startSelectedRun();
 
@@ -81,16 +83,19 @@ class LoadModal extends AutoWatcher
 		return out;
 	}
 
-	loadCampaign()
+	loadCampaign(closePageCallback)
 	{
 		const filename = this.currentRuns[this.selectedRun].filename;
 		const run = new CampaignRun(filename)
 			.load()
 			.setCurrent();
 
-		Engine.SwitchGuiPage(run.getMenuPath(), {
-			"filename": run.filename
-		});
+		closePageCallback({ [Engine.openRequest]: {
+			"page": run.getMenuPath(),
+			"argument": {
+				"filename": run.filename
+			}
+		} });
 	}
 
 	async deleteSelectedRun()
@@ -112,10 +117,10 @@ class LoadModal extends AutoWatcher
 		this.selectedRun = -1;
 	}
 
-	startSelectedRun()
+	startSelectedRun(closePageCallback)
 	{
 		if (this.currentRuns[this.selectedRun] instanceof CampaignRun)
-			this.loadCampaign();
+			this.loadCampaign(closePageCallback);
 	}
 
 	displayCurrentRuns()
@@ -138,5 +143,5 @@ var g_LoadModal;
 
 function init()
 {
-	g_LoadModal = new LoadModal();
+	return new Promise(closePageCallback => { g_LoadModal = new LoadModal(closePageCallback); });
 }
