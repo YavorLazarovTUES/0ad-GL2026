@@ -4,12 +4,15 @@
  */
 class NetworkStatusOverlay
 {
-	constructor()
+	constructor(closePageCallback)
 	{
 		this.netStatus = Engine.GetGUIObjectByName("netStatus");
 		this.loadingClientsText = Engine.GetGUIObjectByName("loadingClientsText");
 
-		Engine.GetGUIObjectByName("disconnectedExitButton").onPress = () => { endGame(true); };
+		Engine.GetGUIObjectByName("disconnectedExitButton").onPress = () =>
+		{
+			closePageCallback({ [Engine.openRequest]: endGame(true) });
+		};
 
 		registerNetworkStatusChangeHandler(this.onNetStatusMessage.bind(this));
 		registerClientsLoadingHandler(this.onClientsLoadingMessage.bind(this));

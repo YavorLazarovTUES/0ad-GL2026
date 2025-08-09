@@ -3,10 +3,10 @@
  */
 class QuitConfirmationReplay extends QuitConfirmation
 {
-	constructor()
+	constructor(closePageCallback)
 	{
 		super();
-		Engine.GetGUIObjectByName("session").onReplayFinished = this.display.bind(this);
+		Engine.GetGUIObjectByName("session").onReplayFinished = this.display.bind(this, closePageCallback);
 	}
 }
 
@@ -26,11 +26,11 @@ QuitConfirmationReplay.prototype.Buttons =
 		{
 		// Translation: Shown in the Dialog that shows up when a replay finishes
 			"caption": translate("Quit and View Summary"),
-			"onPress": () => { endGame(true); }
+			"onPress": () => endGame(true)
 		},
 		{
 		// Translation: Shown in the Dialog that shows up when a replay finishes
 			"caption": translate("Quit"),
-			"onPress": () => { endGame(false); }
+			"onPress": () => endGame(false)
 		}
 	];

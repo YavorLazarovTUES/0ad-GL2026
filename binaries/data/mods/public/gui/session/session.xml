@@ -31,10 +31,6 @@
 		restoreSavedGameData(arguments[0]);
 	</action>
 
-	<action on="SimulationUpdate">
-		onSimulationUpdate();
-	</action>
-
 	<object name="primaryOverlays">
 		<!-- Chat messages -->
 		<object name="chatPanel" size="3 131 100% 100%-240" z="0" absolute="true">

@@ -252,13 +252,12 @@ function GetTechnologyData(technologyName, civ)
 	return g_TechnologyData[civ][technologyName];
 }
 
-function init(initData, hotloadData)
+async function init(initData, hotloadData)
 {
 	if (!g_Settings)
 	{
 		Engine.EndGame();
-		Engine.SwitchGuiPage("page_pregame.xml");
-		return undefined;
+		return { [Engine.openRequest]: { "page": "page_pregame.xml" } };
 	}
 
 	// Fallback used by atlas
@@ -289,8 +288,6 @@ function init(initData, hotloadData)
 	g_DiplomacyColors.registerDiplomacyColorsChangeHandler(updateGUIObjects);
 	g_PauseControl = new PauseControl();
 	g_PlayerViewControl.registerPreViewedPlayerChangeHandler(removeStatusBarDisplay);
-	g_PlayerViewControl.registerViewedPlayerChangeHandler(resetTemplates);
-
 	g_Ambient = new Ambient();
 	g_AutoFormation = new AutoFormation();
 	g_Chat = new Chat(g_PlayerViewControl, g_Cheats);
@@ -299,16 +296,12 @@ function init(initData, hotloadData)
 	g_DiplomacyDialog = new DiplomacyDialog(g_PlayerViewControl, g_DiplomacyColors);
 	g_GameSpeedControl = new GameSpeedControl(g_PlayerViewControl);
 	g_MatchSettingsDialog = new MatchSettingsDialog(g_PlayerViewControl, mapCache);
-	g_Menu = new Menu(g_PauseControl, g_PlayerViewControl, g_Chat);
 	g_MiniMapPanel = new MiniMapPanel(g_PlayerViewControl, g_DiplomacyColors, g_WorkerTypes);
-	g_NetworkStatusOverlay = new NetworkStatusOverlay();
 	g_NetworkDelayOverlay = new NetworkDelayOverlay();
 	g_OutOfSyncNetwork = new OutOfSyncNetwork();
 	g_OutOfSyncReplay = new OutOfSyncReplay();
 	g_PanelEntityManager = new PanelEntityManager(g_PlayerViewControl, g_Selection, g_PanelEntityOrder);
 	g_PauseOverlay = new PauseOverlay(g_PauseControl);
-	g_QuitConfirmationDefeat = new QuitConfirmationDefeat();
-	g_QuitConfirmationReplay = new QuitConfirmationReplay();
 	g_RangeOverlayManager = new RangeOverlayManager(g_Selection);
 	g_ResearchProgress = new ResearchProgress(g_PlayerViewControl, g_Selection);
 	g_TradeDialog = new TradeDialog(g_PlayerViewControl);
@@ -324,6 +317,21 @@ function init(initData, hotloadData)
 	initializeMusic(); // before changing the perspective
 	Engine.SetBoundingBoxDebugOverlay(false);
 
+	const promise = Promise.race([g_IsNetworked ? handleNetMessages() : new Promise(() => {}),
+		new Promise(closePageCallback =>
+		{
+			g_PlayerViewControl.registerViewedPlayerChangeHandler(resetTemplates.bind(undefined,
+				closePageCallback));
+			g_Menu = new Menu(g_PauseControl, g_PlayerViewControl, g_Chat, closePageCallback);
+			g_NetworkStatusOverlay = new NetworkStatusOverlay(closePageCallback);
+			g_QuitConfirmationDefeat = new QuitConfirmationDefeat(closePageCallback);
+			g_QuitConfirmationReplay = new QuitConfirmationReplay(closePageCallback);
+			// TODO: use event instead
+			onSimulationUpdate(closePageCallback);
+			Engine.GetGUIObjectByName("session").onSimulationUpdate =
+				onSimulationUpdate.bind(undefined, closePageCallback);
+		})]);
+
 	for (const handler of g_PlayersInitHandlers)
 		handler();
 
@@ -337,12 +345,9 @@ function init(initData, hotloadData)
 		g_Players = hotloadData.player;
 	}
 
-	// TODO: use event instead
-	onSimulationUpdate();
-
 	setTimeout(displayGamestateNotifications, 1000);
 
-	return g_IsNetworked ? handleNetMessages() : new Promise(() => {});
+	return promise;
 }
 
 function registerPlayersInitHandler(handler)
@@ -448,14 +453,14 @@ function initializeMusic()
 	global.music.setState(global.music.states.PEACE);
 }
 
-function resetTemplates()
+function resetTemplates(closePageCallback)
 {
 	// Update GUI and clear player-dependent cache
 	g_TemplateData = {};
 	Engine.GuiInterfaceCall("ResetTemplateModified");
 
 	// TODO: do this more selectively
-	onSimulationUpdate();
+	onSimulationUpdate(closePageCallback);
 }
 
 /**
@@ -560,23 +565,22 @@ function endGame(showSummary)
 		const menu = g_CampaignSession.getMenu();
 		if (g_InitAttributes.campaignData.skipSummary)
 		{
-			Engine.SwitchGuiPage(menu);
-			return;
+			return { "page": menu };
 		}
 		summaryData.campaignData = { "filename": g_InitAttributes.campaignData.run };
 		summaryData.nextPage = menu;
 	}
 
 	if (showSummary)
-		Engine.SwitchGuiPage("page_summary.xml", summaryData);
-	else if (g_InitAttributes.campaignData)
-		Engine.SwitchGuiPage(summaryData.nextPage, summaryData.campaignData);
-	else if (Engine.HasXmppClient())
-		Engine.SwitchGuiPage("page_lobby.xml", { "dialog": false });
-	else if (g_IsReplay)
-		Engine.SwitchGuiPage("page_replaymenu.xml");
-	else
-		Engine.SwitchGuiPage("page_pregame.xml");
+		return { "page": "page_summary.xml", "argument": summaryData };
+	if (g_InitAttributes.campaignData)
+		return { "page": summaryData.nextPage, "argument": summaryData.campaignData };
+	if (Engine.HasXmppClient())
+		return { "page": "page_lobby.xml", "argument": { "dialog": false } };
+	if (g_IsReplay)
+		return { "page": "page_replaymenu.xml" };
+
+	return { "page": "page_pregame.xml" };
 }
 
 // Return some data that we'll use when hotloading this file after changes
@@ -654,7 +658,7 @@ function onTick()
 	Engine.GuiInterfaceCall("ClearRenamedEntities");
 }
 
-function onSimulationUpdate()
+function onSimulationUpdate(closePageCallback)
 {
 	// Templates change depending on technologies and auras, so they have to be reloaded after such a change.
 	// g_TechnologyData data never changes, so it shouldn't be deleted.
@@ -682,7 +686,7 @@ function onSimulationUpdate()
 		handler();
 
 	// TODO: Move to handlers
-	handleNotifications();
+	handleNotifications(closePageCallback);
 	updateGUIObjects();
 }
 

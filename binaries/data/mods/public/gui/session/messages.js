@@ -335,7 +335,7 @@ function findGuidForPlayerID(playerID)
 /**
  * Processes all pending notifications sent from the GUIInterface simulation component.
  */
-function handleNotifications()
+function handleNotifications(closePageCallback)
 {
 	for (const notification of Engine.GuiInterfaceCall("GetNotifications"))
 	{
@@ -346,7 +346,7 @@ function handleNotifications()
 		}
 
 		for (const player of notification.players)
-			g_NotificationsTypes[notification.type](notification, player);
+			g_NotificationsTypes[notification.type](notification, player, closePageCallback);
 	}
 }
 
@@ -374,7 +374,7 @@ function toggleTutorial()
 /**
  * Updates the tutorial panel when a new goal.
  */
-function updateTutorial(notification)
+function updateTutorial(notification, closePageCallback)
 {
 	// Show the tutorial panel if not yet done
 	Engine.GetGUIObjectByName("tutorialPanel").hidden = false;
@@ -400,7 +400,11 @@ function updateTutorial(notification)
 		{
 			Engine.GetGUIObjectByName("tutorialWarning").caption = translate("Click to quit this tutorial.");
 			Engine.GetGUIObjectByName("tutorialReady").caption = translate("Quit");
-			Engine.GetGUIObjectByName("tutorialReady").onPress = () => { endGame(true); };
+
+			Engine.GetGUIObjectByName("tutorialReady").onPress = () =>
+			{
+				closePageCallback({ [Engine.openRequest]: endGame(true) });
+			};
 		}
 		else
 			Engine.GetGUIObjectByName("tutorialWarning").caption = translate("Click when ready.");
