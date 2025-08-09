@@ -135,23 +135,30 @@ var g_SelectedChart = {
 	"type": [0, 0]
 };
 
-async function init(data)
+function init(data)
 {
 	initSummaryData(data);
 	initGUISummary();
 
-	while (true)
+	return new Promise(closePageCallback =>
 	{
-		const branchless = await new Promise(resolve =>
+		const onClick = branchless =>
 		{
-			Engine.GetGUIObjectByName("continueButton").onPress = resolve.bind(null, true);
-			Engine.GetGUIObjectByName("summaryHotkey").onPress = resolve.bind(null, true);
-			Engine.GetGUIObjectByName("cancelHotkey").onPress = resolve.bind(null, false);
-		});
-
-		if (branchless || data.gui.isInGame)
-			return continueButton(data);
-	}
+			if (branchless === undefined)
+			{
+				const pageRequest = startReplay();
+				if (pageRequest !== undefined)
+					closePageCallback(pageRequest);
+				return;
+			}
+			if (branchless || data.gui.isInGame)
+				closePageCallback(continueButton(data));
+		};
+		Engine.GetGUIObjectByName("continueButton").onPress = onClick.bind(null, true);
+		Engine.GetGUIObjectByName("summaryHotkey").onPress = onClick.bind(null, true);
+		Engine.GetGUIObjectByName("cancelHotkey").onPress = onClick.bind(null, false);
+		Engine.GetGUIObjectByName("replayButton").onPress = onClick;
+	});
 }
 
 function initSummaryData(data)
@@ -472,19 +479,23 @@ function continueButton(gameData)
 		};
 	if (gameData.gui.dialog)
 		return undefined;
-	else if (Engine.HasXmppClient())
-		Engine.SwitchGuiPage("page_lobby.xml", { "dialog": false });
-	else if (gameData.gui.isReplay)
-		Engine.SwitchGuiPage("page_replaymenu.xml", {
-			"replaySelectionData": gameData.gui.replaySelectionData,
-			"summarySelection": summarySelection
-		});
-	else if (gameData.campaignData)
-		Engine.SwitchGuiPage(gameData.nextPage, gameData.campaignData);
-	else
-		Engine.SwitchGuiPage("page_pregame.xml");
+	if (Engine.HasXmppClient())
+		return { [Engine.openRequest]: { "page": "page_lobby.xml", "argument": { "dialog": false } } };
+	if (gameData.gui.isReplay)
+		return { [Engine.openRequest]: {
+			"page": "page_replaymenu.xml",
+			"argument": {
+				"replaySelectionData": gameData.gui.replaySelectionData,
+				"summarySelection": summarySelection
+			}
+		} };
+	if (gameData.campaignData)
+		return { [Engine.openRequest]: {
+			"page": gameData.nextPage,
+			"argument": gameData.campaignData
+		} };
 
-	return undefined;
+	return { [Engine.openRequest]: { "page": "page_pregame.xml" } };
 }
 
 function startReplay()
@@ -492,21 +503,24 @@ function startReplay()
 	if (!Engine.StartVisualReplay(g_GameData.gui.replayDirectory))
 	{
 		warn("Replay file not found!");
-		return;
+		return undefined;
 	}
 
-	Engine.SwitchGuiPage("page_loading.xml", {
-		"attribs": Engine.GetReplayAttributes(g_GameData.gui.replayDirectory),
-		"playerAssignments": {
-			"local": {
-				"name": singleplayerName(),
-				"player": -1
-			}
-		},
-		"savedGUIData": "",
-		"isReplay": true,
-		"replaySelectionData": g_GameData.gui.replaySelectionData
-	});
+	return { [Engine.openRequest]: {
+		"page": "page_loading.xml",
+		"argument": {
+			"attribs": Engine.GetReplayAttributes(g_GameData.gui.replayDirectory),
+			"playerAssignments": {
+				"local": {
+					"name": singleplayerName(),
+					"player": -1
+				}
+			},
+			"savedGUIData": "",
+			"isReplay": true,
+			"replaySelectionData": g_GameData.gui.replaySelectionData
+		}
+	} };
 }
 
 function initGUILabels()
