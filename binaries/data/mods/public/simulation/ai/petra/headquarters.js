@@ -131,8 +131,11 @@ Headquarters.prototype.checkEvents = function(gameState, events)
 {
 	this.buildManager.checkEvents(gameState, events);
 
-	if (events.TerritoriesChanged.length || events.DiplomacyChanged.length)
+	if (events.TerritoriesChanged.length || events.DiplomacyChanged.length ||
+		events.ConstructionFinished.length)
+	{
 		this.updateTerritories(gameState);
+	}
 
 	for (const evt of events.DiplomacyChanged)
 	{
