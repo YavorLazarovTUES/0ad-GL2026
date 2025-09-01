@@ -130,12 +130,7 @@ Headquarters.prototype.getSeaBetweenIndices = function(gameState, index1, index2
 Headquarters.prototype.checkEvents = function(gameState, events)
 {
 	this.buildManager.checkEvents(gameState, events);
-
-	if (events.TerritoriesChanged.length || events.DiplomacyChanged.length ||
-		events.ConstructionFinished.length)
-	{
-		this.updateTerritories(gameState);
-	}
+	this.updateTerritories(gameState);
 
 	for (const evt of events.DiplomacyChanged)
 	{
