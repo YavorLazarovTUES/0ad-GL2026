@@ -130,6 +130,7 @@ BasesManager.prototype.createBase = function(gameState, ent, type = BaseManager.
 /** TODO check if the new anchorless bases should be added to addBase */
 BasesManager.prototype.checkEvents = function(gameState, events)
 {
+	this.turnCache = {};
 	let addBase = false;
 
 	for (const evt of events.Destroy)
@@ -760,7 +761,6 @@ BasesManager.prototype.update = function(gameState, queues, events)
 {
 	Engine.ProfileStart("BasesManager update");
 
-	this.turnCache = {};
 	this.assignGatherers();
 	let nbBases = this.baseManagers.length;
 	let activeBase = false;
