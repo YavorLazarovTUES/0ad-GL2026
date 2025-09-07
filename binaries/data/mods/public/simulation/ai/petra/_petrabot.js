@@ -92,14 +92,14 @@ PetraBot.prototype.OnUpdate = function(sharedScript)
 	if (this.gameFinished || this.gameState.playerData.state == "defeated")
 		return;
 
-	for (const i in this.events)
+	for (const i in sharedScript.events)
 	{
 		if (i == "AIMetadata")   // not used inside petra
 			continue;
 		if (this.savedEvents[i] !== undefined)
-			this.savedEvents[i] = this.savedEvents[i].concat(this.events[i]);
+			this.savedEvents[i] = this.savedEvents[i].concat(sharedScript.events[i]);
 		else
-			this.savedEvents[i] = this.events[i];
+			this.savedEvents[i] = sharedScript.events[i];
 	}
 
 	// Run the update every n turns, offset depending on player ID to balance the load

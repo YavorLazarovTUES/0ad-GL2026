@@ -49,7 +49,6 @@ BaseAI.prototype.CustomInit = function()
 BaseAI.prototype.HandleMessage = function(state, playerID, sharedAI)
 {
 	PlayerID = playerID;
-	this.events = sharedAI.events;
 	this.territoryMap = sharedAI.territoryMap;
 
 	if (this.isDeserialized)
