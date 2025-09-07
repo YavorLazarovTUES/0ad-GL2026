@@ -9,6 +9,8 @@ export function PetraBot(settings)
 {
 	BaseAI.call(this, settings);
 
+	// played turn, because Petra doesn't play every turn.
+	this.turn = 0;
 	this.playedTurn = 0;
 	this.elapsedTime = 0;
 

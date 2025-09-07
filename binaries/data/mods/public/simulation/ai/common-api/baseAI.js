@@ -6,9 +6,6 @@ export function BaseAI(settings)
 		return;
 
 	this.player = settings.player;
-
-	// played turn, in case you don't want the AI to play every turn.
-	this.turn = 0;
 }
 
 /** Return a simple object (using no classes etc) that will be serialized into saved games */
