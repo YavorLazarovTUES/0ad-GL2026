@@ -20,7 +20,6 @@ BaseAI.prototype.Serialize = function()
  */
 BaseAI.prototype.Deserialize = function(data, sharedScript)
 {
-	this.isDeserialized = true;
 };
 
 BaseAI.prototype.Init = function(state, playerID, sharedAI)
@@ -47,12 +46,6 @@ BaseAI.prototype.HandleMessage = function(state, playerID, sharedAI)
 {
 	PlayerID = playerID;
 	this.territoryMap = sharedAI.territoryMap;
-
-	if (this.isDeserialized)
-	{
-		this.Init(state, playerID, sharedAI);
-		this.isDeserialized = false;
-	}
 	this.OnUpdate(sharedAI);
 };
 
