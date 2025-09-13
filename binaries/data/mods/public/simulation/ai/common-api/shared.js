@@ -237,9 +237,6 @@ SharedScript.prototype.ApplyEntitiesDelta = function(state)
 
 	for (const evt of state.events.Destroy)
 	{
-		if (!this._entities.has(evt.entity))
-			continue;// probably should remove the event.
-
 		if (foundationFinished[evt.entity])
 			evt.SuccessfulFoundation = true;
 
@@ -251,9 +248,12 @@ SharedScript.prototype.ApplyEntitiesDelta = function(state)
 			evt.metadata[player] = this._entityMetadata[player][evt.entity];
 
 		const entity = this._entities.get(evt.entity);
-		for (const entCol of this._entityCollections.values())
-			entCol.removeEnt(entity);
-		this.entities.removeEnt(entity);
+		if (entity)
+		{
+			for (const entCol of this._entityCollections.values())
+				entCol.removeEnt(entity);
+			this.entities.removeEnt(entity);
+		}
 
 		this._entities.delete(evt.entity);
 		this._entitiesModifications.delete(evt.entity);
