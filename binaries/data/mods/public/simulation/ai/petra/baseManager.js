@@ -135,7 +135,7 @@ BaseManager.prototype.setAnchor = function(gameState, anchorEntity)
 };
 
 /* we lost our anchor. Let's reassign our units and buildings */
-BaseManager.prototype.anchorLost = function(gameState, ent)
+BaseManager.prototype.anchorLost = function(gameState)
 {
 	this.anchor = undefined;
 	this.anchorId = undefined;
@@ -255,25 +255,27 @@ BaseManager.prototype.assignResourceToDropsite = function(gameState, dropsite, d
 	});
 };
 
-BaseManager.prototype.removeFromAssignedDropsite = function(ent)
+BaseManager.prototype.removeFromAssignedDropsite = function(entityID)
 {
 	for (const type in this.dropsiteSupplies)
 		for (const proxim in this.dropsiteSupplies[type])
 		{
 			const resourcesList = this.dropsiteSupplies[type][proxim];
 			for (let i = 0; i < resourcesList.length; ++i)
-				if (resourcesList[i].id === ent.id())
+			{
+				if (resourcesList[i].id === entityID)
 					resourcesList.splice(i--, 1);
+			}
 		}
 };
 
 // completely remove the dropsite resources from our list.
-BaseManager.prototype.removeDropsite = function(gameState, ent)
+BaseManager.prototype.removeDropsite = function(gameState, entityID)
 {
-	if (!ent.id())
+	if (!entityID)
 		return;
 
-	const removeSupply = function(entId, supply)
+	const removeSupply = function(supply)
 	{
 		for (let i = 0; i < supply.length; ++i)
 		{
@@ -281,19 +283,19 @@ BaseManager.prototype.removeDropsite = function(gameState, ent)
 			if (!supply[i].ent || !gameState.getEntityById(supply[i].id))
 				supply.splice(i--, 1);
 			// resource assigned to the removed dropsite, remove it
-			else if (supply[i].dropsite == entId)
+			else if (supply[i].dropsite == entityID)
 				supply.splice(i--, 1);
 		}
 	};
 
 	for (const type in this.dropsiteSupplies)
 	{
-		removeSupply(ent.id(), this.dropsiteSupplies[type].nearby);
-		removeSupply(ent.id(), this.dropsiteSupplies[type].medium);
-		removeSupply(ent.id(), this.dropsiteSupplies[type].faraway);
+		removeSupply(this.dropsiteSupplies[type].nearby);
+		removeSupply(this.dropsiteSupplies[type].medium);
+		removeSupply(this.dropsiteSupplies[type].faraway);
 	}
 
-	this.dropsites[ent.id()] = undefined;
+	this.dropsites[entityID] = undefined;
 };
 
 /**
@@ -1075,7 +1077,7 @@ BaseManager.prototype.update = function(gameState, queues, events)
 					continue;
 				}
 				if (ent.resourceDropsiteTypes())
-					this.removeDropsite(gameState, ent);
+					this.removeDropsite(gameState, ent.id());
 				bestBase.assignEntity(gameState, ent);
 			}
 		}
@@ -1125,7 +1127,7 @@ BaseManager.prototype.update = function(gameState, queues, events)
 			for (const ent of this.buildings.values())
 			{
 				if (ent.resourceDropsiteTypes())
-					this.removeDropsite(gameState, ent);
+					this.removeDropsite(gameState, ent.id());
 				reassignedBase.assignEntity(gameState, ent);
 			}
 			return false;

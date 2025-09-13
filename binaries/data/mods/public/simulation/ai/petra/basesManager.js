@@ -140,7 +140,10 @@ BasesManager.prototype.checkEvents = function(gameState, events)
 		{
 			const ent = evt.entityObj;
 			if (evt?.metadata?.[PlayerID]?.assignedResource)
-				this.getBaseByID(evt.metadata[PlayerID].base).removeFromAssignedDropsite(ent);
+			{
+				this.getBaseByID(evt.metadata[PlayerID].base)
+					.removeFromAssignedDropsite(evt.entity);
+			}
 			if (ent.owner() != PlayerID)
 				continue;
 			// A new base foundation was created and destroyed on the same (AI) turn
@@ -148,9 +151,9 @@ BasesManager.prototype.checkEvents = function(gameState, events)
 				continue;
 			const base = this.getBaseByID(evt.metadata[PlayerID].base);
 			if (ent.resourceDropsiteTypes() && ent.hasClass("Structure"))
-				base.removeDropsite(gameState, ent);
+				base.removeDropsite(gameState, evt.entity);
 			if (evt.metadata[PlayerID].baseAnchor && evt.metadata[PlayerID].baseAnchor === true)
-				base.anchorLost(gameState, ent);
+				base.anchorLost(gameState);
 		}
 	}
 
@@ -257,9 +260,9 @@ BasesManager.prototype.checkEvents = function(gameState, events)
 				continue;
 			const base = this.getBaseByID(ent.getMetadata(PlayerID, "base"));
 			if (ent.resourceDropsiteTypes() && ent.hasClass("Structure"))
-				base.removeDropsite(gameState, ent);
+				base.removeDropsite(gameState, ent.id());
 			if (ent.getMetadata(PlayerID, "baseAnchor") === true)
-				base.anchorLost(gameState, ent);
+				base.anchorLost(gameState);
 		}
 
 		if (evt.to != PlayerID)
