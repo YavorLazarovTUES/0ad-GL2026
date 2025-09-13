@@ -135,23 +135,18 @@ BasesManager.prototype.checkEvents = function(gameState, events)
 	for (const evt of events.Destroy)
 	{
 		// Let's check we haven't lost an important building here.
-		if (evt && !evt.SuccessfulFoundation && evt.entityObj && evt.metadata && evt.metadata[PlayerID] &&
-			evt.metadata[PlayerID].base)
+		if (evt && !evt.SuccessfulFoundation && evt.metadata?.[PlayerID]?.base)
 		{
-			const ent = evt.entityObj;
 			if (evt?.metadata?.[PlayerID]?.assignedResource)
 			{
 				this.getBaseByID(evt.metadata[PlayerID].base)
 					.removeFromAssignedDropsite(evt.entity);
 			}
-			if (ent.owner() != PlayerID)
-				continue;
 			// A new base foundation was created and destroyed on the same (AI) turn
 			if (evt.metadata[PlayerID].base == -1 || evt.metadata[PlayerID].base == -2)
 				continue;
 			const base = this.getBaseByID(evt.metadata[PlayerID].base);
-			if (ent.resourceDropsiteTypes() && ent.hasClass("Structure"))
-				base.removeDropsite(gameState, evt.entity);
+			base.removeDropsite(gameState, evt.entity);
 			if (evt.metadata[PlayerID].baseAnchor && evt.metadata[PlayerID].baseAnchor === true)
 				base.anchorLost(gameState);
 		}

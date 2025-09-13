@@ -563,10 +563,9 @@ DefenseArmy.prototype.checkEvents = function(gameState, events)
 
 	for (const evt of events.Destroy)
 	{
-		const entityObj = evt.entityObj || undefined;
 		// we may have capture+destroy, so do not trust owner and check all possibilities
-		this.removeOwn(gameState, evt.entity, entityObj);
-		this.removeFoe(gameState, evt.entity, entityObj);
+		this.removeOwn(gameState, evt.entity);
+		this.removeFoe(gameState, evt.entity);
 	}
 };
 

@@ -288,15 +288,14 @@ NavalManager.prototype.checkEvents = function(gameState, queues, events)
 
 	for (const evt of events.Destroy)
 	{
-		if (!evt.entityObj || evt.entityObj.owner() !== PlayerID || !evt.metadata || !evt.metadata[PlayerID])
+		const transporter = evt.metadata?.[PlayerID]?.transporter;
+		if (!transporter)
 			continue;
-		if (!evt.entityObj.hasClass("Ship") || !evt.metadata[PlayerID].transporter)
-			continue;
-		const plan = this.getPlan(evt.metadata[PlayerID].transporter);
+		const plan = this.getPlan(transporter);
 		if (!plan)
 			continue;
 
-		const shipId = evt.entityObj.id();
+		const shipId = evt.entity;
 		if (this.Config.debug > 1)
 		{
 			aiWarn("one ship " + shipId + " from plan " + plan.ID + " destroyed during " +

@@ -40,14 +40,11 @@ PetraBot.prototype.CustomInit = function(gameState)
 		{
 			for (const i in this.savedEvents[key])
 			{
-				if (!this.savedEvents[key][i].entityObj)
-					continue;
 				const evt = this.savedEvents[key][i];
 				const evtmod = {};
 				for (const keyevt in evt)
 				{
 					evtmod[keyevt] = evt[keyevt];
-					evtmod.entityObj = new Entity(gameState.sharedScript, evt.entityObj);
 					this.savedEvents[key][i] = evtmod;
 				}
 			}
@@ -143,13 +140,13 @@ PetraBot.prototype.Serialize = function()
 		savedEvents[key] = this.savedEvents[key].slice();
 		for (const i in savedEvents[key])
 		{
-			if (!savedEvents[key][i] || !savedEvents[key][i].entityObj)
+			if (!savedEvents[key][i])
 				continue;
 			const evt = savedEvents[key][i];
 			const evtmod = {};
 			for (const keyevt in evt)
 				evtmod[keyevt] = evt[keyevt];
-			evtmod.entityObj = evt.entityObj._entity;
+			evtmod.entityObj = undefined;
 			savedEvents[key][i] = evtmod;
 		}
 	}
