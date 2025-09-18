@@ -104,7 +104,6 @@ Headquarters.prototype.init = function(gameState, queues)
 Headquarters.prototype.postinit = function(gameState)
 {
 	this.basesManager.postinit(gameState);
-	this.updateTerritories(gameState);
 };
 
 /**
