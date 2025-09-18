@@ -659,8 +659,15 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 		{
 			CReplayPlayer replay;
 			replay.Load(replayFile);
+			const int serializationTestTurn{[&] {
+				if (!args.Has("serializationtest"))
+					return -1;
+
+				const CStr str{args.Get("serializationtest")};
+				return str.empty() ? 0 : str.ToInt();
+			}()};
 			replay.Replay(
-				args.Has("serializationtest"),
+				serializationTestTurn,
 				args.Has("rejointest") ? args.Get("rejointest").ToInt() : -1,
 				args.Has("ooslog"),
 				!args.Has("hashtest-full") || args.Get("hashtest-full") == "true",

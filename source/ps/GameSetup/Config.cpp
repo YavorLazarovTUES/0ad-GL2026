@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -91,7 +91,10 @@ static void ProcessCommandLineArgs(const CmdLineArgs& args)
 		g_ConfigDB.SetValueString(CFG_COMMAND, "ooslog", "true");
 
 	if (args.Has("serializationtest"))
-		g_ConfigDB.SetValueString(CFG_COMMAND, "serializationtest", "true");
+	{
+		const CStr str{args.Get("serializationtest")};
+		g_ConfigDB.SetValueString(CFG_COMMAND, "serializationtest", str.empty() ? "0" : str);
+	}
 
 	if (args.Has("rejointest"))
 		g_ConfigDB.SetValueString(CFG_COMMAND, "rejointest", args.Get("rejointest"));

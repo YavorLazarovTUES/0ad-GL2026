@@ -191,7 +191,8 @@ void CheckReplayMods(const std::vector<Mod::ModData>& replayMods)
 }
 } // anonymous namespace
 
-void CReplayPlayer::Replay(const bool serializationtest, const int rejointestturn, const bool ooslog, const bool testHashFull, const bool testHashQuick)
+void CReplayPlayer::Replay(const int serializationtestturn, const int rejointestturn, const bool ooslog,
+	const bool testHashFull, const bool testHashQuick)
 {
 	ENSURE(m_Stream);
 
@@ -249,12 +250,15 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 				MountMods(Paths(g_CmdLineArgs), g_Mods.GetEnabledMods());
 			}
 
-			if (serializationtest && rejointestturn >= 0)
+			if (serializationtestturn >= 0 && rejointestturn >= 0)
 				LOGERROR("serializationtest and rejointest can't be activ at the same time.");
 
 			SimulationDebugOptions debugOption{};
-			if (serializationtest)
-				debugOption.test = SimulationDebugOptions::SerializationTest{};
+			if (serializationtestturn >= 0)
+			{
+				debugOption.test =
+					SimulationDebugOptions::SerializationTest{serializationtestturn};
+			}
 			if (rejointestturn >= 0)
 				debugOption.test = SimulationDebugOptions::RejoinTest{rejointestturn};
 			if (ooslog)

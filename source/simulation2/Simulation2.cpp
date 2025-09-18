@@ -82,10 +82,14 @@ public:
 		m_MapSettings{cx.GetGeneralJSContext()},
 		// Tests won't have config initialised
 		m_EnableOOSLog{debugOptions.oosLog || CConfigDB::GetIfInitialised("ooslog", false)},
-		m_EnableSerializationTest{
-			std::holds_alternative<SimulationDebugOptions::SerializationTest>(debugOptions.test) ||
-			CConfigDB::GetIfInitialised("serializationtest", false)},
 		// Handle bogus values of the arg
+		m_SerializationTestTurn{[&]
+		{
+			const auto* serializationTestOption{
+				std::get_if<SimulationDebugOptions::SerializationTest>(&debugOptions.test)};
+			return serializationTestOption ? serializationTestOption->turn :
+				std::max(CConfigDB::GetIfInitialised("serializationtest", -1), -1);
+		}()},
 		m_RejoinTestTurn{[&]() -> std::optional<int>
 		{
 			const auto* rejoinTestOption{
@@ -164,6 +168,8 @@ public:
 
 	// Functions and data for the serialization test mode: (see Update() for relevant comments)
 
+	std::optional<int> m_SerializationTestTurn;
+	bool m_TestingSerialization{false};
 	bool m_EnableSerializationTest{false};
 	std::optional<int> m_RejoinTestTurn;
 	bool m_TestingRejoin{false};
@@ -392,12 +398,16 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 	SerializationTestState primaryStateBefore;
 	const ScriptInterface& scriptInterface = m_ComponentManager.GetScriptInterface();
 
+	const bool startSerializationTest = m_SerializationTestTurn.has_value() &&
+		std::cmp_equal(m_SerializationTestTurn.value(), m_TurnNumber);
+	if (startSerializationTest)
+		m_TestingSerialization = true;
 	const bool startRejoinTest = m_RejoinTestTurn.has_value() &&
 		static_cast<int64_t>(m_RejoinTestTurn.value()) == m_TurnNumber;
 	if (startRejoinTest)
 		m_TestingRejoin = true;
 
-	if (m_EnableSerializationTest || m_TestingRejoin)
+	if (m_TestingSerialization || m_TestingRejoin)
 	{
 		ENSURE(m_ComponentManager.SerializeState(primaryStateBefore.state));
 		if (serializationTestDebugDump)
@@ -408,8 +418,10 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 
 	UpdateComponents(m_SimContext, turnLengthFixed, commands);
 
-	if (m_EnableSerializationTest || startRejoinTest)
+	if (m_TestingSerialization || startRejoinTest)
 	{
+		if (startSerializationTest)
+			debug_printf("Starting serializationtest\n");
 		if (startRejoinTest)
 			debug_printf("Initializing the secondary simulation\n");
 
@@ -469,7 +481,7 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 		ENSURE(m_SecondaryComponentManager->DeserializeState(primaryStateBefore.state));
 	}
 
-	if (m_EnableSerializationTest || m_TestingRejoin)
+	if (m_TestingSerialization || m_TestingRejoin)
 	{
 		SerializationTestState secondaryStateBefore;
 		ENSURE(m_SecondaryComponentManager->SerializeState(secondaryStateBefore.state));

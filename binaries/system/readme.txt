@@ -77,7 +77,7 @@ Advanced / diagnostic:
 -ooslog             dumps simulation state in binary and ASCII representations each turn,
                     files created in sim_log within the game's log folder. NOTE: game will
                     run much slower with this option!
--serializationtest  checks simulation state each turn for serialization errors; on test
+-serializationtest=N checks simulation state for serialization errors starting at turn N; on test
                     failure, error is displayed and logs created in oos_log within the
                     game's log folder. NOTE: game will run much slower with this option!
 -rejointest=N       simulates a rejoin and checks simulation state each turn for serialization
