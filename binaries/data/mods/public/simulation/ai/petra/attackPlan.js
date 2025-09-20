@@ -219,10 +219,13 @@ export function AttackPlan(gameState, config, uniqueID, type = AttackPlan.TYPE_D
 		this.unitStat[cat].minSize = Math.ceil(this.Config.popScaling * this.unitStat[cat].minSize);
 	}
 
-	// TODO: there should probably be one queue per type of training building
-	gameState.ai.queueManager.addQueue("plan_" + this.name, priority);
-	gameState.ai.queueManager.addQueue("plan_" + this.name +"_champ", priority+1);
-	gameState.ai.queueManager.addQueue("plan_" + this.name +"_siege", priority);
+	if (!deserialized)
+	{
+		// TODO: there should probably be one queue per type of training building
+		gameState.ai.queueManager.addQueue("plan_" + this.name, priority);
+		gameState.ai.queueManager.addQueue("plan_" + this.name +"_champ", priority+1);
+		gameState.ai.queueManager.addQueue("plan_" + this.name +"_siege", priority);
+	}
 
 	// each array is [ratio, [associated classes], associated EntityColl, associated unitStat, name ]
 	this.buildOrders = [];
