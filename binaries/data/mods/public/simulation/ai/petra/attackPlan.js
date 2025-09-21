@@ -2273,7 +2273,8 @@ AttackPlan.prototype.Serialize = function()
 		"target": this.target !== undefined ? this.target.id() : undefined,
 		"targetPos": this.targetPos,
 		"uniqueTargetId": this.uniqueTargetId,
-		"path": this.path
+		"path": this.path,
+		"unitCollUpdateArray": this.unitCollUpdateArray
 	};
 
 	return { "properties": properties };
