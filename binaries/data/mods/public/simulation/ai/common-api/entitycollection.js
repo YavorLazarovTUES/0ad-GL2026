@@ -311,6 +311,11 @@ EntityCollection.prototype.addEnt = function(ent)
 	if (this._entities.has(ent.id()))
 		return false;
 	this._entities.set(ent.id(), ent);
+	const temp = this.toEntityArray();
+	temp.sort((a, b) => a.id() - b.id());
+	this._entities.clear();
+	for (const e of temp)
+		this._entities.set(e.id(), e);
 	return true;
 };
 
