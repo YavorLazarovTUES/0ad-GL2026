@@ -116,6 +116,7 @@ function getFullRepresentation(entityID)
 	{
 		// Updated by OnFoundationProgressChanged
 		ret.foundationProgress = cmpFoundation.GetBuildPercentage();
+		ret.foundationBuilders = cmpFoundation.GetBuilders();
 	}
 
 	const cmpResourceDropsite = Engine.QueryInterface(entityID, IID_ResourceDropsite);
