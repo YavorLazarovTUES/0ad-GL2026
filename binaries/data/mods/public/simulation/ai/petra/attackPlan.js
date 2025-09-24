@@ -1239,7 +1239,7 @@ AttackPlan.prototype.getPathToTarget = function(gameState, fixedRallyPoint = fal
 	const endPos = { "x": this.targetPos[0], "y": this.targetPos[1] };
 	const path = Engine.ComputePath(startPos, endPos, gameState.getPassabilityClassMask("large"));
 	this.path = [];
-	this.path.push(this.targetPos);
+	this.path.push(clone(this.targetPos));
 	for (const p in path)
 		this.path.push([path[p].x, path[p].y]);
 	this.path.push(this.rallyPoint);
@@ -2271,7 +2271,7 @@ AttackPlan.prototype.Serialize = function()
 		"isBlocked": this.isBlocked,
 		"targetPlayer": this.targetPlayer,
 		"target": this.target !== undefined ? this.target.id() : undefined,
-		"targetPos": this.targetPos,
+		"targetPos": clone(this.targetPos),
 		"uniqueTargetId": this.uniqueTargetId,
 		"path": this.path,
 		"unitCollUpdateArray": this.unitCollUpdateArray
