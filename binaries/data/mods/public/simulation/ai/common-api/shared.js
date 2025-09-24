@@ -126,6 +126,8 @@ SharedScript.prototype.init = function(state, deserialization)
 	this.normalizationFactor = { "abundant": 50, "sparse": 90 };
 	this.influenceRadius = { "abundant": 36, "sparse": 48 };
 	this.ccInfluenceRadius = { "abundant": 60, "sparse": 120 };
+
+	this.resources = []; // Contains entityIds of all resources in the maps.
 	this.resourceMaps = {};   // Contains maps showing the density of resources
 	this.ccResourceMaps = {}; // Contains maps showing the density of resources, optimized for CC placement.
 	this.createResourceMaps();
@@ -410,9 +412,12 @@ SharedScript.prototype.createResourceMaps = function()
  */
 SharedScript.prototype.updateResourceMaps = function(events)
 {
-	for (const e of events.Destroy)
-		if (e.entityObj)
-			this.removeEntityFromResourceMap(e.entityObj);
+	if (events.Destroy.some(e => this.resources.includes(e.entity)))
+	{
+		this.resources = [];
+		this.resourceMaps = {};
+		this.createResourceMaps();
+	}
 
 	for (const e of events.Create)
 		if (e.entity && this._entities.has(e.entity))
@@ -425,6 +430,7 @@ SharedScript.prototype.updateResourceMaps = function(events)
 SharedScript.prototype.addEntityToResourceMap = function(entity)
 {
 	this.changeEntityInResourceMapHelper(entity, 1);
+	this.resources.push(entity.id());
 };
 
 /**
