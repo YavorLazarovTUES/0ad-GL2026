@@ -114,7 +114,7 @@ BaseManager.prototype.assignEntity = function(gameState, ent)
 		this.assignResourceToDropsite(gameState, ent, false);
 };
 
-BaseManager.prototype.setAnchor = function(gameState, anchorEntity)
+BaseManager.prototype.setAnchor = function(gameState, anchorEntity, deserialize = false)
 {
 	if (!anchorEntity.hasClass("CivCentre"))
 	{
@@ -125,10 +125,12 @@ BaseManager.prototype.setAnchor = function(gameState, anchorEntity)
 	{
 		this.anchor = anchorEntity;
 		this.anchorId = anchorEntity.id();
-		this.anchor.setMetadata(PlayerID, "baseAnchor", true);
+		if (!deserialize)
+			this.anchor.setMetadata(PlayerID, "baseAnchor", true);
 		this.basesManager.resetBaseCache();
 	}
-	anchorEntity.setMetadata(PlayerID, "base", this.ID);
+	if (!deserialize)
+		anchorEntity.setMetadata(PlayerID, "base", this.ID);
 	this.buildings.updateEnt(anchorEntity);
 	this.accessIndex = getLandAccess(gameState, anchorEntity);
 	return true;
@@ -144,7 +146,7 @@ BaseManager.prototype.anchorLost = function(gameState)
 };
 
 /** Set a building of an anchorless base */
-BaseManager.prototype.setAnchorlessEntity = function(gameState, ent)
+BaseManager.prototype.setAnchorlessEntity = function(gameState, ent, deserialize = false)
 {
 	if (!this.buildings.hasEntities())
 	{
@@ -162,7 +164,8 @@ BaseManager.prototype.setAnchorlessEntity = function(gameState, ent)
 			getLandAccess(gameState, ent));
 	}
 
-	ent.setMetadata(PlayerID, "base", this.ID);
+	if (!deserialize)
+		ent.setMetadata(PlayerID, "base", this.ID);
 	this.buildings.updateEnt(ent);
 	return true;
 };

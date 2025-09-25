@@ -27,7 +27,7 @@ export function BasesManager(Config)
 	this.baseManagers = [];
 }
 
-BasesManager.prototype.init = function(gameState)
+BasesManager.prototype.init = function(gameState, deserialize = false)
 {
 	// Initialize base map. Each pixel is a base ID, or 0 if not or not accessible.
 	this.basesMap = new InfoMap(gameState.sharedScript, "territory");
@@ -38,9 +38,9 @@ BasesManager.prototype.init = function(gameState)
 
 	for (const cc of gameState.getOwnStructures().filter(filters.byClass("CivCentre")).values())
 		if (cc.foundationProgress() === undefined)
-			this.createBase(gameState, cc, BaseManager.STATE_WITH_ANCHOR);
+			this.createBase(gameState, cc, BaseManager.STATE_WITH_ANCHOR, deserialize);
 		else
-			this.createBase(gameState, cc, BaseManager.STATE_UNCONSTRUCTED);
+			this.createBase(gameState, cc, BaseManager.STATE_UNCONSTRUCTED, deserialize);
 };
 
 /**
@@ -73,7 +73,8 @@ BasesManager.prototype.postinit = function(gameState)
  * Otherwise create a new one.
  * TODO when buildings, criteria should depend on distance
  */
-BasesManager.prototype.createBase = function(gameState, ent, type = BaseManager.STATE_WITH_ANCHOR)
+BasesManager.prototype.createBase = function(gameState, ent, type = BaseManager.STATE_WITH_ANCHOR,
+	deserialize = false)
 {
 	const access = getLandAccess(gameState, ent);
 	let newbase;
@@ -120,9 +121,9 @@ BasesManager.prototype.createBase = function(gameState, ent, type = BaseManager.
 		newbase.reset(type);
 
 	if (type !== BaseManager.STATE_ANCHORLESS)
-		newbase.setAnchor(gameState, ent);
+		newbase.setAnchor(gameState, ent, deserialize);
 	else
-		newbase.setAnchorlessEntity(gameState, ent);
+		newbase.setAnchorlessEntity(gameState, ent, deserialize);
 
 	return newbase;
 };

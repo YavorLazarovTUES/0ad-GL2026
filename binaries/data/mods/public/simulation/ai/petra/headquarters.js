@@ -2416,7 +2416,7 @@ Headquarters.prototype.Deserialize = function(gameState, data)
 
 
 	this.basesManager = new BasesManager(this.Config);
-	this.basesManager.init(gameState);
+	this.basesManager.init(gameState, true);
 	this.basesManager.Deserialize(gameState, data.basesManager);
 
 	this.navalManager = new NavalManager(this.Config);
