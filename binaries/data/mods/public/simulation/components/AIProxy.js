@@ -173,14 +173,11 @@ AIProxy.prototype.GetRepresentation = function()
 
 AIProxy.prototype.NotifyChange = function()
 {
-	if (this.needsFullGet)
-	{
-		// not yet notified, be sure that the owner is set before doing so
-		// as the Create event is sent only on first ownership changed
-		const cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
-		if (!cmpOwnership || cmpOwnership.GetOwner() < 0)
-			return false;
-	}
+	// not yet notified, be sure that the owner is set before doing so
+	// as the Create event is sent only on first ownership changed
+	const cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
+	if (!cmpOwnership || cmpOwnership.GetOwner() < 0)
+		return false;
 
 	if (!this.changes)
 	{
