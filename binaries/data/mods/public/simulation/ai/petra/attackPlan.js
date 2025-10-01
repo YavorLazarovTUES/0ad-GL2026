@@ -642,7 +642,16 @@ AttackPlan.prototype.trainMoreUnits = function(gameState)
 		let vb = b[0]/b[3].targetSize - b[3].priority;
 		if (b[0] >= b[3].targetSize)
 			vb += 1000;
-		return va - vb;
+
+		const calcResult = va - vb;
+		if (calcResult !== 0)
+			return calcResult;
+
+		if (a[4] < b[4])
+			return 1;
+		if (a[4] > b[4])
+			return -1;
+		return 0;
 	});
 
 	if (this.Config.debug > 1 && gameState.ai.playedTurn%50 === 0)
