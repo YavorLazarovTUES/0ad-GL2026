@@ -105,10 +105,11 @@ TradeManager.prototype.trainMoreTraders = function(gameState, queues)
 	else
 	{
 		template = gameState.applyCiv("units/{civ}/support_trader");
-		if (!this.tradeRoute.source.hasClass("Naval"))
-			metadata.base = this.tradeRoute.source.getMetadata(PlayerID, "base");
-		else
-			metadata.base = this.tradeRoute.target.getMetadata(PlayerID, "base");
+		const sourceObject = gameState.getEntityById(this.tradeRoute.source);
+		const baseObject = sourceObject.hasClass("Naval") ?
+			gameState.getEntityById(this.tradeRoute.target) : sourceObject;
+
+		metadata.base = baseObject.getMetadata(PlayerID, "base");
 	}
 
 	if (!gameState.getTemplate(template))
@@ -142,6 +143,8 @@ TradeManager.prototype.updateTrader = function(gameState, ent)
 	Engine.ProfileStart("Trade Manager");
 	const access = ent.hasClass("Ship") ? getSeaAccess(gameState, ent) : getLandAccess(gameState, ent);
 	const route = this.checkRoutes(gameState, access);
+	const routeSource = gameState.getEntityById(route.source);
+	const routeTarget = gameState.getEntityById(route.target);
 	if (!route)
 	{
 		// TODO try to garrison land trader inside merchant ship when only sea routes available
@@ -152,8 +155,8 @@ TradeManager.prototype.updateTrader = function(gameState, ent)
 	}
 
 	let nearerSource = true;
-	if (SquareVectorDistance(route.target.position(), ent.position()) <
-		SquareVectorDistance(route.source.position(), ent.position()))
+	if (SquareVectorDistance(routeTarget.position(), ent.position()) <
+		SquareVectorDistance(routeSource.position(), ent.position()))
 	{
 		nearerSource = false;
 	}
@@ -161,18 +164,18 @@ TradeManager.prototype.updateTrader = function(gameState, ent)
 	if (!ent.hasClass("Ship") && route.land != access)
 	{
 		if (nearerSource)
-			gameState.ai.HQ.navalManager.requireTransport(gameState, ent, access, route.land, route.source.position());
+			gameState.ai.HQ.navalManager.requireTransport(gameState, ent, access, route.land, routeSource.position());
 		else
-			gameState.ai.HQ.navalManager.requireTransport(gameState, ent, access, route.land, route.target.position());
+			gameState.ai.HQ.navalManager.requireTransport(gameState, ent, access, route.land, routeTarget.position());
 		Engine.ProfileStop();
 		return;
 	}
 
 	if (nearerSource)
-		ent.tradeRoute(route.target, route.source);
+		ent.tradeRoute(routeTarget, routeSource);
 	else
-		ent.tradeRoute(route.source, route.target);
-	ent.setMetadata(PlayerID, "route", this.routeEntToId(route));
+		ent.tradeRoute(routeSource, routeTarget);
+	ent.setMetadata(PlayerID, "route", route);
 	Engine.ProfileStop();
 };
 
@@ -380,13 +383,14 @@ TradeManager.prototype.checkEvents = function(gameState, events)
 	// if one market (or market-foundation) is destroyed, we should look for a better route
 	for (const evt of events.Destroy)
 	{
-		if (!evt.entityObj)
-			continue;
-		const ent = evt.entityObj;
-		if (!ent || !ent.hasClass("Trade") || !gameState.isPlayerAlly(ent.owner()))
-			continue;
-		this.activateProspection(gameState);
-		return true;
+		if (evt.entity === this.tradeRoute?.source ||
+			evt.entity === this.tradeRoute?.target ||
+			evt.entity === this.potentialTradeRoute?.source ||
+			evt.entity === this.potentialTradeRoute?.target)
+		{
+			this.activateProspection(gameState);
+			return true;
+		}
 	}
 
 	// same thing if one market is built
@@ -504,28 +508,28 @@ TradeManager.prototype.checkRoutes = function(gameState, accessIndex)
 					{
 						if (gain < bestIndex.gain)
 							continue;
-						bestIndex = { "source": m1, "target": m2, "gain": gain, "land": land, "sea": sea };
+						bestIndex = { "source": m1.id(), "target": m2.id(), "gain": gain, "land": land, "sea": sea };
 					}
 					else if (gameState.ai.accessibility.regionType[accessIndex] == "land" && land == accessIndex)
 					{
 						if (gain < bestIndex.gain)
 							continue;
-						bestIndex = { "source": m1, "target": m2, "gain": gain, "land": land, "sea": sea };
+						bestIndex = { "source": m1.id(), "target": m2.id(), "gain": gain, "land": land, "sea": sea };
 					}
 					else if (gameState.ai.accessibility.regionType[accessIndex] == "land")
 					{
 						if (gain < bestLand.gain)
 							continue;
-						bestLand = { "source": m1, "target": m2, "gain": gain, "land": land, "sea": sea };
+						bestLand = { "source": m1.id(), "target": m2.id(), "gain": gain, "land": land, "sea": sea };
 					}
 				}
 				if (gain < candidate.gain)
 					continue;
-				candidate = { "source": m1, "target": m2, "gain": gain, "land": land, "sea": sea };
+				candidate = { "source": m1.id(), "target": m2.id(), "gain": gain, "land": land, "sea": sea };
 			}
 			if (gain < potential.gain)
 				continue;
-			potential = { "source": m1, "target": m2, "gain": gain, "land": land, "sea": sea };
+			potential = { "source": m1.id(), "target": m2.id(), "gain": gain, "land": land, "sea": sea };
 		}
 	}
 
@@ -556,9 +560,9 @@ TradeManager.prototype.checkRoutes = function(gameState, accessIndex)
 
 	if (this.Config.chat)
 	{
-		let owner = this.tradeRoute.source.owner();
+		let owner = gameState.getEntityById(this.tradeRoute.source).owner();
 		if (owner == PlayerID)
-			owner = this.tradeRoute.target.owner();
+			owner = gameState.getEntityById(this.tradeRoute.target).owner();
 		if (owner != PlayerID && !this.warnedAllies[owner])
 		{	// Warn an ally that we have a trade route with him
 			chatNewTradeRoute(gameState, owner);
@@ -595,8 +599,8 @@ TradeManager.prototype.checkTrader = function(gameState, ent)
 	const possibleRoute = this.checkRoutes(gameState, access);
 	// Warning:  presentRoute is from metadata, so contains entity ids
 	if (!possibleRoute ||
-	    possibleRoute.source.id() != presentRoute.source && possibleRoute.source.id() != presentRoute.target ||
-	    possibleRoute.target.id() != presentRoute.source && possibleRoute.target.id() != presentRoute.target)
+		possibleRoute.source != presentRoute.source && possibleRoute.source != presentRoute.target ||
+		possibleRoute.target != presentRoute.source && possibleRoute.target != presentRoute.target)
 	{
 		// Trader will be assigned in updateTrader
 		ent.setMetadata(PlayerID, "route", undefined);
@@ -707,51 +711,11 @@ TradeManager.prototype.update = function(gameState, events, queues)
 		this.prospectForNewMarket(gameState, queues);
 };
 
-TradeManager.prototype.routeEntToId = function(route)
-{
-	if (!route)
-		return undefined;
-
-	const ret = {};
-	for (const key in route)
-	{
-		if (key == "source" || key == "target")
-		{
-			if (!route[key])
-				return undefined;
-			ret[key] = route[key].id();
-		}
-		else
-			ret[key] = route[key];
-	}
-	return ret;
-};
-
-TradeManager.prototype.routeIdToEnt = function(gameState, route)
-{
-	if (!route)
-		return undefined;
-
-	const ret = {};
-	for (const key in route)
-	{
-		if (key == "source" || key == "target")
-		{
-			ret[key] = gameState.getEntityById(route[key]);
-			if (!ret[key])
-				return undefined;
-		}
-		else
-			ret[key] = route[key];
-	}
-	return ret;
-};
-
 TradeManager.prototype.Serialize = function()
 {
 	return {
-		"tradeRoute": this.routeEntToId(this.tradeRoute),
-		"potentialTradeRoute": this.routeEntToId(this.potentialTradeRoute),
+		"tradeRoute": this.tradeRoute,
+		"potentialTradeRoute": this.potentialTradeRoute,
 		"routeProspection": this.routeProspection,
 		"targetNumTraders": this.targetNumTraders,
 		"warnedAllies": this.warnedAllies
@@ -761,10 +725,5 @@ TradeManager.prototype.Serialize = function()
 TradeManager.prototype.Deserialize = function(gameState, data)
 {
 	for (const key in data)
-	{
-		if (key == "tradeRoute" || key == "potentialTradeRoute")
-			this[key] = this.routeIdToEnt(gameState, data[key]);
-		else
-			this[key] = data[key];
-	}
+		this[key] = data[key];
 };
