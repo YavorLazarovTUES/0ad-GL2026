@@ -308,6 +308,8 @@ SharedScript.prototype.ApplyTemplatesDelta = function(state)
 				modif.set(change.variable, change.value);
 		}
 	}
+	this._templatesModifications =
+		Object.fromEntries(Object.entries(this._templatesModifications).sort());
 	Engine.ProfileStop();
 };
 
