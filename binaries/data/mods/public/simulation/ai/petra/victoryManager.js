@@ -34,7 +34,7 @@ VictoryManager.prototype.init = function(gameState)
 	if (gameState.getVictoryConditions().has("wonder"))
 	{
 		for (const wonder of gameState.getOwnEntitiesByClass("Wonder", true).values())
-			this.criticalEnts.set(wonder.id(), { "guardsAssigned": 0, "guards": new Map() });
+			this.criticalEnts.set(wonder.id(), { "guardsAssigned": new Set(), "guards": new Map() });
 	}
 
 	if (gameState.getVictoryConditions().has("regicide"))
@@ -46,8 +46,8 @@ VictoryManager.prototype.init = function(gameState)
 				hero.setStance(defaultStance);
 			this.criticalEnts.set(hero.id(), {
 				"garrisonEmergency": false,
-				"healersAssigned": 0,
-				"guardsAssigned": 0, // for non-healer guards
+				"healersAssigned": new Set(),
+				"guardsAssigned": new Set(), // for non-healer guards
 				"guards": new Map() // ids of ents who are currently guarding this hero
 			});
 		}
@@ -59,7 +59,7 @@ VictoryManager.prototype.init = function(gameState)
 			gameState.updatingGlobalCollection("allRelics", filters.byClass("Relic")).values())
 		{
 			if (relic.owner() == PlayerID)
-				this.criticalEnts.set(relic.id(), { "guardsAssigned": 0, "guards": new Map() });
+				this.criticalEnts.set(relic.id(), { "guardsAssigned": new Set(), "guards": new Map() });
 		}
 	}
 };
@@ -99,7 +99,7 @@ VictoryManager.prototype.checkEvents = function(gameState, events)
 
 			const ent = gameState.getEntityById(evt.newentity);
 			if (ent && ent.isOwn(PlayerID) && ent.hasClass("Wonder"))
-				this.criticalEnts.set(ent.id(), { "guardsAssigned": 0, "guards": new Map() });
+				this.criticalEnts.set(ent.id(), { "guardsAssigned": new Set(), "guards": new Map() });
 		}
 	}
 
@@ -225,31 +225,23 @@ VictoryManager.prototype.checkEvents = function(gameState, events)
 	// Check if new healers/guards need to be assigned to an ent
 	for (const evt of events.Destroy)
 	{
-		if (!evt.entityObj || evt.entityObj.owner() != PlayerID)
-			continue;
-
-		const entId = evt.entityObj.id();
-		if (this.criticalEnts.has(entId))
+		if (this.criticalEnts.has(evt.entity))
 		{
-			this.removeCriticalEnt(gameState, entId);
+			this.removeCriticalEnt(gameState, evt.entity);
 			continue;
 		}
 
-		if (!this.guardEnts.has(entId))
+		if (!this.guardEnts.delete(evt.entity))
 			continue;
 
 		for (const data of this.criticalEnts.values())
-			if (data.guards.has(entId))
+		{
+			if (data.guards.delete(evt.entity))
 			{
-				data.guards.delete(entId);
-				if (evt.entityObj.hasClass("Healer"))
-					--data.healersAssigned;
-				else
-					--data.guardsAssigned;
-				break;
+				data.healersAssigned?.delete(evt.entity);
+				data.guardsAssigned.delete(evt.entity);
 			}
-
-		this.guardEnts.delete(entId);
+		}
 	}
 
 	for (const evt of events.UnGarrison)
@@ -305,7 +297,7 @@ VictoryManager.prototype.checkEvents = function(gameState, events)
 		if (ent && (gameState.getVictoryConditions().has("wonder") && ent.hasClass("Wonder") ||
 		            gameState.getVictoryConditions().has("capture_the_relic") && ent.hasClass("Relic")))
 		{
-			this.criticalEnts.set(ent.id(), { "guardsAssigned": 0, "guards": new Map() });
+			this.criticalEnts.set(ent.id(), { "guardsAssigned": new Set(), "guards": new Map() });
 			// Move captured relics to the closest base
 			if (ent.hasClass("Relic"))
 				this.pickCriticalEntRetreatLocation(gameState, ent, false);
@@ -348,8 +340,11 @@ VictoryManager.prototype.manageCriticalEntHealers = function(gameState, queues)
 
 	for (const data of this.criticalEnts.values())
 	{
-		if (data.healersAssigned === undefined || data.healersAssigned >= this.healersPerCriticalEnt)
+		if (data.healersAssigned === undefined)
 			continue;
+		if (data.healersAssigned.size >= this.healersPerCriticalEnt)
+			continue;
+
 		const template = gameState.applyCiv("units/{civ}/support_healer_b");
 		queues.healer.addPlan(new TrainingPlan(gameState, template,
 			{ "role": Worker.ROLE_CRITICAL_ENT_HEALER, "base": 0 }, 1, 1));
@@ -380,7 +375,7 @@ VictoryManager.prototype.manageCriticalEntGuards = function(gameState)
 				guardEnt.setMetadata(PlayerID, "plan", -1);
 				guardEnt.setMetadata(PlayerID, "role", undefined);
 				this.guardEnts.delete(guardId);
-				--data.guardsAssigned;
+				data.guardsAssigned.add(guardId);
 
 				if (guardEnt.getMetadata(PlayerID, "guardedEnt"))
 					guardEnt.setMetadata(PlayerID, "guardedEnt", undefined);
@@ -404,7 +399,7 @@ VictoryManager.prototype.manageCriticalEntGuards = function(gameState)
 		const militaryGuardsPerCriticalEnt = (criticalEnt.hasClass("Wonder") ? 10 : 4) +
 			Math.round(this.Config.personality.defensive * 5);
 
-		if (data.guardsAssigned >= militaryGuardsPerCriticalEnt)
+		if (data.guardsAssigned.size >= militaryGuardsPerCriticalEnt)
 			continue;
 
 		// First try to pick guards in the criticalEnt's accessIndex, to avoid unnecessary transports
@@ -415,36 +410,54 @@ VictoryManager.prototype.manageCriticalEntGuards = function(gameState)
 			{
 				if (!this.tryAssignMilitaryGuard(gameState, entity, criticalEnt, checkForSameAccess))
 					continue;
-				if (++data.guardsAssigned >= militaryGuardsPerCriticalEnt)
+				data.guardsAssigned.add(entity.id());
+				if (data.guardsAssigned.size >= militaryGuardsPerCriticalEnt)
 					break;
 			}
 
-			if (data.guardsAssigned >= militaryGuardsPerCriticalEnt || numWorkers <= minWorkers + deltaWorkers * data.guardsAssigned)
+			if (data.guardsAssigned.size >= militaryGuardsPerCriticalEnt ||
+				numWorkers <= minWorkers + deltaWorkers * data.guardsAssigned.size)
+			{
 				break;
+			}
 
 			for (const entity of gameState.ai.HQ.attackManager.outOfPlan.values())
 			{
 				if (!this.tryAssignMilitaryGuard(gameState, entity, criticalEnt, checkForSameAccess))
 					continue;
 				--numWorkers;
-				if (++data.guardsAssigned >= militaryGuardsPerCriticalEnt || numWorkers <= minWorkers + deltaWorkers * data.guardsAssigned)
+				data.guardsAssigned.add(entity.id());
+				if (data.guardsAssigned.size >= militaryGuardsPerCriticalEnt ||
+					numWorkers <= minWorkers + deltaWorkers * data.guardsAssigned.size)
+				{
 					break;
+				}
 			}
 
-			if (data.guardsAssigned >= militaryGuardsPerCriticalEnt || numWorkers <= minWorkers + deltaWorkers * data.guardsAssigned)
+			if (data.guardsAssigned.size >= militaryGuardsPerCriticalEnt ||
+				numWorkers <= minWorkers + deltaWorkers * data.guardsAssigned.size)
+			{
 				break;
+			}
 
 			for (const entity of gameState.getOwnEntitiesByClass("Soldier", true).values())
 			{
 				if (!this.tryAssignMilitaryGuard(gameState, entity, criticalEnt, checkForSameAccess))
 					continue;
 				--numWorkers;
-				if (++data.guardsAssigned >= militaryGuardsPerCriticalEnt || numWorkers <= minWorkers + deltaWorkers * data.guardsAssigned)
+				data.guardsAssigned.add(entity.id());
+				if (data.guardsAssigned.size >= militaryGuardsPerCriticalEnt ||
+					numWorkers <= minWorkers + deltaWorkers * data.guardsAssigned.size)
+				{
 					break;
+				}
 			}
 
-			if (data.guardsAssigned >= militaryGuardsPerCriticalEnt || numWorkers <= minWorkers + deltaWorkers * data.guardsAssigned)
+			if (data.guardsAssigned.size >= militaryGuardsPerCriticalEnt ||
+				numWorkers <= minWorkers + deltaWorkers * data.guardsAssigned.size)
+			{
 				break;
+			}
 		}
 	}
 };
@@ -517,21 +530,18 @@ VictoryManager.prototype.assignGuardToCriticalEnt = function(gameState, guardEnt
 		let min = Math.min();
 		for (const [id, data] of this.criticalEnts)
 		{
-			if (isHealer && (data.healersAssigned === undefined || data.healersAssigned > min))
+			if (isHealer && (data.healersAssigned === undefined || data.healersAssigned.size > min))
 				continue;
-			if (!isHealer && data.guardsAssigned > min)
+			if (!isHealer && data.guardsAssigned.size > min)
 				continue;
 
 			criticalEntId = id;
-			min = isHealer ? data.healersAssigned : data.guardsAssigned;
+			min = data[isHealer ? "healersAssigned" : "guardsAssigned"].size;
 		}
 		if (criticalEntId)
 		{
 			const data = this.criticalEnts.get(criticalEntId);
-			if (isHealer)
-				++data.healersAssigned;
-			else
-				++data.guardsAssigned;
+			data[isHealer ? "healersAssigned" : "guardsAssigned"].add(guardEnt.id());
 		}
 	}
 
