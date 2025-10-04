@@ -107,7 +107,7 @@ AttackHelper.prototype.GetAttackEffectsData = function(valueModifRoot, template,
 		ret.ApplyStatus = this.GetStatusEffectsData(valueModifRoot, template.ApplyStatus, entity);
 
 	if (template.Bonuses)
-		ret.Bonuses = template.Bonuses;
+		ret.Bonuses = clone(template.Bonuses);
 
 	return ret;
 };
