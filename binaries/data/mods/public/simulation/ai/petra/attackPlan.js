@@ -2183,6 +2183,10 @@ AttackPlan.prototype.checkEvents = function(gameState, events)
 		this.target = undefined;
 	}
 
+	this.unitCollection = gameState.getOwnUnits().filter(
+		filters.byMetadata(PlayerID, "plan", this.name));
+	this.unitCollection.registerUpdates();
+
 	if (!this.overseas || this.state !== AttackPlan.STATE_UNEXECUTED)
 		return;
 	// let's check if an enemy has built a structure at our access
