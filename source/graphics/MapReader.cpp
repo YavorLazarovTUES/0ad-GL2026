@@ -1450,22 +1450,27 @@ int CMapReader::ParseTerrain()
 
 	// parse terrain from map data
 	//	an error here should stop the loading process
-#define GET_TERRAIN_PROPERTY(val, prop, out)\
-if (!Script::GetProperty(rq, val, #prop, out))\
-		{	LOGERROR("CMapReader::ParseTerrain() failed to get '%s' property", #prop);\
-			throw PSERROR_Game_World_MapLoadFailed("Error parsing terrain data.\nCheck application log for details"); }
+	const auto getTerrainProperty = [&](JS::HandleValue val, const char* prop, auto&& out)
+	{
+		if (Script::GetProperty(rq, val, prop, std::forward<decltype(out)>(out)))
+			return;
+
+		LOGERROR("CMapReader::ParseTerrain() failed to get '%s' property", prop);
+		throw PSERROR_Game_World_MapLoadFailed(
+			"Error parsing terrain data.\nCheck application log for details");
+	};
 
 	u32 size;
-	GET_TERRAIN_PROPERTY(m_MapData, size, size)
+	getTerrainProperty(m_MapData, "size", size);
 
 	m_PatchesPerSide = size / PATCH_SIZE;
 
 	// flat heightmap of u16 data
-	GET_TERRAIN_PROPERTY(m_MapData, height, m_Heightmap)
+	getTerrainProperty(m_MapData, "height", m_Heightmap);
 
 	// load textures
 	std::vector<std::string> textureNames;
-	GET_TERRAIN_PROPERTY(m_MapData, textureNames, textureNames)
+	getTerrainProperty(m_MapData, "textureNames", textureNames);
 	num_terrain_tex = textureNames.size();
 
 	while (cur_terrain_tex < num_terrain_tex)
@@ -1483,13 +1488,13 @@ if (!Script::GetProperty(rq, val, #prop, out))\
 	m_Tiles.resize(SQR(size));
 
 	JS::RootedValue tileData(rq.cx);
-	GET_TERRAIN_PROPERTY(m_MapData, tileData, &tileData)
+	getTerrainProperty(m_MapData, "tileData", &tileData);
 
 	// parse tile data object into flat arrays
 	std::vector<u16> tileIndex;
 	std::vector<u16> tilePriority;
-	GET_TERRAIN_PROPERTY(tileData, index, tileIndex);
-	GET_TERRAIN_PROPERTY(tileData, priority, tilePriority);
+	getTerrainProperty(tileData, "index", tileIndex);
+	getTerrainProperty(tileData, "priority", tilePriority);
 
 	ENSURE(SQR(size) == tileIndex.size() && SQR(size) == tilePriority.size());
 
@@ -1514,9 +1519,6 @@ if (!Script::GetProperty(rq, val, #prop, out))\
 
 	// reset generator state
 	cur_terrain_tex = 0;
-
-#undef GET_TERRAIN_PROPERTY
-
 	return 0;
 }
 
