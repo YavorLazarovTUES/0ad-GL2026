@@ -333,3 +333,14 @@ function formatXmppAnnouncement(subject, text)
 
 	return message;
 }
+/**
+ * Converts underscore-separated identifiers to PascalCase class names
+ * for selecting entities by identity class.
+ */
+function toPascalCase(str)
+{
+	return str
+		.split('_')
+		.map(s => s.charAt(0).toUpperCase() + s.slice(1))
+		.join('');
+}

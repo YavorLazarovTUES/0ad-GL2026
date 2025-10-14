@@ -316,6 +316,7 @@ function init(initData, hotloadData)
 	g_TopPanel = new TopPanel(g_PlayerViewControl, g_DiplomacyDialog, g_TradeDialog, g_MatchSettingsDialog, g_GameSpeedControl);
 	g_TimeNotificationOverlay = new TimeNotificationOverlay(g_PlayerViewControl);
 
+	initUnitsAndBuildingsHotkeys();
 	initBatchTrain();
 	initDisplayedNames();
 	initSelectionPanels();
