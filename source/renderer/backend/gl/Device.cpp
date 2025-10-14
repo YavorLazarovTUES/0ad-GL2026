@@ -324,6 +324,10 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window, const bool arb)
 	if (!arb && !ogl_HaveVersion(2, 0))
 		return nullptr;
 
+	// We can't render without ARB shaders.
+	if (arb && ogl_HaveExtensions(0, "GL_ARB_vertex_program", "GL_ARB_fragment_program", nullptr))
+		return nullptr;
+
 	if ((ogl_HaveExtensions(0, "GL_ARB_vertex_program", "GL_ARB_fragment_program", nullptr) // ARB
 		&& !ogl_HaveVersion(2, 0)) // GLSL
 		|| !ogl_HaveExtension("GL_ARB_vertex_buffer_object") // VBO
@@ -375,7 +379,6 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window, const bool arb)
 	}
 
 	Capabilities& capabilities = device->m_Capabilities;
-	capabilities.ARBShaders = !ogl_HaveExtensions(0, "GL_ARB_vertex_program", "GL_ARB_fragment_program", nullptr);
 	capabilities.computeShaders = !device->m_ARB && ogl_HaveVersion(4, 3);
 #if CONFIG2_GLES
 	// Some GLES implementations have GL_EXT_texture_compression_dxt1

@@ -222,7 +222,7 @@ bool CShaderManager::LoadTechnique(CShaderTechniquePtr& tech)
 	XMBElement root = XeroFile.GetRoot();
 
 	PS::StaticVector<std::string_view, 3> supportedShaders;
-	if (m_Device->GetBackend() == Renderer::Backend::Backend::GL_ARB && m_Device->GetCapabilities().ARBShaders)
+	if (m_Device->GetBackend() == Renderer::Backend::Backend::GL_ARB)
 		supportedShaders.emplace_back("arb");
 	if (m_Device->GetBackend() == Renderer::Backend::Backend::GL)
 		supportedShaders.emplace_back("glsl");

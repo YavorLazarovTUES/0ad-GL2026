@@ -62,7 +62,6 @@ public:
 	struct Capabilities
 	{
 		bool S3TC;
-		bool ARBShaders;
 		bool computeShaders;
 		bool debugLabels;
 		bool debugScopedLabels;

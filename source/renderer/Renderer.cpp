@@ -431,25 +431,8 @@ void CRenderer::SetRenderPath(RenderPath rp)
 	}
 
 	// Renderer has been opened, so validate the selected renderpath
-	const bool hasShadersSupport =
-		m->device->GetCapabilities().ARBShaders ||
-		m->device->GetBackend() != Renderer::Backend::Backend::GL_ARB;
 	if (rp == RenderPath::DEFAULT)
-	{
-		if (hasShadersSupport)
-			rp = RenderPath::SHADER;
-		else
-			rp = RenderPath::FIXED;
-	}
-
-	if (rp == RenderPath::SHADER)
-	{
-		if (!hasShadersSupport)
-		{
-			LOGWARNING("Falling back to fixed function\n");
-			rp = RenderPath::FIXED;
-		}
-	}
+		rp = RenderPath::SHADER;
 
 	// TODO: remove this once capabilities have been properly extracted and the above checks have been moved elsewhere.
 	g_RenderingOptions.m_RenderPath = rp;

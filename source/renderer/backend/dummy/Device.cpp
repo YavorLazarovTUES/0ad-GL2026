@@ -52,7 +52,6 @@ CDevice::CDevice()
 	m_Backbuffer = CFramebuffer::Create(this);
 
 	m_Capabilities.S3TC = true;
-	m_Capabilities.ARBShaders = false;
 	m_Capabilities.computeShaders = true;
 	m_Capabilities.debugLabels = true;
 	m_Capabilities.debugScopedLabels = true;
