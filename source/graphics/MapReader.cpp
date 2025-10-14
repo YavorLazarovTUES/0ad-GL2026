@@ -1607,12 +1607,14 @@ int CMapReader::ParseEnvironment()
 	// parse environment settings from map data
 	ScriptRequest rq(pSimulation2->GetScriptInterface());
 
-#define GET_ENVIRONMENT_PROPERTY(val, prop, out)\
-	if (!Script::GetProperty(rq, val, #prop, out))\
-		LOGWARNING("CMapReader::ParseEnvironment() failed to get '%s' property", #prop);
+	const auto getEnvironmentProperty = [&](JS::HandleValue val, const char* prop, auto&& out)
+	{
+		if (!Script::GetProperty(rq, val, prop, std::forward<decltype(out)>(out)))
+			LOGWARNING("CMapReader::ParseEnvironment() failed to get '%s' property", prop);
+	};
 
 	JS::RootedValue envObj(rq.cx);
-	GET_ENVIRONMENT_PROPERTY(m_MapData, Environment, &envObj)
+	getEnvironmentProperty(m_MapData, "Environment", &envObj);
 
 	if (envObj.isUndefined())
 	{
@@ -1624,31 +1626,31 @@ int CMapReader::ParseEnvironment()
 		pPostproc->SetPostEffect(L"default");
 
 	std::wstring skySet;
-	GET_ENVIRONMENT_PROPERTY(envObj, SkySet, skySet)
+	getEnvironmentProperty(envObj, "SkySet", skySet);
 	if (pSkyMan)
 		pSkyMan->SetSkySet(skySet);
 
 	CColor sunColor;
-	GET_ENVIRONMENT_PROPERTY(envObj, SunColor, sunColor)
+	getEnvironmentProperty(envObj, "SunColor", sunColor);
 	m_LightEnv.m_SunColor = RGBColor(sunColor.r, sunColor.g, sunColor.b);
 
-	GET_ENVIRONMENT_PROPERTY(envObj, SunElevation, m_LightEnv.m_Elevation)
-	GET_ENVIRONMENT_PROPERTY(envObj, SunRotation, m_LightEnv.m_Rotation)
+	getEnvironmentProperty(envObj, "SunElevation", m_LightEnv.m_Elevation);
+	getEnvironmentProperty(envObj, "SunRotation", m_LightEnv.m_Rotation);
 
 	CColor ambientColor;
-	GET_ENVIRONMENT_PROPERTY(envObj, AmbientColor, ambientColor)
+	getEnvironmentProperty(envObj, "AmbientColor", ambientColor);
 	m_LightEnv.m_AmbientColor = RGBColor(ambientColor.r, ambientColor.g, ambientColor.b);
 
 	// Water properties
 	JS::RootedValue waterObj(rq.cx);
-	GET_ENVIRONMENT_PROPERTY(envObj, Water, &waterObj)
+	getEnvironmentProperty(envObj, "Water", &waterObj);
 
 	JS::RootedValue waterBodyObj(rq.cx);
-	GET_ENVIRONMENT_PROPERTY(waterObj, WaterBody, &waterBodyObj)
+	getEnvironmentProperty(waterObj, "WaterBody", &waterBodyObj);
 
 	// Water level - necessary
 	float waterHeight;
-	GET_ENVIRONMENT_PROPERTY(waterBodyObj, Height, waterHeight)
+	getEnvironmentProperty(waterBodyObj, "Height", waterHeight);
 
 	CmpPtr<ICmpWaterManager> cmpWaterManager(*pSimulation2, SYSTEM_ENTITY);
 	ENSURE(cmpWaterManager);
@@ -1657,44 +1659,41 @@ int CMapReader::ParseEnvironment()
 	// If we have graphics, get rest of settings
 	if (pWaterMan)
 	{
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj, Type, pWaterMan->m_WaterType)
+		getEnvironmentProperty(waterBodyObj, "Type", pWaterMan->m_WaterType);
 		if (pWaterMan->m_WaterType == L"default")
 			pWaterMan->m_WaterType = L"ocean";
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj, Color, pWaterMan->m_WaterColor)
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj, Tint, pWaterMan->m_WaterTint)
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj, Waviness, pWaterMan->m_Waviness)
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj, Murkiness, pWaterMan->m_Murkiness)
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj, WindAngle, pWaterMan->m_WindAngle)
+		getEnvironmentProperty(waterBodyObj, "Color", pWaterMan->m_WaterColor);
+		getEnvironmentProperty(waterBodyObj, "Tint", pWaterMan->m_WaterTint);
+		getEnvironmentProperty(waterBodyObj, "Waviness", pWaterMan->m_Waviness);
+		getEnvironmentProperty(waterBodyObj, "Murkiness", pWaterMan->m_Murkiness);
+		getEnvironmentProperty(waterBodyObj, "WindAngle", pWaterMan->m_WindAngle);
 	}
 
 	JS::RootedValue fogObject(rq.cx);
-	GET_ENVIRONMENT_PROPERTY(envObj, Fog, &fogObject);
+	getEnvironmentProperty(envObj, "Fog", &fogObject);
 
-	GET_ENVIRONMENT_PROPERTY(fogObject, FogFactor, m_LightEnv.m_FogFactor);
-	GET_ENVIRONMENT_PROPERTY(fogObject, FogThickness, m_LightEnv.m_FogMax);
+	getEnvironmentProperty(fogObject, "FogFactor", m_LightEnv.m_FogFactor);
+	getEnvironmentProperty(fogObject, "FogThickness", m_LightEnv.m_FogMax);
 
 	CColor fogColor;
-	GET_ENVIRONMENT_PROPERTY(fogObject, FogColor, fogColor);
+	getEnvironmentProperty(fogObject, "FogColor", fogColor);
 	m_LightEnv.m_FogColor = RGBColor(fogColor.r, fogColor.g, fogColor.b);
 
 	JS::RootedValue postprocObject(rq.cx);
-	GET_ENVIRONMENT_PROPERTY(envObj, Postproc, &postprocObject);
+	getEnvironmentProperty(envObj, "Postproc", &postprocObject);
 
 	std::wstring postProcEffect;
-	GET_ENVIRONMENT_PROPERTY(postprocObject, PostprocEffect, postProcEffect);
+	getEnvironmentProperty(postprocObject, "PostprocEffect", postProcEffect);
 
 	if (pPostproc)
 		pPostproc->SetPostEffect(postProcEffect);
 
-	GET_ENVIRONMENT_PROPERTY(postprocObject, Brightness, m_LightEnv.m_Brightness);
-	GET_ENVIRONMENT_PROPERTY(postprocObject, Contrast, m_LightEnv.m_Contrast);
-	GET_ENVIRONMENT_PROPERTY(postprocObject, Saturation, m_LightEnv.m_Saturation);
-	GET_ENVIRONMENT_PROPERTY(postprocObject, Bloom, m_LightEnv.m_Bloom);
+	getEnvironmentProperty(postprocObject, "Brightness", m_LightEnv.m_Brightness);
+	getEnvironmentProperty(postprocObject, "Contrast", m_LightEnv.m_Contrast);
+	getEnvironmentProperty(postprocObject, "Saturation", m_LightEnv.m_Saturation);
+	getEnvironmentProperty(postprocObject, "Bloom", m_LightEnv.m_Bloom);
 
 	m_LightEnv.CalculateSunDirection();
-
-#undef GET_ENVIRONMENT_PROPERTY
-
 	return 0;
 }
 
