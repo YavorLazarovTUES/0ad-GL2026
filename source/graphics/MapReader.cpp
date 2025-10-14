@@ -1706,23 +1706,24 @@ int CMapReader::ParseCamera()
 	float declination = DEGTORAD(30.f), rotation = DEGTORAD(-45.f);
 	CVector3D translation = CVector3D(100, 150, -100);
 
-#define GET_CAMERA_PROPERTY(val, prop, out)\
-	if (!Script::GetProperty(rq, val, #prop, out))\
-		LOGWARNING("CMapReader::ParseCamera() failed to get '%s' property", #prop);
+	const auto getCameraProperty = [&](JS::HandleValue val, const char* prop, auto&& out)
+	{
+		if (!Script::GetProperty(rq, val, prop, std::forward<decltype(out)>(out)))
+			LOGWARNING("CMapReader::ParseCamera() failed to get '%s' property", prop);
+	};
 
 	JS::RootedValue cameraObj(rq.cx);
-	GET_CAMERA_PROPERTY(m_MapData, Camera, &cameraObj)
+	getCameraProperty(m_MapData, "Camera", &cameraObj);
 
 	if (!cameraObj.isUndefined())
 	{	// If camera property exists, read values
 		CFixedVector3D pos;
-		GET_CAMERA_PROPERTY(cameraObj, Position, pos)
+		getCameraProperty(cameraObj, "Position", pos);
 		translation = pos;
 
-		GET_CAMERA_PROPERTY(cameraObj, Rotation, rotation)
-		GET_CAMERA_PROPERTY(cameraObj, Declination, declination)
+		getCameraProperty(cameraObj, "Rotation", rotation);
+		getCameraProperty(cameraObj, "Declination", declination);
 	}
-#undef GET_CAMERA_PROPERTY
 
 	if (pGameView)
 	{
