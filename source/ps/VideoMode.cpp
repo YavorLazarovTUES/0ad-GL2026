@@ -595,7 +595,8 @@ bool CVideoMode::InitSDL()
 	// Calling SDL_Quit twice appears to be harmless, though, and avoids the problem
 	// by destroying the context *before* the driver's atexit hook is called.
 	// (Note that atexit hooks are guaranteed to be called in reverse order of their registration.)
-	atexit(SDL_Quit);
+	if (m_Backend == Renderer::Backend::Backend::GL || m_Backend == Renderer::Backend::Backend::GL_ARB)
+		atexit(SDL_Quit);
 	// End work around.
 
 	m_IsInitialised = true;
