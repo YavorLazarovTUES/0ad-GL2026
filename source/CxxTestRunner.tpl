@@ -39,7 +39,7 @@ int main(int argc, char **argv)
 			{
 				std::printf("Option libdir requires an optarg\n\n");
 				usage(argv[0]);
-				std::exit(1);
+				return 1;
 			}
 
 			DllLoader::OverrideLibdir(argv[i]);
@@ -50,7 +50,7 @@ int main(int argc, char **argv)
 			{
 				std::printf("Option format requires an optarg\n\n");
 				usage(argv[0]);
-				std::exit(1);
+				return 1;
 			}
 
 			if (std::strcmp(argv[i], "junit") == 0)
@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 			{
 				std::printf("Unkown format: %s\n\n", argv[i]);
 				usage(argv[0]);
-				std::exit(1);
+				return 1;
 			}
 		}
 		else if (std::strcmp(argv[i], "--output") == 0)
@@ -70,7 +70,7 @@ int main(int argc, char **argv)
 			{
 				std::printf("Option output requires an optarg\n\n");
 				usage(argv[0]);
-				std::exit(1);
+				return 1;
 			}
 
 			out.open(argv[i]);
@@ -84,7 +84,7 @@ int main(int argc, char **argv)
 				for (CxxTest::TestDescription *td = sd->firstTest(); td; td = td->next())
 					std::printf("    %s\n", td->testName());
 			}
-			std::exit(0);
+			return 0;
 		}
 		else if (std::strcmp(argv[i], "--suite") == 0)
 		{
@@ -92,7 +92,7 @@ int main(int argc, char **argv)
 			{
 				std::printf("Option suite requires an optarg\n\n");
 				usage(argv[0]);
-				std::exit(1);
+				return 1;
 			}
 			suite = argv[i];
 		}
@@ -102,20 +102,20 @@ int main(int argc, char **argv)
 			{
 				std::printf("Option test requires an optarg\n\n");
 				usage(argv[0]);
-				std::exit(1);
+				return 1;
 			}
 			test = argv[i];
 		}
 		else if (std::strcmp(argv[i], "--help") == 0)
 		{
 			usage(argv[0]);
-			std::exit(0);
+			return 0;
 		}
 		else
 		{
 			std::printf("Unkown argument: %s\n\n", argv[i]);
 			usage(argv[0]);
-			std::exit(1);
+			return 1;
 		}
 	}
 
@@ -125,13 +125,13 @@ int main(int argc, char **argv)
 		{
 			std::printf("test needs a suite specified\n\n");
 			usage(argv[0]);
-			std::exit(1);
+			return 1;
 		}
 		if (!CxxTest::leaveOnly(suite, test))
 		{
 			std::printf("Unknown test '%s' in suite '%s'\n\n", test, suite);
 			usage(argv[0]);
-			std::exit(1);
+			return 1;
 		}
 	}
 	else if (suite)
@@ -140,7 +140,7 @@ int main(int argc, char **argv)
 		{
 			std::printf("Unknown suite '%s'\n\n", suite);
 			usage(argv[0]);
-			std::exit(1);
+			return 1;
 		}
 	}
 
