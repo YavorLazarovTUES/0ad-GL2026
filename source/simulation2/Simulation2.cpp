@@ -72,13 +72,14 @@
 class CSimulation2Impl
 {
 public:
-	CSimulation2Impl(CUnitManager* unitManager, ScriptContext& cx, CTerrain* terrain) :
+	CSimulation2Impl(CUnitManager* unitManager, ScriptContext& cx, CTerrain* terrain,
+		const bool enableOOSLog) :
 		m_SimContext{terrain, unitManager},
 		m_ComponentManager{m_SimContext, cx},
 		m_InitAttributes{cx.GetGeneralJSContext()},
 		m_MapSettings{cx.GetGeneralJSContext()},
 		// Tests won't have config initialised
-		m_EnableOOSLog{CConfigDB::GetIfInitialised("ooslog", false)},
+		m_EnableOOSLog{enableOOSLog || CConfigDB::GetIfInitialised("ooslog", false)},
 		m_EnableSerializationTest{CConfigDB::GetIfInitialised("serializationtest", false)},
 		// Handle bogus values of the arg
 		m_RejoinTestTurn{std::max(CConfigDB::GetIfInitialised("rejointest", -1), -1)}
@@ -644,8 +645,9 @@ void CSimulation2Impl::DumpState()
 
 ////////////////////////////////////////////////////////////////
 
-CSimulation2::CSimulation2(CUnitManager* unitManager, ScriptContext& cx, CTerrain* terrain) :
-	m(std::make_unique<CSimulation2Impl>(unitManager, cx, terrain))
+CSimulation2::CSimulation2(CUnitManager* unitManager, ScriptContext& cx, CTerrain* terrain,
+	const bool enableOOSLog) :
+	m(std::make_unique<CSimulation2Impl>(unitManager, cx, terrain, enableOOSLog))
 {
 }
 
@@ -661,17 +663,6 @@ void CSimulation2::EnableSerializationTest()
 void CSimulation2::EnableRejoinTest(int rejoinTestTurn)
 {
 	m->m_RejoinTestTurn = rejoinTestTurn;
-}
-
-void CSimulation2::EnableOOSLog()
-{
-	if (m->m_EnableOOSLog)
-		return;
-
-	m->m_EnableOOSLog = true;
-	m->m_OOSLogPath = createDateIndexSubdirectory(psLogDir() / "oos_logs");
-
-	debug_printf("Writing ooslogs to %s\n", m->m_OOSLogPath.string8().c_str());
 }
 
 entity_id_t CSimulation2::AddEntity(const std::wstring& templateName)

@@ -249,13 +249,11 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 				MountMods(Paths(g_CmdLineArgs), g_Mods.GetEnabledMods());
 			}
 
-			g_Game = new CGame(false);
+			g_Game = new CGame(false, ooslog);
 			if (serializationtest)
 				g_Game->GetSimulation2()->EnableSerializationTest();
 			if (rejointestturn >= 0)
 				g_Game->GetSimulation2()->EnableRejoinTest(rejointestturn);
-			if (ooslog)
-				g_Game->GetSimulation2()->EnableOOSLog();
 
 			ScriptRequest rq(g_Game->GetSimulation2()->GetScriptInterface());
 			JS::RootedValue attribs(rq.cx);

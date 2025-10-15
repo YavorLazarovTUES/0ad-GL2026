@@ -88,7 +88,7 @@ class CGame
 	CTurnManager* m_TurnManager;
 
 public:
-	CGame(bool replayLog);
+	CGame(bool replayLog, const bool oosLog = false);
 	~CGame();
 
 	/**

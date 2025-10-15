@@ -77,9 +77,10 @@ const CStr CGame::EventNameSimulationUpdate = "SimulationUpdate";
  * Constructor
  *
  **/
-CGame::CGame(bool replayLog):
+CGame::CGame(bool replayLog, const bool oosLog):
 	m_World(new CWorld(*this)),
-	m_Simulation2{new CSimulation2{&m_World->GetUnitManager(), *g_ScriptContext, &m_World->GetTerrain()}},
+	m_Simulation2{new CSimulation2{&m_World->GetUnitManager(), *g_ScriptContext, &m_World->GetTerrain(),
+		oosLog}},
 	// TODO: we need to remove that global dependency. Maybe the game view
 	// should be created outside only if needed.
 	m_GameView(CRenderer::IsInitialised() ? new CGameView(g_VideoMode.GetBackendDevice(), this) : nullptr),
