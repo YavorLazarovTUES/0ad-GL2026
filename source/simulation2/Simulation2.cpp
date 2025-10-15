@@ -73,16 +73,24 @@ class CSimulation2Impl
 {
 public:
 	CSimulation2Impl(CUnitManager* unitManager, ScriptContext& cx, CTerrain* terrain,
-		const bool enableOOSLog) :
+		const SimulationDebugOptions debugOptions) :
 		m_SimContext{terrain, unitManager},
 		m_ComponentManager{m_SimContext, cx},
 		m_InitAttributes{cx.GetGeneralJSContext()},
 		m_MapSettings{cx.GetGeneralJSContext()},
 		// Tests won't have config initialised
-		m_EnableOOSLog{enableOOSLog || CConfigDB::GetIfInitialised("ooslog", false)},
-		m_EnableSerializationTest{CConfigDB::GetIfInitialised("serializationtest", false)},
+		m_EnableOOSLog{debugOptions.oosLog || CConfigDB::GetIfInitialised("ooslog", false)},
+		m_EnableSerializationTest{
+			std::holds_alternative<SimulationDebugOptions::SerializationTest>(debugOptions.test) ||
+			CConfigDB::GetIfInitialised("serializationtest", false)},
 		// Handle bogus values of the arg
-		m_RejoinTestTurn{std::max(CConfigDB::GetIfInitialised("rejointest", -1), -1)}
+		m_RejoinTestTurn{[&]
+		{
+			const auto* rejoinTestOption{
+				std::get_if<SimulationDebugOptions::RejoinTest>(&debugOptions.test)};
+			return rejoinTestOption ? rejoinTestOption->turn :
+				std::max(CConfigDB::GetIfInitialised("rejointest", -1), -1);
+		}()}
 	{
 		m_ComponentManager.LoadComponentTypes();
 
@@ -646,24 +654,14 @@ void CSimulation2Impl::DumpState()
 ////////////////////////////////////////////////////////////////
 
 CSimulation2::CSimulation2(CUnitManager* unitManager, ScriptContext& cx, CTerrain* terrain,
-	const bool enableOOSLog) :
-	m(std::make_unique<CSimulation2Impl>(unitManager, cx, terrain, enableOOSLog))
+	const SimulationDebugOptions debugOptions) :
+	m(std::make_unique<CSimulation2Impl>(unitManager, cx, terrain, debugOptions))
 {
 }
 
 CSimulation2::~CSimulation2() = default;
 
 // Forward all method calls to the appropriate CSimulation2Impl/CComponentManager methods:
-
-void CSimulation2::EnableSerializationTest()
-{
-	m->m_EnableSerializationTest = true;
-}
-
-void CSimulation2::EnableRejoinTest(int rejoinTestTurn)
-{
-	m->m_RejoinTestTurn = rejoinTestTurn;
-}
 
 entity_id_t CSimulation2::AddEntity(const std::wstring& templateName)
 {

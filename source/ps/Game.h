@@ -24,6 +24,7 @@
 #include "ps/CStr.h"
 #include "ps/Errors.h"
 #include "simulation2/helpers/Player.h"
+#include "simulation2/system/DebugOptions.h"
 
 #include <algorithm>
 #include <cmath>
@@ -88,7 +89,7 @@ class CGame
 	CTurnManager* m_TurnManager;
 
 public:
-	CGame(bool replayLog, const bool oosLog = false);
+	CGame(bool replayLog, const SimulationDebugOptions debugOptions = {});
 	~CGame();
 
 	/**

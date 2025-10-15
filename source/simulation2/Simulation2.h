@@ -21,6 +21,7 @@
 #include "lib/code_annotation.h"
 #include "lib/file/vfs/vfs_path.h"
 #include "lib/status.h"
+#include "simulation2/system/DebugOptions.h"
 #include "simulation2/system/Entity.h"
 
 #include <js/TypeDecls.h>
@@ -56,11 +57,8 @@ public:
 	// TODO: CUnitManager should probably be handled automatically by this
 	// module, but for now we'll have it passed in externally instead
 	CSimulation2(CUnitManager* unitManager, ScriptContext& cx, CTerrain* terrain,
-		const bool enableOOSLog = false);
+		const SimulationDebugOptions debugOptions = {});
 	~CSimulation2();
-
-	void EnableSerializationTest();
-	void EnableRejoinTest(int rejoinTestTurn);
 
 	/**
 	 * Load all scripts in the specified directory (non-recursively),

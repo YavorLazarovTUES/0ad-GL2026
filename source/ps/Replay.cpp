@@ -249,11 +249,18 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 				MountMods(Paths(g_CmdLineArgs), g_Mods.GetEnabledMods());
 			}
 
-			g_Game = new CGame(false, ooslog);
+			if (serializationtest && rejointestturn >= 0)
+				LOGERROR("serializationtest and rejointest can't be activ at the same time.");
+
+			SimulationDebugOptions debugOption{};
 			if (serializationtest)
-				g_Game->GetSimulation2()->EnableSerializationTest();
+				debugOption.test = SimulationDebugOptions::SerializationTest{};
 			if (rejointestturn >= 0)
-				g_Game->GetSimulation2()->EnableRejoinTest(rejointestturn);
+				debugOption.test = SimulationDebugOptions::RejoinTest{rejointestturn};
+			if (ooslog)
+				debugOption.oosLog = true;
+
+			g_Game = new CGame(false, debugOption);
 
 			ScriptRequest rq(g_Game->GetSimulation2()->GetScriptInterface());
 			JS::RootedValue attribs(rq.cx);
