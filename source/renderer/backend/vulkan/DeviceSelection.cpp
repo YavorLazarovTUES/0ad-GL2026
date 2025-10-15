@@ -446,6 +446,8 @@ void ReportAvailablePhysicalDevice(const SAvailablePhysicalDevice& device,
 	REPORT_LIMITS_CONSTANT(sampledImageDepthSampleCounts);
 	REPORT_LIMITS_CONSTANT(sampledImageStencilSampleCounts);
 	REPORT_LIMITS_CONSTANT(storageImageSampleCounts);
+	REPORT_LIMITS_CONSTANT(timestampComputeAndGraphics);
+	REPORT_LIMITS_CONSTANT(timestampPeriod);
 	REPORT_LIMITS_CONSTANT(optimalBufferCopyOffsetAlignment);
 	REPORT_LIMITS_CONSTANT(optimalBufferCopyRowPitchAlignment);
 #undef REPORT_LIMITS_CONSTANT
