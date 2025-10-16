@@ -243,9 +243,8 @@ SharedScript.prototype.ApplyEntitiesDelta = function(state)
 			evt.SuccessfulFoundation = true;
 
 		// The entity was destroyed but its data may still be useful, so
-		// remember the entity and this AI's metadata concerning it
+		// remember the AI's metadata concerning it
 		evt.metadata = {};
-		evt.entityObj = this._entities.get(evt.entity);
 		for (const player of this._players)
 			evt.metadata[player] = this._entityMetadata[player][evt.entity];
 

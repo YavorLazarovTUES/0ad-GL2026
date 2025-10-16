@@ -146,7 +146,6 @@ PetraBot.prototype.Serialize = function()
 			const evtmod = {};
 			for (const keyevt in evt)
 				evtmod[keyevt] = evt[keyevt];
-			evtmod.entityObj = undefined;
 			savedEvents[key][i] = evtmod;
 		}
 	}
