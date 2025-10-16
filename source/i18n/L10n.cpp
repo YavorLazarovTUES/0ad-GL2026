@@ -39,7 +39,6 @@
 #include "scriptinterface/ScriptInterface.h"
 
 #include <algorithm>
-#include <boost/algorithm/string/predicate.hpp>
 #include <cstdint>
 #include <cstring>
 #include <exception>
@@ -518,7 +517,7 @@ VfsPath L10n::LocalizePath(const VfsPath& sourcePath) const
 
 Status L10n::ReloadChangedFile(const VfsPath& path)
 {
-	if (!boost::algorithm::starts_with(path.string(), L"l10n/"))
+	if (!path.string().starts_with(L"l10n/"))
 		return INFO::OK;
 
 	if (path.Extension() != L".po")

@@ -46,7 +46,6 @@
 
 #include <algorithm>
 #include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <cstdio>
 #include <cstring>
@@ -826,9 +825,9 @@ bool ModIo::ParseSignature(const std::vector<std::string>& minisigs, SigStruct& 
 		// because that is easy.
 		const std::string untrusted_comment_prefix = "untrusted comment: ";
 		const std::string trusted_comment_prefix = "trusted comment: ";
-		if (!boost::algorithm::starts_with(sig_lines[0], untrusted_comment_prefix))
+		if (!sig_lines[0].starts_with(untrusted_comment_prefix))
 			FAIL("Malformed untrusted comment.");
-		if (!boost::algorithm::starts_with(sig_lines[2], trusted_comment_prefix))
+		if (!sig_lines[2].starts_with(trusted_comment_prefix))
 			FAIL("Malformed trusted comment.");
 
 		// We only _really_ care about the second line which is the signature of the file (b64-encoded)

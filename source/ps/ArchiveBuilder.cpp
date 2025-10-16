@@ -32,7 +32,6 @@
 #include "ps/XML/Xeromyces.h"
 #include "renderer/backend/dummy/Device.h"
 
-#include <boost/algorithm/string/predicate.hpp>
 #include <string>
 
 CArchiveBuilder::CArchiveBuilder(const OsPath& mod, const OsPath& tempdir) :
@@ -98,13 +97,11 @@ void CArchiveBuilder::Build(const OsPath& archive, bool compress)
 		ENSURE(ret == INFO::OK);
 
 		// Compress textures and store the new cached version instead of the original
-		if ((boost::algorithm::starts_with(path.string(), L"art/textures/") ||
-			 boost::algorithm::starts_with(path.string(), L"fonts/")
-			) &&
+		if ((path.string().starts_with(L"art/textures/") || path.string().starts_with(L"fonts/")) &&
 			tex_is_known_extension(path) &&
 			// Skip some subdirectories where the engine doesn't use CTextureManager yet:
-			!boost::algorithm::starts_with(path.string(), L"art/textures/cursors/") &&
-			!boost::algorithm::starts_with(path.string(), L"art/textures/terrain/alphamaps/")
+			!path.string().starts_with(L"art/textures/cursors/") &&
+			!path.string().starts_with(L"art/textures/terrain/alphamaps/")
 		)
 		{
 			VfsPath cachedPath;
@@ -128,9 +125,9 @@ void CArchiveBuilder::Build(const OsPath& archive, bool compress)
 		{
 			CColladaManager::FileType type;
 
-			if (boost::algorithm::starts_with(path.string(), L"art/meshes/"))
+			if (path.string().starts_with(L"art/meshes/"))
 				type = CColladaManager::PMD;
-			else if (boost::algorithm::starts_with(path.string(), L"art/animation/"))
+			else if (path.string().starts_with(L"art/animation/"))
 				type = CColladaManager::PSA;
 			else
 			{

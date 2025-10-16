@@ -33,7 +33,6 @@
 #include "ps/Profiler2.h"
 
 #include <algorithm>
-#include <boost/algorithm/string/predicate.hpp>
 #include <cstddef>
 #include <mutex>
 #include <unordered_set>
@@ -239,11 +238,11 @@ std::map<CStr, CConfigValueSet> CConfigDB::GetValuesWithPrefix(EConfigNamespace 
 	// values in earlier namespaces
 	for (int search_ns = 0; search_ns <= ns; ++search_ns)
 		for (const std::pair<const CStr, CConfigValueSet>& p : m_Map[search_ns])
-			if (boost::algorithm::starts_with(p.first, prefix))
+			if (p.first.starts_with(prefix))
 				ret[p.first] = p.second;
 
 	for (const std::pair<const CStr, CConfigValueSet>& p : m_Map[CFG_COMMAND])
-		if (boost::algorithm::starts_with(p.first, prefix))
+		if (p.first.starts_with(prefix))
 			ret[p.first] = p.second;
 
 	return ret;

@@ -35,7 +35,6 @@
 #include "ps/Filesystem.h"
 
 #include <algorithm>
-#include <boost/algorithm/string/predicate.hpp>
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -93,7 +92,7 @@ public:
 	Status ReloadChangedFile(const VfsPath& path)
 	{
 		// Ignore files that aren't in the right path
-		if (!boost::algorithm::starts_with(path.string(), L"art/skeletons/"))
+		if (!path.string().starts_with(L"art/skeletons/"))
 			return INFO::OK;
 
 		if (path.Extension() != L".xml")
