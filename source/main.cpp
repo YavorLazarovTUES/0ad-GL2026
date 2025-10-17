@@ -35,7 +35,6 @@ that of Atlas depending on commandline parameters.
 #include "graphics/GameView.h"
 #include "graphics/TextureManager.h"
 #include "gui/GUIManager.h"
-#include "lib/code_annotation.h"
 #include "lib/config2.h"
 #include "lib/debug.h"
 #include "lib/external_libraries/libsdl.h"
@@ -326,12 +325,14 @@ static int ProgressiveLoad()
 {
 	PROFILE3("progressive load");
 
-	wchar_t description[100];
-	int progress_percent;
+	std::wstring description;
+	int progressPercent{0};
 	try
 	{
-		Status ret = LDR_ProgressiveLoad(10e-3, description, ARRAY_SIZE(description), &progress_percent);
-		switch(ret)
+		const LDR_ProgressiveLoadResult result{LDR_ProgressiveLoad(10e-3)};
+		description = result.nextDescription;
+		progressPercent = result.progressPercent;
+		switch(result.status)
 		{
 			// no load active => no-op (skip code below)
 		case INFO::OK:
@@ -343,13 +344,13 @@ static int ProgressiveLoad()
 			// just finished loading
 		case INFO::ALL_COMPLETE:
 			g_Game->ReallyStartGame();
-			wcscpy_s(description, ARRAY_SIZE(description), L"Game is starting..");
+			description = L"Game is starting..";
 			// LDR_ProgressiveLoad returns L""; set to valid text to
 			// avoid problems in converting to JSString
 			break;
 			// error!
 		default:
-			WARN_RETURN_STATUS_IF_ERR(ret);
+			WARN_RETURN_STATUS_IF_ERR(result.status);
 			// can't do this above due to legit ERR::TIMED_OUT
 			break;
 		}
@@ -363,7 +364,7 @@ static int ProgressiveLoad()
 		CancelLoad(CStr(e.what()).FromUTF8());
 	}
 
-	g_GUI->DisplayLoadProgress(progress_percent, description);
+	g_GUI->DisplayLoadProgress(progressPercent, description.c_str());
 	return 0;
 }
 

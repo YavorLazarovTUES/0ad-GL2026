@@ -26,7 +26,6 @@
 #include "lib/secure_crt.h"
 #include "lib/timer.h"
 #include "lib/utf8.h"
-#include "ps/CStr.h"
 
 #include <deque>
 #include <numeric>
@@ -68,13 +67,13 @@ struct LoadRequest
 	LoadFunc func;
 
 	// Translatable string shown to the player.
-	CStrW description;
+	std::wstring description;
 
 	int estimated_duration_ms;
 
 	// LDR_Register gets these as parameters; pack everything together.
-	LoadRequest(LoadFunc func_, const wchar_t* desc_, int ms_)
-		: func(func_), description(desc_), estimated_duration_ms(ms_)
+	LoadRequest(LoadFunc func_, std::wstring desc_, int ms_)
+		: func(std::move(func_)), description(std::move(desc_)), estimated_duration_ms(ms_)
 	{
 	}
 };
@@ -110,11 +109,11 @@ void LDR_BeginRegistering()
 // <estimated_duration_ms>: used to calculate progress, and when checking
 //   whether there is enough of the time budget left to process this task
 //   (reduces timeslice overruns, making the main loop more responsive).
-void LDR_Register(LoadFunc func, const wchar_t* description, int estimatedDurationMs)
+void LDR_Register(LoadFunc func, std::wstring description, int estimatedDurationMs)
 {
 	ENSURE(state == REGISTERING);	// must be called between LDR_(Begin|End)Register
 
-	load_requests.emplace_back(std::move(func), description, estimatedDurationMs);
+	load_requests.emplace_back(std::move(func), std::move(description), estimatedDurationMs);
 }
 
 
@@ -166,27 +165,9 @@ static bool HaveTimeForNextTask(double time_left, double time_budget, int estima
 	return true;
 }
 
-
-// process as many of the queued tasks as possible within <time_budget> [s].
-// if a task is lengthy, the budget may be exceeded. call from the main loop.
-//
-// passes back a description of the next task that will be undertaken
-// ("" if finished) and the current progress value.
-//
-// return semantics:
-// - if the final load task just completed, return INFO::ALL_COMPLETE.
-// - if loading is in progress but didn't finish, return ERR::TIMED_OUT.
-// - if not currently loading (no-op), return 0.
-// - any other value indicates a failure; the request has been de-queued.
-//
-// string interface rationale: for better interoperability, we avoid C++
-// std::wstring and PS CStr. since the registered description may not be
-// persistent, we can't just store a pointer. returning a pointer to
-// our copy of the description doesn't work either, since it's freed when
-// the request is de-queued. that leaves writing into caller's buffer.
-Status LDR_ProgressiveLoad(double time_budget, wchar_t* description, size_t max_chars, int* progress_percent)
+LDR_ProgressiveLoadResult LDR_ProgressiveLoad(double time_budget)
 {
-	Status ret;	// single exit; this is returned
+	LDR_ProgressiveLoadResult ret;
 	double progress = 0.0;	// used to set progress_percent
 	double time_left = time_budget;
 
@@ -196,7 +177,7 @@ Status LDR_ProgressiveLoad(double time_budget, wchar_t* description, size_t max_
 	{
 		state = LOADING;
 
-		ret = ERR::TIMED_OUT;	// make caller think we did something
+		ret.status = ERR::TIMED_OUT;	// make caller think we did something
 		// progress already set to 0.0; that'll be passed back.
 		goto done;
 	}
@@ -204,7 +185,7 @@ Status LDR_ProgressiveLoad(double time_budget, wchar_t* description, size_t max_
 	// we're called unconditionally from the main loop, so this isn't
 	// an error; there is just nothing to do.
 	if(state != LOADING)
-		return INFO::OK;
+		return {};
 
 	while(!load_requests.empty())
 	{
@@ -213,7 +194,7 @@ Status LDR_ProgressiveLoad(double time_budget, wchar_t* description, size_t max_
 		const double estimated_duration = lr.estimated_duration_ms*1e-3;
 		if(!HaveTimeForNextTask(time_left, time_budget, lr.estimated_duration_ms))
 		{
-			ret = ERR::TIMED_OUT;
+			ret.status = ERR::TIMED_OUT;
 			goto done;
 		}
 
@@ -252,7 +233,7 @@ Status LDR_ProgressiveLoad(double time_budget, wchar_t* description, size_t max_
 		// .. function interrupted itself, i.e. timed out; abort.
 		if(timed_out)
 		{
-			ret = ERR::TIMED_OUT;
+			ret.status = ERR::TIMED_OUT;
 			goto done;
 		}
 		// .. failed; abort. loading will continue when we're called in
@@ -261,14 +242,14 @@ Status LDR_ProgressiveLoad(double time_budget, wchar_t* description, size_t max_
 		//    error that came up so we can report all errors that happen.
 		else if(status < 0)
 		{
-			ret = (Status)status;
+			ret.status = static_cast<Status>(status);
 			goto done;
 		}
 		// .. function called LDR_Cancel; abort. return OK since this is an
 		//    intentional cancellation, not an error.
 		else if(state != LOADING)
 		{
-			ret = INFO::OK;
+			ret.status = INFO::OK;
 			goto done;
 		}
 		// .. succeeded; continue and process next queued task.
@@ -276,22 +257,20 @@ Status LDR_ProgressiveLoad(double time_budget, wchar_t* description, size_t max_
 
 	// queue is empty, we just finished.
 	state = IDLE;
-	ret = INFO::ALL_COMPLETE;
+	ret.status = INFO::ALL_COMPLETE;
 
 
 	// set output params (there are several return points above)
 done:
-	*progress_percent = (int)(progress * 100.0);
-	ENSURE(0 <= *progress_percent && *progress_percent <= 100);
+	ret.progressPercent = static_cast<int>(progress * 100.0);
+	ENSURE(0 <= ret.progressPercent && ret.progressPercent <= 100);
 
 	// we want the next task, instead of what just completed:
 	// it will be displayed during the next load phase.
-	const wchar_t* new_description = L"";	// assume finished
 	if(!load_requests.empty())
-		new_description = load_requests.front().description.c_str();
-	wcscpy_s(description, max_chars, new_description);
+		ret.nextDescription = load_requests.front().description;
 
-	debug_printf("LOADER| returning; desc=%s progress=%d\n", utf8_from_wstring(description).c_str(), *progress_percent);
+	debug_printf("LOADER| returning; desc=%s progress=%d\n", utf8_from_wstring(ret.nextDescription).c_str(), ret.progressPercent);
 
 	return ret;
 }
@@ -304,12 +283,10 @@ Status LDR_NonprogressiveLoad()
 	const double time_budget = 100.0;
 		// large enough so that individual functions won't time out
 		// (that'd waste time).
-	wchar_t description[100];
-	int progress_percent;
 
 	for(;;)
 	{
-		Status ret = LDR_ProgressiveLoad(time_budget, description, ARRAY_SIZE(description), &progress_percent);
+		const auto [ret, description, progress_percent] = LDR_ProgressiveLoad(time_budget);
 		switch(ret)
 		{
 		case INFO::OK:

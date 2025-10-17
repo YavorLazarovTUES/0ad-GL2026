@@ -24,8 +24,8 @@
 #include "lib/debug.h"
 #include "lib/status.h"
 
-#include <cstddef>
 #include <functional>
+#include <string>
 
 /*
 
@@ -126,7 +126,7 @@ using LoadFunc = std::function<int(double)>;
 // <estimated_duration_ms>: used to calculate progress, and when checking
 //   whether there is enough of the time budget left to process this task
 //   (reduces timeslice overruns, making the main loop more responsive).
-void LDR_Register(LoadFunc func, const wchar_t* description, int estimated_duration_ms);
+void LDR_Register(LoadFunc func, std::wstring description, int estimated_duration_ms);
 
 
 // call when finished registering tasks; subsequent calls to
@@ -139,25 +139,32 @@ extern void LDR_EndRegistering();
 // note: no special notification will be returned by LDR_ProgressiveLoad.
 extern void LDR_Cancel();
 
+struct LDR_ProgressiveLoadResult
+{
+	/**
+	 * @c INFO::All_COMPLETE if the final load task just completed.
+	 * @c ERR::TIMED_OUT if loading is in progress but didn't finish.
+	 * @c 0 if not currently loading (no-op).
+	 * Otherwise an error code. the request has been de-queued.
+	 */
+	Status status{0};
 
-// process as many of the queued tasks as possible within <time_budget> [s].
-// if a task is lengthy, the budget may be exceeded. call from the main loop.
-//
-// passes back a description of the next task that will be undertaken
-// ("" if finished) and the current progress value.
-//
-// return semantics:
-// - if the final load task just completed, return INFO::ALL_COMPLETE.
-// - if loading is in progress but didn't finish, return ERR::TIMED_OUT.
-// - if not currently loading (no-op), return 0.
-// - any other value indicates a failure; the request has been de-queued.
-//
-// string interface rationale: for better interoperability, we avoid C++
-// std::wstring and PS CStr. since the registered description may not be
-// persistent, we can't just store a pointer. returning a pointer to
-// our copy of the description doesn't work either, since it's freed when
-// the request is de-queued. that leaves writing into caller's buffer.
-extern Status LDR_ProgressiveLoad(double time_budget, wchar_t* next_description, size_t max_chars, int* progress_percent);
+	/**
+	 * An empty string when finished.
+	 * Otherwise the description of the next task that will be undertaken.
+	 */
+	std::wstring nextDescription;
+
+	/**
+	 * The current progress value.
+	 */
+	int progressPercent;
+};
+/**
+ * Process as many of the queued tasks as possible within @c timeBudget [s].
+ * if a task is lengthy, the budget may be exceeded. call from the main loop.
+ */
+LDR_ProgressiveLoadResult LDR_ProgressiveLoad(double time_budget);
 
 // immediately process all queued load requests.
 // returns 0 on success or a negative error code.
