@@ -206,20 +206,16 @@ CMiniMapTexture& CGameView::GetMiniMapTexture()
 void CGameView::RegisterInit()
 {
 	// CGameView init
-	PS::Loader::Register([this]
+	PS::Loader::Register(std::bind_front([](ICameraController* cameraController) -> PS::Loader::Task
 	{
-		m->CameraController->LoadConfig();
-		return 0;
-	}, L"CGameView init", 1);
+		cameraController->LoadConfig();
+		co_return 0;
+	}, m->CameraController.get()), L"CGameView init", 1);
 
 	PS::Loader::Register([]
 	{
-		return g_TexMan.StartTerrainTextures();
-	}, L"StartTerrainTextures", 1);
-	PS::Loader::Register([]
-	{
-		return g_TexMan.PollTerrainTextures();
-	}, L"PollTerrainTextures", 60);
+		return g_TexMan.LoadTerrainTextures();
+	}, L"TerrainTextures", 61);
 }
 
 void CGameView::BeginFrame()

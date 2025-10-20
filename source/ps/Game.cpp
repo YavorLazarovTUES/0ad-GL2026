@@ -282,22 +282,23 @@ void CGame::RegisterInit(const JS::HandleValue attribs, const std::string& saved
 		m_World->RegisterInit(mapFile, scriptInterface.GetContext(), settings, m_PlayerID);
 	}
 	if (m_GameView)
-		PS::Loader::Register([&waterManager = g_Renderer.GetSceneRenderer().GetWaterManager()]
+		PS::Loader::Register([]() -> PS::Loader::Task
 		{
-			return waterManager.LoadWaterTextures();
+			co_return g_Renderer.GetSceneRenderer().GetWaterManager().LoadWaterTextures();
 		}, L"LoadWaterTextures", 80);
 
 	if (m_IsSavedGame)
-		PS::Loader::Register([this, savedState]
+		PS::Loader::Register(std::bind_front(
+			[](CGame* game, const std::string& state) -> PS::Loader::Task
 		{
-			return LoadInitialState(savedState);
-		}, L"Loading game", 1000);
+			co_return game->LoadInitialState(state);
+		}, this, savedState), L"Loading game", 1000);
 
 	if (m_IsVisualReplay)
-		PS::Loader::Register([this]
+		PS::Loader::Register(std::bind_front([](CGame* game) -> PS::Loader::Task
 		{
-			return LoadVisualReplayData();
-		}, L"Loading visual replay data", 1000);
+			co_return game->LoadVisualReplayData();
+		}, this), L"Loading visual replay data", 1000);
 
 	PS::Loader::EndRegistering();
 }

@@ -21,6 +21,7 @@
 #include "lib/file/vfs/vfs_path.h"
 #include "lib/types.h"
 #include "ps/CStr.h"
+#include "ps/Loader.h"
 #include "ps/Singleton.h"
 #include "renderer/backend/ITexture.h"
 
@@ -99,8 +100,7 @@ public:
 
 	// Find all XML's in the directory (with subdirs) and try to load them as
 	// terrain XML's
-	int StartTerrainTextures();
-	int PollTerrainTextures();
+	PS::Loader::Task LoadTerrainTextures();
 
 	void UnloadTerrainTextures();
 
@@ -137,9 +137,6 @@ private:
 	// A way to separate file loading and uploading to GPU to not stall uploading.
 	// Once we get a properly threaded loading we might optimize that.
 	std::vector<CTerrainTextureManager::TerrainAlphaMap::iterator> m_AlphaMapsToUpload;
-
-	struct LoadTexturesState;
-	std::unique_ptr<LoadTexturesState> m_LoadTexturesState;
 };
 
 // access to sole CTerrainTextureManager object

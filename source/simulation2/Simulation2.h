@@ -21,6 +21,7 @@
 #include "lib/code_annotation.h"
 #include "lib/file/vfs/vfs_path.h"
 #include "lib/status.h"
+#include "ps/Loader.h"
 #include "simulation2/system/DebugOptions.h"
 #include "simulation2/system/Entity.h"
 
@@ -140,7 +141,7 @@ public:
 	/**
 	 * RegMemFun incremental loader function.
 	 */
-	int ProgressiveLoad();
+	PS::Loader::Task ProgressiveLoad();
 
 	/**
 	 * Reload any scripts that were loaded from the given filename.

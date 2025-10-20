@@ -24,11 +24,11 @@
 
 #include "lib/code_annotation.h"
 #include "lib/secure_crt.h"
-#include "lib/timer.h"
 #include "lib/utf8.h"
 
 #include <deque>
 #include <numeric>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -84,13 +84,7 @@ struct LoadRequest
 
 using LoadRequests = std::deque<LoadRequest>;
 LoadRequests load_requests;
-
-// Returns true if the return code indicates that the `LoadRequest` didn't
-// finish and should be reinvoked in the next frame.
-bool WasInterrupted(const int ret)
-{
-	return 0 < ret && ret <= 100;
-}
+std::optional<PS::Loader::Task> currentTask;
 } // anonymous namespace
 
 // call before starting to register load requests.
@@ -118,7 +112,7 @@ void Register(LoadFunc func, std::wstring description, int estimatedDurationMs)
 {
 	ENSURE(state == REGISTERING);	// must be called between PS::Loader::(Begin|End)Register
 
-	load_requests.emplace_back(std::move(func), std::move(description), estimatedDurationMs);
+	load_requests.push_back({std::move(func), std::move(description), estimatedDurationMs});
 }
 
 
@@ -208,8 +202,18 @@ ProgressiveLoadResult ProgressiveLoad(double time_budget)
 
 		// call this task's function and bill elapsed time.
 		const double t0 = timer_Time();
-		const int status = lr.func();
-		const bool timed_out = WasInterrupted(status);
+		if (!currentTask.has_value())
+			currentTask.emplace(lr.func());
+		try
+		{
+			currentTask->Step(time_left);
+		}
+		catch(...)
+		{
+			currentTask.reset();
+			throw;
+		}
+		const bool timed_out = !currentTask->IsDone();
 		const double elapsed_time = timer_Time() - t0;
 		time_left -= elapsed_time;
 		task_elapsed_time += elapsed_time;
@@ -232,7 +236,7 @@ ProgressiveLoadResult ProgressiveLoad(double time_budget)
 			// note: monotonicity is guaranteed since we never add more than
 			//   its estimated_duration_ms.
 			if(timed_out)
-				current_estimate += estimated_duration * status/100.0;
+				current_estimate += estimated_duration * currentTask->GetProgress() / 100.0;
 
 			progress = current_estimate / total_estimated_duration;
 		}
@@ -248,19 +252,16 @@ ProgressiveLoadResult ProgressiveLoad(double time_budget)
 		//    the next iteration of the main loop.
 		//    rationale: bail immediately instead of remembering the first
 		//    error that came up so we can report all errors that happen.
-		else if(status < 0)
-		{
-			ret.status = static_cast<Status>(status);
-			goto done;
-		}
+		else if(currentTask->Get() < 0)
+			ret.status = static_cast<Status>(currentTask->Get());
 		// .. function called PS::Loader::Cancel; abort. return OK since this is an
 		//    intentional cancellation, not an error.
 		else if(state != LOADING)
-		{
 			ret.status = INFO::OK;
-			goto done;
-		}
 		// .. succeeded; continue and process next queued task.
+
+		currentTask.reset();
+		goto done;
 	}
 
 	// queue is empty, we just finished.

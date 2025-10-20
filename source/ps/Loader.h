@@ -23,9 +23,13 @@
 
 #include "lib/debug.h"
 #include "lib/status.h"
+#include "lib/timer.h"
 
+#include <coroutine>
+#include <exception>
 #include <functional>
 #include <string>
+#include <utility>
 
 namespace PS::Loader
 {
@@ -104,19 +108,122 @@ Then in the main loop, call PS::Loader::ProgressiveLoad().
 // or issuing via console while already loading.
 void BeginRegistering();
 
+/**
+ * Coroutine which performs the actual work.
+ *
+ * `co_yield ...` can be used to yield the current progress. Iff the timeout is
+ *	reached, the coroutine suspends.
+ * `co_await std::suspend_always{}` is usefull to force a suspention. e.g. When
+ *	no progress can be made such as when the work is done on a different
+ *	thread.
+ * `co_return 0` notifies the loader that the task is fineshed without an
+ *	error.
+ * `co_return ...` when the returned value is negative the loader interprets
+ *	that as a task failure. `PS::Loader::ProgressiveLoad` will abort
+ *	immediately and forward the error code.
+ */
+class Task
+{
+public:
+	class promise_type
+	{
+		class SuspendIf
+		{
+		public:
+			explicit SuspendIf(const bool suspend) :
+				m_Suspend{suspend}
+			{}
 
-// callback function of a task; performs the actual work.
-//
-// return semantics:
-// - if the entire task was successfully completed, return 0;
-//   it will then be de-queued.
-// - if the work can be split into smaller subtasks, process those until
-//   <time_left> is reached or exceeded and then return an estimate
-//   of progress in percent (<= 100, otherwise it's a warning;
-//   != 0, or it's treated as "finished")
-// - on failure, return a negative error code or 'warning' (see above);
-//   PS::Loader::ProgressiveLoad will abort immediately and return that.
-using LoadFunc = std::function<int()>;
+			bool await_ready() const noexcept
+			{
+				return !m_Suspend;
+			}
+			void await_suspend(std::coroutine_handle<promise_type>) const noexcept
+			{}
+			void await_resume() const noexcept
+			{}
+
+		private:
+			bool m_Suspend;
+		};
+	public:
+		Task get_return_object() noexcept
+		{
+			return Task{std::coroutine_handle<promise_type>::from_promise(*this)};
+		}
+		std::suspend_always initial_suspend() const noexcept { return {}; }
+		std::suspend_always final_suspend() const noexcept { return {}; }
+		void return_value(const int result) noexcept
+		{
+			m_Result = result;
+		}
+		void unhandled_exception() noexcept
+		{
+			m_Exception = std::current_exception();
+		}
+
+		SuspendIf yield_value(const int progress) noexcept
+		{
+			m_Progress = progress;
+			return SuspendIf{m_StepEnd < timer_Time()};
+		}
+
+		int m_Progress{0};
+		double m_StepEnd;
+		int m_Result{0};
+		std::exception_ptr m_Exception;
+	};
+
+	Task(const Task&) = delete;
+	Task& operator =(const Task&) = delete;
+	Task(Task&& other) noexcept :
+		m_Handle{std::exchange(other.m_Handle, {})}
+	{}
+	Task& operator =(Task&& other) noexcept
+	{
+		m_Handle = std::exchange(other.m_Handle, {});
+		return *this;
+	}
+
+	~Task()
+	{
+		if (m_Handle)
+			m_Handle.destroy();
+	}
+
+	[[nodiscard]] double GetProgress() const noexcept
+	{
+		return m_Handle.promise().m_Progress;
+	}
+
+	void Step(const double timeBudget)
+	{
+		m_Handle.promise().m_StepEnd = timeBudget + timer_Time();
+		m_Handle.resume();
+		std::exception_ptr exception{std::exchange(m_Handle.promise().m_Exception, {})};
+		if (exception)
+			std::rethrow_exception(std::move(exception));
+	}
+
+	[[nodiscard]] bool IsDone() const noexcept
+	{
+		return m_Handle.done();
+	}
+
+	[[nodiscard]] int Get() const noexcept
+	{
+		return m_Handle.promise().m_Result;
+	}
+
+private:
+	explicit Task(std::coroutine_handle<promise_type> h) noexcept :
+		m_Handle{std::move(h)}
+	{}
+
+	std::coroutine_handle<promise_type> m_Handle;
+};
+
+using LoadFunc = std::function<PS::Loader::Task()>;
 
 // register a task (later processed in FIFO order).
 // <func>: function that will perform the actual work; see LoadFunc.
@@ -168,22 +275,6 @@ ProgressiveLoadResult ProgressiveLoad(double time_budget);
 // immediately process all queued load requests.
 // returns 0 on success or a negative error code.
 Status NonprogressiveLoad();
-
-
-// boilerplate check-if-timed-out and return-progress-percent code.
-// completed_jobs and total_jobs are ints and must be updated by caller.
-// assumes presence of a local variable (double)<end_time>
-// (as returned by timer_Time()) that indicates the time at which to abort.
-#define LDR_CHECK_TIMEOUT(completed_jobs, total_jobs)\
-	if(timer_Time() > end_time)\
-	{\
-		size_t progress_percent = ((completed_jobs)*100 / (total_jobs));\
-		/* 0 means "finished", so don't return that! */\
-		if(progress_percent == 0)\
-			progress_percent = 1;\
-		ENSURE(0 < progress_percent && progress_percent <= 100);\
-		return (int)progress_percent;\
-	}
 
 } // namespace PS::Loader
 

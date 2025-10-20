@@ -79,6 +79,7 @@
 #include <atomic>
 #include <functional>
 #include <js/PropertyAndElement.h>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -150,21 +151,21 @@ void CMapReader::LoadMap(const VfsPath& pathname, const ScriptContext& cx,  JS::
 
 	// load map or script settings script
 	if (settings.isUndefined())
-		PS::Loader::Register([this]
+		PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 		{
-			return LoadScriptSettings();
-		}, L"CMapReader::LoadScriptSettings", 50);
+			co_return mapReader->LoadScriptSettings();
+		}, this), L"CMapReader::LoadScriptSettings", 50);
 	else
-		PS::Loader::Register([this]
+		PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 		{
-			return LoadRMSettings();
-		}, L"CMapReader::LoadRMSettings", 50);
+			co_return mapReader->LoadRMSettings();
+		}, this), L"CMapReader::LoadRMSettings", 50);
 
 	// load player settings script (must be done before reading map)
-	PS::Loader::Register([this]
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return LoadPlayerSettings();
-	}, L"CMapReader::LoadPlayerSettings", 50);
+		co_return mapReader->LoadPlayerSettings();
+	}, this), L"CMapReader::LoadPlayerSettings", 50);
 
 	// unpack the data
 	if (!only_xml)
@@ -174,16 +175,16 @@ void CMapReader::LoadMap(const VfsPath& pathname, const ScriptContext& cx,  JS::
 		}, L"CMapReader::UnpackMap", 1200);
 
 	// read the corresponding XML file
-	PS::Loader::Register([this]
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return ReadXML();
-	}, L"CMapReader::ReadXML", 50);
+		co_return mapReader->ReadXML();
+	}, this), L"CMapReader::ReadXML", 50);
 
 	// apply terrain data to the world
-	PS::Loader::Register([this]
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return ApplyTerrainData();
-	}, L"CMapReader::ApplyTerrainData", 5);
+		co_return mapReader->ApplyTerrainData();
+	}, this), L"CMapReader::ApplyTerrainData", 5);
 
 	// read entities
 	PS::Loader::Register([this]
@@ -192,16 +193,16 @@ void CMapReader::LoadMap(const VfsPath& pathname, const ScriptContext& cx,  JS::
 	}, L"CMapReader::ReadXMLEntities", 5800);
 
 	// apply misc data to the world
-	PS::Loader::Register([this]
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return ApplyData();
-	}, L"CMapReader::ApplyData", 5);
+		co_return mapReader->ApplyData();
+	}, this), L"CMapReader::ApplyData", 5);
 
 	// load map settings script (must be done after reading map)
-	PS::Loader::Register([this]
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return LoadMapSettings();
-	}, L"CMapReader::LoadMapSettings", 5);
+		co_return mapReader->LoadMapSettings();
+	}, this), L"CMapReader::LoadMapSettings", 5);
 }
 
 // LoadRandomMap: try to load the map data; reinitialise the scene to new data if successful
@@ -232,86 +233,70 @@ void CMapReader::LoadRandomMap(const CStrW& scriptFile, const ScriptContext& cx,
 	only_xml = false;
 
 	// copy random map settings (before entity creation)
-	PS::Loader::Register([this]
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return LoadRMSettings();
-	}, L"CMapReader::LoadRMSettings", 50);
+		co_return mapReader->LoadRMSettings();
+	}, this), L"CMapReader::LoadRMSettings", 50);
 
 	// load player settings script (must be done before reading map)
-	PS::Loader::Register([this]
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return LoadPlayerSettings();
-	}, L"CMapReader::LoadPlayerSettings", 50);
+		co_return mapReader->LoadPlayerSettings();
+	}, this), L"CMapReader::LoadPlayerSettings", 50);
 
 	// load map generator with random map script
 	PS::Loader::Register([this, scriptFile]
 	{
-		return StartMapGeneration(scriptFile);
-	}, L"CMapReader::StartMapGeneration", 1);
-
-	PS::Loader::Register([this]
-	{
-		return PollMapGeneration();
-	}, L"CMapReader::PollMapGeneration", 19999);
+		return RunMapGeneration(scriptFile);
+	}, L"CMapReader::RunMapGeneration", 20000);
 
 	// parse RMS results into terrain structure
-	PS::Loader::Register([this]
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return ParseTerrain();
-	}, L"CMapReader::ParseTerrain", 500);
+		co_return mapReader->ParseTerrain();
+	}, this), L"CMapReader::ParseTerrain", 500);
 
 	// parse RMS results into environment settings
-	PS::Loader::Register([this]
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return ParseEnvironment();
-	}, L"CMapReader::ParseEnvironment", 5);
+		co_return mapReader->ParseEnvironment();
+	}, this), L"CMapReader::ParseEnvironment", 5);
 
 	// parse RMS results into camera settings
-	PS::Loader::Register([this]
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return ParseCamera();
-	}, L"CMapReader::ParseCamera", 5);
+		co_return mapReader->ParseCamera();
+	}, this), L"CMapReader::ParseCamera", 5);
 
 	// apply terrain data to the world
-	PS::Loader::Register([this]
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return ApplyTerrainData();
-	}, L"CMapReader::ApplyTerrainData", 5);
+		co_return mapReader->ApplyTerrainData();
+	}, this), L"CMapReader::ApplyTerrainData", 5);
 
 	// parse RMS results into entities
 	PS::Loader::Register([this]
 	{
-		return StartParseEntities();
-	}, L"CMapReader::StartParseEntities", 10);
-	PS::Loader::Register([this]
-	{
-		return PollParseEntities();
-	}, L"CMapReader::PollParseEntities", 1000);
+		return ParseEntities();
+	}, L"CMapReader::ParseEntities", 1010);
 
 	// apply misc data to the world
-	PS::Loader::Register([this]
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return ApplyData();
-	}, L"CMapReader::ApplyData", 5);
+		co_return mapReader->ApplyData();
+	}, this), L"CMapReader::ApplyData", 5);
 
 	// load map settings script (must be done after reading map)
-	PS::Loader::Register([this]
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return LoadMapSettings();
-	}, L"CMapReader::LoadMapSettings", 5);
+		co_return mapReader->LoadMapSettings();
+	}, this), L"CMapReader::LoadMapSettings", 5);
 }
 
 // UnpackTerrain: unpack the terrain from the end of the input data stream
 //		- data: map size, heightmap, list of textures used by map, texture tile assignments
-int CMapReader::UnpackTerrain()
+PS::Loader::Task CMapReader::UnpackTerrain()
 {
-	// yield after this time is reached. balances increased progress bar
-	// smoothness vs. slowing down loading.
-	const double end_time = timer_Time() + 200e-3;
-
-	// first call to generator (this is skipped after first call,
-	// i.e. when the loop below was interrupted)
-	if (cur_terrain_tex == 0)
 	{
 		m_PatchesPerSide = (ssize_t)unpacker.UnpackSize();
 
@@ -319,15 +304,15 @@ int CMapReader::UnpackTerrain()
 		size_t verticesPerSide = m_PatchesPerSide*PATCH_SIZE+1;
 		m_Heightmap.resize(SQR(verticesPerSide));
 		unpacker.UnpackRaw(&m_Heightmap[0], SQR(verticesPerSide)*sizeof(u16));
-
-		// unpack # textures
-		num_terrain_tex = unpacker.UnpackSize();
-		m_TerrainTextures.reserve(num_terrain_tex);
 	}
+
+	// unpack # textures
+	const std::size_t numTerrainTex{unpacker.UnpackSize()};
+	m_TerrainTextures.reserve(numTerrainTex);
 
 	// unpack texture names; find handle for each texture.
 	// interruptible.
-	while (cur_terrain_tex < num_terrain_tex)
+	for (std::size_t curTerrainTex{0}; curTerrainTex != numTerrainTex; ++curTerrainTex)
 	{
 		CStr texturename;
 		unpacker.UnpackString(texturename);
@@ -338,8 +323,7 @@ int CMapReader::UnpackTerrain()
 			m_TerrainTextures.push_back(texentry);
 		}
 
-		cur_terrain_tex++;
-		LDR_CHECK_TIMEOUT(cur_terrain_tex, num_terrain_tex);
+		co_yield 100 * (curTerrainTex + 1) / numTerrainTex;
 	}
 
 	// unpack tile data [3ms]
@@ -347,10 +331,7 @@ int CMapReader::UnpackTerrain()
 	m_Tiles.resize(size_t(SQR(tilesPerSide)));
 	unpacker.UnpackRaw(&m_Tiles[0], sizeof(STileDesc)*m_Tiles.size());
 
-	// reset generator state.
-	cur_terrain_tex = 0;
-
-	return 0;
+	co_return 0;
 }
 
 int CMapReader::ApplyTerrainData()
@@ -504,7 +485,7 @@ public:
 	void ReadXML();
 
 	// return semantics: see Loader.cpp!LoadFunc.
-	int ProgressiveReadEntities();
+	PS::Loader::Task ProgressiveReadEntities();
 
 private:
 	CXeromyces xmb_file;
@@ -529,10 +510,6 @@ private:
 
 	XMBElementList nodes; // children of root
 
-	// loop counters
-	size_t node_idx;
-	size_t entity_idx;
-
 	// # entities+nonentities processed and total (for progress calc)
 	int completed_jobs, total_jobs;
 
@@ -546,15 +523,12 @@ private:
 	void ReadCamera(XMBElement parent);
 	void ReadPaths(XMBElement parent);
 	void ReadTriggers(XMBElement parent);
-	int ReadEntities(XMBElement parent, double end_time);
+	PS::Loader::Task ReadEntities(XMBElement parent);
 };
 
 
 void CXMLReader::Init(const VfsPath& xml_filename)
 {
-	// must only assign once, so do it here
-	node_idx = entity_idx = 0;
-
 	if (xmb_file.Load(g_VFS, xml_filename, "scenario") != PSRETURN_OK)
 		throw PSERROR_Game_World_MapLoadFailed("Could not read map XML file!");
 
@@ -1023,7 +997,7 @@ void CXMLReader::ReadTriggers(XMBElement /*parent*/)
 {
 }
 
-int CXMLReader::ReadEntities(XMBElement parent, double end_time)
+PS::Loader::Task CXMLReader::ReadEntities(XMBElement parent)
 {
 	XMBElementList entities = parent.GetChildNodes();
 
@@ -1031,12 +1005,8 @@ int CXMLReader::ReadEntities(XMBElement parent, double end_time)
 	CSimulation2& sim = *m_MapReader.pSimulation2;
 	CmpPtr<ICmpPlayerManager> cmpPlayerManager(sim, SYSTEM_ENTITY);
 
-	while (entity_idx < entities.size())
+	for (XMBElement entity : entities)
 	{
-		// all new state at this scope and below doesn't need to be
-		// wrapped, since we only yield after a complete iteration.
-
-		XMBElement entity = entities[entity_idx++];
 		ENSURE(entity.GetNodeName() == el_entity);
 
 		XMBAttributeList attrs = entity.GetAttributes();
@@ -1143,7 +1113,7 @@ int CXMLReader::ReadEntities(XMBElement parent, double end_time)
 		if (cmpPlayer && cmpPlayer->IsRemoved())
 		{
 			completed_jobs++;
-			LDR_CHECK_TIMEOUT(completed_jobs, total_jobs);
+			co_yield 100 * completed_jobs / total_jobs;
 			continue;
 		}
 
@@ -1214,10 +1184,10 @@ int CXMLReader::ReadEntities(XMBElement parent, double end_time)
 		}
 
 		completed_jobs++;
-		LDR_CHECK_TIMEOUT(completed_jobs, total_jobs);
+		co_yield 100 * completed_jobs / total_jobs;
 	}
 
-	return 0;
+	co_return 0;
 }
 
 void CXMLReader::ReadXML()
@@ -1266,32 +1236,28 @@ void CXMLReader::ReadXML()
 	}
 }
 
-int CXMLReader::ProgressiveReadEntities()
+PS::Loader::Task CXMLReader::ProgressiveReadEntities()
 {
-	// yield after this time is reached. balances increased progress bar
-	// smoothness vs. slowing down loading.
-	const double end_time = timer_Time() + 200e-3;
+	if (m_MapReader.m_SkipEntities)
+		co_return 0;
 
-	int ret;
-
-	while (node_idx < nodes.size())
+	for (XMBElement node : nodes)
 	{
-		XMBElement node = nodes[node_idx];
 		CStr name = xmb_file.GetElementString(node.GetNodeName());
-		if (name == "Entities")
-		{
-			if (!m_MapReader.m_SkipEntities)
-			{
-				ret = ReadEntities(node, end_time);
-				if (ret != 0)	// error or timed out
-					return ret;
-			}
-		}
+		if (name != "Entities")
+			continue;
 
-		node_idx++;
+		PS::Loader::Task subTask{ReadEntities(node)};
+		while (!subTask.IsDone())
+		{
+			co_yield subTask.GetProgress();
+			subTask.Step(-1);
+		}
+		if (subTask.Get() < 0)
+			co_return subTask.Get();
 	}
 
-	return 0;
+	co_return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1339,17 +1305,22 @@ int CMapReader::ReadXML()
 }
 
 // progressive
-int CMapReader::ReadXMLEntities()
+PS::Loader::Task CMapReader::ReadXMLEntities()
 {
 	if (!m_XmlReader)
 		m_XmlReader = std::make_unique<CXMLReader>(m_FilenameXml, *this);
 
-	int ret = m_XmlReader->ProgressiveReadEntities();
-	// finished or failed
-	if (ret <= 0)
-		m_XmlReader.reset();
+	PS::Loader::Task task{m_XmlReader->ProgressiveReadEntities()};
+	while (!task.IsDone())
+	{
+		co_yield task.GetProgress();
+		// Do as litle as possible.
+		task.Step(-1);
+	}
 
-	return ret;
+	m_XmlReader.reset();
+
+	co_return task.Get();
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1366,22 +1337,20 @@ int CMapReader::LoadRMSettings()
 	return 0;
 }
 
-struct CMapReader::GeneratorState
+[[noreturn]] void ThrowMapGenerationError()
+{
+	throw PSERROR_Game_World_MapLoadFailed{
+		"Error generating random map.\nCheck application log for details."};
+}
+
+PS::Loader::Task CMapReader::RunMapGeneration(const CStrW& scriptFile)
 {
 	std::atomic<int> progress{1};
-	Future<Script::StructuredClone> task;
-};
-
-int CMapReader::StartMapGeneration(const CStrW& scriptFile)
-{
-	ScriptRequest rq(pSimulation2->GetScriptInterface());
-
-	m_GeneratorState = std::make_unique<GeneratorState>();
 
 	// The settings are stringified to pass them to the task.
-	m_GeneratorState->task = {g_TaskManager,
-		[&progress = m_GeneratorState->progress, scriptFile,
-			settings = Script::StringifyJSON(rq, &m_ScriptSettings)](const StopToken stopToken)
+	Future<Script::StructuredClone> task = {g_TaskManager,
+		[&progress, scriptFile, settings = Script::StringifyJSON(ScriptRequest{
+			pSimulation2->GetScriptInterface()}, &m_ScriptSettings)](const StopToken stopToken)
 		{
 			PROFILE2("Map Generation");
 
@@ -1400,29 +1369,19 @@ int CMapReader::StartMapGeneration(const CStrW& scriptFile)
 			return RunMapGenerationScript(stopToken, progress, mapgenInterface, scriptPath, settings);
 		}};
 
-	return 0;
-}
-
-[[noreturn]] void ThrowMapGenerationError()
-{
-	throw PSERROR_Game_World_MapLoadFailed{
-		"Error generating random map.\nCheck application log for details."};
-}
-
-int CMapReader::PollMapGeneration()
-{
-	ENSURE(m_GeneratorState);
-
-	if (IsQuitRequested())
+	while (!task.IsDone())
 	{
-		LOGWARNING("Quit requested!");
-		return -1;
+		co_yield progress.load();
+		co_await std::suspend_always{};
+
+		if (IsQuitRequested())
+		{
+			LOGWARNING("Quit requested!");
+			co_return -1;
+		}
 	}
 
-	if (!m_GeneratorState->task.IsDone())
-		return m_GeneratorState->progress.load();
-
-	const Script::StructuredClone results{m_GeneratorState->task.Get()};
+	const Script::StructuredClone results{task.Get()};
 	if (!results)
 		ThrowMapGenerationError();
 
@@ -1436,7 +1395,7 @@ int CMapReader::PollMapGeneration()
 
 	m_MapData.init(rq.cx, data);
 
-	return 0;
+	co_return 0;
 };
 
 
@@ -1468,17 +1427,14 @@ int CMapReader::ParseTerrain()
 	// load textures
 	std::vector<std::string> textureNames;
 	getTerrainProperty(m_MapData, "textureNames", textureNames);
-	num_terrain_tex = textureNames.size();
 
-	while (cur_terrain_tex < num_terrain_tex)
+	for (const std::string& textureName : textureNames)
 	{
 		if (CTerrainTextureManager::IsInitialised())
 		{
-			CTerrainTextureEntry* texentry = g_TexMan.FindTexture(textureNames[cur_terrain_tex]);
+			CTerrainTextureEntry* texentry = g_TexMan.FindTexture(textureName);
 			m_TerrainTextures.push_back(texentry);
 		}
-
-		cur_terrain_tex++;
 	}
 
 	// build tile data
@@ -1514,12 +1470,10 @@ int CMapReader::ParseTerrain()
 		}
 	}
 
-	// reset generator state
-	cur_terrain_tex = 0;
 	return 0;
 }
 
-struct CMapReader::ParseEntitiesState
+struct ParseEntitiesState
 {
 	ScriptRequest rq;
 	CmpPtr<ICmpPlayerManager> cmpPlayerManager;
@@ -1530,28 +1484,25 @@ struct CMapReader::ParseEntitiesState
 		: rq(sim.GetScriptInterface()), cmpPlayerManager(sim, SYSTEM_ENTITY) {}
 };
 
-int CMapReader::StartParseEntities()
+PS::Loader::Task CMapReader::ParseEntities()
 {
-	PROFILE2("StartParseEntities");
+	PROFILE2("ParseEntities");
 
-	m_ParseEntitiesState = std::make_unique<ParseEntitiesState>(*pSimulation2);
-	if (!Script::GetProperty(m_ParseEntitiesState->rq, m_MapData, "entities", m_ParseEntitiesState->entities))
-		LOGWARNING("CMapReader::ParseEntities() failed to get 'entities' property");
-	return 0;
-}
-
-int CMapReader::PollParseEntities()
-{
-	PROFILE2("PollParseEntities");
-
-	ParseEntitiesState& state{*m_ParseEntitiesState};
 	CSimulation2& sim{*pSimulation2};
-	const size_t numberOfEntitesToLoadPerCall{100};
-	for (size_t iteration{0}; iteration < numberOfEntitesToLoadPerCall && state.currentEntityIndex < state.entities.size(); ++iteration, ++state.currentEntityIndex)
+	ScriptRequest rq{sim.GetScriptInterface()};
+	CmpPtr<ICmpPlayerManager> cmpPlayerManager{sim, SYSTEM_ENTITY};
+
+	std::vector<Entity> entities;
+	if (!Script::GetProperty(rq, m_MapData, "entities", entities))
+		LOGWARNING("CMapReader::ParseEntities() failed to get 'entities' property");
+
+	for (std::size_t index{0}; index != entities.size(); ++index)
 	{
-		const Entity& currEnt{state.entities[state.currentEntityIndex]};
+		co_yield Clamp<int>(index * 80 / entities.size(), 20, 100);
+
+		const Entity& currEnt{entities[index]};
 		// Get current entity struct
-		entity_id_t player = state.cmpPlayerManager->GetPlayerByID(currEnt.playerID);
+		entity_id_t player = cmpPlayerManager->GetPlayerByID(currEnt.playerID);
 		CmpPtr<ICmpPlayer> cmpPlayer(sim, player);
 		// Don't add entities for removed players.
 		if (cmpPlayer && cmpPlayer->IsRemoved())
@@ -1591,12 +1542,7 @@ int CMapReader::PollParseEntities()
 		}
 	}
 
-	if (state.currentEntityIndex < state.entities.size())
-		return Clamp<int>(state.currentEntityIndex * 80 / state.entities.size(), 20, 100);
-
-	m_ParseEntitiesState.reset();
-
-	return 0;
+	co_return 0;
 }
 
 int CMapReader::ParseEnvironment()

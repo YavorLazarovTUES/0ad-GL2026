@@ -28,6 +28,7 @@
 #include "ps/CStr.h"
 #include "ps/Errors.h"
 #include "ps/FileIo.h"
+#include "ps/Loader.h"
 #include "simulation2/system/Entity.h"
 
 #include <cstddef>
@@ -82,7 +83,7 @@ private:
 	int LoadMapSettings();
 
 	// UnpackTerrain: unpack the terrain from the input stream
-	int UnpackTerrain();
+	PS::Loader::Task UnpackTerrain();
 	// UnpackCinema: unpack the cinematic tracks from the input stream
 	int UnpackCinema();
 
@@ -94,21 +95,19 @@ private:
 	int ReadXML();
 
 	// read entity data from the XML file
-	int ReadXMLEntities();
+	PS::Loader::Task ReadXMLEntities();
 
 	// Copy random map settings over to sim
 	int LoadRMSettings();
 
 	// Generate random map
-	int StartMapGeneration(const CStrW& scriptFile);
-	int PollMapGeneration();
+	PS::Loader::Task RunMapGeneration(const CStrW& scriptFile);
 
 	// Parse script data into terrain
 	int ParseTerrain();
 
 	// Parse script data into entities
-	int StartParseEntities();
-	int PollParseEntities();
+	PS::Loader::Task ParseEntities();
 
 	// Parse script data into environment
 	int ParseEnvironment();
@@ -134,12 +133,6 @@ private:
 	JS::PersistentRootedValue m_ScriptSettings;
 	JS::PersistentRootedValue m_MapData;
 
-	struct GeneratorState;
-	std::unique_ptr<GeneratorState> m_GeneratorState;
-
-	struct ParseEntitiesState;
-	std::unique_ptr<ParseEntitiesState> m_ParseEntitiesState;
-
 	CFileUnpacker unpacker;
 	CTerrain* pTerrain;
 	WaterManager* pWaterMan;
@@ -158,11 +151,6 @@ private:
 	u32 file_format_version;
 	entity_id_t m_StartingCameraTarget;
 	CVector3D m_StartingCamera;
-
-	// UnpackTerrain generator state
-	// It's important to initialize it to 0 - resets generator state
-	size_t cur_terrain_tex{0};
-	size_t num_terrain_tex;
 
 	std::unique_ptr<CXMLReader> m_XmlReader;
 };

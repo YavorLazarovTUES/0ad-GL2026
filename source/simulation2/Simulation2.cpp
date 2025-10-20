@@ -132,7 +132,7 @@ public:
 		return static_cast<CSimulation2Impl*>(param)->ReloadChangedFile(path);
 	}
 
-	int ProgressiveLoad();
+	PS::Loader::Task ProgressiveLoad();
 	void Update(int turnLength, const std::vector<SimulationCommand>& commands);
 	static void UpdateComponents(CSimContext& simContext, fixed turnLengthFixed, const std::vector<SimulationCommand>& commands);
 	void Interpolate(float simFrameLength, float frameOffset, float realFrameLength);
@@ -267,15 +267,9 @@ Status CSimulation2Impl::ReloadChangedFile(const VfsPath& path)
 	return INFO::OK;
 }
 
-int CSimulation2Impl::ProgressiveLoad()
+PS::Loader::Task CSimulation2Impl::ProgressiveLoad()
 {
-	// yield after this time is reached. balances increased progress bar
-	// smoothness vs. slowing down loading.
-	const double end_time = timer_Time() + 200e-3;
-
-	int ret;
-
-	do
+	while (true)
 	{
 		bool progressed = false;
 		int total = 0;
@@ -286,13 +280,10 @@ int CSimulation2Impl::ProgressiveLoad()
 		m_ComponentManager.BroadcastMessage(msg);
 
 		if (!progressed || total == 0)
-			return 0; // we have nothing left to load
+			co_return 0; // we have nothing left to load
 
-		ret = Clamp(100*progress / total, 1, 100);
+		co_yield Clamp(100*progress / total, 1, 100);
 	}
-	while (timer_Time() < end_time);
-
-	return ret;
 }
 
 void CSimulation2Impl::DumpSerializationTestState(SerializationTestState& state, const OsPath& path, const OsPath::String& suffix)
@@ -849,7 +840,7 @@ void CSimulation2::LoadMapSettings()
 	m->LoadTriggerScripts(m->m_ComponentManager, m->m_MapSettings, &m->m_LoadedScripts);
 }
 
-int CSimulation2::ProgressiveLoad()
+PS::Loader::Task CSimulation2::ProgressiveLoad()
 {
 	return m->ProgressiveLoad();
 }

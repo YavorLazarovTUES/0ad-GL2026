@@ -122,41 +122,24 @@ static Status AddTextureCallback(const VfsPath& pathname, const CFileInfo&, cons
 	return INFO::OK;
 }
 
-struct CTerrainTextureManager::LoadTexturesState
+PS::Loader::Task CTerrainTextureManager::LoadTerrainTextures()
 {
-	vfs::ForEachFileContext context;
-	AddTextureCallbackData data;
-
-	LoadTexturesState(const VfsPath& startPath, CTerrainTextureManager* self)
-		: context{startPath}, data{self, std::make_shared<CTerrainProperties>(CTerrainPropertiesPtr())} {}
-};
-
-int CTerrainTextureManager::StartTerrainTextures()
-{
-	m_LoadTexturesState = std::make_unique<LoadTexturesState>(VfsPath{L"art/terrains/"}, this);
-	return 0;
-}
-
-int CTerrainTextureManager::PollTerrainTextures()
-{
-	LoadTexturesState& state{*m_LoadTexturesState};
-	const size_t numberOfDirectoriesToLoadPerCall{10};
-	for (size_t iteration{0}; !state.context.empty() && iteration < numberOfDirectoriesToLoadPerCall; ++iteration)
+	vfs::ForEachFileContext context{VfsPath{L"art/terrains/"}};
+	AddTextureCallbackData data{this, std::make_shared<CTerrainProperties>(CTerrainPropertiesPtr())};
+	while (true)
 	{
-		vfs::ForEachFileNext(state.context, g_VFS, AddTextureCallback, (uintptr_t)&state.data, L"*.xml", vfs::DIR_RECURSIVE, AddTextureDirCallback, (uintptr_t)&state.data);
-	}
+		vfs::ForEachFileNext(context, g_VFS, AddTextureCallback,
+			reinterpret_cast<uintptr_t>(&data), L"*.xml", vfs::DIR_RECURSIVE,
+			AddTextureDirCallback, reinterpret_cast<uintptr_t>(&data));
 
-	if (!state.context.empty())
-	{
+		if (context.empty())
+			co_return 0;
+
 		// We don't know exact number so just using a rough approximation of the
 		// current number.
 		const size_t totalApproximateAmountOfTextures{1000};
-		return Clamp<int>(m_TextureEntries.size() * 90 / totalApproximateAmountOfTextures, 10, 100);
+		co_yield Clamp<int>(m_TextureEntries.size() * 90 / totalApproximateAmountOfTextures, 10, 100);
 	}
-
-	m_LoadTexturesState.reset();
-
-	return 0;
 }
 
 CTerrainGroup* CTerrainTextureManager::FindGroup(const CStr& name)
