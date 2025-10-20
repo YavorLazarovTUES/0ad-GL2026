@@ -363,7 +363,7 @@ void Interface::ApplyMessage(const GameMessage& msg)
 
 			if (nonVisual)
 			{
-				LDR_NonprogressiveLoad();
+				PS::Loader::NonprogressiveLoad();
 				ENSURE(g_Game->ReallyStartGame() == PSRETURN_OK);
 				m_ReturnValue = GetGameState();
 				m_MsgApplied.notify_one();

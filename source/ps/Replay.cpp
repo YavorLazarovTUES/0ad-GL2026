@@ -268,7 +268,7 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 			g_Game->StartGame(&attribs, "");
 
 			// TODO: Non progressive load can fail - need a decent way to handle this
-			LDR_NonprogressiveLoad();
+			PS::Loader::NonprogressiveLoad();
 
 			PSRETURN ret = g_Game->ReallyStartGame();
 			ENSURE(ret == PSRETURN_OK);

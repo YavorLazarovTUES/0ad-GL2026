@@ -329,7 +329,7 @@ static int ProgressiveLoad()
 	int progressPercent{0};
 	try
 	{
-		const LDR_ProgressiveLoadResult result{LDR_ProgressiveLoad(10e-3)};
+		const PS::Loader::ProgressiveLoadResult result{PS::Loader::ProgressiveLoad(10e-3)};
 		description = result.nextDescription;
 		progressPercent = result.progressPercent;
 		switch(result.status)

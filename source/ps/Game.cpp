@@ -251,9 +251,9 @@ void CGame::RegisterInit(const JS::HandleValue attribs, const std::string& saved
 			LOGERROR("GameSpeed could not be parsed.");
 	}
 
-	LDR_BeginRegistering();
+	PS::Loader::BeginRegistering();
 
-	LDR_Register([this]
+	PS::Loader::Register([this]
 	{
 		return m_Simulation2->ProgressiveLoad();
 	}, L"Simulation init", 1000);
@@ -282,24 +282,24 @@ void CGame::RegisterInit(const JS::HandleValue attribs, const std::string& saved
 		m_World->RegisterInit(mapFile, scriptInterface.GetContext(), settings, m_PlayerID);
 	}
 	if (m_GameView)
-		LDR_Register([&waterManager = g_Renderer.GetSceneRenderer().GetWaterManager()]
+		PS::Loader::Register([&waterManager = g_Renderer.GetSceneRenderer().GetWaterManager()]
 		{
 			return waterManager.LoadWaterTextures();
 		}, L"LoadWaterTextures", 80);
 
 	if (m_IsSavedGame)
-		LDR_Register([this, savedState]
+		PS::Loader::Register([this, savedState]
 		{
 			return LoadInitialState(savedState);
 		}, L"Loading game", 1000);
 
 	if (m_IsVisualReplay)
-		LDR_Register([this]
+		PS::Loader::Register([this]
 		{
 			return LoadVisualReplayData();
 		}, L"Loading visual replay data", 1000);
 
-	LDR_EndRegistering();
+	PS::Loader::EndRegistering();
 }
 
 int CGame::LoadInitialState(const std::string& savedState)

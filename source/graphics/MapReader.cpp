@@ -150,55 +150,55 @@ void CMapReader::LoadMap(const VfsPath& pathname, const ScriptContext& cx,  JS::
 
 	// load map or script settings script
 	if (settings.isUndefined())
-		LDR_Register([this]
+		PS::Loader::Register([this]
 		{
 			return LoadScriptSettings();
 		}, L"CMapReader::LoadScriptSettings", 50);
 	else
-		LDR_Register([this]
+		PS::Loader::Register([this]
 		{
 			return LoadRMSettings();
 		}, L"CMapReader::LoadRMSettings", 50);
 
 	// load player settings script (must be done before reading map)
-	LDR_Register([this]
+	PS::Loader::Register([this]
 	{
 		return LoadPlayerSettings();
 	}, L"CMapReader::LoadPlayerSettings", 50);
 
 	// unpack the data
 	if (!only_xml)
-		LDR_Register([this]
+		PS::Loader::Register([this]
 		{
 			return UnpackTerrain();
 		}, L"CMapReader::UnpackMap", 1200);
 
 	// read the corresponding XML file
-	LDR_Register([this]
+	PS::Loader::Register([this]
 	{
 		return ReadXML();
 	}, L"CMapReader::ReadXML", 50);
 
 	// apply terrain data to the world
-	LDR_Register([this]
+	PS::Loader::Register([this]
 	{
 		return ApplyTerrainData();
 	}, L"CMapReader::ApplyTerrainData", 5);
 
 	// read entities
-	LDR_Register([this]
+	PS::Loader::Register([this]
 	{
 		return ReadXMLEntities();
 	}, L"CMapReader::ReadXMLEntities", 5800);
 
 	// apply misc data to the world
-	LDR_Register([this]
+	PS::Loader::Register([this]
 	{
 		return ApplyData();
 	}, L"CMapReader::ApplyData", 5);
 
 	// load map settings script (must be done after reading map)
-	LDR_Register([this]
+	PS::Loader::Register([this]
 	{
 		return LoadMapSettings();
 	}, L"CMapReader::LoadMapSettings", 5);
@@ -232,70 +232,70 @@ void CMapReader::LoadRandomMap(const CStrW& scriptFile, const ScriptContext& cx,
 	only_xml = false;
 
 	// copy random map settings (before entity creation)
-	LDR_Register([this]
+	PS::Loader::Register([this]
 	{
 		return LoadRMSettings();
 	}, L"CMapReader::LoadRMSettings", 50);
 
 	// load player settings script (must be done before reading map)
-	LDR_Register([this]
+	PS::Loader::Register([this]
 	{
 		return LoadPlayerSettings();
 	}, L"CMapReader::LoadPlayerSettings", 50);
 
 	// load map generator with random map script
-	LDR_Register([this, scriptFile]
+	PS::Loader::Register([this, scriptFile]
 	{
 		return StartMapGeneration(scriptFile);
 	}, L"CMapReader::StartMapGeneration", 1);
 
-	LDR_Register([this]
+	PS::Loader::Register([this]
 	{
 		return PollMapGeneration();
 	}, L"CMapReader::PollMapGeneration", 19999);
 
 	// parse RMS results into terrain structure
-	LDR_Register([this]
+	PS::Loader::Register([this]
 	{
 		return ParseTerrain();
 	}, L"CMapReader::ParseTerrain", 500);
 
 	// parse RMS results into environment settings
-	LDR_Register([this]
+	PS::Loader::Register([this]
 	{
 		return ParseEnvironment();
 	}, L"CMapReader::ParseEnvironment", 5);
 
 	// parse RMS results into camera settings
-	LDR_Register([this]
+	PS::Loader::Register([this]
 	{
 		return ParseCamera();
 	}, L"CMapReader::ParseCamera", 5);
 
 	// apply terrain data to the world
-	LDR_Register([this]
+	PS::Loader::Register([this]
 	{
 		return ApplyTerrainData();
 	}, L"CMapReader::ApplyTerrainData", 5);
 
 	// parse RMS results into entities
-	LDR_Register([this]
+	PS::Loader::Register([this]
 	{
 		return StartParseEntities();
 	}, L"CMapReader::StartParseEntities", 10);
-	LDR_Register([this]
+	PS::Loader::Register([this]
 	{
 		return PollParseEntities();
 	}, L"CMapReader::PollParseEntities", 1000);
 
 	// apply misc data to the world
-	LDR_Register([this]
+	PS::Loader::Register([this]
 	{
 		return ApplyData();
 	}, L"CMapReader::ApplyData", 5);
 
 	// load map settings script (must be done after reading map)
-	LDR_Register([this]
+	PS::Loader::Register([this]
 	{
 		return LoadMapSettings();
 	}, L"CMapReader::LoadMapSettings", 5);

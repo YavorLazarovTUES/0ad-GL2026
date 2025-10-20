@@ -109,7 +109,7 @@ namespace
 		g_Game->StartGame(attrs, "");
 
 		// TODO: Non progressive load can fail - need a decent way to handle this
-		LDR_NonprogressiveLoad();
+		PS::Loader::NonprogressiveLoad();
 
 		// Disable fog-of-war - this must be done before starting the game,
 		// as visual actors cache their visibility state on first render.
@@ -153,7 +153,7 @@ QUERYHANDLER(GenerateMap)
 	catch (std::exception&)
 	{
 		// Cancel loading
-		LDR_Cancel();
+		PS::Loader::Cancel();
 
 		// Since map generation failed and we don't know why, use the blank map as a fallback
 

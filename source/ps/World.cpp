@@ -86,7 +86,7 @@ void CWorld::RegisterInit(const CStrW& mapFile, const ScriptContext& cx, JS::Han
 				m_Game.GetSimulation2(), &m_Game.GetSimulation2()->GetSimContext(), playerID,
 				false);
 				// fails immediately, or registers for delay loading
-			LDR_Register([this]
+			PS::Loader::Register([this]
 			{
 				return DeleteMapReader();
 			}, L"CWorld::DeleteMapReader", 5);
@@ -111,7 +111,7 @@ void CWorld::RegisterInitRMS(const CStrW& scriptFile, const ScriptContext& cx, J
 		pTriggerManager, CRenderer::IsInitialised() ? &g_Renderer.GetPostprocManager() : nullptr,
 		m_Game.GetSimulation2(), playerID);
 		// registers for delay loading
-	LDR_Register([this]
+	PS::Loader::Register([this]
 	{
 		return DeleteMapReader();
 	}, L"CWorld::DeleteMapReader", 5);

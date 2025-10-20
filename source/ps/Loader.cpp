@@ -32,24 +32,28 @@
 #include <string>
 #include <utility>
 
+namespace PS::Loader
+{
+namespace
+{
 // set by LDR_EndRegistering; may be 0 during development when
 // estimated task durations haven't yet been set.
-static double total_estimated_duration;
+double total_estimated_duration;
 
 // total time spent loading so far, set by LDR_ProgressiveLoad.
 // we need a persistent counter so it can be reset after each load.
 // this also accumulates less errors than:
 // progress += task_estimated / total_estimated.
-static double estimated_duration_tally;
+double estimated_duration_tally;
 
 // needed for report of how long each individual task took.
-static double task_elapsed_time;
+double task_elapsed_time;
 
 // main purpose is to indicate whether a load is in progress, so that
 // LDR_ProgressiveLoad can return 0 iff loading just completed.
 // the REGISTERING state allows us to detect 2 simultaneous loads (bogus);
 // FIRST_LOAD is used to skip the first timeslice (see LDR_ProgressiveLoad).
-static enum
+enum
 {
 	IDLE,
 	REGISTERING,
@@ -78,21 +82,22 @@ struct LoadRequest
 	}
 };
 
-typedef std::deque<LoadRequest> LoadRequests;
-static LoadRequests load_requests;
+using LoadRequests = std::deque<LoadRequest>;
+LoadRequests load_requests;
 
 // Returns true if the return code indicates that the `LoadRequest` didn't
 // finish and should be reinvoked in the next frame.
-static bool ldr_was_interrupted(const int ret)
+bool WasInterrupted(const int ret)
 {
 	return 0 < ret && ret <= 100;
 }
+} // anonymous namespace
 
 // call before starting to register load requests.
 // this routine is provided so we can prevent 2 simultaneous load operations,
 // which is bogus. that can happen by clicking the load button quickly,
 // or issuing via console while already loading.
-void LDR_BeginRegistering()
+void BeginRegistering()
 {
 	ENSURE(state == IDLE);
 
@@ -109,7 +114,7 @@ void LDR_BeginRegistering()
 // <estimated_duration_ms>: used to calculate progress, and when checking
 //   whether there is enough of the time budget left to process this task
 //   (reduces timeslice overruns, making the main loop more responsive).
-void LDR_Register(LoadFunc func, std::wstring description, int estimatedDurationMs)
+void Register(LoadFunc func, std::wstring description, int estimatedDurationMs)
 {
 	ENSURE(state == REGISTERING);	// must be called between LDR_(Begin|End)Register
 
@@ -119,7 +124,7 @@ void LDR_Register(LoadFunc func, std::wstring description, int estimatedDuration
 
 // call when finished registering tasks; subsequent calls to
 // LDR_ProgressiveLoad will then work off the queued entries.
-void LDR_EndRegistering()
+void EndRegistering()
 {
 	ENSURE(state == REGISTERING);
 	ENSURE(!load_requests.empty());
@@ -135,7 +140,7 @@ void LDR_EndRegistering()
 // immediately cancel this load; no further tasks will be processed.
 // used to abort loading upon user request or failure.
 // note: no special notification will be returned by LDR_ProgressiveLoad.
-void LDR_Cancel()
+void Cancel()
 {
 	// the queue doesn't need to be emptied now; that'll happen during the
 	// next LDR_StartRegistering. for now, it is sufficient to set the
@@ -143,9 +148,11 @@ void LDR_Cancel()
 	state = IDLE;
 }
 
+namespace
+{
 // helper routine for LDR_ProgressiveLoad.
 // tries to prevent starting a long task when at the end of a timeslice.
-static bool HaveTimeForNextTask(double time_left, double time_budget, int estimated_duration_ms)
+bool HaveTimeForNextTask(double time_left, double time_budget, int estimated_duration_ms)
 {
 	// have already exceeded our time budget
 	if(time_left <= 0.0)
@@ -164,10 +171,11 @@ static bool HaveTimeForNextTask(double time_left, double time_budget, int estima
 
 	return true;
 }
+}
 
-LDR_ProgressiveLoadResult LDR_ProgressiveLoad(double time_budget)
+ProgressiveLoadResult ProgressiveLoad(double time_budget)
 {
-	LDR_ProgressiveLoadResult ret;
+	ProgressiveLoadResult ret;
 	double progress = 0.0;	// used to set progress_percent
 	double time_left = time_budget;
 
@@ -201,7 +209,7 @@ LDR_ProgressiveLoadResult LDR_ProgressiveLoad(double time_budget)
 		// call this task's function and bill elapsed time.
 		const double t0 = timer_Time();
 		const int status = lr.func();
-		const bool timed_out = ldr_was_interrupted(status);
+		const bool timed_out = WasInterrupted(status);
 		const double elapsed_time = timer_Time() - t0;
 		time_left -= elapsed_time;
 		task_elapsed_time += elapsed_time;
@@ -278,7 +286,7 @@ done:
 
 // immediately process all queued load requests.
 // returns 0 on success or a negative error code.
-Status LDR_NonprogressiveLoad()
+Status NonprogressiveLoad()
 {
 	const double time_budget = 100.0;
 		// large enough so that individual functions won't time out
@@ -286,7 +294,7 @@ Status LDR_NonprogressiveLoad()
 
 	for(;;)
 	{
-		const auto [ret, description, progress_percent] = LDR_ProgressiveLoad(time_budget);
+		const auto [ret, description, progress_percent] = ProgressiveLoad(time_budget);
 		switch(ret)
 		{
 		case INFO::OK:
@@ -301,3 +309,4 @@ Status LDR_NonprogressiveLoad()
 		}
 	}
 }
+} // namespace PS::Loader

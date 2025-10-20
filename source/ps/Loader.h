@@ -27,6 +27,8 @@
 #include <functional>
 #include <string>
 
+namespace PS::Loader
+{
 /*
 
 [KEEP IN SYNC WITH WIKI!]
@@ -102,7 +104,7 @@ Then in the main loop, call LDR_ProgressiveLoad().
 // this routine is provided so we can prevent 2 simultaneous load operations,
 // which is bogus. that can happen by clicking the load button quickly,
 // or issuing via console while already loading.
-extern void LDR_BeginRegistering();
+void BeginRegistering();
 
 
 // callback function of a task; performs the actual work.
@@ -125,20 +127,20 @@ using LoadFunc = std::function<int()>;
 // <estimated_duration_ms>: used to calculate progress, and when checking
 //   whether there is enough of the time budget left to process this task
 //   (reduces timeslice overruns, making the main loop more responsive).
-void LDR_Register(LoadFunc func, std::wstring description, int estimated_duration_ms);
+void Register(LoadFunc func, std::wstring description, int estimated_duration_ms);
 
 
 // call when finished registering tasks; subsequent calls to
 // LDR_ProgressiveLoad will then work off the queued entries.
-extern void LDR_EndRegistering();
+void EndRegistering();
 
 
 // immediately cancel this load; no further tasks will be processed.
 // used to abort loading upon user request or failure.
 // note: no special notification will be returned by LDR_ProgressiveLoad.
-extern void LDR_Cancel();
+void Cancel();
 
-struct LDR_ProgressiveLoadResult
+struct ProgressiveLoadResult
 {
 	/**
 	 * @c INFO::All_COMPLETE if the final load task just completed.
@@ -163,11 +165,11 @@ struct LDR_ProgressiveLoadResult
  * Process as many of the queued tasks as possible within @c timeBudget [s].
  * if a task is lengthy, the budget may be exceeded. call from the main loop.
  */
-LDR_ProgressiveLoadResult LDR_ProgressiveLoad(double time_budget);
+ProgressiveLoadResult ProgressiveLoad(double time_budget);
 
 // immediately process all queued load requests.
 // returns 0 on success or a negative error code.
-extern Status LDR_NonprogressiveLoad();
+Status NonprogressiveLoad();
 
 
 // boilerplate check-if-timed-out and return-progress-percent code.
@@ -184,5 +186,7 @@ extern Status LDR_NonprogressiveLoad();
 		ENSURE(0 < progress_percent && progress_percent <= 100);\
 		return (int)progress_percent;\
 	}
+
+} // namespace PS::Loader
 
 #endif	// #ifndef INCLUDED_LOADER

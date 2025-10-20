@@ -868,7 +868,7 @@ bool Autostart(const CmdLineArgs& args)
 
 	if (args.Has("autostart-nonvisual"))
 	{
-		LDR_NonprogressiveLoad();
+		PS::Loader::NonprogressiveLoad();
 		g_Game->ReallyStartGame();
 	}
 
@@ -914,7 +914,7 @@ void CancelLoad(const CStrW& message)
 
 	JS::RootedValue global(rq.cx, rq.globalValue());
 
-	LDR_Cancel();
+	PS::Loader::Cancel();
 
 	if (g_GUI &&
 	    g_GUI->GetPageCount() &&

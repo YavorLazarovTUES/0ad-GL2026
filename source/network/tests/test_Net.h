@@ -189,7 +189,7 @@ public:
 		for (size_t j = 0; j < clients.size(); ++j)
 		{
 			clients[j]->Poll();
-			TS_ASSERT_OK(LDR_NonprogressiveLoad());
+			TS_ASSERT_OK(PS::Loader::NonprogressiveLoad());
 			clients[j]->LoadFinished();
 		}
 
@@ -272,7 +272,7 @@ public:
 		for (size_t j = 0; j < clients.size(); ++j)
 		{
 			clients[j]->Poll();
-			TS_ASSERT_OK(LDR_NonprogressiveLoad());
+			TS_ASSERT_OK(PS::Loader::NonprogressiveLoad());
 			clients[j]->LoadFinished();
 		}
 
@@ -367,7 +367,7 @@ public:
 
 
 		clients[2]->Poll();
-		TS_ASSERT_OK(LDR_NonprogressiveLoad());
+		TS_ASSERT_OK(PS::Loader::NonprogressiveLoad());
 		clients[2]->LoadFinished();
 
 		wait(clients, 100);

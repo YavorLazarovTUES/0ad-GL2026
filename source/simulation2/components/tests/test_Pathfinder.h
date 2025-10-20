@@ -164,13 +164,13 @@ public:
 
 		std::unique_ptr<CMapReader> mapReader = std::make_unique<CMapReader>();
 
-		LDR_BeginRegistering();
+		PS::Loader::BeginRegistering();
 		mapReader->LoadMap(L"maps/skirmishes/Median Oasis (2).pmp",
 			sim2.GetScriptInterface().GetContext(), JS::UndefinedHandleValue,
 			&terrain, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 			&sim2, &sim2.GetSimContext(), -1, false);
-		LDR_EndRegistering();
-		TS_ASSERT_OK(LDR_NonprogressiveLoad());
+		PS::Loader::EndRegistering();
+		TS_ASSERT_OK(PS::Loader::NonprogressiveLoad());
 
 		sim2.PreInitGame();
 		sim2.InitGame();
@@ -278,13 +278,13 @@ public:
 
 		std::unique_ptr<CMapReader> mapReader = std::make_unique<CMapReader>();
 
-		LDR_BeginRegistering();
+		PS::Loader::BeginRegistering();
 		mapReader->LoadMap(L"maps/scenarios/Peloponnese.pmp",
 			sim2.GetScriptInterface().GetContext(), JS::UndefinedHandleValue,
 			&terrain, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 			&sim2, &sim2.GetSimContext(), -1, false);
-		LDR_EndRegistering();
-		TS_ASSERT_OK(LDR_NonprogressiveLoad());
+		PS::Loader::EndRegistering();
+		TS_ASSERT_OK(PS::Loader::NonprogressiveLoad());
 
 		sim2.PreInitGame();
 		sim2.InitGame();
@@ -335,13 +335,13 @@ public:
 
 		std::unique_ptr<CMapReader> mapReader = std::make_unique<CMapReader>();
 
-		LDR_BeginRegistering();
+		PS::Loader::BeginRegistering();
 		mapReader->LoadMap(L"maps/scenarios/Peloponnese.pmp",
 			sim2.GetScriptInterface().GetContext(), JS::UndefinedHandleValue,
 			&terrain, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 			&sim2, &sim2.GetSimContext(), -1, false);
-		LDR_EndRegistering();
-		TS_ASSERT_OK(LDR_NonprogressiveLoad());
+		PS::Loader::EndRegistering();
+		TS_ASSERT_OK(PS::Loader::NonprogressiveLoad());
 
 		sim2.PreInitGame();
 		sim2.InitGame();

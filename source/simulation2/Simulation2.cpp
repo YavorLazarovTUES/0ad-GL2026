@@ -449,7 +449,7 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 
 		// Load the map into the secondary simulation
 
-		LDR_BeginRegistering();
+		PS::Loader::BeginRegistering();
 		std::unique_ptr<CMapReader> mapReader = std::make_unique<CMapReader>();
 
 		std::string mapType;
@@ -470,8 +470,8 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 				NULL, NULL, m_SecondaryContext.get(), INVALID_PLAYER, true); // throws exception on failure
 		}
 
-		LDR_EndRegistering();
-		ENSURE(LDR_NonprogressiveLoad() == INFO::OK);
+		PS::Loader::EndRegistering();
+		ENSURE(PS::Loader::NonprogressiveLoad() == INFO::OK);
 		ENSURE(m_SecondaryComponentManager->DeserializeState(primaryStateBefore.state));
 	}
 
