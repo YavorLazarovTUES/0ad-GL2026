@@ -200,7 +200,7 @@ LDR_ProgressiveLoadResult LDR_ProgressiveLoad(double time_budget)
 
 		// call this task's function and bill elapsed time.
 		const double t0 = timer_Time();
-		const int status = lr.func(time_left);
+		const int status = lr.func();
 		const bool timed_out = ldr_was_interrupted(status);
 		const double elapsed_time = timer_Time() - t0;
 		time_left -= elapsed_time;

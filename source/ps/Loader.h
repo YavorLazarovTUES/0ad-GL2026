@@ -106,7 +106,6 @@ extern void LDR_BeginRegistering();
 
 
 // callback function of a task; performs the actual work.
-// it receives the time remaining [s].
 //
 // return semantics:
 // - if the entire task was successfully completed, return 0;
@@ -117,7 +116,7 @@ extern void LDR_BeginRegistering();
 //   != 0, or it's treated as "finished")
 // - on failure, return a negative error code or 'warning' (see above);
 //   LDR_ProgressiveLoad will abort immediately and return that.
-using LoadFunc = std::function<int(double)>;
+using LoadFunc = std::function<int()>;
 
 // register a task (later processed in FIFO order).
 // <func>: function that will perform the actual work; see LoadFunc.

@@ -206,17 +206,17 @@ CMiniMapTexture& CGameView::GetMiniMapTexture()
 void CGameView::RegisterInit()
 {
 	// CGameView init
-	LDR_Register([this](const double)
+	LDR_Register([this]
 	{
 		m->CameraController->LoadConfig();
 		return 0;
 	}, L"CGameView init", 1);
 
-	LDR_Register([](const double)
+	LDR_Register([]
 	{
 		return g_TexMan.StartTerrainTextures();
 	}, L"StartTerrainTextures", 1);
-	LDR_Register([](const double)
+	LDR_Register([]
 	{
 		return g_TexMan.PollTerrainTextures();
 	}, L"PollTerrainTextures", 60);
