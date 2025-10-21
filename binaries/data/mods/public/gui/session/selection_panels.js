@@ -129,11 +129,12 @@ g_SelectionPanels.Command = {
 		for (const command in g_EntityCommands)
 		{
 			const info = getCommandInfo(command, unitEntStates);
-			if (info)
-			{
-				info.name = command;
-				commands.push(info);
-			}
+			if (!info)
+				continue;
+
+			info.name = command;
+			if (commands.push(info) >= this.getMaxNumberOfItems())
+				break;
 		}
 		return commands;
 	},
