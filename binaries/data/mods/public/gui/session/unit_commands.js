@@ -133,12 +133,6 @@ function updateUnitCommands(entStates, supplementalDetailsPanel, commandsPanel)
 	const playerStates = GetSimState().players;
 	const playerState = playerStates[Engine.GetPlayerID()];
 
-	setupUnitPanel("Selection", entStates, playerStates[entStates[0].player]);
-
-	// Command panel always shown for it can contain commands
-	// for which the entity does not need to be owned.
-	setupUnitPanel("Command", entStates, playerState);
-
 	if (g_IsObserver || entStates.every(entState =>
 		controlsPlayer(entState.player) &&
 		(!entState.identity || entState.identity.controllable)) ||
@@ -156,20 +150,29 @@ function updateUnitCommands(entStates, supplementalDetailsPanel, commandsPanel)
 		supplementalDetailsPanel.hidden = false;
 		commandsPanel.hidden = false;
 	}
-	else if (playerState.isMutualAlly[entStates[0].player])
-	{
-		// TODO if there's a second panel needed for a different player
-		// we should consider adding the players list to g_SelectionPanels
-		setupUnitPanel("Garrison", entStates, playerState);
-
-		supplementalDetailsPanel.hidden = !g_SelectionPanels.Garrison.used;
-
-		commandsPanel.hidden = true;
-	}
 	else
 	{
-		supplementalDetailsPanel.hidden = true;
-		commandsPanel.hidden = true;
+		// Always show what entities are selected, no matter if they can be controlled.
+		setupUnitPanel("Selection", entStates, playerStates[entStates[0].player]);
+		// Always show the commands since they might not require the entities to be owned.
+		// TODO: This panel here is NOT related to the commandsPanel GUI object. The naming should be improved.
+		setupUnitPanel("Command", entStates, playerState);
+
+		if (playerState.isMutualAlly[entStates[0].player])
+		{
+			// TODO if there's a second panel needed for a different player
+			// we should consider adding the players list to g_SelectionPanels
+			setupUnitPanel("Garrison", entStates, playerState);
+
+			supplementalDetailsPanel.hidden = !g_SelectionPanels.Garrison.used;
+
+			commandsPanel.hidden = true;
+		}
+		else
+		{
+			supplementalDetailsPanel.hidden = true;
+			commandsPanel.hidden = true;
+		}
 	}
 
 	// Hides / unhides Unit Panels (panels should be grouped by type, not by order, but we will leave that for another time)
