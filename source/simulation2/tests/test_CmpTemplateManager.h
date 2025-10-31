@@ -247,7 +247,7 @@ public:
 	}
 
 	// This just attempts loading every public entity, to check there's no validation errors
-	void DISABLED_test_load_all() // disabled since it's a bit slow and noisy
+	void test_load_all()
 	{
 		CXeromycesEngine xeromycesEngine;
 		CTerrain dummy;
@@ -262,7 +262,6 @@ public:
 		for (size_t i = 0; i < templates.size(); ++i)
 		{
 			std::string name = templates[i];
-			printf("# %s\n", name.c_str());
 			const CParamNode* p = cmpTemplateManager->GetTemplate(name);
 			TS_ASSERT(p != NULL);
 		}
