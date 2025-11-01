@@ -63,5 +63,6 @@ unknownMacro:source/lib/sysdep/os/win/wposix/wutsname.cpp
 unknownMacro:source/ps/CStr.cpp
 
 uninitvar:source/graphics/MapReader.cpp
+uninitvar:source/ps/Game.cpp:248
 
 danglingLifetime:source/renderer/backend/gl/Device.cpp
