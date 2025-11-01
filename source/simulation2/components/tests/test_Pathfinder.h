@@ -32,7 +32,9 @@
 #include "ps/Filesystem.h"
 #include "ps/Loader.h"
 #include "ps/XML/Xeromyces.h"
+#include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ScriptRequest.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpObstructionManager.h"
 #include "simulation2/components/ICmpPathfinder.h"
@@ -161,10 +163,14 @@ public:
 		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain, CSimulation2::DEFAULT_SCRIPTS};
 		sim2.ResetState();
 
+		JS::RootedValue attribs(sim2.GetScriptInterface().GetGeneralJSContext());
+		Script::CreateObject(ScriptRequest(sim2.GetScriptInterface()), &attribs);
+		sim2.SetInitAttributes(attribs);
+
 		std::unique_ptr<CMapReader> mapReader = std::make_unique<CMapReader>();
 
 		PS::Loader::BeginRegistering();
-		mapReader->LoadMap(L"maps/skirmishes/Median Oasis (2).pmp",
+		mapReader->LoadMap(L"maps/skirmishes/median_oasis_2p.pmp",
 			sim2.GetScriptInterface().GetContext(), JS::UndefinedHandleValue,
 			&terrain, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 			&sim2, &sim2.GetSimContext(), -1, false);
@@ -223,6 +229,7 @@ public:
 
 		CmpPtr<ICmpObstructionManager> cmpObstructionMan(sim2, SYSTEM_ENTITY);
 		CmpPtr<ICmpPathfinder> cmpPathfinder(sim2, SYSTEM_ENTITY);
+		cmpPathfinder->UpdateGrid();
 
 		std::mt19937 engine(42);
 		std::uniform_real_distribution<float> distribution01(0.0f, std::nextafter(1.0f, 2.0f));
@@ -273,10 +280,14 @@ public:
 		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain, CSimulation2::DEFAULT_SCRIPTS};
 		sim2.ResetState();
 
+		JS::RootedValue attribs(sim2.GetScriptInterface().GetGeneralJSContext());
+		Script::CreateObject(ScriptRequest(sim2.GetScriptInterface()), &attribs);
+		sim2.SetInitAttributes(attribs);
+
 		std::unique_ptr<CMapReader> mapReader = std::make_unique<CMapReader>();
 
 		PS::Loader::BeginRegistering();
-		mapReader->LoadMap(L"maps/scenarios/Peloponnese.pmp",
+		mapReader->LoadMap(L"maps/scenarios/peloponnese.pmp",
 			sim2.GetScriptInterface().GetContext(), JS::UndefinedHandleValue,
 			&terrain, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 			&sim2, &sim2.GetSimContext(), -1, false);
@@ -329,10 +340,14 @@ public:
 		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain, CSimulation2::DEFAULT_SCRIPTS};
 		sim2.ResetState();
 
+		JS::RootedValue attribs(sim2.GetScriptInterface().GetGeneralJSContext());
+		Script::CreateObject(ScriptRequest(sim2.GetScriptInterface()), &attribs);
+		sim2.SetInitAttributes(attribs);
+
 		std::unique_ptr<CMapReader> mapReader = std::make_unique<CMapReader>();
 
 		PS::Loader::BeginRegistering();
-		mapReader->LoadMap(L"maps/scenarios/Peloponnese.pmp",
+		mapReader->LoadMap(L"maps/scenarios/peloponnese.pmp",
 			sim2.GetScriptInterface().GetContext(), JS::UndefinedHandleValue,
 			&terrain, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 			&sim2, &sim2.GetSimContext(), -1, false);
