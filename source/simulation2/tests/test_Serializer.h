@@ -32,6 +32,7 @@
 #include "ps/Loader.h"
 #include "ps/XML/Xeromyces.h"
 #include "scriptinterface/FunctionWrapper.h"
+#include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
 #include "simulation2/Simulation2.h"
@@ -896,6 +897,7 @@ public:
 		CXeromycesEngine xeromycesEngine;
 
 		g_VFS = CreateVfs();
+		TS_ASSERT_OK(g_VFS->Mount(L"", DataDir() / "mods" / "mod" / "", VFS_MOUNT_MUST_EXIST));
 		TS_ASSERT_OK(g_VFS->Mount(L"", DataDir() / "mods" / "public" / "", VFS_MOUNT_MUST_EXIST));
 		TS_ASSERT_OK(g_VFS->Mount(L"cache", DataDir() / "_testcache" / "", 0, VFS_MAX_PRIORITY));
 
@@ -904,16 +906,22 @@ public:
 		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain, CSimulation2::DEFAULT_SCRIPTS};
 		sim2.ResetState();
 
+		JS::RootedValue attribs(sim2.GetScriptInterface().GetGeneralJSContext());
+		Script::CreateObject(ScriptRequest(sim2.GetScriptInterface()), &attribs);
+		sim2.SetInitAttributes(attribs);
+
 		std::unique_ptr<CMapReader> mapReader = std::make_unique<CMapReader>();
 
 		PS::Loader::BeginRegistering();
-		mapReader->LoadMap(L"maps/skirmishes/Greek Acropolis (2).pmp",
+		mapReader->LoadMap(L"maps/skirmishes/greek_acropolis_2p.pmp",
 			sim2.GetScriptInterface().GetContext(), JS::UndefinedHandleValue,
 			&terrain, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 			&sim2, &sim2.GetSimContext(), -1, false);
 		PS::Loader::EndRegistering();
 		TS_ASSERT_OK(PS::Loader::NonprogressiveLoad());
 
+		sim2.PreInitGame();
+		sim2.InitGame();
 		sim2.Update(0);
 
 		{
