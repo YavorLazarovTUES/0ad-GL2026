@@ -79,6 +79,7 @@
 #include <atomic>
 #include <functional>
 #include <js/PropertyAndElement.h>
+#include <numeric>
 #include <ranges>
 #include <string>
 #include <string_view>
@@ -487,7 +488,7 @@ public:
 	CXeromyces xmb_file;
 	XMBElementList nodes; // children of root
 
-	PS::Loader::Task ReadEntities(XMBElement parent);
+	void ReadEntities(XMBElement parent, CSimulation2& sim);
 
 private:
 
@@ -508,9 +509,6 @@ private:
 	int at_uid;
 	int at_seed;
 	int at_turret;
-
-	// # entities+nonentities processed and total (for progress calc)
-	int completed_jobs, total_jobs;
 
 	// maximum used entity ID, so we can safely allocate new ones
 	entity_id_t max_uid;
@@ -558,13 +556,6 @@ void CXMLReader::Init(const VfsPath& xml_filename)
 	XMBElement root = xmb_file.GetRoot();
 	ENSURE(xmb_file.GetElementStringView(root.GetNodeName()) == "Scenario");
 	nodes = root.GetChildNodes();
-
-	// find out total number of entities+nonentities
-	// (used when calculating progress)
-	completed_jobs = 0;
-	total_jobs = 0;
-	for (XMBElement node : nodes)
-		total_jobs += node.GetChildNodes().size();
 
 	// Find the maximum entity ID, so we can safely allocate new IDs without conflicts
 
@@ -995,197 +986,178 @@ void CXMLReader::ReadTriggers(XMBElement /*parent*/)
 {
 }
 
-PS::Loader::Task CXMLReader::ReadEntities(XMBElement parent)
+void CXMLReader::ReadEntities(XMBElement entity, CSimulation2& sim)
 {
-	XMBElementList entities = parent.GetChildNodes();
+	ENSURE(entity.GetNodeName() == el_entity);
 
-	ENSURE(m_MapReader.pSimulation2);
-	CSimulation2& sim = *m_MapReader.pSimulation2;
-	CmpPtr<ICmpPlayerManager> cmpPlayerManager(sim, SYSTEM_ENTITY);
+	XMBAttributeList attrs = entity.GetAttributes();
+	CStr uid = attrs.GetNamedItem(at_uid);
+	ENSURE(!uid.empty());
+	int EntityUid = uid.ToInt();
 
-	for (XMBElement entity : entities)
+	CStrW TemplateName;
+	int PlayerID = 0;
+	std::vector<entity_id_t> Garrison;
+	std::vector<std::pair<std::string, entity_id_t>> Turrets;
+	CFixedVector3D Position;
+	CFixedVector3D Orientation;
+	long Seed = -1;
+
+	// Obstruction control groups.
+	entity_id_t ControlGroup = INVALID_ENTITY;
+	entity_id_t ControlGroup2 = INVALID_ENTITY;
+
+	XERO_ITER_EL(entity, setting)
 	{
-		ENSURE(entity.GetNodeName() == el_entity);
+		int element_name = setting.GetNodeName();
 
-		XMBAttributeList attrs = entity.GetAttributes();
-		CStr uid = attrs.GetNamedItem(at_uid);
-		ENSURE(!uid.empty());
-		int EntityUid = uid.ToInt();
-
-		CStrW TemplateName;
-		int PlayerID = 0;
-		std::vector<entity_id_t> Garrison;
-		std::vector<std::pair<std::string, entity_id_t>> Turrets;
-		CFixedVector3D Position;
-		CFixedVector3D Orientation;
-		long Seed = -1;
-
-		// Obstruction control groups.
-		entity_id_t ControlGroup = INVALID_ENTITY;
-		entity_id_t ControlGroup2 = INVALID_ENTITY;
-
-		XERO_ITER_EL(entity, setting)
+		// <template>
+		if (element_name == el_template)
 		{
-			int element_name = setting.GetNodeName();
-
-			// <template>
-			if (element_name == el_template)
-			{
-				TemplateName = setting.GetText().FromUTF8();
-			}
-			// <player>
-			else if (element_name == el_player)
-			{
-				PlayerID = setting.GetText().ToInt();
-			}
-			// <position>
-			else if (element_name == el_position)
-			{
-				XMBAttributeList positionAttrs = setting.GetAttributes();
-				Position = CFixedVector3D(
-					fixed::FromString(positionAttrs.GetNamedItem(at_x)),
-					fixed::FromString(positionAttrs.GetNamedItem(at_y)),
-					fixed::FromString(positionAttrs.GetNamedItem(at_z)));
-			}
-			// <orientation>
-			else if (element_name == el_orientation)
-			{
-				XMBAttributeList orientationAttrs = setting.GetAttributes();
-				Orientation = CFixedVector3D(
-					fixed::FromString(orientationAttrs.GetNamedItem(at_x)),
-					fixed::FromString(orientationAttrs.GetNamedItem(at_y)),
-					fixed::FromString(orientationAttrs.GetNamedItem(at_z)));
-				// TODO: what happens if some attributes are missing?
-			}
-			// <obstruction>
-			else if (element_name == el_obstruction)
-			{
-				XMBAttributeList obstructionAttrs = setting.GetAttributes();
-				ControlGroup = obstructionAttrs.GetNamedItem(at_group).ToInt();
-				ControlGroup2 = obstructionAttrs.GetNamedItem(at_group2).ToInt();
-			}
-			// <garrison>
-			else if (element_name == el_garrison)
-			{
-				XMBElementList garrison = setting.GetChildNodes();
-				Garrison.reserve(garrison.size());
-				for (const XMBElement& garr_ent : garrison)
-				{
-					XMBAttributeList garrisonAttrs = garr_ent.GetAttributes();
-					Garrison.push_back(garrisonAttrs.GetNamedItem(at_uid).ToInt());
-				}
-			}
-			// <turrets>
-			else if (element_name == el_turrets)
-			{
-				XMBElementList turrets = setting.GetChildNodes();
-				Turrets.reserve(turrets.size());
-				for (const XMBElement& turretPoint : turrets)
-				{
-					XMBAttributeList turretAttrs = turretPoint.GetAttributes();
-					Turrets.emplace_back(
-						turretAttrs.GetNamedItem(at_turret),
-						turretAttrs.GetNamedItem(at_uid).ToInt()
-					);
-				}
-			}
-			// <actor>
-			else if (element_name == el_actor)
-			{
-				XMBAttributeList attrs = setting.GetAttributes();
-				CStr seedStr = attrs.GetNamedItem(at_seed);
-				if (!seedStr.empty())
-				{
-					Seed = seedStr.ToLong();
-					ENSURE(Seed >= 0);
-				}
-			}
-			else
-				debug_warn(L"Invalid map XML data");
+			TemplateName = setting.GetText().FromUTF8();
 		}
-
-		entity_id_t player = cmpPlayerManager->GetPlayerByID(PlayerID);
-		CmpPtr<ICmpPlayer> cmpPlayer(sim, player);
-
-		// Don't add entities for removed players.
-		if (cmpPlayer && cmpPlayer->IsRemoved())
+		// <player>
+		else if (element_name == el_player)
 		{
-			completed_jobs++;
-			co_yield 100 * completed_jobs / total_jobs;
-			continue;
+			PlayerID = setting.GetText().ToInt();
 		}
-
-		entity_id_t ent = sim.AddEntity(TemplateName, EntityUid);
-		if (ent == INVALID_ENTITY || player == INVALID_ENTITY)
+		// <position>
+		else if (element_name == el_position)
 		{
-			// Don't add entities with invalid player IDs
-			LOGERROR("Failed to load entity template '%s'", utf8_from_wstring(TemplateName));
+			XMBAttributeList positionAttrs = setting.GetAttributes();
+			Position = CFixedVector3D(
+				fixed::FromString(positionAttrs.GetNamedItem(at_x)),
+				fixed::FromString(positionAttrs.GetNamedItem(at_y)),
+				fixed::FromString(positionAttrs.GetNamedItem(at_z)));
+		}
+		// <orientation>
+		else if (element_name == el_orientation)
+		{
+			XMBAttributeList orientationAttrs = setting.GetAttributes();
+			Orientation = CFixedVector3D(
+				fixed::FromString(orientationAttrs.GetNamedItem(at_x)),
+				fixed::FromString(orientationAttrs.GetNamedItem(at_y)),
+				fixed::FromString(orientationAttrs.GetNamedItem(at_z)));
+			// TODO: what happens if some attributes are missing?
+		}
+		// <obstruction>
+		else if (element_name == el_obstruction)
+		{
+			XMBAttributeList obstructionAttrs = setting.GetAttributes();
+			ControlGroup = obstructionAttrs.GetNamedItem(at_group).ToInt();
+			ControlGroup2 = obstructionAttrs.GetNamedItem(at_group2).ToInt();
+		}
+		// <garrison>
+		else if (element_name == el_garrison)
+		{
+			XMBElementList garrison = setting.GetChildNodes();
+			Garrison.reserve(garrison.size());
+			for (const XMBElement& garr_ent : garrison)
+			{
+				XMBAttributeList garrisonAttrs = garr_ent.GetAttributes();
+				Garrison.push_back(garrisonAttrs.GetNamedItem(at_uid).ToInt());
+			}
+		}
+		// <turrets>
+		else if (element_name == el_turrets)
+		{
+			XMBElementList turrets = setting.GetChildNodes();
+			Turrets.reserve(turrets.size());
+			for (const XMBElement& turretPoint : turrets)
+			{
+				XMBAttributeList turretAttrs = turretPoint.GetAttributes();
+				Turrets.emplace_back(
+					turretAttrs.GetNamedItem(at_turret),
+					turretAttrs.GetNamedItem(at_uid).ToInt()
+				);
+			}
+		}
+		// <actor>
+		else if (element_name == el_actor)
+		{
+			XMBAttributeList attrs = setting.GetAttributes();
+			CStr seedStr = attrs.GetNamedItem(at_seed);
+			if (!seedStr.empty())
+			{
+				Seed = seedStr.ToLong();
+				ENSURE(Seed >= 0);
+			}
 		}
 		else
-		{
-			CmpPtr<ICmpPosition> cmpPosition(sim, ent);
-			if (cmpPosition)
-			{
-				cmpPosition->JumpTo(Position.X, Position.Z);
-				cmpPosition->SetYRotation(Orientation.Y);
-				// TODO: other parts of the position
-			}
-
-			if (!Garrison.empty())
-			{
-				CmpPtr<ICmpGarrisonHolder> cmpGarrisonHolder(sim, ent);
-				if (cmpGarrisonHolder)
-					cmpGarrisonHolder->SetInitEntities(std::move(Garrison));
-				else
-					LOGERROR("CXMLMapReader::ReadEntities() entity '%d' of player '%d' has no GarrisonHolder component and thus cannot garrison units.", ent, PlayerID);
-			}
-
-			// Needs to be before ownership changes to prevent initialising
-			// subunits too soon.
-			if (!Turrets.empty())
-			{
-				CmpPtr<ICmpTurretHolder> cmpTurretHolder(sim, ent);
-				if (cmpTurretHolder)
-					cmpTurretHolder->SetInitEntities(std::move(Turrets));
-				else
-					LOGERROR("CXMLMapReader::ReadEntities() entity '%d' of player '%d' has no TurretHolder component and thus cannot use turrets.", ent, PlayerID);
-			}
-
-			CmpPtr<ICmpOwnership> cmpOwnership(sim, ent);
-			if (cmpOwnership)
-				cmpOwnership->SetOwner(PlayerID);
-
-			CmpPtr<ICmpObstruction> cmpObstruction(sim, ent);
-			if (cmpObstruction)
-			{
-				if (ControlGroup != INVALID_ENTITY)
-					cmpObstruction->SetControlGroup(ControlGroup);
-				if (ControlGroup2 != INVALID_ENTITY)
-					cmpObstruction->SetControlGroup2(ControlGroup2);
-
-				cmpObstruction->ResolveFoundationCollisions();
-			}
-
-			CmpPtr<ICmpVisual> cmpVisual(sim, ent);
-			if (cmpVisual)
-			{
-				if (Seed != -1)
-					cmpVisual->SetActorSeed((u32)Seed);
-				// TODO: variation/selection strings
-			}
-
-			if (PlayerID == m_MapReader.m_PlayerID && (TemplateName.ends_with(L"civil_centre") || m_MapReader.m_StartingCameraTarget == INVALID_ENTITY))
-			{
-				// Focus on civil centre or first entity owned by player
-				m_MapReader.m_StartingCameraTarget = ent;
-			}
-		}
-
-		completed_jobs++;
-		co_yield 100 * completed_jobs / total_jobs;
+			debug_warn(L"Invalid map XML data");
 	}
 
-	co_return 0;
+	CmpPtr<ICmpPlayerManager> cmpPlayerManager(sim, SYSTEM_ENTITY);
+	entity_id_t player = cmpPlayerManager->GetPlayerByID(PlayerID);
+	CmpPtr<ICmpPlayer> cmpPlayer(sim, player);
+
+	// Don't add entities for removed players.
+	if (cmpPlayer && cmpPlayer->IsRemoved())
+		return;
+
+	entity_id_t ent = sim.AddEntity(TemplateName, EntityUid);
+	if (ent == INVALID_ENTITY || player == INVALID_ENTITY)
+	{
+		// Don't add entities with invalid player IDs
+		LOGERROR("Failed to load entity template '%s'", utf8_from_wstring(TemplateName));
+		return;
+	}
+	CmpPtr<ICmpPosition> cmpPosition(sim, ent);
+	if (cmpPosition)
+	{
+		cmpPosition->JumpTo(Position.X, Position.Z);
+		cmpPosition->SetYRotation(Orientation.Y);
+		// TODO: other parts of the position
+	}
+
+	if (!Garrison.empty())
+	{
+		CmpPtr<ICmpGarrisonHolder> cmpGarrisonHolder(sim, ent);
+		if (cmpGarrisonHolder)
+			cmpGarrisonHolder->SetInitEntities(std::move(Garrison));
+		else
+			LOGERROR("CXMLMapReader::ReadEntities() entity '%d' of player '%d' has no GarrisonHolder component and thus cannot garrison units.", ent, PlayerID);
+	}
+
+	// Needs to be before ownership changes to prevent initialising
+	// subunits too soon.
+	if (!Turrets.empty())
+	{
+		CmpPtr<ICmpTurretHolder> cmpTurretHolder(sim, ent);
+		if (cmpTurretHolder)
+			cmpTurretHolder->SetInitEntities(std::move(Turrets));
+		else
+			LOGERROR("CXMLMapReader::ReadEntities() entity '%d' of player '%d' has no TurretHolder component and thus cannot use turrets.", ent, PlayerID);
+	}
+
+	CmpPtr<ICmpOwnership> cmpOwnership(sim, ent);
+	if (cmpOwnership)
+		cmpOwnership->SetOwner(PlayerID);
+
+	CmpPtr<ICmpObstruction> cmpObstruction(sim, ent);
+	if (cmpObstruction)
+	{
+		if (ControlGroup != INVALID_ENTITY)
+			cmpObstruction->SetControlGroup(ControlGroup);
+		if (ControlGroup2 != INVALID_ENTITY)
+			cmpObstruction->SetControlGroup2(ControlGroup2);
+
+		cmpObstruction->ResolveFoundationCollisions();
+	}
+
+	CmpPtr<ICmpVisual> cmpVisual(sim, ent);
+	if (cmpVisual)
+	{
+		if (Seed != -1)
+			cmpVisual->SetActorSeed((u32)Seed);
+		// TODO: variation/selection strings
+	}
+
+	if (PlayerID == m_MapReader.m_PlayerID && (TemplateName.ends_with(L"civil_centre") || m_MapReader.m_StartingCameraTarget == INVALID_ENTITY))
+	{
+		// Focus on civil centre or first entity owned by player
+		m_MapReader.m_StartingCameraTarget = ent;
+	}
 }
 
 void CXMLReader::ReadXML()
@@ -1281,26 +1253,32 @@ int CMapReader::ReadXML()
 // progressive
 PS::Loader::Task CMapReader::ReadXMLEntities()
 {
+	ENSURE(pSimulation2);
 	if (m_SkipEntities)
 		co_return 0;
 
 	if (!m_XmlReader)
 		m_XmlReader = std::make_unique<CXMLReader>(m_FilenameXml, *this);
 
+	const std::size_t totalJobs{std::transform_reduce(m_XmlReader->nodes.begin(),
+		m_XmlReader->nodes.end(), static_cast<std::size_t>(0), std::plus<>{}, [](XMBElement node)
+	{
+		return node.GetChildNodes().size();
+	})};
+	std::size_t completedJobs{0};
 	for (XMBElement node : m_XmlReader->nodes)
 	{
 		CStr name = m_XmlReader->xmb_file.GetElementString(node.GetNodeName());
 		if (name != "Entities")
 			continue;
 
-		PS::Loader::Task subTask{m_XmlReader->ReadEntities(node)};
-		while (!subTask.IsDone())
+		for (XMBElement child : node.GetChildNodes())
 		{
-			co_yield subTask.GetProgress();
-			subTask.Step(-1);
+			m_XmlReader->ReadEntities(child, *pSimulation2);
+
+			completedJobs++;
+			co_yield 100 * completedJobs / totalJobs;
 		}
-		if (subTask.Get() < 0)
-			co_return subTask.Get();
 	}
 
 	m_XmlReader.reset();
