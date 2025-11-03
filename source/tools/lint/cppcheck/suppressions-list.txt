@@ -66,5 +66,6 @@ unknownMacro:source/lib/sysdep/os/win/wposix/wutsname.cpp
 unknownMacro:source/ps/CStr.cpp
 
 uninitvar:source/ps/Game.cpp:246
+uninitvar:source/ps/scripting/JSInterface_SavedGame.cpp:149
 
 danglingLifetime:source/renderer/backend/gl/Device.cpp

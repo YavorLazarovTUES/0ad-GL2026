@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,6 +19,7 @@
 
 #include "JSInterface_SavedGame.h"
 
+#include "gui/GUIManager.h"
 #include "lib/debug.h"
 #include "network/NetClient.h"
 #include "network/NetServer.h"
@@ -80,11 +81,32 @@ void QuickSave(JS::HandleValue GUIMetadata)
 void QuickLoad()
 {
 	if (g_NetServer || g_NetClient)
+	{
 		LOGERROR("Can't load quicksave during multiplayer!");
-	else if (g_Game)
-		g_Game->GetTurnManager()->QuickLoad();
-	else
+		return;
+	}
+	if (!g_Game)
+	{
 		LOGERROR("Can't load quicksave if game is not running!");
+		return;
+	}
+
+	const std::optional<JS::Value> maybeMetadata{g_Game->GetTurnManager()->TryQuickLoad()};
+
+	if (!g_GUI || !maybeMetadata.has_value())
+		return;
+
+	const ScriptRequest rq{g_Game->GetSimulation2()->GetScriptInterface()};
+	JS::RootedValue metadata{rq.cx, maybeMetadata.value()};
+
+	// Provide a copy, so that GUI components don't have to clone to get mutable objects
+	JS::RootedValue quickSaveMetadataClone(rq.cx, Script::DeepCopy(rq, metadata));
+
+	JS::RootedValueArray<1> paramData(rq.cx);
+	paramData[0].set(quickSaveMetadataClone);
+	g_GUI->SendEventToAll(CTurnManager::EventNameSavegameLoaded, paramData);
+
+	LOGMESSAGERENDER("Quickloaded game");
 }
 
 JS::Value LoadSavedGameMetadata(const ScriptInterface& scriptInterface, const std::wstring& name)

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,7 +19,6 @@
 
 #include "TurnManager.h"
 
-#include "gui/GUIManager.h"
 #include "lib/debug.h"
 #include "maths/MathUtil.h"
 #include "ps/CLogger.h"
@@ -309,37 +308,25 @@ void CTurnManager::QuickSave(JS::HandleValue GUIMetadata)
 	LOGMESSAGERENDER("Quicksaved game");
 }
 
-void CTurnManager::QuickLoad()
+std::optional<JS::Value> CTurnManager::TryQuickLoad()
 {
 	PROFILE2("QuickLoad");
 
 	if (m_QuickSaveState.empty())
 	{
 		LOGERROR("Cannot quickload game - no game was quicksaved");
-		return;
+		return std::nullopt;
 	}
 
 	std::stringstream stream(m_QuickSaveState);
 	if (!m_Simulation2.DeserializeState(stream))
 	{
 		LOGERROR("Failed to quickload game");
-		return;
+		return std::nullopt;
 	}
 
 	// See RewindTimeWarp
 	ResetState(1, m_CommandDelay);
 
-	if (!g_GUI)
-		return;
-
-	ScriptRequest rq(m_Simulation2.GetScriptInterface());
-
-	// Provide a copy, so that GUI components don't have to clone to get mutable objects
-	JS::RootedValue quickSaveMetadataClone(rq.cx, Script::DeepCopy(rq, m_QuickSaveMetadata));
-
-	JS::RootedValueArray<1> paramData(rq.cx);
-	paramData[0].set(quickSaveMetadataClone);
-	g_GUI->SendEventToAll(EventNameSavegameLoaded, paramData);
-
-	LOGMESSAGERENDER("Quickloaded game");
+	return m_QuickSaveMetadata;
 }

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -30,6 +30,7 @@
 #include <js/Value.h>
 #include <list>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -87,6 +88,8 @@ class CTurnManager
 {
 	NONCOPYABLE(CTurnManager);
 public:
+	static const CStr EventNameSavegameLoaded;
+
 	/**
 	 * Construct for a given network session ID.
 	 */
@@ -154,7 +157,7 @@ public:
 	void RewindTimeWarp();
 
 	void QuickSave(JS::HandleValue GUIMetadata);
-	void QuickLoad();
+	std::optional<JS::Value> TryQuickLoad();
 
 	u32 GetCurrentTurn() const { return m_CurrentTurn; }
 
@@ -216,8 +219,6 @@ protected:
 	u32 m_FinalTurn;
 
 private:
-	static const CStr EventNameSavegameLoaded;
-
 	size_t m_TimeWarpNumTurns; // 0 if disabled
 	std::list<std::string> m_TimeWarpStates;
 	std::string m_QuickSaveState; // TODO: should implement a proper disk-based quicksave system
