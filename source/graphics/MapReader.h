@@ -58,6 +58,10 @@ class CMapReader : public CMapIO
 public:
 	// constructor
 	CMapReader();
+	CMapReader(const CMapReader&) = delete;
+	CMapReader& operator =(const CMapReader&) = delete;
+	CMapReader(CMapReader&&) = delete;
+	CMapReader& operator =(CMapReader&&) = delete;
 	~CMapReader();
 
 	// LoadMap: try to load the map from given file; reinitialise the scene to new data if successful
