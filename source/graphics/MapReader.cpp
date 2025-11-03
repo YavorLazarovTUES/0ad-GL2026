@@ -32,7 +32,6 @@
 #include "graphics/TerrainTextureManager.h"
 #include "lib/alignment.h"
 #include "lib/code_annotation.h"
-#include "lib/code_generation.h"
 #include "lib/debug.h"
 #include "lib/path.h"
 #include "lib/timer.h"
@@ -117,13 +116,13 @@ void CMapReader::LoadMap(const VfsPath& pathname, const ScriptContext& cx,  JS::
 	m_StartingCameraTarget = INVALID_ENTITY;
 	m_ScriptSettings.init(cx.GetGeneralJSContext(), settings);
 
-	filename_xml = pathname.ChangeExtension(L".xml");
+	m_FilenameXml = pathname.ChangeExtension(L".xml");
 
 	// In some cases (particularly tests) we don't want to bother storing a large
 	// mostly-empty .pmp file, so we let the XML file specify basic terrain instead.
 	// If there's an .xml file and no .pmp, then we're probably in this XML-only mode
 	only_xml = false;
-	if (!VfsFileExists(pathname) && VfsFileExists(filename_xml))
+	if (!VfsFileExists(pathname) && VfsFileExists(m_FilenameXml))
 	{
 		only_xml = true;
 	}
@@ -1303,12 +1302,12 @@ int CXMLReader::ProgressiveReadEntities()
 // load script settings from map
 int CMapReader::LoadScriptSettings()
 {
-	if (!xml_reader)
-		xml_reader = new CXMLReader(filename_xml, *this);
+	if (!m_XmlReader)
+		m_XmlReader = std::make_unique<CXMLReader>(m_FilenameXml, *this);
 
 	// parse the script settings
 	if (pSimulation2)
-		pSimulation2->SetMapSettings(xml_reader->ReadScriptSettings());
+		pSimulation2->SetMapSettings(m_XmlReader->ReadScriptSettings());
 
 	return 0;
 }
@@ -1331,10 +1330,10 @@ int CMapReader::LoadMapSettings()
 
 int CMapReader::ReadXML()
 {
-	if (!xml_reader)
-		xml_reader = new CXMLReader(filename_xml, *this);
+	if (!m_XmlReader)
+		m_XmlReader = std::make_unique<CXMLReader>(m_FilenameXml, *this);
 
-	xml_reader->ReadXML();
+	m_XmlReader->ReadXML();
 
 	return 0;
 }
@@ -1342,15 +1341,13 @@ int CMapReader::ReadXML()
 // progressive
 int CMapReader::ReadXMLEntities()
 {
-	if (!xml_reader)
-		xml_reader = new CXMLReader(filename_xml, *this);
+	if (!m_XmlReader)
+		m_XmlReader = std::make_unique<CXMLReader>(m_FilenameXml, *this);
 
-	int ret = xml_reader->ProgressiveReadEntities();
+	int ret = m_XmlReader->ProgressiveReadEntities();
 	// finished or failed
 	if (ret <= 0)
-	{
-		SAFE_DELETE(xml_reader);
-	}
+		m_XmlReader.reset();
 
 	return ret;
 }
@@ -1736,8 +1733,4 @@ int CMapReader::ParseCamera()
 	return 0;
 }
 
-CMapReader::~CMapReader()
-{
-	// Cleaup objects
-	delete xml_reader;
-}
+CMapReader::~CMapReader() = default;

@@ -153,7 +153,7 @@ private:
 	const CSimContext* pSimContext;
 	int m_PlayerID;
 	bool m_SkipEntities;
-	VfsPath filename_xml;
+	VfsPath m_FilenameXml;
 	bool only_xml;
 	u32 file_format_version;
 	entity_id_t m_StartingCameraTarget;
@@ -164,7 +164,7 @@ private:
 	size_t cur_terrain_tex{0};
 	size_t num_terrain_tex;
 
-	CXMLReader* xml_reader{nullptr};
+	std::unique_ptr<CXMLReader> m_XmlReader;
 };
 
 /**
