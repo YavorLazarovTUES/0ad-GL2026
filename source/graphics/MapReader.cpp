@@ -484,11 +484,12 @@ public:
 	// read everything except for entities
 	void ReadXML();
 
-	// return semantics: see Loader.cpp!LoadFunc.
-	PS::Loader::Task ProgressiveReadEntities();
+	CXeromyces xmb_file;
+	XMBElementList nodes; // children of root
+
+	PS::Loader::Task ReadEntities(XMBElement parent);
 
 private:
-	CXeromyces xmb_file;
 
 	CMapReader& m_MapReader;
 
@@ -508,8 +509,6 @@ private:
 	int at_seed;
 	int at_turret;
 
-	XMBElementList nodes; // children of root
-
 	// # entities+nonentities processed and total (for progress calc)
 	int completed_jobs, total_jobs;
 
@@ -523,7 +522,6 @@ private:
 	void ReadCamera(XMBElement parent);
 	void ReadPaths(XMBElement parent);
 	void ReadTriggers(XMBElement parent);
-	PS::Loader::Task ReadEntities(XMBElement parent);
 };
 
 
@@ -1213,7 +1211,7 @@ void CXMLReader::ReadXML()
 		}
 		else if (name == "Entities")
 		{
-			// Handled by ProgressiveReadEntities instead
+			// Handled by ReadXMLEntities instead
 		}
 		else if (name == "Paths")
 		{
@@ -1234,30 +1232,6 @@ void CXMLReader::ReadXML()
 			debug_warn(L"Invalid map XML data");
 		}
 	}
-}
-
-PS::Loader::Task CXMLReader::ProgressiveReadEntities()
-{
-	if (m_MapReader.m_SkipEntities)
-		co_return 0;
-
-	for (XMBElement node : nodes)
-	{
-		CStr name = xmb_file.GetElementString(node.GetNodeName());
-		if (name != "Entities")
-			continue;
-
-		PS::Loader::Task subTask{ReadEntities(node)};
-		while (!subTask.IsDone())
-		{
-			co_yield subTask.GetProgress();
-			subTask.Step(-1);
-		}
-		if (subTask.Get() < 0)
-			co_return subTask.Get();
-	}
-
-	co_return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1307,20 +1281,31 @@ int CMapReader::ReadXML()
 // progressive
 PS::Loader::Task CMapReader::ReadXMLEntities()
 {
+	if (m_SkipEntities)
+		co_return 0;
+
 	if (!m_XmlReader)
 		m_XmlReader = std::make_unique<CXMLReader>(m_FilenameXml, *this);
 
-	PS::Loader::Task task{m_XmlReader->ProgressiveReadEntities()};
-	while (!task.IsDone())
+	for (XMBElement node : m_XmlReader->nodes)
 	{
-		co_yield task.GetProgress();
-		// Do as litle as possible.
-		task.Step(-1);
+		CStr name = m_XmlReader->xmb_file.GetElementString(node.GetNodeName());
+		if (name != "Entities")
+			continue;
+
+		PS::Loader::Task subTask{m_XmlReader->ReadEntities(node)};
+		while (!subTask.IsDone())
+		{
+			co_yield subTask.GetProgress();
+			subTask.Step(-1);
+		}
+		if (subTask.Get() < 0)
+			co_return subTask.Get();
 	}
 
 	m_XmlReader.reset();
 
-	co_return task.Get();
+	co_return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
