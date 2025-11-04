@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,6 +17,7 @@
 
 #include "lib/self_test.h"
 
+#include "gui/GUIManager.h"
 #include "lib/debug.h"
 #include "lib/external_libraries/enet.h"
 #include "lib/file/file_system.h"
@@ -45,6 +46,14 @@
 #include <optional>
 #include <string>
 #include <vector>
+
+namespace
+{
+void UpdateGame(CGame& game)
+{
+	game.GetTurnManager()->Update(1.0f, 1, std::bind_front(&CGUIManager::SendEventToAll, g_GUI));
+}
+}
 
 class TestNetComms : public CxxTest::TestSuite
 {
@@ -216,13 +225,13 @@ public:
 		}
 
 		wait(clients, 100);
-		client1Game.GetTurnManager()->Update(1.0f, 1);
-		client2Game.GetTurnManager()->Update(1.0f, 1);
-		client3Game.GetTurnManager()->Update(1.0f, 1);
+		UpdateGame(client1Game);
+		UpdateGame(client2Game);
+		UpdateGame(client3Game);
 		wait(clients, 100);
-		client1Game.GetTurnManager()->Update(1.0f, 1);
-		client2Game.GetTurnManager()->Update(1.0f, 1);
-		client3Game.GetTurnManager()->Update(1.0f, 1);
+		UpdateGame(client1Game);
+		UpdateGame(client2Game);
+		UpdateGame(client3Game);
 		wait(clients, 100);
 	}
 
@@ -286,9 +295,9 @@ public:
 		}
 
 		wait(clients, 100);
-		client1Game.GetTurnManager()->Update(1.0f, 1);
-		client2Game.GetTurnManager()->Update(1.0f, 1);
-		client3Game.GetTurnManager()->Update(1.0f, 1);
+		UpdateGame(client1Game);
+		UpdateGame(client2Game);
+		UpdateGame(client3Game);
 		wait(clients, 100);
 
 		{
@@ -339,12 +348,12 @@ public:
 
 		wait(clients, 100);
 
-		client1Game.GetTurnManager()->Update(1.0f, 1);
-		client3Game.GetTurnManager()->Update(1.0f, 1);
+		UpdateGame(client1Game);
+		UpdateGame(client3Game);
 		wait(clients, 100);
 		server.SetTurnLength(100);
-		client1Game.GetTurnManager()->Update(1.0f, 1);
-		client3Game.GetTurnManager()->Update(1.0f, 1);
+		UpdateGame(client1Game);
+		UpdateGame(client3Game);
 		wait(clients, 100);
 
 		// (This SetTurnLength thing doesn't actually detect errors unless you change
@@ -380,9 +389,9 @@ public:
 
 		for (size_t i = 0; i < 3; ++i)
 		{
-			client1Game.GetTurnManager()->Update(1.0f, 1);
-			client2BGame.GetTurnManager()->Update(1.0f, 1);
-			client3Game.GetTurnManager()->Update(1.0f, 1);
+			UpdateGame(client1Game);
+			UpdateGame(client2BGame);
+			UpdateGame(client3Game);
 			wait(clients, 100);
 		}
 	}

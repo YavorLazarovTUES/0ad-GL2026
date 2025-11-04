@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,7 +19,6 @@
 
 #include "ReplayTurnManager.h"
 
-#include "gui/GUIManager.h"
 #include "lib/debug.h"
 #include "ps/CLogger.h"
 #include "ps/Util.h"
@@ -73,15 +72,15 @@ void CReplayTurnManager::StoreFinalReplayTurn(u32 turn)
 	m_FinalTurn = turn;
 }
 
-void CReplayTurnManager::NotifyFinishedUpdate(u32 turn)
+void CReplayTurnManager::NotifyFinishedUpdate(u32 turn, const UpdateCallback& sendEventToAll)
 {
 	if (turn == 1 && m_FinalTurn == 0)
-		g_GUI->SendEventToAll(EventNameReplayFinished);
+		sendEventToAll(EventNameReplayFinished, std::nullopt);
 
 	if (turn > m_FinalTurn)
 		return;
 
-	DoTurn(turn);
+	DoTurn(turn, sendEventToAll);
 
 	// Compare hash if it exists in the replay and if we didn't have an OOS already
 	std::map<u32, std::pair<std::string, bool>>::iterator turnHashIt = m_ReplayHash.find(turn);
@@ -117,10 +116,10 @@ void CReplayTurnManager::NotifyFinishedUpdate(u32 turn)
 	Script::ToJSVal(rq, &expectedHashVal, expectedHash);
 	std::ignore = paramData.append(expectedHashVal);
 
-	g_GUI->SendEventToAll(EventNameReplayOutOfSync, paramData);
+	sendEventToAll(EventNameReplayOutOfSync, paramData);
 }
 
-void CReplayTurnManager::DoTurn(u32 turn)
+void CReplayTurnManager::DoTurn(u32 turn, const UpdateCallback& sendEventToAll)
 {
 	debug_printf("Executing turn %u of %u\n", turn, m_FinalTurn);
 
@@ -137,5 +136,5 @@ void CReplayTurnManager::DoTurn(u32 turn)
 	}
 
 	if (turn == m_FinalTurn)
-		g_GUI->SendEventToAll(EventNameReplayFinished);
+		sendEventToAll(EventNameReplayFinished, std::nullopt);
 }

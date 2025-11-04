@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -387,21 +387,19 @@ InReaction CGUIManager::HandleEvent(const SDL_Event_* ev)
 	return IN_PASS;
 }
 
-void CGUIManager::SendEventToAll(const CStr& eventName) const
+
+void CGUIManager::SendEventToAll(const CStr& eventName,
+	std::optional<JS::HandleValueArray> paramData) const
 {
 	const auto pageStack = GetCopyOfFrozenStack();
 
 	for (const SGUIPage& p : pageStack)
-		p.gui->SendEventToAll(eventName);
-
-}
-
-void CGUIManager::SendEventToAll(const CStr& eventName, JS::HandleValueArray paramData) const
-{
-	const auto pageStack = GetCopyOfFrozenStack();
-
-	for (const SGUIPage& p : pageStack)
-		p.gui->SendEventToAll(eventName, paramData);
+	{
+		if (paramData.has_value())
+			p.gui->SendEventToAll(eventName, paramData.value());
+		else
+			p.gui->SendEventToAll(eventName);
+	}
 }
 
 std::optional<bool> CGUIManager::TickObjects()

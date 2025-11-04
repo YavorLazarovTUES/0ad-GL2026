@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -47,7 +47,7 @@ void CLocalTurnManager::NotifyFinishedOwnCommands(u32 turn)
 	FinishedAllCommands(turn, m_TurnLength);
 }
 
-void CLocalTurnManager::NotifyFinishedUpdate(u32 /*turn*/)
+void CLocalTurnManager::NotifyFinishedUpdate(u32 /*turn*/, const UpdateCallback&)
 {
 #if 0 // this hurts performance and is only useful for verifying log replays
 	std::string hash;

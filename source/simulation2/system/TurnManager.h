@@ -28,6 +28,7 @@
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
 #include <js/Value.h>
+#include <js/ValueArray.h>
 #include <list>
 #include <map>
 #include <optional>
@@ -88,6 +89,9 @@ class CTurnManager
 {
 	NONCOPYABLE(CTurnManager);
 public:
+	using UpdateCallback =
+		std::function<void(const std::string&, const std::optional<JS::HandleValueArray>)>;
+
 	static const CStr EventNameSavegameLoaded;
 
 	/**
@@ -112,7 +116,7 @@ public:
 	 * @param simFrameLength Length of the previous frame, in simulation seconds
 	 * @param maxTurns Maximum number of turns to simulate at once
 	 */
-	bool Update(float simFrameLength, size_t maxTurns);
+	bool Update(float simFrameLength, size_t maxTurns, const UpdateCallback& sendEventToAll);
 
 	/**
 	 * Advance the simulation by as much as possible. Intended for catching up
@@ -181,7 +185,7 @@ protected:
 	/**
 	 * Called when this client has finished a simulation update.
 	 */
-	virtual void NotifyFinishedUpdate(u32 turn) = 0;
+	virtual void NotifyFinishedUpdate(u32 turn, const UpdateCallback& sendEventToAll) = 0;
 
 	/**
 	 * Returns whether we should compute a complete state hash for the given turn,

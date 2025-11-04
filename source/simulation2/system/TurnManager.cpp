@@ -70,7 +70,7 @@ void CTurnManager::SetPlayerID(int playerId)
 	m_PlayerId = playerId;
 }
 
-bool CTurnManager::Update(float simFrameLength, size_t maxTurns)
+bool CTurnManager::Update(float simFrameLength, size_t maxTurns, const UpdateCallback& sendEventToAll)
 {
 	if (m_CurrentTurn > m_FinalTurn)
 		return false;
@@ -153,7 +153,7 @@ bool CTurnManager::Update(float simFrameLength, size_t maxTurns)
 
 		m_Simulation2.Update(m_TurnLength, commands);
 
-		NotifyFinishedUpdate(m_CurrentTurn);
+		NotifyFinishedUpdate(m_CurrentTurn, sendEventToAll);
 
 		// Set the time for the next turn update
 		m_DeltaSimTime -= m_TurnLength / 1000.f;

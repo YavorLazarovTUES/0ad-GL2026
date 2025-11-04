@@ -431,7 +431,8 @@ void CGame::Update(const double deltaRealTime, bool doInterpolate)
 		// so just use the sim rate itself as the number of turns per frame.
 		size_t maxTurns = (size_t)m_SimRate;
 
-		if (m_TurnManager->Update(deltaSimTime, maxTurns))
+		if (m_TurnManager->Update(deltaSimTime, maxTurns,
+			std::bind_front(&CGUIManager::SendEventToAll, g_GUI)))
 		{
 			{
 				PROFILE3("gui sim update");

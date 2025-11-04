@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -501,8 +501,13 @@ static void NonVisualFrame()
 
 	static u32 turn = 0;
 	if (g_Game && g_Game->IsGameStarted() && g_Game->GetTurnManager())
-		if (g_Game->GetTurnManager()->Update(DEFAULT_TURN_LENGTH, 1))
+	{
+		if (g_Game->GetTurnManager()->Update(DEFAULT_TURN_LENGTH, 1,
+			std::bind_front(&CGUIManager::SendEventToAll, g_GUI)))
+		{
 			debug_printf("Turn %u (%u)...\n", turn++, DEFAULT_TURN_LENGTH);
+		}
+	}
 
 	g_Profiler.Frame();
 

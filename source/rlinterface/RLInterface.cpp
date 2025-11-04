@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -407,7 +407,8 @@ void Interface::ApplyMessage(const GameMessage& msg)
 			{
 				const double deltaSimTime = deltaRealTime * g_Game->GetSimRate();
 				const size_t maxTurns = static_cast<size_t>(g_Game->GetSimRate());
-				g_Game->GetTurnManager()->Update(deltaSimTime, maxTurns);
+				g_Game->GetTurnManager()->Update(deltaSimTime, maxTurns,
+					std::bind_front(&CGUIManager::SendEventToAll, g_GUI));
 			}
 			else
 				g_Game->Update(deltaRealTime);
