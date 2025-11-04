@@ -272,7 +272,7 @@ bool CMiniMap::FireWorldClickEvent(int button, int /*clicks*/)
 	std::ignore = paramData.append(coords);
 	std::ignore = paramData.append(buttonJs);
 
-	return ScriptEventWithReturn(EventNameWorldClick, paramData);
+	return ScriptEvent(EventNameWorldClick, paramData);
 }
 
 // This sets up and draws the rectangle on the minimap

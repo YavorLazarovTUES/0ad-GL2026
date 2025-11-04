@@ -447,27 +447,17 @@ InReaction IGUIObject::SendMouseEvent(EGUIMessageType type, const CStr& eventNam
 	return msg.skipped ? IN_PASS : IN_HANDLED;
 }
 
-void IGUIObject::ScriptEvent(const CStr& eventName)
-{
-	ScriptEventWithReturn(eventName);
-}
-
-bool IGUIObject::ScriptEventWithReturn(const CStr& eventName)
+bool IGUIObject::ScriptEvent(const CStr& eventName)
 {
 	if (m_ScriptHandlers.find(eventName) == m_ScriptHandlers.end())
 		return false;
 
 	ScriptRequest rq(m_pGUI.GetScriptInterface());
 	JS::RootedValueVector paramData(rq.cx);
-	return ScriptEventWithReturn(eventName, paramData);
+	return ScriptEvent(eventName, paramData);
 }
 
-void IGUIObject::ScriptEvent(const CStr& eventName, const JS::HandleValueArray& paramData)
-{
-	ScriptEventWithReturn(eventName, paramData);
-}
-
-bool IGUIObject::ScriptEventWithReturn(const CStr& eventName, const JS::HandleValueArray& paramData)
+bool IGUIObject::ScriptEvent(const CStr& eventName, const JS::HandleValueArray& paramData)
 {
 	std::map<CStr, JS::Heap<JSObject*> >::iterator it = m_ScriptHandlers.find(eventName);
 	if (it == m_ScriptHandlers.end())
