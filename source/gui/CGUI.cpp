@@ -59,7 +59,6 @@
 #include <algorithm>
 #include <js/CallAndConstruct.h>
 #include <js/Promise.h>
-#include <js/ValueArray.h>
 #include <optional>
 #include <SDL_events.h>
 #include <SDL_mouse.h>
@@ -351,18 +350,8 @@ JSObject* CGUI::TickObjects(const ScriptRequest& rq, Script::StructuredClone ini
 	return sendingPromise;
 }
 
-void CGUI::SendEventToAll(const CStr& eventName)
-{
-	std::unordered_map<CStr, std::vector<IGUIObject*>>::iterator it = m_EventObjects.find(eventName);
-	if (it == m_EventObjects.end())
-		return;
-
-	std::vector<IGUIObject*> copy = it->second;
-	for (IGUIObject* object : copy)
-		object->ScriptEvent(eventName);
-}
-
-void CGUI::SendEventToAll(const CStr& eventName, const JS::HandleValueArray& paramData)
+void CGUI::SendEventToAll(const CStr& eventName,
+	const JS::HandleValueArray paramData /* = JS::HandleValueArray::empty() */)
 {
 	std::unordered_map<CStr, std::vector<IGUIObject*>>::iterator it = m_EventObjects.find(eventName);
 	if (it == m_EventObjects.end())

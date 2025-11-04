@@ -41,6 +41,7 @@
 
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
+#include <js/ValueArray.h>
 #include <map>
 #include <memory>
 #include <optional>
@@ -109,16 +110,10 @@ public:
 	 * Sends a specified script event to every object
 	 *
 	 * @param eventName String representation of event name
-	 */
-	void SendEventToAll(const CStr& eventName);
-
-	/**
-	 * Sends a specified script event to every object
-	 *
-	 * @param eventName String representation of event name
 	 * @param paramData JS::HandleValueArray storing the arguments passed to the event handler.
 	 */
-	void SendEventToAll(const CStr& eventName, const JS::HandleValueArray& paramData);
+	void SendEventToAll(const CStr& eventName,
+		const JS::HandleValueArray paramData = JS::HandleValueArray::empty());
 
 	/**
 	 * Displays the whole GUI

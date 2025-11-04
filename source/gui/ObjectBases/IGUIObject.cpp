@@ -44,7 +44,6 @@
 #include <js/SourceText.h>
 #include <js/TracingAPI.h>
 #include <js/Value.h>
-#include <js/ValueArray.h>
 #include <jsapi.h>
 #include <string>
 #include <string_view>
@@ -447,17 +446,8 @@ InReaction IGUIObject::SendMouseEvent(EGUIMessageType type, const CStr& eventNam
 	return msg.skipped ? IN_PASS : IN_HANDLED;
 }
 
-bool IGUIObject::ScriptEvent(const CStr& eventName)
-{
-	if (m_ScriptHandlers.find(eventName) == m_ScriptHandlers.end())
-		return false;
-
-	ScriptRequest rq(m_pGUI.GetScriptInterface());
-	JS::RootedValueVector paramData(rq.cx);
-	return ScriptEvent(eventName, paramData);
-}
-
-bool IGUIObject::ScriptEvent(const CStr& eventName, const JS::HandleValueArray& paramData)
+bool IGUIObject::ScriptEvent(const CStr& eventName,
+	const JS::HandleValueArray& paramData /* = JS::HandleValueArray::empty() */)
 {
 	std::map<CStr, JS::Heap<JSObject*> >::iterator it = m_ScriptHandlers.find(eventName);
 	if (it == m_ScriptHandlers.end())
