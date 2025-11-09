@@ -47,11 +47,29 @@ class ModuleLoader
 public:
 	friend ScriptContext;
 
-	class CompiledModule;
 	class Future;
 	class Result;
 
 	using AllowModuleFunc = std::function<bool(const VfsPath&)>;
+
+	class CompiledModule
+	{
+	public:
+		CompiledModule(const ScriptRequest& rq, const AllowModuleFunc& allowModule, const VfsPath& filePath);
+
+		std::tuple<const std::vector<VfsPath>&,
+			const std::vector<std::reference_wrapper<Result>>&> GetRequesters() const;
+
+		void AddRequester(VfsPath importer);
+		void AddRequester(Result& callback);
+		void RemoveRequester(Result* toErase);
+
+		JS::PersistentRootedObject m_ModuleObject;
+	private:
+		std::vector<VfsPath> m_Importer;
+		std::vector<std::reference_wrapper<Result>> m_Callbacks;
+	};
+
 	using RegistryType = std::unordered_map<VfsPath, CompiledModule>;
 
 	ModuleLoader(AllowModuleFunc allowModule);
@@ -84,24 +102,6 @@ private:
 
 	AllowModuleFunc m_AllowModule;
 	RegistryType m_Registry;
-};
-
-class ModuleLoader::CompiledModule
-{
-public:
-	CompiledModule(const ScriptRequest& rq, const AllowModuleFunc& allowModule, const VfsPath& filePath);
-
-	std::tuple<const std::vector<VfsPath>&,
-		const std::vector<std::reference_wrapper<Result>>&> GetRequesters() const;
-
-	void AddRequester(VfsPath importer);
-	void AddRequester(Result& callback);
-	void RemoveRequester(Result* toErase);
-
-	JS::PersistentRootedObject m_ModuleObject;
-private:
-	std::vector<VfsPath> m_Importer;
-	std::vector<std::reference_wrapper<Result>> m_Callbacks;
 };
 
 /**
