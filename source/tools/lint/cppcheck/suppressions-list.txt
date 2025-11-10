@@ -17,6 +17,9 @@ unknownMacro:source/simulation2/TypeList.h
 
 // Issues reported by cppcheck and not yet fixed
 
+// false positive
+containerOutOfBounds:source/simulation2/components/CCmpRangeManager.cpp
+
 danglingLifetime:source/lib/sysdep/os/unix/ufilesystem.cpp
 
 danglingTemporaryLifetime:source/graphics/TerrainTextureManager.cpp
