@@ -505,7 +505,7 @@ public:
 		m_Acceleration = acceleration;
 	}
 
-	virtual entity_pos_t GetWeight() const
+	entity_pos_t GetWeight() const
 	{
 		return m_TemplateWeight;
 	}

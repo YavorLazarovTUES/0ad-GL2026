@@ -1357,7 +1357,7 @@ public:
 
 	}
 
-	virtual std::vector<entity_pos_t> getParabolicRangeForm(CFixedVector3D pos, entity_pos_t maxRange, entity_pos_t cutoff, entity_pos_t minAngle, entity_pos_t maxAngle, int numberOfSteps) const
+	std::vector<entity_pos_t> getParabolicRangeForm(CFixedVector3D pos, entity_pos_t maxRange, entity_pos_t cutoff, entity_pos_t minAngle, entity_pos_t maxAngle, int numberOfSteps) const
 	{
 		std::vector<entity_pos_t> r;
 

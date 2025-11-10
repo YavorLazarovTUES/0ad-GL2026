@@ -521,7 +521,7 @@ public:
 		return GetObstructionSquare(out, false);
 	}
 
-	virtual bool GetObstructionSquare(ICmpObstructionManager::ObstructionSquare& out, bool previousPosition) const
+	bool GetObstructionSquare(ICmpObstructionManager::ObstructionSquare& out, bool previousPosition) const
 	{
 		CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
 		if (!cmpPosition)

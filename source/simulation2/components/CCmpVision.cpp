@@ -115,7 +115,7 @@ public:
 		}
 	}
 
-	virtual void ReloadRange()
+	void ReloadRange()
 	{
 		CmpPtr<ICmpValueModificationManager> cmpValueModificationManager(GetSystemEntity());
 		if (!cmpValueModificationManager)

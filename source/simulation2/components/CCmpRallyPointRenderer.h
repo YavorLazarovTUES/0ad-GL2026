@@ -83,7 +83,7 @@ public:
 	 * Must be called whenever m_Displayed or the size of m_RallyPoints change,
 	 * to determine whether we need to respond to render messages.
 	 */
-	virtual void UpdateMessageSubscriptions();
+	void UpdateMessageSubscriptions();
 
 	void AddPosition_wrapper(const CFixedVector2D& pos) override;
 
