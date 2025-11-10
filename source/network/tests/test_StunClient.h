@@ -55,7 +55,7 @@ public:
 		{
 			if (c == '.')
 				++dots;
-			else if (c < '0' && c > '9')
+			else if (c < '0' || c > '9')
 			{
 				TS_FAIL("StunClient::FindLocalIP did not return a valid IPV4 address: wrong character");
 				return;
