@@ -96,12 +96,12 @@ public:
 			while (val->first == INVALID_ENTITY) ++val; // skip any invalid entities
 			return *this;
 		}
-		inline _iter& operator++(int) // it++
+		inline _iter operator++(int) // it++
 		{
-			U* ptr = val;
+			_iter it = *this;
 			++val;
 			while (val->first == INVALID_ENTITY) ++val; // skip any invalid entities
-			return ptr;
+			return it;
 		}
 		inline bool operator==(_iter other) { return val == other.val; }
 		inline bool operator!=(_iter other) { return val != other.val; }
