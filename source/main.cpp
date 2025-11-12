@@ -165,6 +165,7 @@ enum ShutdownType
 };
 
 static ShutdownType g_Shutdown = ShutdownType::None;
+static int g_ExitStatus{EXIT_SUCCESS};
 
 // to avoid redundant and/or recursive resizing, we save the new
 // size after VIDEORESIZE messages and only update the video mode
@@ -181,9 +182,10 @@ bool IsQuitRequested()
 	return g_Shutdown == ShutdownType::Quit;
 }
 
-void QuitEngine()
+void QuitEngine(int exitStatus)
 {
 	g_Shutdown = ShutdownType::Quit;
+	g_ExitStatus = exitStatus;
 }
 
 void RestartEngine()
@@ -209,7 +211,7 @@ static InReaction MainInputHandler(const SDL_Event_* ev)
 		break;
 
 	case SDL_QUIT:
-		QuitEngine();
+		QuitEngine(EXIT_SUCCESS);
 		break;
 
 	case SDL_DROPFILE:
@@ -235,7 +237,7 @@ static InReaction MainInputHandler(const SDL_Event_* ev)
 		std::string hotkey = static_cast<const char*>(ev->ev.user.data1);
 		if (hotkey == "exit")
 		{
-			QuitEngine();
+			QuitEngine(EXIT_SUCCESS);
 			return IN_HANDLED;
 		}
 		else if (hotkey == "screenshot")
@@ -512,7 +514,7 @@ static void NonVisualFrame()
 	g_Profiler.Frame();
 
 	if (g_Game->IsGameFinished())
-		QuitEngine();
+		QuitEngine(EXIT_SUCCESS);
 }
 
 static void MainControllerInit()
@@ -832,7 +834,6 @@ int main(int argc, char* argv[])
 
 	EarlyInit();	// must come at beginning of main
 
-	int returnValue{EXIT_SUCCESS};
 	try
 	{
 		// static_cast is ok, argc is never negative.
@@ -840,7 +841,7 @@ int main(int argc, char* argv[])
 	}
 	catch (const RL::SetupError&)
 	{
-		returnValue = EXIT_FAILURE;
+		g_ExitStatus = EXIT_FAILURE;
 	}
 
 	// Shut down profiler initialised by EarlyInit
@@ -854,5 +855,5 @@ int main(int argc, char* argv[])
 	wutil_Shutdown();
 #endif
 
-	return returnValue;
+	return g_ExitStatus;
 }
