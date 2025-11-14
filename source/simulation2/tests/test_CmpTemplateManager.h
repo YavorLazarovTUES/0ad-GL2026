@@ -23,6 +23,7 @@
 #include "lib/path.h"
 #include "ps/CLogger.h"
 #include "ps/Filesystem.h"
+#include "ps/TemplateLoader.h"
 #include "ps/XML/Xeromyces.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/ScriptConversions.h"
@@ -33,6 +34,7 @@
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Entity.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
@@ -258,12 +260,13 @@ public:
 		CmpPtr<ICmpTemplateManager> cmpTemplateManager(sim, SYSTEM_ENTITY);
 		TS_ASSERT(cmpTemplateManager);
 
-		std::vector<std::string> templates = cmpTemplateManager->FindAllTemplates(true);
-		for (size_t i = 0; i < templates.size(); ++i)
+		const CTemplateLoader templateLoader{};
+		const auto tryLoadTemplate = [&](const std::string& name)
 		{
-			std::string name = templates[i];
 			const CParamNode* p = cmpTemplateManager->GetTemplate(name);
-			TS_ASSERT(p != NULL);
-		}
+			TS_ASSERT(p != nullptr);
+		};
+		std::ranges::for_each(cmpTemplateManager->FindAllTemplates(true), tryLoadTemplate);
+		std::ranges::for_each(templateLoader.FindTemplatesUnrestricted("special/players/", false), tryLoadTemplate);
 	}
 };
