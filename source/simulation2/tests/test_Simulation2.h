@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -64,9 +64,8 @@ public:
 	void test_AddEntity()
 	{
 		CXeromycesEngine xeromycesEngine;
-		CSimulation2 sim{nullptr, *g_ScriptContext, &m_Terrain};
-		sim.LoadScripts(L"simulation/components/addentity/");
-
+		CSimulation2 sim{nullptr, *g_ScriptContext, &m_Terrain,
+			{{L"simulation/components/addentity/"}}};
 		sim.ResetState(true, true);
 
 		entity_id_t ent1 = sim.AddEntity(L"test1");
@@ -85,9 +84,8 @@ public:
 	void test_DestroyEntity()
 	{
 		CXeromycesEngine xeromycesEngine;
-		CSimulation2 sim{nullptr, *g_ScriptContext, &m_Terrain};
-		sim.LoadScripts(L"simulation/components/addentity/");
-
+		CSimulation2 sim{nullptr, *g_ScriptContext, &m_Terrain,
+			{{L"simulation/components/addentity/"}}};
 		sim.ResetState(true, true);
 
 		entity_id_t ent1 = sim.AddEntity(L"test1");
@@ -142,15 +140,14 @@ public:
 	void test_hotload_scripts()
 	{
 		CXeromycesEngine xeromycesEngine;
-		CSimulation2 sim{nullptr, *g_ScriptContext, &m_Terrain};
 
 		TS_ASSERT_OK(CreateDirectories(DataDir()/"mods"/"_test.sim"/"simulation"/"components"/"hotload"/"", 0700));
 
 		copyFile(L"simulation/components/test-hotload1.js", L"simulation/components/hotload/hotload.js");
 		TS_ASSERT_OK(g_VFS->RemoveFile(L"simulation/components/hotload/hotload.js"));
 		TS_ASSERT_OK(g_VFS->RepopulateDirectory(L"simulation/components/hotload/"));
-		sim.LoadScripts(L"simulation/components/hotload/");
 
+		CSimulation2 sim{nullptr, *g_ScriptContext, &m_Terrain, {{L"simulation/components/hotload/"}}};
 		sim.ResetState(true, true);
 
 		entity_id_t ent = sim.AddEntity(L"hotload");

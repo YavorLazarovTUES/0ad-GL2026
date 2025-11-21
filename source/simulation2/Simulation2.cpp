@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -61,6 +61,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
+#include <functional>
 #include <iomanip>
 #include <js/CallArgs.h>
 #include <js/RootingAPI.h>
@@ -73,7 +74,7 @@ class CSimulation2Impl
 {
 public:
 	CSimulation2Impl(CUnitManager* unitManager, ScriptContext& cx, CTerrain* terrain,
-		const SimulationDebugOptions debugOptions) :
+		const std::span<const wchar_t* const> scriptDirectories, const SimulationDebugOptions debugOptions) :
 		m_SimContext{terrain, unitManager},
 		m_ComponentManager{m_SimContext, cx},
 		m_InitAttributes{cx.GetGeneralJSContext()},
@@ -101,6 +102,9 @@ public:
 			m_OOSLogPath = createDateIndexSubdirectory(psLogDir() / "oos_logs");
 			debug_printf("Writing ooslogs to %s\n", m_OOSLogPath.string8().c_str());
 		}
+
+		std::ranges::for_each(scriptDirectories,
+			std::bind_front(LoadScripts, std::ref(m_ComponentManager), &m_LoadedScripts));
 	}
 
 	~CSimulation2Impl()
@@ -122,7 +126,6 @@ public:
 		componentManager.AddSystemComponents(skipScriptedComponents, skipAI);
 	}
 
-	static void LoadDefaultScripts(CComponentManager& componentManager, std::set<VfsPath>* loadedScripts);
 	static void LoadScripts(CComponentManager& componentManager, std::set<VfsPath>* loadedScripts, const VfsPath& path);
 	static bool LoadTriggerScripts(CComponentManager& componentManager, JS::HandleValue mapSettings, std::set<VfsPath>* loadedScripts);
 	Status ReloadChangedFile(const VfsPath& path);
@@ -199,13 +202,6 @@ public:
 		return newCommands;
 	}
 };
-
-void CSimulation2Impl::LoadDefaultScripts(CComponentManager& componentManager, std::set<VfsPath>* loadedScripts)
-{
-	LoadScripts(componentManager, loadedScripts, L"simulation/components/interfaces/");
-	LoadScripts(componentManager, loadedScripts, L"simulation/helpers/");
-	LoadScripts(componentManager, loadedScripts, L"simulation/components/");
-}
 
 void CSimulation2Impl::LoadScripts(CComponentManager& componentManager, std::set<VfsPath>* loadedScripts, const VfsPath& path)
 {
@@ -419,7 +415,8 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 		m_SecondaryComponentManager->LoadComponentTypes();
 
 		m_SecondaryLoadedScripts = std::make_unique<std::set<VfsPath>>();
-		LoadDefaultScripts(*m_SecondaryComponentManager, m_SecondaryLoadedScripts.get());
+		std::ranges::for_each(CSimulation2::DEFAULT_SCRIPTS, std::bind_front(LoadScripts,
+			std::ref(*m_SecondaryComponentManager), m_SecondaryLoadedScripts.get()));
 		ResetComponentState(*m_SecondaryComponentManager, false, false);
 
 		ScriptRequest rq(scriptInterface);
@@ -639,8 +636,8 @@ void CSimulation2Impl::DumpState()
 ////////////////////////////////////////////////////////////////
 
 CSimulation2::CSimulation2(CUnitManager* unitManager, ScriptContext& cx, CTerrain* terrain,
-	const SimulationDebugOptions debugOptions) :
-	m(std::make_unique<CSimulation2Impl>(unitManager, cx, terrain, debugOptions))
+	const std::span<const wchar_t* const> scriptDirectories, const SimulationDebugOptions debugOptions) :
+	m(std::make_unique<CSimulation2Impl>(unitManager, cx, terrain, scriptDirectories, debugOptions))
 {
 }
 
@@ -754,16 +751,6 @@ void CSimulation2::RenderSubmit(SceneCollector& collector, const CFrustum& frust
 float CSimulation2::GetLastFrameOffset() const
 {
 	return m->m_LastFrameOffset;
-}
-
-void CSimulation2::LoadScripts(const VfsPath& path)
-{
-	m->LoadScripts(m->m_ComponentManager, &m->m_LoadedScripts, path);
-}
-
-void CSimulation2::LoadDefaultScripts()
-{
-	m->LoadDefaultScripts(m->m_ComponentManager, &m->m_LoadedScripts);
 }
 
 void CSimulation2::SetStartupScript(const std::string& code)

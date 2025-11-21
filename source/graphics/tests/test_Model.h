@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -200,7 +200,7 @@ public:
 		TestLogger logger;
 
 		CMaterial material{};
-		CSimulation2 simulation{nullptr, *g_ScriptContext, nullptr};
+		CSimulation2 simulation{nullptr, *g_ScriptContext, nullptr, {}};
 
 		CTerrain terrain;
 		terrain.Initialize(4, nullptr);
@@ -266,7 +266,7 @@ public:
 		CSkeletonAnimManager skeletonAnimationManager{colladaManager};
 
 		CUnitManager unitManager;
-		CSimulation2 simulation{&unitManager, *g_ScriptContext, nullptr};
+		CSimulation2 simulation{&unitManager, *g_ScriptContext, nullptr, {}};
 		CObjectManager objectManager{
 			meshManager, skeletonAnimationManager, simulation};
 		unitManager.SetObjectManager(objectManager);

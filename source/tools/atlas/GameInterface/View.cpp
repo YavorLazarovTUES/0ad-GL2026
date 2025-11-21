@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -29,6 +29,7 @@
 #include "maths/Matrix3D.h"
 #include "maths/Vector2D.h"
 #include "ps/CStr.h"
+#include "ps/CLogger.h"
 #include "ps/ConfigDB.h"
 #include "ps/Game.h"
 #include "ps/VideoMode.h"
@@ -456,8 +457,15 @@ AtlasViewGame* AtlasView::GetView_Game()
 
 AtlasViewActor* AtlasView::GetView_Actor()
 {
-	if (! view_Actor)
-		view_Actor = new AtlasViewActor();
+	try
+	{
+		if (!view_Actor)
+			view_Actor = new AtlasViewActor();
+	}
+	catch (const CSimulation2::LoadScriptError& e)
+	{
+		LOGERROR("%s", e.what());
+	}
 	return view_Actor;
 }
 

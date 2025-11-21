@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -80,7 +80,7 @@ const CStr CGame::EventNameSimulationUpdate = "SimulationUpdate";
 CGame::CGame(bool replayLog, const SimulationDebugOptions debugOptions):
 	m_World(new CWorld(*this)),
 	m_Simulation2{new CSimulation2{&m_World->GetUnitManager(), *g_ScriptContext, &m_World->GetTerrain(),
-		debugOptions}},
+		CSimulation2::DEFAULT_SCRIPTS, debugOptions}},
 	// TODO: we need to remove that global dependency. Maybe the game view
 	// should be created outside only if needed.
 	m_GameView(CRenderer::IsInitialised() ? new CGameView(g_VideoMode.GetBackendDevice(), this) : nullptr),
@@ -106,8 +106,6 @@ CGame::CGame(bool replayLog, const SimulationDebugOptions debugOptions):
 		m_World->GetUnitManager().SetObjectManager(m_GameView->GetObjectManager());
 
 	m_TurnManager = new CLocalTurnManager(*m_Simulation2, GetReplayLogger()); // this will get replaced if we're a net server/client
-
-	m_Simulation2->LoadDefaultScripts();
 }
 
 /**

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,9 +25,11 @@
 #include "simulation2/system/DebugOptions.h"
 #include "simulation2/system/Entity.h"
 
+#include <array>
 #include <js/TypeDecls.h>
 #include <memory>
 #include <ostream>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -60,25 +62,20 @@ public:
 		using std::runtime_error::runtime_error;
 	};
 
+	constexpr static auto DEFAULT_SCRIPTS{std::to_array({L"simulation/components/interfaces/",
+		L"simulation/helpers/", L"simulation/components/"})};
+
 	// TODO: CUnitManager should probably be handled automatically by this
 	// module, but for now we'll have it passed in externally instead
+	/**
+	 * @param scriptDirectories All scripts in the specified directory
+	 *	(non-recursively) are loaded, so that they can register new
+	 *	component types and functions.
+	 */
 	CSimulation2(CUnitManager* unitManager, ScriptContext& cx, CTerrain* terrain,
+		const std::span<const wchar_t* const> scriptDirectories,
 		const SimulationDebugOptions debugOptions = {});
 	~CSimulation2();
-
-	/**
-	 * Load all scripts in the specified directory (non-recursively),
-	 * so they can register new component types and functions. This
-	 * should be called immediately after constructing the CSimulation2 object.
-	 * @return false on failure
-	 */
-	void LoadScripts(const VfsPath& path);
-
-	/**
-	 * Call LoadScripts for each of the game's standard simulation script paths.
-	 * @return false on failure
-	 */
-	void LoadDefaultScripts();
 
 	/**
 	 * Loads the player settings script (called before map is loaded)

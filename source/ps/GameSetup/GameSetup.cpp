@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -596,8 +596,7 @@ bool Init(const CmdLineArgs& args, int flags)
 	{
 		try
 		{
-			CSimulation2 sim{NULL, *g_ScriptContext, NULL};
-			sim.LoadDefaultScripts();
+			CSimulation2 sim{NULL, *g_ScriptContext, NULL, CSimulation2::DEFAULT_SCRIPTS};
 			std::ofstream f("entity.rng", std::ios_base::out | std::ios_base::trunc);
 			f << sim.GenerateSchema();
 			debug_printf("Generated entity.rng\n");

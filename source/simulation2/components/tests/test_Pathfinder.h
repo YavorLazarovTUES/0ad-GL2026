@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -158,8 +158,7 @@ public:
 	{
 		CTerrain terrain;
 
-		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain};
-		sim2.LoadDefaultScripts();
+		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain, CSimulation2::DEFAULT_SCRIPTS};
 		sim2.ResetState();
 
 		std::unique_ptr<CMapReader> mapReader = std::make_unique<CMapReader>();
@@ -217,8 +216,7 @@ public:
 		CTerrain terrain;
 		terrain.Initialize(5, NULL);
 
-		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain};
-		sim2.LoadDefaultScripts();
+		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain, CSimulation2::DEFAULT_SCRIPTS};
 		sim2.ResetState();
 
 		const entity_pos_t range = entity_pos_t::FromInt(48);
@@ -272,8 +270,7 @@ public:
 	{
 		CTerrain terrain;
 
-		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain};
-		sim2.LoadDefaultScripts();
+		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain, CSimulation2::DEFAULT_SCRIPTS};
 		sim2.ResetState();
 
 		std::unique_ptr<CMapReader> mapReader = std::make_unique<CMapReader>();
@@ -329,8 +326,7 @@ public:
 	{
 		CTerrain terrain;
 
-		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain};
-		sim2.LoadDefaultScripts();
+		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain, CSimulation2::DEFAULT_SCRIPTS};
 		sim2.ResetState();
 
 		std::unique_ptr<CMapReader> mapReader = std::make_unique<CMapReader>();

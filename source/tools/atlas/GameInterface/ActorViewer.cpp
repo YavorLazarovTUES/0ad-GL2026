@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -94,7 +94,7 @@ public:
 		MeshManager(ColladaManager),
 		SkeletonAnimManager(ColladaManager),
 		UnitManager(),
-		Simulation2{&UnitManager, *g_ScriptContext, &Terrain},
+		Simulation2{&UnitManager, *g_ScriptContext, &Terrain, CSimulation2::DEFAULT_SCRIPTS},
 		ObjectManager(MeshManager, SkeletonAnimManager, Simulation2),
 		LOSTexture(Simulation2),
 		TerritoryTexture(Simulation2),
@@ -320,14 +320,6 @@ ActorViewer::ActorViewer()
 	}
 
 	// Prepare the simulation
-	try
-	{
-		m.Simulation2.LoadDefaultScripts();
-	}
-	catch (const CSimulation2::LoadScriptError& e)
-	{
-		LOGERROR("%s", e.what());
-	}
 	m.Simulation2.ResetState();
 
 	// Set player data

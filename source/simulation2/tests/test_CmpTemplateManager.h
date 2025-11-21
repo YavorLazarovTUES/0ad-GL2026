@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -253,8 +253,7 @@ public:
 	{
 		CXeromycesEngine xeromycesEngine;
 		CTerrain dummy;
-		CSimulation2 sim{nullptr, *g_ScriptContext, &dummy};
-		sim.LoadDefaultScripts();
+		CSimulation2 sim{nullptr, *g_ScriptContext, &dummy, CSimulation2::DEFAULT_SCRIPTS};
 		sim.ResetState();
 
 		CmpPtr<ICmpTemplateManager> cmpTemplateManager(sim, SYSTEM_ENTITY);
