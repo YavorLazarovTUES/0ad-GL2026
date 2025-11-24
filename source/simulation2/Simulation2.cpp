@@ -110,7 +110,6 @@ public:
 
 	void ResetState(bool skipScriptedComponents, bool skipAI)
 	{
-		m_DeltaTime = 0.0;
 		m_LastFrameOffset = 0.0f;
 		m_TurnNumber = 0;
 		ResetComponentState(m_ComponentManager, skipScriptedComponents, skipAI);
@@ -142,7 +141,6 @@ public:
 
 	CSimContext m_SimContext;
 	CComponentManager m_ComponentManager;
-	double m_DeltaTime;
 	float m_LastFrameOffset;
 
 	std::string m_StartupScript;
