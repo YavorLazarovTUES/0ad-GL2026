@@ -925,8 +925,8 @@ public:
 			debug_printf("\n");
 			debug_printf("# size = %d\n", (int)str.str().length());
 			debug_printf("# hash = ");
-			for (size_t i = 0; i < hash.size(); ++i)
-				debug_printf("%02x", (unsigned int)(u8)hash[i]);
+			for (const char byte : hash)
+				debug_printf("%02x", static_cast<unsigned int>(static_cast<u8>(byte)));
 			debug_printf("\n");
 		}
 
