@@ -37,7 +37,7 @@ pipeline {
     }
 
     parameters {
-        string(name: 'BUNDLE_VERSION', defaultValue: '0.28.0dev', description: 'Bundle Version')
+        string(name: 'BUNDLE_VERSION', defaultValue: '0.29.0dev', description: 'Bundle Version')
         string(name: 'NIGHTLY_REVISION', defaultValue: 'HEAD', description: 'Nightly SVN revision from which to build the bundles')
         booleanParam(name: 'PATCH_BUILD', defaultValue: false, description: 'Apply patch generated from upstream job patch-release onto the nightly build')
         booleanParam(name: 'DO_GZIP', defaultValue: true, description: 'Create .gz unix tarballs as well as .xz')

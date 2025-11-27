@@ -32,7 +32,7 @@
  * TODO: This does not respect semver.
  */
 #define PS_VERSION_MAJOR 0
-#define PS_VERSION_MINOR 28
+#define PS_VERSION_MINOR 29
 #define PS_VERSION_PATCH 0
 
 /*
