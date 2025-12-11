@@ -46,6 +46,7 @@
 #include <js/TypeDecls.h>
 #include <js/Value.h>
 #include <sstream>
+#include <string_view>
 #include <utility>
 
 namespace RL
@@ -163,18 +164,14 @@ void* Interface::MgCallback(mg_event event, struct mg_connection *conn, const st
 				return handled;
 			}
 			ScenarioConfig scenario;
-			const char *query_string = request_info->query_string;
-			if (query_string != nullptr)
-			{
-				const std::string qs(query_string);
-				scenario.saveReplay = qs.find("saveReplay") != std::string::npos;
+			const char *queryString = request_info->query_string;
 
-				scenario.playerID = 1;
-				char playerID[1];
-				const int len = mg_get_var(query_string, qs.length(), "playerID", playerID, 1);
-				if (len != -1)
-					scenario.playerID = std::stoi(playerID);
-			}
+			const std::string_view qs(queryString ? queryString : "");
+			scenario.saveReplay = qs.find("saveReplay") != std::string_view::npos;
+
+			char playerID[1];
+			const int len = mg_get_var(queryString, qs.length(), "playerID", playerID, 1);
+			scenario.playerID = len == -1 ? 1 : std::stoi(playerID);
 
 			scenario.content = std::move(data);
 
