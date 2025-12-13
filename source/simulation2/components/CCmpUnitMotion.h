@@ -138,8 +138,14 @@ constexpr u8 BACKUP_HACK_DELAY = 10;
  */
 constexpr u8 VERY_OBSTRUCTED_THRESHOLD = 10;
 
-const CColor OVERLAY_COLOR_LONG_PATH(1, 1, 1, 1);
-const CColor OVERLAY_COLOR_SHORT_PATH(1, 0, 0, 1);
+struct PathColorPalette
+{
+    CColor longPath;
+    CColor shortPath;
+};
+
+constexpr PathColorPalette REGULAR_UNIT_PALETTE{{1, 1, 1, 1}, {1, 0, 0, 1}};
+constexpr PathColorPalette FORMATION_CONTROLLER_PALETTE{{0, 0, 1, 1}, {0, 1, 0, 1}};
 } // anonymous namespace
 
 class CCmpUnitMotion final : public ICmpUnitMotion
@@ -1902,7 +1908,6 @@ bool CCmpUnitMotion::IsTargetRangeReachable(entity_id_t target, entity_pos_t min
 	return cmpPathfinder->IsGoalReachable(pos.X, pos.Y, goal, m_PassClass);
 }
 
-
 void CCmpUnitMotion::RenderPath(const WaypointPath& path, std::vector<SOverlayLine>& lines, CColor color)
 {
 	bool floating = false;
@@ -1934,17 +1939,20 @@ void CCmpUnitMotion::RenderPath(const WaypointPath& path, std::vector<SOverlayLi
 
 void CCmpUnitMotion::RenderSubmit(SceneCollector& collector)
 {
-	if (!m_DebugOverlayEnabled)
-		return;
+    if (!m_DebugOverlayEnabled)
+        return;
 
-	RenderPath(m_LongPath, m_DebugOverlayLongPathLines, OVERLAY_COLOR_LONG_PATH);
-	RenderPath(m_ShortPath, m_DebugOverlayShortPathLines, OVERLAY_COLOR_SHORT_PATH);
+    const auto& palette{m_IsFormationController ?
+        FORMATION_CONTROLLER_PALETTE : REGULAR_UNIT_PALETTE};
 
-	for (size_t i = 0; i < m_DebugOverlayLongPathLines.size(); ++i)
-		collector.Submit(&m_DebugOverlayLongPathLines[i]);
+    RenderPath(m_LongPath, m_DebugOverlayLongPathLines, palette.longPath);
+    RenderPath(m_ShortPath, m_DebugOverlayShortPathLines, palette.shortPath);
 
-	for (size_t i = 0; i < m_DebugOverlayShortPathLines.size(); ++i)
-		collector.Submit(&m_DebugOverlayShortPathLines[i]);
+	for (SOverlayLine& line : m_DebugOverlayLongPathLines)
+		collector.Submit(&line);
+
+	for (SOverlayLine& line : m_DebugOverlayShortPathLines)
+		collector.Submit(&line);
 }
 
 #endif // INCLUDED_CCMPUNITMOTION

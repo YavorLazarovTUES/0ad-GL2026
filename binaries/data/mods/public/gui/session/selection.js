@@ -24,10 +24,28 @@ function _setStatusBars(ents, enabled)
 	});
 }
 
-function _setMotionOverlay(ents, enabled)
+function _setMotionOverlay(ents, enabled, motionDebugOverlay, force = false)
 {
-	if (ents.length)
-		Engine.GuiInterfaceCall("SetMotionDebugOverlay", { "entities": ents, "enabled": enabled });
+	if (!force && !motionDebugOverlay)
+		return;
+
+	// Get entities plus their formation controllers (if any)
+	const resultSet = new Set();
+	for (const ent of ents)
+	{
+		resultSet.add(ent);
+		const entState = GetEntityState(ent);
+		if (entState?.unitAI?.formation)
+		{
+			resultSet.add(entState.unitAI.formation);
+		}
+	}
+
+	if (resultSet.size)
+		Engine.GuiInterfaceCall("SetMotionDebugOverlay", {
+			"entities": resultSet,
+			"enabled": enabled
+		});
 }
 
 function _playSound(ent)
@@ -255,7 +273,7 @@ EntitySelection.prototype.update = function()
 			// Disable any highlighting of the disappeared unit
 			_setHighlight([ent], 0, false);
 			_setStatusBars([ent], false);
-			_setMotionOverlay([ent], false);
+			_setMotionOverlay([ent], false, this.motionDebugOverlay);
 
 			this.selected.delete(ent);
 			this.groups.removeEnt(ent);
@@ -263,6 +281,10 @@ EntitySelection.prototype.update = function()
 			continue;
 		}
 	}
+	// Refresh the motion overlay
+	if (this.motionDebugOverlay)
+		_setMotionOverlay([...this.selected], true, this.motionDebugOverlay);
+
 	if (changed)
 		this.onChange();
 };
@@ -327,7 +349,7 @@ EntitySelection.prototype.addList = function(ents, quiet, force = false, addForm
 
 	_setHighlight(added, 1, true);
 	_setStatusBars(added, true);
-	_setMotionOverlay(added, this.motionDebugOverlay);
+	_setMotionOverlay(added, this.motionDebugOverlay, this.motionDebugOverlay);
 	if (added.length)
 	{
 		// Play the sound if the entity is controllable by us or Gaia-owned.
@@ -358,7 +380,7 @@ EntitySelection.prototype.removeList = function(ents, addFormationMembers = true
 
 	_setHighlight(removed, 0, false);
 	_setStatusBars(removed, false);
-	_setMotionOverlay(removed, false);
+	_setMotionOverlay(removed, false, this.motionDebugOverlay);
 
 	this.onChange();
 };
@@ -367,7 +389,7 @@ EntitySelection.prototype.reset = function()
 {
 	_setHighlight(this.toList(), 0, false);
 	_setStatusBars(this.toList(), false);
-	_setMotionOverlay(this.toList(), false);
+	_setMotionOverlay(this.toList(), false, this.motionDebugOverlay);
 	this.selected.clear();
 	this.groups.reset();
 	this.onChange();
@@ -460,7 +482,7 @@ EntitySelection.prototype.setHighlightList = function(entities)
 EntitySelection.prototype.SetMotionDebugOverlay = function(enabled)
 {
 	this.motionDebugOverlay = enabled;
-	_setMotionOverlay(this.toList(), enabled);
+	_setMotionOverlay(this.toList(), enabled, this.motionDebugOverlay, true);
 };
 
 EntitySelection.prototype.onChange = function()

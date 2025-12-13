@@ -1986,12 +1986,9 @@ GuiInterface.prototype.SetObstructionDebugOverlay = function(player, enabled)
 
 GuiInterface.prototype.SetMotionDebugOverlay = function(player, data)
 {
-	for (const ent of data.entities)
-	{
-		const cmpUnitMotion = Engine.QueryInterface(ent, IID_UnitMotion);
-		if (cmpUnitMotion)
-			cmpUnitMotion.SetDebugOverlay(data.enabled);
-	}
+	data.entities.forEach(ent => {
+		Engine.QueryInterface(ent, IID_UnitMotion)?.SetDebugOverlay(data.enabled);
+	});
 };
 
 GuiInterface.prototype.SetRangeDebugOverlay = function(player, enabled)

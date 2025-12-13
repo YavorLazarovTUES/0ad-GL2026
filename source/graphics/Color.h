@@ -45,8 +45,8 @@ extern void ColorActivateFastImpl();
 
 struct CColor
 {
-	CColor() : r(-1.f), g(-1.f), b(-1.f), a(1.f) {}
-	CColor(float cr, float cg, float cb, float ca) : r(cr), g(cg), b(cb), a(ca) {}
+	constexpr CColor() : r(-1.f), g(-1.f), b(-1.f), a(1.f) {}
+	constexpr CColor(float cr, float cg, float cb, float ca) : r(cr), g(cg), b(cb), a(ca) {}
 
 	/**
 	 * Returns whether this has been set to a valid color.
