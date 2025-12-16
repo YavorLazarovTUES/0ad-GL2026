@@ -345,7 +345,7 @@ static int ProgressiveLoad()
 		case INFO::ALL_COMPLETE:
 			g_Game->ReallyStartGame();
 			description = L"Game is starting..";
-			// LDR_ProgressiveLoad returns L""; set to valid text to
+			// PS::Loader::ProgressiveLoad returns L""; set to valid text to
 			// avoid problems in converting to JSString
 			break;
 			// error!

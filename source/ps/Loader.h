@@ -87,10 +87,10 @@ be seen in MapReader.cpp.
 Intended Use
 ------------
 
-  LDR_BeginRegistering();
-  LDR_Register(..) for each sub-function
-  LDR_EndRegistering();
-Then in the main loop, call LDR_ProgressiveLoad().
+  PS::Loader::BeginRegistering();
+  PS::Loader::Register(..) for each sub-function
+  PS::Loader::EndRegistering();
+Then in the main loop, call PS::Loader::ProgressiveLoad().
 
 */
 
@@ -115,7 +115,7 @@ void BeginRegistering();
 //   of progress in percent (<= 100, otherwise it's a warning;
 //   != 0, or it's treated as "finished")
 // - on failure, return a negative error code or 'warning' (see above);
-//   LDR_ProgressiveLoad will abort immediately and return that.
+//   PS::Loader::ProgressiveLoad will abort immediately and return that.
 using LoadFunc = std::function<int()>;
 
 // register a task (later processed in FIFO order).
@@ -129,13 +129,13 @@ void Register(LoadFunc func, std::wstring description, int estimated_duration_ms
 
 
 // call when finished registering tasks; subsequent calls to
-// LDR_ProgressiveLoad will then work off the queued entries.
+// PS::Loader::ProgressiveLoad will then work off the queued entries.
 void EndRegistering();
 
 
 // immediately cancel this load; no further tasks will be processed.
 // used to abort loading upon user request or failure.
-// note: no special notification will be returned by LDR_ProgressiveLoad.
+// note: no special notification will be returned by PS::Loader::ProgressiveLoad.
 void Cancel();
 
 struct ProgressiveLoadResult

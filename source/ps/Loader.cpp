@@ -36,11 +36,11 @@ namespace PS::Loader
 {
 namespace
 {
-// set by LDR_EndRegistering; may be 0 during development when
+// set by PS::Loader::EndRegistering; may be 0 during development when
 // estimated task durations haven't yet been set.
 double total_estimated_duration;
 
-// total time spent loading so far, set by LDR_ProgressiveLoad.
+// total time spent loading so far, set by PS::Loader::ProgressiveLoad.
 // we need a persistent counter so it can be reset after each load.
 // this also accumulates less errors than:
 // progress += task_estimated / total_estimated.
@@ -50,9 +50,9 @@ double estimated_duration_tally;
 double task_elapsed_time;
 
 // main purpose is to indicate whether a load is in progress, so that
-// LDR_ProgressiveLoad can return 0 iff loading just completed.
+// PS::Loader::ProgressiveLoad can return 0 iff loading just completed.
 // the REGISTERING state allows us to detect 2 simultaneous loads (bogus);
-// FIRST_LOAD is used to skip the first timeslice (see LDR_ProgressiveLoad).
+// FIRST_LOAD is used to skip the first timeslice (see PS::Loader::ProgressiveLoad).
 enum
 {
 	IDLE,
@@ -66,7 +66,7 @@ state = IDLE;
 // holds all state for one load request; stored in queue.
 struct LoadRequest
 {
-	// member documentation is in LDR_Register (avoid duplication).
+	// member documentation is in PS::Loader::Register (avoid duplication).
 
 	LoadFunc func;
 
@@ -75,7 +75,7 @@ struct LoadRequest
 
 	int estimated_duration_ms;
 
-	// LDR_Register gets these as parameters; pack everything together.
+	// PS::Loader::Register gets these as parameters; pack everything together.
 	LoadRequest(LoadFunc func_, std::wstring desc_, int ms_)
 		: func(std::move(func_)), description(std::move(desc_)), estimated_duration_ms(ms_)
 	{
@@ -116,14 +116,14 @@ void BeginRegistering()
 //   (reduces timeslice overruns, making the main loop more responsive).
 void Register(LoadFunc func, std::wstring description, int estimatedDurationMs)
 {
-	ENSURE(state == REGISTERING);	// must be called between LDR_(Begin|End)Register
+	ENSURE(state == REGISTERING);	// must be called between PS::Loader::(Begin|End)Register
 
 	load_requests.emplace_back(std::move(func), std::move(description), estimatedDurationMs);
 }
 
 
 // call when finished registering tasks; subsequent calls to
-// LDR_ProgressiveLoad will then work off the queued entries.
+// PS::Loader::ProgressiveLoad will then work off the queued entries.
 void EndRegistering()
 {
 	ENSURE(state == REGISTERING);
@@ -139,18 +139,18 @@ void EndRegistering()
 
 // immediately cancel this load; no further tasks will be processed.
 // used to abort loading upon user request or failure.
-// note: no special notification will be returned by LDR_ProgressiveLoad.
+// note: no special notification will be returned by PS::Loader::ProgressiveLoad.
 void Cancel()
 {
 	// the queue doesn't need to be emptied now; that'll happen during the
-	// next LDR_StartRegistering. for now, it is sufficient to set the
-	// state, so that LDR_ProgressiveLoad is a no-op.
+	// next PS::Loader::StartRegistering. for now, it is sufficient to set the
+	// state, so that PS::Loader::ProgressiveLoad is a no-op.
 	state = IDLE;
 }
 
 namespace
 {
-// helper routine for LDR_ProgressiveLoad.
+// helper routine for PS::Loader::ProgressiveLoad.
 // tries to prevent starting a long task when at the end of a timeslice.
 bool HaveTimeForNextTask(double time_left, double time_budget, int estimated_duration_ms)
 {
@@ -253,7 +253,7 @@ ProgressiveLoadResult ProgressiveLoad(double time_budget)
 			ret.status = static_cast<Status>(status);
 			goto done;
 		}
-		// .. function called LDR_Cancel; abort. return OK since this is an
+		// .. function called PS::Loader::Cancel; abort. return OK since this is an
 		//    intentional cancellation, not an error.
 		else if(state != LOADING)
 		{
