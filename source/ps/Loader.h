@@ -53,10 +53,9 @@ background thread. Everything would thus need to be made thread-safe,
 which is a considerable complication.
 
 Therefore, we load from a single thread, and split the operation up into
-"tasks" (as short as possible). These are typically function calls from the
-old InitEverything(); instead of being called directly, they are registered
-with our queue. We are called from the main loop and process as many tasks
-as possible within one "timeslice".
+"tasks" (as short as possible). These are typically function calls instead of
+being called directly, they are registered with our queue. We are called from
+the main loop and process as many tasks as possible within one "timeslice".
 
 After that, progress is updated: an estimated duration for each task
 (derived from timings on one machine) is used to calculate headway.
@@ -88,7 +87,6 @@ be seen in MapReader.cpp.
 Intended Use
 ------------
 
-Replace the InitEverything() function with the following:
   LDR_BeginRegistering();
   LDR_Register(..) for each sub-function
   LDR_EndRegistering();
