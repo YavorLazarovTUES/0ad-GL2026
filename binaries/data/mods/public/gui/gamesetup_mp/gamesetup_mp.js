@@ -47,7 +47,17 @@ async function waitOnEvent(loadSavedGame, joinFromLobby)
 			const continueResult = await cancelOr(new Promise(resolve => {
 				Engine.GetGUIObjectByName("continueButton").onPress = resolve;
 			}));
-			if (continueResult === cancelTag || confirmSetup(loadSavedGame))
+			if (continueResult === cancelTag)
+			{
+				if (cancelSetup())
+					return;
+				continue;
+			}
+			try
+			{
+				confirmSetup(loadSavedGame);
+			}
+			catch (e)
 			{
 				if (cancelSetup())
 					return;
@@ -91,13 +101,17 @@ async function init(attribs)
 			if (passwordResult === cancelTag)
 				return;
 		}
-		if (startJoinFromLobby(attribs.name, attribs.hostJID,
-			attribs.hasPassword ? Engine.GetGUIObjectByName("clientPassword").caption : ""))
+		try
 		{
+			startJoinFromLobby(attribs.name, attribs.hostJID,
+				attribs.hasPassword ? Engine.GetGUIObjectByName("clientPassword").caption : "");
 			switchSetupPage("pageConnecting");
 		}
-		else if (cancelSetup())
-			return;
+		catch (e)
+		{
+			if (cancelSetup())
+				return;
+		}
 		break;
 	}
 	case "host":
@@ -155,12 +169,9 @@ function confirmSetup(loadSavedGame)
 		const joinServer = Engine.GetGUIObjectByName("joinServer").caption;
 		const joinPort = Engine.GetGUIObjectByName("joinPort").caption;
 
-		if (startJoin(joinPlayerName, joinServer, getValidPort(joinPort)))
-		{
-			switchSetupPage("pageConnecting");
-			return false;
-		}
-		return true;
+		startJoin(joinPlayerName, joinServer, getValidPort(joinPort));
+		switchSetupPage("pageConnecting");
+		return;
 	}
 
 	if (!Engine.GetGUIObjectByName("pageHost").hidden)
@@ -169,7 +180,7 @@ function confirmSetup(loadSavedGame)
 		if (!hostServerName)
 		{
 			Engine.GetGUIObjectByName("hostFeedback").caption = translate("Please enter a valid server name.");
-			return false;
+			return;
 		}
 
 		const hostPort = Engine.GetGUIObjectByName("hostPort").caption;
@@ -180,21 +191,15 @@ function confirmSetup(loadSavedGame)
 					"min": g_ValidPorts.min,
 					"max": g_ValidPorts.max
 				});
-			return false;
+			return;
 		}
 
 		const hostPlayerName = Engine.GetGUIObjectByName("hostPlayerName").caption;
 		const hostPassword = Engine.GetGUIObjectByName("hostPassword").caption;
-		if (startHost(hostPlayerName, hostServerName, getValidPort(hostPort), hostPassword,
-			loadSavedGame))
-		{
-			switchSetupPage("pageConnecting");
-			return false;
-		}
-		return true;
+		startHost(hostPlayerName, hostServerName, getValidPort(hostPort), hostPassword, loadSavedGame);
+		switchSetupPage("pageConnecting");
+		return;
 	}
-
-	return false;
 }
 
 function startConnectionStatus(type)
@@ -429,7 +434,7 @@ function startHost(playername, servername, port, password, loadSavedGame)
 	    Engine.GetGameList().some(game => game.name == servername))
 	{
 		hostFeedback.caption = translate("Game name already in use.");
-		return false;
+		throw new Error();
 	}
 
 	try
@@ -444,7 +449,7 @@ function startHost(playername, servername, port, password, loadSavedGame)
 			sprintf(translate("Cannot host game: %(message)s."), { "message": e.message }),
 			translate("Error")
 		);
-		return false;
+		throw new Error();
 	}
 
 	g_ServerName = servername;
@@ -452,8 +457,6 @@ function startHost(playername, servername, port, password, loadSavedGame)
 
 	if (Engine.HasXmppClient())
 		Engine.LobbySetPlayerPresence("playing");
-
-	return true;
 }
 
 /**
@@ -472,7 +475,7 @@ function startJoin(playername, ip, port)
 			sprintf(translate("Cannot join game: %(message)s."), { "message": e.message }),
 			translate("Error")
 		);
-		return false;
+		throw new Error();
 	}
 
 	startConnectionStatus("client");
@@ -486,7 +489,6 @@ function startJoin(playername, ip, port)
 	Engine.ConfigDB_CreateValue("user", "multiplayerserver", ip);
 	Engine.ConfigDB_CreateValue("user", "multiplayerjoining.port", port);
 	Engine.ConfigDB_SaveChanges("user");
-	return true;
 }
 
 /**
@@ -501,7 +503,7 @@ function startJoinFromLobby(playername, hostJID, password)
 			sprintf("You cannot join a lobby game without logging in to the lobby."),
 			translate("Error")
 		);
-		return false;
+		throw new Error();
 	}
 
 	try
@@ -515,14 +517,12 @@ function startJoinFromLobby(playername, hostJID, password)
 			sprintf(translate("Cannot join game: %(message)s."), { "message": e.message }),
 			translate("Error")
 		);
-		return false;
+		throw new Error();
 	}
 
 	startConnectionStatus("client");
 
 	Engine.LobbySetPlayerPresence("playing");
-
-	return true;
 }
 
 function getDefaultGameName()
