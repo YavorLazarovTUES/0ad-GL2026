@@ -18,8 +18,6 @@ var g_ServerName = "";
  */
 var g_ServerHasPassword = false;
 
-var g_ServerId;
-
 var g_IsRejoining = false;
 var g_PlayerAssignments; // used when rejoining
 var g_UserRating;
@@ -93,7 +91,6 @@ async function init(attribs)
 		if (attribs.hasPassword)
 		{
 			g_ServerName = attribs.name;
-			g_ServerId = attribs.hostJID;
 			switchSetupPage("pagePassword");
 			const passwordResult = await cancelOr(new Promise(resolve => {
 				Engine.GetGUIObjectByName("confirmPasswordButton").onPress = resolve;
