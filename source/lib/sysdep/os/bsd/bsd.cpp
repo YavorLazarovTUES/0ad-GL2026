@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -23,9 +23,35 @@
 #include "precompiled.h"
 
 #include "lib/sysdep/sysdep.h"
-#include "lib/sysdep/os/unix/unix_executable_pathname.h"
 
+#include <climits>
+
+#if defined(__FreeBSD__)
+#include <sys/param.h>
+#include <sys/sysctl.h>
+#else
+#include <stdlib.h>
+#endif
+
+/**
+ * Get the path to the executable
+ *
+ * In FreeBSD the procfs isn't available by default so use a system call instead.
+ */
 OsPath sys_ExecutablePathname()
 {
-	return unix_ExecutablePathname();
+	char pathBuffer[PATH_MAX];
+
+#if defined(__FreeBSD__)
+	int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
+	size_t length = sizeof(pathBuffer);
+	int error = sysctl(mib, 4, pathBuffer, &length, nullptr, 0);
+	if (error < 0 || length <= 1)
+		return {};
+#else
+	if (realpath("/proc/curproc/file", pathBuffer) == nullptr)
+		return {};
+#endif
+
+	return pathBuffer;
 }
