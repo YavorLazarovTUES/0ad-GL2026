@@ -1078,22 +1078,6 @@ function setup_all_libs ()
 	filter "action:vs*"
 		buildoptions { "/wd4551" }
 	filter {}
-
-
-	-- CxxTest mock function support
-	extern_libs = {
-		"boost",
-		"cxxtest",
-	}
-
-	-- 'real' implementations, to be linked against the main executable
-	-- (files are added manually and not with setup_static_lib_project
-	-- because not all files in the directory are included)
-	setup_static_lib_project("mocks_real", {}, extern_libs, { no_default_link = 1, no_pch = 1 })
-	files { "mocks/*.h", source_root.."mocks/*_real.cpp" }
-	-- 'test' implementations, to be linked against the test executable
-	setup_static_lib_project("mocks_test", {}, extern_libs, { no_default_link = 1, no_pch = 1 })
-	files { source_root.."mocks/*.h", source_root.."mocks/*_test.cpp" }
 end
 
 --------------------------------------------------------------------------------
@@ -1159,8 +1143,6 @@ function setup_main_exe ()
 	filter "system:not macosx"
 		linkgroups 'On'
 	filter {}
-
-	links { "mocks_real" }
 
 	local extra_params = {
 		extra_files = { "main.cpp" },
@@ -1577,7 +1559,6 @@ function setup_tests()
 		links { static_lib_names_release }
 	filter { }
 
-	links { "mocks_test" }
 	if not _OPTIONS["without-atlas"] then
 		links { "AtlasObject" }
 	end
