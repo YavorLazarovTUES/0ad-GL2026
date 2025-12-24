@@ -248,20 +248,25 @@ ProgressiveLoadResult ProgressiveLoad(double time_budget)
 			ret.status = ERR::TIMED_OUT;
 			goto done;
 		}
+
+		const int taskResult{std::exchange(currentTask, std::nullopt)->Get()};
 		// .. failed; abort. loading will continue when we're called in
 		//    the next iteration of the main loop.
 		//    rationale: bail immediately instead of remembering the first
 		//    error that came up so we can report all errors that happen.
-		else if(currentTask->Get() < 0)
-			ret.status = static_cast<Status>(currentTask->Get());
+		if(taskResult < 0)
+		{
+			ret.status = static_cast<Status>(taskResult);
+			goto done;
+		}
 		// .. function called PS::Loader::Cancel; abort. return OK since this is an
 		//    intentional cancellation, not an error.
-		else if(state != LOADING)
+		if(state != LOADING)
+		{
 			ret.status = INFO::OK;
+			goto done;
+		}
 		// .. succeeded; continue and process next queued task.
-
-		currentTask.reset();
-		goto done;
 	}
 
 	// queue is empty, we just finished.
