@@ -12,7 +12,8 @@ var AccountSettingsPage = {
 			pageElement.hidden = false;
 			pageElement.onTick = updateTimers;
 			await Promise.race([
-				new Promise(resolve => {
+				new Promise(resolve =>
+				{
 					Engine.SetGlobalHotkey("cancel", "Press", resolve);
 					Engine.GetGUIObjectByName("as_Close").onPress = resolve;
 				}),
@@ -31,7 +32,8 @@ var AccountSettingsPage = {
 		const changePasswordButton = Engine.GetGUIObjectByName("as_ChangePasswordBtn");
 		while (true)
 		{
-			await new Promise(resolve => {
+			await new Promise(resolve =>
+			{
 				changePasswordButton.onPress = resolve;
 			});
 			try
@@ -56,9 +58,11 @@ var AccountSettingsPage = {
 			requestResult.caption = translate("Changing password…");
 			const encryptedPassword = AccountSettingsPage._readAndValidatePassword(SetPasswordError);
 			Engine.LobbyChangePassword(encryptedPassword);
-			await new Promise((resolve, reject) => {
+			await new Promise((resolve, reject) =>
+			{
 				xmppMessages.registerXmppMessageHandler("system", "registered", resolve);
-				xmppMessages.registerXmppMessageHandler("system", "error", message => {
+				xmppMessages.registerXmppMessageHandler("system", "error", message =>
+				{
 					reject(new SetPasswordError(message.text));
 				});
 				timeout = setTimeout(reject.bind(null,
@@ -70,7 +74,7 @@ var AccountSettingsPage = {
 			Engine["ConfigDB_" + functionSufix]("user", "lobby.password", encryptedPassword);
 			Engine.ConfigDB_SaveChanges("user");
 		}
-		catch (e)
+		catch(e)
 		{
 			if (e instanceof SetPasswordError)
 			{

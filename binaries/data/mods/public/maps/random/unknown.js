@@ -121,11 +121,13 @@ export function* generateMap(mapSettings)
 			"heightLand": heightLand,
 			"meanderShort": 20,
 			"meanderLong": 0,
-			"waterFunc": (position, height, riverFraction) => {
+			"waterFunc": (position, height, riverFraction) =>
+			{
 				if (height < 0)
 					clWater.add(position);
 			},
-			"landFunc": (position, shoreDist1, shoreDist2) => {
+			"landFunc": (position, shoreDist1, shoreDist2) =>
+			{
 				g_Map.setHeight(position, 3.1);
 				clLand.add(position);
 			}
@@ -237,7 +239,8 @@ export function* generateMap(mapSettings)
 
 	const unknownMapFunctions = {
 		// Chain of islands or many disconnected islands.
-		"Archipelago": () => {
+		"Archipelago": () =>
+		{
 			g_StartingWalls = "towers";
 			g_StartingTreasures = true;
 
@@ -317,7 +320,8 @@ export function* generateMap(mapSettings)
 		},
 
 		// Disk shaped mainland with water on the edge.
-		"Continent": () => {
+		"Continent": () =>
+		{
 			const waterHeight = -5;
 
 			if (!mapSettings.Nomad)
@@ -386,7 +390,8 @@ export function* generateMap(mapSettings)
 
 		// Creates a circular lake in the middle and possibly a river
 		// between each player ("pizza slices").
-		"RiversAndLake": () => {
+		"RiversAndLake": () =>
+		{
 			const waterHeight = -4;
 			createArea(
 				new MapBoundsPlacer(),
@@ -467,7 +472,8 @@ export function* generateMap(mapSettings)
 
 		// Align players on a land strip with seas bordering on one or both
 		// sides that can hold islands.
-		"EdgeSeas": () => {
+		"EdgeSeas": () =>
+		{
 			const waterHeight = -4;
 
 			createArea(
@@ -508,7 +514,8 @@ export function* generateMap(mapSettings)
 		},
 
 		// Land shaped like a concrescent moon around a central lake.
-		"Gulf": () => {
+		"Gulf": () =>
+		{
 			const waterHeight = -3;
 
 			createArea(
@@ -550,7 +557,8 @@ export function* generateMap(mapSettings)
 		},
 
 		// Mainland style with some small random lakes.
-		"Lakes": () => {
+		"Lakes": () =>
+		{
 			const waterHeight = -5;
 
 			createArea(
@@ -579,7 +587,8 @@ export function* generateMap(mapSettings)
 
 		// A large hill leaving players only a small passage to each of the
 		// the two neighboring players.
-		"Passes": () => {
+		"Passes": () =>
+		{
 			const heightMountain = 24;
 			const waterHeight = -4;
 
@@ -626,7 +635,8 @@ export function* generateMap(mapSettings)
 			g_Map.log("Creating passages between neighboring players");
 			if (numPlayers > 1)
 			{
-				const getEndpoints = (() => {
+				const getEndpoints = (() =>
+				{
 					if (numPlayers !== 2)
 						return i => [i, (i + 1) % numPlayers]
 							.map(index => playerPosition[index]);
@@ -677,7 +687,8 @@ export function* generateMap(mapSettings)
 
 		// Land enclosed by a hill that leaves small areas for civic centers
 		// and large central place.
-		"Lowlands": () => {
+		"Lowlands": () =>
+		{
 			const heightMountain = 30;
 
 			g_Map.log("Creating mountain that is going to separate players");
@@ -738,7 +749,8 @@ export function* generateMap(mapSettings)
 		},
 
 		// No water, no hills.
-		"Mainland": () => {
+		"Mainland": () =>
+		{
 			createArea(
 				new MapBoundsPlacer(),
 				new ElevationPainter(3));

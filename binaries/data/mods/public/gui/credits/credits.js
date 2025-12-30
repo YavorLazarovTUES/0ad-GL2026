@@ -56,11 +56,13 @@ function init()
 		g_TabButtonHeight,
 		g_TabButtonDist,
 		selectPanel,
-		category => {
+		category =>
+		{
 			Engine.GetGUIObjectByName("creditsText").caption = g_PanelData[category].content;
 		});
 
-	return new Promise(closePageCallback => {
+	return new Promise(closePageCallback =>
+	{
 		Engine.GetGUIObjectByName("closeButton").onPress = closePageCallback;
 	});
 }

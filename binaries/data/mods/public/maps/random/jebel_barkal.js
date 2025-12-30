@@ -392,11 +392,13 @@ export function* generateMap(mapSettings)
 		"heightRiverbed": heightFertileLand,
 		"meanderShort": 40,
 		"meanderLong": 0,
-		"waterFunc": (position, height, riverFraction) => {
+		"waterFunc": (position, height, riverFraction) =>
+		{
 			createTerrain(tGrass).place(position);
 			clFertileLand.add(position);
 		},
-		"landFunc": (position, shoreDist1, shoreDist2) => {
+		"landFunc": (position, shoreDist1, shoreDist2) =>
+		{
 
 			for (const riv of layoutFertileLandTextures)
 				if (riv.left < +shoreDist1 && +shoreDist1 < riv.right ||

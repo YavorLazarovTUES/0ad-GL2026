@@ -23,11 +23,13 @@ class TradeButton
 
 		this.tradeResourceButton.onPress = () => { tradeButtonManager.selectResource(resourceCode); };
 
-		this.tradeArrowUp.onPress = () => {
+		this.tradeArrowUp.onPress = () =>
+		{
 			tradeButtonManager.changeResourceAmount(resourceCode, +Math.min(this.AmountStep, tradeButtonManager.tradingGoods[tradeButtonManager.selectedResource]));
 		};
 
-		this.tradeArrowDn.onPress = () => {
+		this.tradeArrowDn.onPress = () =>
+		{
 			tradeButtonManager.changeResourceAmount(resourceCode, -Math.min(this.AmountStep, tradeButtonManager.tradingGoods[resourceCode]));
 		};
 

@@ -27,7 +27,8 @@ export class MainMenuItemHandler
 
 	setupMenuButtons(buttons, menuItems)
 	{
-		buttons.forEach((button, i) => {
+		buttons.forEach((button, i) =>
+		{
 			const item = menuItems[i];
 			button.hidden = !item;
 			if (button.hidden)
@@ -87,7 +88,8 @@ export class MainMenuItemHandler
 		{
 			const item = menuItems[i];
 			if (item.onPress && item.hotkey)
-				Engine.SetGlobalHotkey(item.hotkey, "Press", () => {
+				Engine.SetGlobalHotkey(item.hotkey, "Press", () =>
+				{
 					this.closeSubmenu();
 					item.onPress();
 				});

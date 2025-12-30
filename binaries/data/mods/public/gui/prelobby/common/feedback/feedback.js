@@ -1,10 +1,12 @@
 var g_LobbyMessages = {
-	"error": message => {
+	"error": message =>
+	{
 		setFeedback(message.text ||
 			translate("Unknown error. This usually occurs because the same IP address is not allowed to register more than one account within one hour."));
 		Engine.StopXmppClient();
 	},
-	"disconnected": message => {
+	"disconnected": message =>
+	{
 		setFeedback(message.reason + message.certificate_status);
 		Engine.StopXmppClient();
 	}

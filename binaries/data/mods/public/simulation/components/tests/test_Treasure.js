@@ -1,5 +1,6 @@
 Resources = {
-	"BuildSchema": () => {
+	"BuildSchema": () =>
+	{
 		let schema = "";
 		for (const res of ["food", "metal"])
 		{

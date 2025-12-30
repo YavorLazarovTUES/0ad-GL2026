@@ -481,7 +481,8 @@ Worker.prototype.startGathering = function(gameState)
 	if (resource == "food" && this.startHunting(gameState))
 		return true;
 
-	const findSupply = function(worker, supplies) {
+	const findSupply = function(worker, supplies)
+	{
 		const ent = worker.ent;
 		let ret = false;
 		const gatherRates = ent.resourceGatherRates();
@@ -611,7 +612,8 @@ Worker.prototype.startGathering = function(gameState)
 	// Okay may-be we haven't found any appropriate dropsite anywhere.
 	// Try to help building one if any accessible foundation available
 	const foundations = gameState.getOwnFoundations().toEntityArray();
-	let shouldBuild = this.ent.isBuilder() && foundations.some(function(foundation) {
+	let shouldBuild = this.ent.isBuilder() && foundations.some(function(foundation)
+	{
 		if (!foundation || getLandAccess(gameState, foundation) != this.entAccess)
 			return false;
 		const structure = gameState.getBuiltTemplate(foundation.templateName());
@@ -678,7 +680,8 @@ Worker.prototype.startGathering = function(gameState)
 	}
 	// Okay so we haven't found any appropriate dropsite anywhere.
 	// Try to help building one if any non-accessible foundation available
-	shouldBuild = this.ent.isBuilder() && foundations.some(function(foundation) {
+	shouldBuild = this.ent.isBuilder() && foundations.some(function(foundation)
+	{
 		if (!foundation || getLandAccess(gameState, foundation) == this.entAccess)
 			return false;
 		const structure = gameState.getBuiltTemplate(foundation.templateName());
@@ -889,7 +892,8 @@ Worker.prototype.startFishing = function(gameState)
 	const fishDropsites = (gameState.playerData.hasSharedDropsites ? gameState.getAnyDropsites("food") :
 		gameState.getOwnDropsites("food")).filter(filters.byClass("Dock")).toEntityArray();
 
-	const nearestDropsiteDist = function(supply) {
+	const nearestDropsiteDist = function(supply)
+	{
 		let distMin = 1000000;
 		const pos = supply.position();
 		for (const dropsite of fishDropsites)
@@ -909,7 +913,8 @@ Worker.prototype.startFishing = function(gameState)
 
 	let exhausted = true;
 	const gatherRates = this.ent.resourceGatherRates();
-	resources.forEach((supply) => {
+	resources.forEach((supply) =>
+	{
 		if (!supply.position())
 			return;
 

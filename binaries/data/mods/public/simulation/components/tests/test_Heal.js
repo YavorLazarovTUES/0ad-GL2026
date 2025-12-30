@@ -103,7 +103,8 @@ let increased;
 let unhealable = false;
 AddMock(target, IID_Health, {
 	"GetMaxHitpoints": () => 700,
-	"Increase": amount => {
+	"Increase": amount =>
+	{
 		increased = true;
 		TS_ASSERT_EQUALS(amount, 5 + 100);
 		return { "old": 600, "new": 600 + 5 + 100 };
@@ -128,14 +129,16 @@ TS_ASSERT(!increased);
 // Test experience.
 let looted;
 AddMock(target, IID_Loot, {
-	"GetXp": () => {
+	"GetXp": () =>
+	{
 		looted = true; return 80;
 	}
 });
 
 let promoted;
 AddMock(entity, IID_Promotion, {
-	"IncreaseXp": amount => {
+	"IncreaseXp": amount =>
+	{
 		promoted = true;
 		TS_ASSERT_EQUALS(amount, (5 + 100) * 80 / 700);
 	}
@@ -150,7 +153,8 @@ TS_ASSERT(increased && looted && promoted);
 let updated;
 AddMock(entity, IID_UnitAI, {
 	"FaceTowardsTarget": () => {},
-	"UpdateRangeQueries": () => {
+	"UpdateRangeQueries": () =>
+	{
 		updated = true;
 	}
 });
@@ -199,7 +203,8 @@ TS_ASSERT(!cmpHeal.CanHeal(otherTarget));
 increased = false;
 AddMock(target, IID_Health, {
 	"GetMaxHitpoints": () => 700,
-	"Increase": amount => {
+	"Increase": amount =>
+	{
 		increased = true;
 		TS_ASSERT_EQUALS(amount, 5 + 100);
 		return { "old": 600, "new": 600 + 5 + 100 };
@@ -214,7 +219,8 @@ TS_ASSERT(increased);
 increased = false;
 AddMock(target, IID_Health, {
 	"GetMaxHitpoints": () => 700,
-	"Increase": amount => {
+	"Increase": amount =>
+	{
 		increased = true;
 		TS_ASSERT(false);
 	},

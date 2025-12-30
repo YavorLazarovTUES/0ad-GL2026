@@ -9,7 +9,8 @@ var g_TermsUserReport = {
 			"configPath": setStringTags(escapeText(Engine.GetUserReportConfigPath()), { "font": "sans-bold-12" })
 		},
 		"config": "userreport.terms",
-		"callback": data => {
+		"callback": data =>
+		{
 			setUserReportEnabled(data.accepted);
 		},
 		"accepted": false,
@@ -61,13 +62,15 @@ function updateUserReportButtons()
 	userReportEnableButton.caption = Engine.IsUserReportEnabled() ? translate("Disable Feedback") : translate("Enable Feedback");
 	userReportEnableButton.enabled = !termsFeedback;
 	userReportEnableButton.tooltip = termsFeedback;
-	userReportEnableButton.onPress = () => {
+	userReportEnableButton.onPress = () =>
+	{
 		setUserReportEnabled(!Engine.IsUserReportEnabled());
 	};
 
 	const userReportTermsButton = Engine.GetGUIObjectByName("userReportTermsButton");
 	userReportTermsButton.caption = g_TermsUserReport.TermsAndConditions.title;
-	userReportTermsButton.onPress = () => {
+	userReportTermsButton.onPress = () =>
+	{
 		openTerms("TermsAndConditions");
 	};
 }

@@ -127,14 +127,16 @@ global.Spy = function(obj, func)
 	this._called = 0;
 	this._callargs = [];
 	const og_func = obj[func];
-	const spy = (...args) => {
+	const spy = (...args) =>
+	{
 		++this._called;
 		this._callargs.push(args);
 		return og_func.apply(obj, args);
 	};
 	obj[func] = spy;
 
-	this._reset = () => {
+	this._reset = () =>
+	{
 		this._called = 0;
 		this._callargs = [];
 	};

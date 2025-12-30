@@ -88,7 +88,8 @@ TrainingPlan.prototype.start = function(gameState)
 		const workerUnit = this.metadata && this.metadata.role &&
 			this.metadata.role === Worker.ROLE_WORKER;
 		const supportUnit = this.template.hasClass("Support");
-		this.trainers.sort(function(a, b) {
+		this.trainers.sort(function(a, b)
+		{
 			// Prefer training buildings with short queues
 			let aa = a.trainingQueueTime();
 			let bb = b.trainingQueueTime();

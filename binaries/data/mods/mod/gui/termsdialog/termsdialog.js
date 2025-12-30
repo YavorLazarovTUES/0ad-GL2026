@@ -21,7 +21,8 @@ async function init(data)
 	initURLButtons(data.termsURL, data.urlButtons);
 	initLanguageSelection();
 
-	const accepted = await new Promise(resolve => {
+	const accepted = await new Promise(resolve =>
+	{
 		Engine.GetGUIObjectByName("cancelButton").onPress = resolve.bind(null, false);
 		Engine.GetGUIObjectByName("connectButton").onPress = resolve.bind(null, true);
 	});
@@ -40,14 +41,16 @@ function initURLButtons(termsURL, urlButtons)
 			"url": termsURL
 		});
 
-	urlButtons.forEach((urlButton, i) => {
+	urlButtons.forEach((urlButton, i) =>
+	{
 		const button = Engine.GetGUIObjectByName("button[" + i + "]");
 		button.caption = urlButton.caption;
 		button.hidden = false;
 		button.tooltip = sprintf(translate("Open %(url)s in the browser."), {
 			"url": urlButton.url
 		});
-		button.onPress = () => {
+		button.onPress = () =>
+		{
 			openURL(urlButton.url);
 		};
 	});
@@ -62,7 +65,8 @@ function initLanguageSelection()
 	const languageDropdown = Engine.GetGUIObjectByName("languageDropdown");
 	languageDropdown.size = (languageLabelWidth + 10) + " 4 100% 100%";
 
-	languageDropdown.list = (() => {
+	languageDropdown.list = (() =>
+	{
 		const displayNames = Engine.GetSupportedLocaleDisplayNames();
 		const baseNames = Engine.GetSupportedLocaleBaseNames();
 
@@ -80,7 +84,8 @@ function initLanguageSelection()
 		return list;
 	})();
 
-	languageDropdown.onSelectionChange = () => {
+	languageDropdown.onSelectionChange = () =>
+	{
 		Engine.GetGUIObjectByName("mainText").caption =
 			sprintf(
 				languageDropdown.selected == 1 ?

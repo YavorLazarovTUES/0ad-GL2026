@@ -1,4 +1,5 @@
-Engine.GetTemplate = (path) => {
+Engine.GetTemplate = (path) =>
+{
 	return {
 		"Identity": {
 			"GenericName": null,

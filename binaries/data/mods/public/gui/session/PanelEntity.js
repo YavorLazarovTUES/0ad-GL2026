@@ -88,7 +88,8 @@ class PanelEntity
 			return;
 
 		const playerParts = this.panelEntityCaptureBar.children;
-		const setCaptureBarPart = function(player, startSize) {
+		const setCaptureBarPart = function(player, startSize)
+		{
 			const captureBar = playerParts[player];
 			captureBar.size.rleft = startSize;
 			captureBar.size.rright = startSize + 100 * Math.max(0, Math.min(1, entityState.capturePoints[player] / entityState.maxCapturePoints));

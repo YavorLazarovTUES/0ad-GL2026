@@ -81,7 +81,8 @@ var Do = function(name, data, ent, owner = 1)
 var experiments = {};
 
 experiments.units_sparse_forest_of_units = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = -16; i <= 16; i += 8)
 			for (let j = -16; j <= 16; j += 8)
 				QuickSpawn(gx + i, gy + 50 + j, REG_UNIT_TEMPLATE);
@@ -91,7 +92,8 @@ experiments.units_sparse_forest_of_units = {
 };
 
 experiments.units_dense_forest_of_units = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = -16; i <= 16; i += 4)
 			for (let j = -16; j <= 16; j += 4)
 				QuickSpawn(gx + i, gy + 50 + j, REG_UNIT_TEMPLATE);
@@ -101,7 +103,8 @@ experiments.units_dense_forest_of_units = {
 };
 
 experiments.units_superdense_forest_of_units = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = -6; i <= 6; i += 2)
 			for (let j = -6; j <= 6; j += 2)
 				QuickSpawn(gx + i, gy + 50 + j, REG_UNIT_TEMPLATE);
@@ -111,7 +114,8 @@ experiments.units_superdense_forest_of_units = {
 };
 
 experiments.units_superdense_forest_of_fast_units = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = -12; i <= 12; i += 2)
 			for (let j = -12; j <= 12; j += 2)
 				QuickSpawn(gx + i, gy + 50 + j, FAST_UNIT_TEMPLATE);
@@ -121,7 +125,8 @@ experiments.units_superdense_forest_of_fast_units = {
 };
 
 experiments.building = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		const target = QuickSpawn(gx + 20, gy + 20, "foundation|structures/athen/storehouse");
 		for (let i = 0; i < 8; ++i)
 			Do("repair", { "target": target }, QuickSpawn(gx + i, gy, REG_UNIT_TEMPLATE));
@@ -132,7 +137,8 @@ experiments.building = {
 };
 
 experiments.collecting_tree = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		const target = QuickSpawn(gx + 10, gy + 10, "gaia/tree/acacia");
 		const storehouse = QuickSpawn(gx - 10, gy - 10, "structures/athen/storehouse");
 		for (let i = 0; i < 8; ++i)
@@ -157,7 +163,8 @@ experiments.collecting_tree = {
 };
 
 experiments.multicrossing = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = 0; i < 20; i += 2)
 			for (let j = 0; j < 20; j += 2)
 				WalkTo(gx+10, gy+70, false, QuickSpawn(gx + i, gy + j, REG_UNIT_TEMPLATE));
@@ -169,7 +176,8 @@ experiments.multicrossing = {
 
 // Same as above but not as aligned.
 experiments.multicrossing_spaced = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = 0; i < 20; i += 2)
 			for (let j = 0; j < 20; j += 2)
 				WalkTo(gx+10, gy+70, false, QuickSpawn(gx + i, gy + j, REG_UNIT_TEMPLATE));
@@ -181,7 +189,8 @@ experiments.multicrossing_spaced = {
 
 // Same as above but not as aligned.
 experiments.multicrossing_spaced_2 = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = 0; i < 20; i += 2)
 			for (let j = 0; j < 20; j += 2)
 				WalkTo(gx+10, gy+70, false, QuickSpawn(gx + i, gy + j, REG_UNIT_TEMPLATE));
@@ -192,7 +201,8 @@ experiments.multicrossing_spaced_2 = {
 };
 
 experiments.crossing_perpendicular = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = 0; i < 20; i += 4)
 			for (let j = 0; j < 20; j += 4)
 				WalkTo(gx+10, gy+70, false, QuickSpawn(gx + i, gy + j, REG_UNIT_TEMPLATE));
@@ -203,7 +213,8 @@ experiments.crossing_perpendicular = {
 };
 
 experiments.elephant_formation = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		const ents = [];
 		for (let i = 0; i < 20; i += 4)
 			for (let j = 0; j < 20; j += 4)
@@ -218,7 +229,8 @@ experiments.sep1 = {
 };
 
 experiments.battle = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = 0; i < 4; ++i)
 			for (let j = 0; j < 8; ++j)
 			{
@@ -234,7 +246,8 @@ experiments.sep2 = {
 
 
 experiments.overlapping = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = 0; i < 20; ++i)
 			QuickSpawn(gx, gy, REG_UNIT_TEMPLATE);
 		for (let i = 0; i < 20; ++i)
@@ -243,7 +256,8 @@ experiments.overlapping = {
 };
 
 experiments.large_against_units = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = -18; i < 20; i += 2)
 			for (let j = 0; j < 40; j += 3)
 				WalkTo(gx, gy - 50, false, QuickSpawn(gx + i, gy + 10 + j, REG_UNIT_TEMPLATE));
@@ -256,7 +270,8 @@ var perf_experiments = {};
 
 // Perf check: put units everywhere, not moving.
 perf_experiments.Idle = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		const spacing = 12;
 		for (let x = 0; x < 20*4*4 - 20; x += spacing)
 			for (let z = 0; z < 20*4*4 - 20; z += spacing)
@@ -266,7 +281,8 @@ perf_experiments.Idle = {
 
 // Perf check: put units everywhere, moving.
 perf_experiments.MovingAround = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		const spacing = 24;
 		for (let x = 0; x < 20*16*4 - 20; x += spacing)
 			for (let z = 0; z < 20*16*4 - 20; z += spacing)
@@ -284,7 +300,8 @@ perf_experiments.MovingAround = {
 };
 // Perf check: fewer units moving more.
 perf_experiments.LighterMovingAround = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		const spacing = 48;
 		for (let x = 0; x < 20*16*4 - 20; x += spacing)
 			for (let z = 0; z < 20*16*4 - 20; z += spacing)
@@ -303,7 +320,8 @@ perf_experiments.LighterMovingAround = {
 
 // Perf check: rows of units crossing each other.
 perf_experiments.BunchaCollisions = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		const spacing = 64;
 		for (let x = 0; x < 20*16*4 - 20; x += spacing)
 			for (let z = 0; z < 20*16*4 - 20; z += spacing)
@@ -324,7 +342,8 @@ perf_experiments.BunchaCollisions = {
 
 // Massive moshpit of pushing.
 perf_experiments.LotsaLocalCollisions = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		const spacing = 3;
 		for (let x = 100; x < 200; x += spacing)
 			for (let z = 100; z < 200; z += spacing)
@@ -337,7 +356,8 @@ perf_experiments.LotsaLocalCollisions = {
 };
 
 
-var woodcutting = (gx, gy) => {
+var woodcutting = (gx, gy) =>
+{
 	const dropsite = QuickSpawn(gx + 50, gy, "structures/athen/storehouse");
 	const cmpModifiersManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_ModifiersManager);
 	cmpModifiersManager.AddModifiers("root", {
@@ -356,7 +376,8 @@ var woodcutting = (gx, gy) => {
 };
 
 perf_experiments.WoodCutting = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		for (let i = 0; i < 8; i++)
 			for (let j = 0; j < 8; j++)
 			{

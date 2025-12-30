@@ -21,7 +21,8 @@ var ObservableMixin = (Parent) => class Observable extends (() => Parent || Obje
 			"enumerable": false,
 		});
 		return new Proxy(this, {
-			"set": (target, key, value) => {
+			"set": (target, key, value) =>
+			{
 				let old;
 				let hasOld = false;
 				if (Reflect.has(target, key))

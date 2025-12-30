@@ -199,7 +199,8 @@ function TestIsRearrangementAllowed()
 	}
 
 	// Controller in COMBAT.ATTACKING should block rearrangement
-	(function() {
+	(function()
+	{
 		const controllerID = cmpFormation.entity;
 
 		cmpFormation.members = [201, 202];
@@ -215,7 +216,8 @@ function TestIsRearrangementAllowed()
 	})();
 
 	// Different critical states sum should count toward threshold
-	(function() {
+	(function()
+	{
 		const controllerID = cmpFormation.entity;
 
 		// Mock controller in walking state

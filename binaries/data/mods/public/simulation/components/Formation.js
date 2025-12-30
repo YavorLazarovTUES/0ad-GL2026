@@ -565,13 +565,13 @@ Formation.prototype.ArrangeFormation = function(moveCenter, force, variant)
 		}
 
 		const data =
-		{
-			"target": this.entity,
-			"x": offset.x,
-			"z": offset.y,
-			"offsetsChanged": offsetsChanged,
-			"variant": variant
-		};
+			{
+				"target": this.entity,
+				"x": offset.x,
+				"z": offset.y,
+				"offsetsChanged": offsetsChanged,
+				"variant": variant
+			};
 		cmpUnitAI.AddOrder("FormationWalk", data, !force);
 		xMax = Math.max(xMax, offset.x);
 		yMax = Math.max(yMax, offset.y);
@@ -789,7 +789,8 @@ Formation.prototype.ComputeFormationOffsets = function(active, positions)
 	if (this.sortingOrder == "fillFromTheSides")
 		offsets.sort(function(o1, o2) { return Math.abs(o1.x) < Math.abs(o2.x);});
 	else if (this.sortingOrder == "fillToTheCenter")
-		offsets.sort(function(o1, o2) {
+		offsets.sort(function(o1, o2)
+		{
 			return Math.max(Math.abs(o1.x), Math.abs(o1.y)) < Math.max(Math.abs(o2.x), Math.abs(o2.y));
 		});
 
@@ -1035,7 +1036,8 @@ Formation.prototype.LoadFormation = function(newTemplate)
  * @param {boolean} force - Force rearrangement regardless of state
  * @param {string} formationType - Formation variant to be passed as order parameter.
  */
-Formation.prototype.UpdateFormation = function(moveCenter = false, force = false, formationType = "default") {
+Formation.prototype.UpdateFormation = function(moveCenter = false, force = false, formationType = "default")
+{
 	// Move members into appropriate formation type
 	if (this.IsRearrangementAllowed() || force)
 		this.ArrangeFormation(moveCenter, force, formationType);

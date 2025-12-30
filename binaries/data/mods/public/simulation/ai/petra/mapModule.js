@@ -198,7 +198,8 @@ function debugMap(gameState, map)
 {
 	const width = map.width;
 	const cell = map.cellSize;
-	gameState.getEntities().forEach(ent => {
+	gameState.getEntities().forEach(ent =>
+	{
 		const pos = ent.position();
 		if (!pos)
 			return;

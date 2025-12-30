@@ -1,7 +1,7 @@
 function TerritoryDecayManager() {}
 
 TerritoryDecayManager.prototype.Schema =
-        "<a:component type='system'/><empty/>";
+	"<a:component type='system'/><empty/>";
 
 TerritoryDecayManager.prototype.Init = function()
 {

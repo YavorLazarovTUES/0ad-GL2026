@@ -1,9 +1,11 @@
-class Logger {
+class Logger
+{
 	levels = ['trace', 'debug', 'info', 'warn', 'error'];
 	// Default = 'info'.
 	levelIndex = 2;
 
-	setLevel(level) {
+	setLevel(level)
+	{
 		const index = this.levels.indexOf(level);
 		if (index === -1)
 		{
@@ -12,9 +14,12 @@ class Logger {
 		this.levelIndex = index;
 	}
 
-	constructor() {
-		this.levels.forEach((level, index) => {
-			this[level] = (...args) => {
+	constructor()
+	{
+		this.levels.forEach((level, index) =>
+		{
+			this[level] = (...args) =>
+			{
 				if (index < this.levelIndex)
 					return;
 
@@ -28,14 +33,18 @@ class Logger {
 		});
 	}
 
-	getLevel() {
+	getLevel()
+	{
 		return this.levels[this.levelIndex];
 	}
 
-	getLogger(className) {
+	getLogger(className)
+	{
 		const scopedLogger = {};
-		this.levels.forEach((level) => {
-			scopedLogger[level] = (msg) => {
+		this.levels.forEach((level) =>
+		{
+			scopedLogger[level] = (msg) =>
+			{
 				this[level](`[${className}]`, msg);
 			};
 		});

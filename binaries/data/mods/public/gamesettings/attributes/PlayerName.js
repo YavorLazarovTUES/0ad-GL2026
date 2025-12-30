@@ -94,7 +94,8 @@ GameSettings.prototype.Attributes.PlayerName = class PlayerName extends GameSett
 			const translatedCountLabel = this.settings.isNetworked ? this.CountLabel : translate(this.CountLabel);
 			const translatedChosenName = this.settings.isNetworked ? chosenName : translate(chosenName);
 
-			const duplicateNameCount = AIPlayerNamesList.reduce((count, name) => {
+			const duplicateNameCount = AIPlayerNamesList.reduce((count, name) =>
+			{
 				if (name == chosenName)
 					count++;
 				return count;

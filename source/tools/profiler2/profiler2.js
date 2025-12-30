@@ -1,4 +1,4 @@
-// Copyright (C) 2025 Wildfire Games.
+// Copyright (C) 2026 Wildfire Games.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -37,9 +37,11 @@ function save_as_file()
 {
 	$.ajax({
 		"url": `http://127.0.0.1:${$("#gameport").val()}/download`,
-		"success": function() {
+		"success": function()
+		{
 		},
-		"error": function(jqXHR, textStatus, errorThrown) {
+		"error": function(jqXHR, textStatus, errorThrown)
+		{
 		}
 	});
 }

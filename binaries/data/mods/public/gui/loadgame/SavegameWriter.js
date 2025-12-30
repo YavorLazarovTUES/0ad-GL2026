@@ -9,7 +9,8 @@ class SavegameWriter
 		this.closePageCallback = closePageCallback;
 		this.savedGameData = savedGameData;
 
-		const saveNew = () => {
+		const saveNew = () =>
+		{
 			this.saveGame();
 		};
 
@@ -21,7 +22,8 @@ class SavegameWriter
 		this.saveGameDesc.hidden = false;
 		this.saveGameDesc.onPress = saveNew;
 		this.descriptionChanged = false;
-		this.saveGameDesc.onTextEdit = () => {
+		this.saveGameDesc.onTextEdit = () =>
+		{
 			this.descriptionChanged = true;
 		};
 	}
@@ -30,7 +32,8 @@ class SavegameWriter
 	{
 		if (!this.descriptionChanged && metadata && typeof metadata.description === "string")
 			this.saveGameDesc.caption = metadata.description;
-		this.confirmButton.onPress = () => {
+		this.confirmButton.onPress = () =>
+		{
 			this.saveGame(gameID, label);
 		};
 	}

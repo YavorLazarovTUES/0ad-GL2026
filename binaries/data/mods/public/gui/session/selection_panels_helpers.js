@@ -417,7 +417,8 @@ function unloadTemplate(template, owner)
 		"template": template,
 		"owner": owner,
 		// Filter out all entities that aren't garrisonable.
-		"garrisonHolders": g_Selection.filter(ent => {
+		"garrisonHolders": g_Selection.filter(ent =>
+		{
 			const state = GetEntityState(ent);
 			return state && !!state.garrisonHolder;
 		})
@@ -426,7 +427,8 @@ function unloadTemplate(template, owner)
 
 function unloadAll()
 {
-	const garrisonHolders = g_Selection.filter(e => {
+	const garrisonHolders = g_Selection.filter(e =>
+	{
 		const state = GetEntityState(e);
 		return state && !!state.garrisonHolder;
 	});
@@ -460,7 +462,8 @@ function unloadAll()
 
 function unloadAllTurrets()
 {
-	const turretHolders = g_Selection.filter(e => {
+	const turretHolders = g_Selection.filter(e =>
+	{
 		const state = GetEntityState(e);
 		return state && !!state.turretHolder;
 	});
@@ -498,7 +501,8 @@ function unloadAllTurrets()
 
 function leaveTurretPoints()
 {
-	const entities = g_Selection.filter(entity => {
+	const entities = g_Selection.filter(entity =>
+	{
 		const entState = GetEntityState(entity);
 		return entState && entState.turretable &&
 			entState.turretable.holder != INVALID_ENTITY;
@@ -515,7 +519,8 @@ function backToWork()
 	Engine.PostNetworkCommand({
 		"type": "back-to-work",
 		// Filter out all entities that can't go back to work.
-		"entities": g_Selection.filter(ent => {
+		"entities": g_Selection.filter(ent =>
+		{
 			const state = GetEntityState(ent);
 			return state && state.unitAI && state.unitAI.hasWorkOrders;
 		})
@@ -527,7 +532,8 @@ function removeGuard()
 	Engine.PostNetworkCommand({
 		"type": "remove-guard",
 		// Filter out all entities that are currently guarding/escorting.
-		"entities": g_Selection.filter(ent => {
+		"entities": g_Selection.filter(ent =>
+		{
 			const state = GetEntityState(ent);
 			return state && state.unitAI && state.unitAI.isGuarding;
 		})
@@ -538,7 +544,8 @@ function raiseAlert()
 {
 	Engine.PostNetworkCommand({
 		"type": "alert-raise",
-		"entities": g_Selection.filter(ent => {
+		"entities": g_Selection.filter(ent =>
+		{
 			const state = GetEntityState(ent);
 			return state && !!state.alertRaiser;
 		})
@@ -549,7 +556,8 @@ function endOfAlert()
 {
 	Engine.PostNetworkCommand({
 		"type": "alert-end",
-		"entities": g_Selection.filter(ent => {
+		"entities": g_Selection.filter(ent =>
+		{
 			const state = GetEntityState(ent);
 			return state && !!state.alertRaiser;
 		})
@@ -560,7 +568,8 @@ function turnAutoQueueOn()
 {
 	Engine.PostNetworkCommand({
 		"type": "autoqueue-on",
-		"entities": g_Selection.filter(ent => {
+		"entities": g_Selection.filter(ent =>
+		{
 			const state = GetEntityState(ent);
 			return !!state?.trainer?.entities?.length &&
 				!state.production.autoqueue;
@@ -572,7 +581,8 @@ function turnAutoQueueOff()
 {
 	Engine.PostNetworkCommand({
 		"type": "autoqueue-off",
-		"entities": g_Selection.filter(ent => {
+		"entities": g_Selection.filter(ent =>
+		{
 			const state = GetEntityState(ent);
 			return !!state?.trainer?.entities?.length &&
 				state.production.autoqueue;

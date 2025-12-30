@@ -34,7 +34,8 @@ Trigger.prototype.InitRegicideGame = function(msg)
 
 	// Sort available spawn points by preference
 	const spawnPreferences = ["CivilCentre", "Structure", "Ship"];
-	const getSpawnPreference = entity => {
+	const getSpawnPreference = entity =>
+	{
 
 		const cmpIdentity = Engine.QueryInterface(entity, IID_Identity);
 		if (!cmpIdentity)

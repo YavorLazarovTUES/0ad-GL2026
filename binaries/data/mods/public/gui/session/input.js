@@ -426,26 +426,31 @@ function updateBandbox(bandbox, ev, hidden)
 
 // Define some useful unit filters for getPreferredEntities.
 var unitFilters = {
-	"isUnit": entity => {
+	"isUnit": entity =>
+	{
 		const entState = GetEntityState(entity);
 		return entState && hasClass(entState, "Unit");
 	},
-	"isDefensive": entity => {
+	"isDefensive": entity =>
+	{
 		const entState = GetEntityState(entity);
 		return entState && hasClass(entState, "Defensive");
 	},
-	"isMilitary": entity => {
+	"isMilitary": entity =>
+	{
 		const entState = GetEntityState(entity);
 		return entState &&
 			g_MilitaryTypes.some(c => hasClass(entState, c));
 	},
-	"isNonMilitary": entity => {
+	"isNonMilitary": entity =>
+	{
 		const entState = GetEntityState(entity);
 		return entState &&
 			hasClass(entState, "Unit") &&
 			!g_MilitaryTypes.some(c => hasClass(entState, c));
 	},
-	"isIdle": entity => {
+	"isIdle": entity =>
+	{
 		const entState = GetEntityState(entity);
 		return entState &&
 			hasClass(entState, "Unit") &&
@@ -453,14 +458,16 @@ var unitFilters = {
 			entState.unitAI.isIdle &&
 			!hasClass(entState, "Domestic");
 	},
-	"isWounded": entity => {
+	"isWounded": entity =>
+	{
 		const entState = GetEntityState(entity);
 		return entState &&
 			hasClass(entState, "Unit") &&
 			entState.maxHitpoints &&
 			100 * entState.hitpoints <= entState.maxHitpoints * Engine.ConfigDB_GetValue("user", "gui.session.woundedunithotkeythreshold");
 	},
-	"isAnything": entity => {
+	"isAnything": entity =>
+	{
 		return true;
 	}
 };
@@ -1425,7 +1432,8 @@ function OnTrainMouseWheel(dir)
 
 function getBuildingsWhichCanTrainEntity(entitiesToCheck, trainEntType)
 {
-	return entitiesToCheck.filter(entity => {
+	return entitiesToCheck.filter(entity =>
+	{
 		const state = GetEntityState(entity);
 		return state?.trainer?.entities?.includes(trainEntType) &&
 			(!state.upgrade || !state.upgrade.isUpgrading);
@@ -1434,7 +1442,8 @@ function getBuildingsWhichCanTrainEntity(entitiesToCheck, trainEntType)
 
 function initBatchTrain()
 {
-	registerConfigChangeHandler(changes => {
+	registerConfigChangeHandler(changes =>
+	{
 		if (changes.has("gui.session.batchtrainingsize"))
 			updateDefaultBatchSize();
 	});

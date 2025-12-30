@@ -14,7 +14,8 @@ print("<th>GL_RENDERER");
 print("<th>Output");
 print("<th>Warnings");
 
-hwdetectTestData.sort(function(a, b) {
+hwdetectTestData.sort(function(a, b)
+{
 	if (a.renderer_backend.GL_RENDERER < b.renderer_backend.GL_RENDERER)
 		return -1;
 	if (b.renderer_backend.GL_RENDERER < a.renderer_backend.GL_RENDERER)

@@ -28,7 +28,8 @@ class DamageTypesMetadata
 		}
 
 		const hasMetadata = (a) => this.damageTypeData[a] ? -1 : 1;
-		this._sort = (a, b) => {
+		this._sort = (a, b) =>
+		{
 			if (this.damageTypeData[a] && this.damageTypeData[b])
 				return this.damageTypeData[a].order - this.damageTypeData[b].order;
 			return hasMetadata(a) - hasMetadata(b);

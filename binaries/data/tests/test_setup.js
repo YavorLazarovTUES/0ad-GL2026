@@ -54,10 +54,13 @@ global.TS_ASSERT_UNEVAL_EQUALS = function(x, y)
 
 global.TS_ASSERT_EXCEPTION = function(func)
 {
-	try {
+	try
+	{
 		func();
 		Engine.TS_FAIL("Missed exception at:\n" + new Error().stack);
-	} catch (e) {
+	}
+	catch(e)
+	{
 		// noop
 	}
 };

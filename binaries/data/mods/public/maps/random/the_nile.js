@@ -151,7 +151,8 @@ export function* generateMap()
 		"heightLand": heightShore,
 		"meanderShort": 12,
 		"meanderLong": 50,
-		"waterFunc": (position, height, riverFraction) => {
+		"waterFunc": (position, height, riverFraction) =>
+		{
 
 			clWater.add(position);
 			createTerrain(tShore).place(position);
@@ -167,7 +168,8 @@ export function* generateMap()
 			}
 			++plantID;
 		},
-		"landFunc": (position, shoreDist1, shoreDist2) => {
+		"landFunc": (position, shoreDist1, shoreDist2) =>
+		{
 
 			for (const riv of riverTextures)
 				if (riv.left < +shoreDist1 && +shoreDist1 < riv.right ||

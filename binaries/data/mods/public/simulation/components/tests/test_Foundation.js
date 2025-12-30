@@ -51,14 +51,16 @@ function testFoundation(...mocks)
 	});
 
 	AddMock(SYSTEM_ENTITY, IID_TerritoryManager, {
-		"GetOwner": (x, y) => {
+		"GetOwner": (x, y) =>
+		{
 			TS_ASSERT_EQUALS(x, pos.x);
 			TS_ASSERT_EQUALS(y, pos.y);
 			return player;
 		},
 	});
 
-	Engine.RegisterGlobal("PlaySound", (name, source) => {
+	Engine.RegisterGlobal("PlaySound", (name, source) =>
+	{
 		TS_ASSERT_EQUALS(name, "constructed");
 		TS_ASSERT_EQUALS(source, newEnt);
 	});
@@ -72,7 +74,8 @@ function testFoundation(...mocks)
 	AddMock(foundationEnt, IID_Health, {
 		"GetHitpoints": () => foundationHP,
 		"GetMaxHitpoints": () => maxHP,
-		"Increase": hp => {
+		"Increase": hp =>
+		{
 			foundationHP = Math.min(foundationHP + hp, maxHP);
 			cmpFoundation.OnHealthChanged();
 		},
@@ -103,13 +106,15 @@ function testFoundation(...mocks)
 	});
 
 	AddMock(previewEnt, IID_Position, {
-		"JumpTo": (x, y) => {
+		"JumpTo": (x, y) =>
+		{
 			TS_ASSERT_EQUALS(x, pos.x);
 			TS_ASSERT_EQUALS(y, pos.y);
 		},
 		"SetConstructionProgress": p => {},
 		"SetYRotation": r => { TS_ASSERT_EQUALS(r, rot.y); },
-		"SetXZRotation": (rx, rz) => {
+		"SetXZRotation": (rx, rz) =>
+		{
 			TS_ASSERT_EQUALS(rx, rot.x);
 			TS_ASSERT_EQUALS(rz, rot.z);
 		},
@@ -121,12 +126,14 @@ function testFoundation(...mocks)
 
 	AddMock(newEnt, IID_Position, {
 		"GetPosition2D": () => pos,
-		"JumpTo": (x, y) => {
+		"JumpTo": (x, y) =>
+		{
 			TS_ASSERT_EQUALS(x, pos.x);
 			TS_ASSERT_EQUALS(y, pos.y);
 		},
 		"SetYRotation": r => { TS_ASSERT_EQUALS(r, rot.y); },
-		"SetXZRotation": (rx, rz) => {
+		"SetXZRotation": (rx, rz) =>
+		{
 			TS_ASSERT_EQUALS(rx, rot.x);
 			TS_ASSERT_EQUALS(rz, rot.z);
 		},
@@ -137,7 +144,8 @@ function testFoundation(...mocks)
 		AddMock(...mock);
 
 	// INITIALISE
-	Engine.AddLocalEntity = function(template) {
+	Engine.AddLocalEntity = function(template)
+	{
 		TS_ASSERT_EQUALS(template, "construction|" + finalTemplate);
 		return previewEnt;
 	};
@@ -198,7 +206,8 @@ function testFoundation(...mocks)
 	TS_ASSERT_EQUALS(cmpFoundation.totalBuilderRate, 5);
 
 	// FINISH CONSTRUCTION
-	Engine.AddEntity = function(template) {
+	Engine.AddEntity = function(template)
+	{
 		TS_ASSERT_EQUALS(template, finalTemplate);
 		return newEnt;
 	};
@@ -210,7 +219,8 @@ function testFoundation(...mocks)
 testFoundation();
 
 testFoundation([foundationEnt, IID_Visual, {
-	"SetVariable": (key, num) => {
+	"SetVariable": (key, num) =>
+	{
 		TS_ASSERT_EQUALS(key, "numbuilders");
 		TS_ASSERT(num == 1 || num == 2);
 	},
@@ -223,7 +233,8 @@ testFoundation([newEnt, IID_TerritoryDecay, {
 }]);
 
 testFoundation([playerEnt, IID_StatisticsTracker, {
-	"IncreaseConstructedBuildingsCounter": ent => {
+	"IncreaseConstructedBuildingsCounter": ent =>
+	{
 		TS_ASSERT_EQUALS(ent, newEnt);
 	},
 }]);
@@ -245,7 +256,8 @@ const cmpAutoBuildingFoundation = ConstructComponent(foundationEnt2, "Foundation
 AddMock(foundationEnt2, IID_Health, {
 	"GetHitpoints": () => currentFoundationHP,
 	"GetMaxHitpoints": () => 100,
-	"Increase": hp => {
+	"Increase": hp =>
+	{
 		currentFoundationHP = Math.min(currentFoundationHP + hp, 100);
 		cmpAutoBuildingFoundation.OnHealthChanged();
 	},

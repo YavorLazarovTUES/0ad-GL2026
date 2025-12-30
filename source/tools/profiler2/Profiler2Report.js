@@ -1,4 +1,4 @@
-// Copyright (C) 2025 Wildfire Games.
+// Copyright (C) 2026 Wildfire Games.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -77,7 +77,8 @@ class Profiler2Report
 		{
 			self.refresh_from_jsonp(callback, e.target.result);
 		};
-		reader.onerror = function(e) {
+		reader.onerror = function(e)
+		{
 			alert("Failed to load report file");
 			callback(false);
 			return;
@@ -95,7 +96,8 @@ class Profiler2Report
 			script.parentNode.removeChild(script);
 
 			var threads = [];
-			data.threads.forEach(function(thread) {
+			data.threads.forEach(function(thread)
+			{
 				var canvas = $('<canvas width="1600" height="160"></canvas>');
 				threads.push({ 'name': thread.name, 'data': { 'events': concat_events(thread.data) }, 'canvas': canvas.get(0) });
 			});
@@ -114,14 +116,17 @@ class Profiler2Report
 		$.ajax({
 			"url": `http://127.0.0.1:${$("#gameport").val()}/overview`,
 			"dataType": 'json',
-			"success": function(data) {
+			"success": function(data)
+			{
 				var threads = [];
-				data.threads.forEach(function(thread) {
+				data.threads.forEach(function(thread)
+				{
 					threads.push({ 'name': thread.name });
 				});
 				var callback_data = { 'threads': threads, 'completed': 0 };
 
-				threads.forEach(function(thread) {
+				threads.forEach(function(thread)
+				{
 					self.refresh_thread(callback, thread, callback_data);
 				});
 			},
@@ -140,7 +145,8 @@ class Profiler2Report
 			"url": `http://127.0.0.1:${$("#gameport").val()}/query`,
 			"dataType": 'json',
 			"data": { 'thread': thread.name },
-			"success": function(data) {
+			"success": function(data)
+			{
 				data.events = concat_events(data);
 				thread.data = data;
 
@@ -151,7 +157,8 @@ class Profiler2Report
 					callback(true);
 				}
 			},
-			"error": function(jqXHR, textStatus, errorThrown) {
+			"error": function(jqXHR, textStatus, errorThrown)
+			{
 				alert('Failed to connect to server ("'+textStatus+'")');
 			}
 		});

@@ -113,18 +113,22 @@ const techManager = AddMock(playerEntityID, IID_TechnologyManager, {
 	"CheckTechnologyRequirements": () => true,
 	"IsInProgress": () => false,
 	"IsTechnologyResearched": () => false,
-	"QueuedResearch": (templateName, researcher, techCostMultiplier) => {
+	"QueuedResearch": (templateName, researcher, techCostMultiplier) =>
+	{
 		TS_ASSERT_UNEVAL_EQUALS(templateName, queuedTech);
 		TS_ASSERT_UNEVAL_EQUALS(researcher, entityID);
 		return true;
 	},
-	"StoppedResearch": (templateName, _) => {
+	"StoppedResearch": (templateName, _) =>
+	{
 		TS_ASSERT_UNEVAL_EQUALS(templateName, queuedTech);
 	},
-	"StartedResearch": (templateName, _) => {
+	"StartedResearch": (templateName, _) =>
+	{
 		TS_ASSERT_UNEVAL_EQUALS(templateName, queuedTech);
 	},
-	"ResearchTechnology": (templateName, _) => {
+	"ResearchTechnology": (templateName, _) =>
+	{
 		TS_ASSERT_UNEVAL_EQUALS(templateName, queuedTech);
 	}
 });

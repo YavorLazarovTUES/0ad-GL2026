@@ -120,7 +120,8 @@ function parseCmdLineArgs(settings, cmdLineArgs)
 			settings.playerCount.setNb(+cmdLineArgs['autostart-players']);
 	}
 
-	const getPlayer = (key, i) => {
+	const getPlayer = (key, i) =>
+	{
 		if (!(('autostart-' + key) in cmdLineArgs))
 			return undefined;
 		var value = cmdLineArgs['autostart-' + key];

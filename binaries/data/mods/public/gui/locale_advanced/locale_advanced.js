@@ -47,9 +47,11 @@ function init(initData)
 	// fill the script
 	scriptInput.caption = Engine.GetLocaleScript(initData.locale);
 
-	return new Promise(closePageCallback => {
+	return new Promise(closePageCallback =>
+	{
 		Engine.GetGUIObjectByName("cancelButton").onPress = closePageCallback;
-		Engine.GetGUIObjectByName("acceptButton").onPress = () => {
+		Engine.GetGUIObjectByName("acceptButton").onPress = () =>
+		{
 			closePageCallback(applySelectedLocale());
 		};
 	});

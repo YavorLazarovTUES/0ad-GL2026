@@ -132,7 +132,8 @@ export function* generateMap()
 		"heightLand": heightShore,
 		"meanderShort": 12,
 		"meanderLong": 0,
-		"waterFunc": (position, height, z) => {
+		"waterFunc": (position, height, z) =>
+		{
 			clRiver.add(position);
 			createTerrain(tWater).place(position);
 

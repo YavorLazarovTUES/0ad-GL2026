@@ -308,7 +308,8 @@ Auras.prototype.Clean = function()
 Auras.prototype.GiveMembersWithValidClass = function(auraName, entityList)
 {
 	var match = this.GetClasses(auraName);
-	return entityList.filter(ent => {
+	return entityList.filter(ent =>
+	{
 		const cmpIdentity = Engine.QueryInterface(ent, IID_Identity);
 		return cmpIdentity && MatchesClassList(cmpIdentity.GetClassesList(), match);
 	});

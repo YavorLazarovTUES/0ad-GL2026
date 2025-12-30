@@ -41,10 +41,12 @@ class DeveloperOverlay
 
 		this.devCommandsOverlay.hidden = !this.devCommandsOverlay.hidden;
 		this.sendNotification();
-		this.checkBoxes.forEach(checkbox => {
+		this.checkBoxes.forEach(checkbox =>
+		{
 			checkbox.setHidden(this.devCommandsOverlay.hidden);
 		});
-		this.dropDowns.forEach(dropDown => {
+		this.dropDowns.forEach(dropDown =>
+		{
 			dropDown.setHidden(this.devCommandsOverlay.hidden);
 		});
 	}

@@ -104,30 +104,30 @@ ChatMessageEvents.Role = class
 };
 
 ChatMessageEvents.Role.prototype.RoleStrings =
-[
-	{
-		"newrole": "visitor",
-		"you": translate("You have been muted."),
-		"nick": translate("%(nick)s has been muted.")
-	},
-	{
-		"newrole": "moderator",
-		"you": translate("You are now a moderator."),
-		"nick": translate("%(nick)s is now a moderator.")
-	},
-	{
-		"newrole": "participant",
-		"oldrole": "visitor",
-		"you": translate("You have been unmuted."),
-		"nick": translate("%(nick)s has been unmuted.")
-	},
-	{
-		"newrole": "participant",
-		"oldrole": "moderator",
-		"you": translate("You are not a moderator anymore."),
-		"nick": translate("%(nick)s is not a moderator anymore.")
-	}
-];
+	[
+		{
+			"newrole": "visitor",
+			"you": translate("You have been muted."),
+			"nick": translate("%(nick)s has been muted.")
+		},
+		{
+			"newrole": "moderator",
+			"you": translate("You are now a moderator."),
+			"nick": translate("%(nick)s is now a moderator.")
+		},
+		{
+			"newrole": "participant",
+			"oldrole": "visitor",
+			"you": translate("You have been unmuted."),
+			"nick": translate("%(nick)s has been unmuted.")
+		},
+		{
+			"newrole": "participant",
+			"oldrole": "moderator",
+			"you": translate("You are not a moderator anymore."),
+			"nick": translate("%(nick)s is not a moderator anymore.")
+		}
+	];
 
 ChatMessageEvents.Subject = class
 {

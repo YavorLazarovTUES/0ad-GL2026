@@ -142,7 +142,8 @@ async function init(data)
 
 	while (true)
 	{
-		const branchless = await new Promise(resolve => {
+		const branchless = await new Promise(resolve =>
+		{
 			Engine.GetGUIObjectByName("continueButton").onPress = resolve.bind(null, true);
 			Engine.GetGUIObjectByName("summaryHotkey").onPress = resolve.bind(null, true);
 			Engine.GetGUIObjectByName("cancelHotkey").onPress = resolve.bind(null, false);
@@ -275,7 +276,8 @@ function updateCategoryDropdown(number)
 	const chartCategory = Engine.GetGUIObjectByName("chart[" + number + "]CategorySelection");
 	chartCategory.list_data = g_ScorePanelsData.map((panel, idx) => idx);
 	chartCategory.list = g_ScorePanelsData.map(panel => panel.label);
-	chartCategory.onSelectionChange = function() {
+	chartCategory.onSelectionChange = function()
+	{
 		if (!this.list_data[this.selected])
 			return;
 		if (g_SelectedChart.category[number] != this.selected)
@@ -300,7 +302,8 @@ function updateValueDropdown(number, category)
 	const list_data = g_ScorePanelsData[category].headings.map(heading => heading.identifier);
 	list_data.shift();
 	chartValue.list_data = list_data;
-	chartValue.onSelectionChange = function() {
+	chartValue.onSelectionChange = function()
+	{
 		if (!this.list_data[this.selected])
 			return;
 		if (g_SelectedChart.value[number] != this.selected)
@@ -331,7 +334,8 @@ function updateTypeDropdown(number, category, item, itemNumber)
 
 	chartType.list = Object.keys(testValue).map(type => g_SummaryTypes[type].caption);
 	chartType.list_data = Object.keys(testValue);
-	chartType.onSelectionChange = function() {
+	chartType.onSelectionChange = function()
+	{
 		if (!this.list_data[this.selected])
 			return;
 		g_SelectedChart.type[number] = this.selected;

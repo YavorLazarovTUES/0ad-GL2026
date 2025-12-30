@@ -1,18 +1,22 @@
 import { logger } from 'tools/dap/logger.js';
 
-export class DapProtocolHandler {
-	constructor(jsDebugger) {
+export class DapProtocolHandler
+{
+	constructor(jsDebugger)
+	{
 		this.commands = {};
 		this.jsDebugger = jsDebugger;
 		this.logger = logger.getLogger("DAPProtocolHandler");
 	}
 
-	registerCommand(name, fn) {
+	registerCommand(name, fn)
+	{
 		this.logger.info(`Registering command: ${name}`);
 		this.commands[name] = fn;
 	}
 
-	handleRequest(req) {
+	handleRequest(req)
+	{
 		if (req.type !== 'request' || !req.command)
 		{
 			this.logger.error(`Invalid request: ${JSON.stringify(req)}`);
@@ -28,7 +32,7 @@ export class DapProtocolHandler {
 			this.logger.info(`Handling command: ${req.command}`);
 			return handler(req);
 		}
-		catch (error)
+		catch(error)
 		{
 			this.logger.error(`Error handling command ${req.command}:`, error);
 			this.logger.error(uneval(error.stack));
@@ -36,7 +40,8 @@ export class DapProtocolHandler {
 		}
 	}
 
-	successResponse(req, result) {
+	successResponse(req, result)
+	{
 		this.logger.info(`Response to ${req.command}`, result);
 		const response = {
 			'type': 'response',
@@ -48,7 +53,8 @@ export class DapProtocolHandler {
 		return response;
 	}
 
-	errorResponse(req, error) {
+	errorResponse(req, error)
+	{
 		this.logger.error(`Error in ${req.command}: ${error}`);
 		const response = {
 			'type': 'response',

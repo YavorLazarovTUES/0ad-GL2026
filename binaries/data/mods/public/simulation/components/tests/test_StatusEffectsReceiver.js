@@ -18,7 +18,8 @@ const enemy = 2;
 let statusName;
 
 const AttackHelper = {
-	"HandleAttackEffects": (_, data) => {
+	"HandleAttackEffects": (_, data) =>
+	{
 		for (const type in data.attackData.Damage)
 			dealtDamage += data.attackData.Damage[type];
 	}

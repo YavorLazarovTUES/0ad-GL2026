@@ -1,15 +1,20 @@
 function TestScript1A() {}
 
-TestScript1A.prototype.GetX = function() {
+TestScript1A.prototype.GetX = function()
+{
 	// Test that .entity is readonly
-	try {
+	try
+	{
 		delete this.entity;
 		Engine.TS_FAIL("Missed exception");
-	} catch (e) { /* noop */ }
-	try {
+	}
+	catch(e) { /* noop */ }
+	try
+	{
 		this.entity = -1;
 		Engine.TS_FAIL("Missed exception");
-	} catch (e) { /* noop */ }
+	}
+	catch(e) { /* noop */ }
 
 	// and return the value
 	return this.entity;

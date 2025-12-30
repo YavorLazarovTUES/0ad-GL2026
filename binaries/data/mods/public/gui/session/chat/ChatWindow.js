@@ -27,7 +27,8 @@ class ChatWindow
 	{
 		this.closeChat.onPress = this.closePage.bind(this);
 
-		this.extendedChat.onPress = () => {
+		this.extendedChat.onPress = () =>
+		{
 			Engine.ConfigDB_CreateAndSaveValue("user", "chat.session.extended", String(this.isExtended()));
 			this.resizeChatWindow();
 			this.chatInput.focus();

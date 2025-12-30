@@ -196,7 +196,8 @@ NavalManager.prototype.getFishSea = function(gameState, fish)
 	sea = gameState.ai.accessibility.navalPassMap[k];
 	fish.setMetadata(PlayerID, "sea", sea);
 	const radius = 120 / gameState.ai.accessibility.cellSize / ntry;
-	if (around.every(a => {
+	if (around.every(a =>
+	{
 		for (let t = 0; t < ntry; ++t)
 		{
 			const i = pos[0] + Math.round(a[0]*radius*(ntry-t));
@@ -230,7 +231,8 @@ NavalManager.prototype.canFishSafely = function(gameState, fish)
 	const width = territoryMap.width;
 	const radius = 120 / territoryMap.cellSize / ntry;
 	const pos = territoryMap.gamePosToMapPos(fish.position());
-	return around.every(a => {
+	return around.every(a =>
+	{
 		for (let t = 0; t < ntry; ++t)
 		{
 			const i = pos[0] + Math.round(a[0]*radius*(ntry-t));
@@ -249,7 +251,8 @@ NavalManager.prototype.canFishSafely = function(gameState, fish)
 NavalManager.prototype.getUnconnectedSeas = function(gameState, region)
 {
 	const seas = gameState.ai.accessibility.regionLinks[region].slice();
-	this.docks.forEach(dock => {
+	this.docks.forEach(dock =>
+	{
 		if (!dock.hasClass("Dock") || getLandAccess(gameState, dock) != region)
 			return;
 		const i = seas.indexOf(getSeaAccess(gameState, dock));
@@ -302,7 +305,8 @@ NavalManager.prototype.checkEvents = function(gameState, queues, events)
 		if (plan.state === TransportPlan.BOARDING)
 		{
 			// just reset the units onBoard metadata and wait for a new ship to be assigned to this plan
-			plan.units.forEach(ent => {
+			plan.units.forEach(ent =>
+			{
 				if (ent.getMetadata(PlayerID, "onBoard") == "onBoard" && ent.position() ||
 				    ent.getMetadata(PlayerID, "onBoard") == shipId)
 					ent.setMetadata(PlayerID, "onBoard", undefined);
@@ -798,7 +802,8 @@ NavalManager.prototype.getBestShip = function(gameState, sea, goal)
 	const civ = gameState.getPlayerCiv();
 	const trainableShips = [];
 	gameState.getOwnTrainingFacilities().filter(filters.byMetadata(PlayerID, "sea", sea)).forEach(
-		function(ent) {
+		function(ent)
+		{
 			const trainables = ent.trainableEntities(civ);
 			for (const trainable of trainables)
 			{

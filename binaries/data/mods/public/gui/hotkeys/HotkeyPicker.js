@@ -28,7 +28,8 @@ class HotkeyPicker
 		this.setupCombinations();
 		this.render();
 
-		Engine.GetGUIObjectByName("hotkeyPickerReset").onPress = () => {
+		Engine.GetGUIObjectByName("hotkeyPickerReset").onPress = () =>
+		{
 			// This is a bit "using a bazooka to kill a fly"
 			Engine.ConfigDB_RemoveValueAndSave("user", "hotkey." + this.name);
 			Engine.ReloadHotkeys();
@@ -37,10 +38,12 @@ class HotkeyPicker
 			this.setupCombinations();
 			this.render();
 		};
-		Engine.GetGUIObjectByName("hotkeyPickerCancel").onPress = () => {
+		Engine.GetGUIObjectByName("hotkeyPickerCancel").onPress = () =>
+		{
 			onClose(this, false);
 		};
-		Engine.GetGUIObjectByName("hotkeyPickerSave").onPress = () => {
+		Engine.GetGUIObjectByName("hotkeyPickerSave").onPress = () =>
+		{
 			onClose(this, true);
 		};
 	}
@@ -61,24 +64,28 @@ class HotkeyPicker
 			const input = Engine.GetGUIObjectByName("combMapping[" + i + "]");
 
 			const picker = Engine.GetGUIObjectByName("picker[" + i + "]");
-			Engine.GetGUIObjectByName("combMappingBtn[" + i + "]").onPress = () => {
+			Engine.GetGUIObjectByName("combMappingBtn[" + i + "]").onPress = () =>
+			{
 				this.enteringInput = i;
 				picker.focus();
 				this.render();
 			};
 
-			picker.onKeyChange = keys => {
+			picker.onKeyChange = keys =>
+			{
 				input.caption = (keys.length ?
 					formatHotkeyCombination(keys) + translate(" (hold to register)") :
 					translate("Enter new Hotkey, hold to register."));
 			};
 
-			Engine.GetGUIObjectByName("deleteComb[" + i + "]").onPress = (j => () => {
+			Engine.GetGUIObjectByName("deleteComb[" + i + "]").onPress = (j => () =>
+			{
 				this.combinations[j] = [];
 				this.render();
 			})(i);
 
-			picker.onCombination = (j => keys => {
+			picker.onCombination = (j => keys =>
+			{
 				this.combinations[j] = keys;
 				this.enteringInput = -1;
 				picker.blur();

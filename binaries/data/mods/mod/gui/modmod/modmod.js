@@ -68,7 +68,8 @@ function init(data, hotloadData)
 	if (g_HasIncompatibleMods)
 		Engine.OpenChildPage("page_incompatible_mods.xml", {});
 
-	return new Promise(closePageCallback => {
+	return new Promise(closePageCallback =>
+	{
 		Engine.GetGUIObjectByName("quitButton").onPress = closePageCallback;
 	});
 }

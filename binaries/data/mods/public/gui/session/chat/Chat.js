@@ -32,7 +32,8 @@ class Chat
 		this.ChatMessageHandler.registerMessageFormat("message", this.ChatMessageFormatPlayer);
 		this.ChatMessageHandler.registerMessageHandler(this.ChatOverlay.onChatMessage.bind(this.ChatOverlay));
 		this.ChatMessageHandler.registerMessageHandler(this.ChatHistory.onChatMessage.bind(this.ChatHistory));
-		this.ChatMessageHandler.registerMessageHandler(() => {
+		this.ChatMessageHandler.registerMessageHandler(() =>
+		{
 			if (this.ChatWindow.isOpen() && this.ChatWindow.isExtended())
 				this.ChatHistory.displayChatHistory();
 		});
@@ -126,7 +127,8 @@ class Chat
 		}
 
 		const senderID = Engine.GetPlayerID();
-		return Object.keys(g_PlayerAssignments).filter(potentialReceiverGUID => {
+		return Object.keys(g_PlayerAssignments).filter(potentialReceiverGUID =>
+		{
 			return potentialReceiverGUID === senderGUID ||
 				isAddressee(senderID, g_PlayerAssignments[potentialReceiverGUID].player);
 		});

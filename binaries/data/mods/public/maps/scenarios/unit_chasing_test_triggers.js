@@ -64,7 +64,8 @@ var gy;
 
 var straight_line = function(attacker_first, attacker, target, walk = true)
 {
-	return () => {
+	return () =>
+	{
 		let chaser;
 		let chasee;
 		if (attacker_first)
@@ -86,7 +87,8 @@ var straight_line = function(attacker_first, attacker, target, walk = true)
 
 var straight_line_garrison = function(garrison_first, attacker, target)
 {
-	return () => {
+	return () =>
+	{
 		let chaser;
 		let chasee;
 		if (garrison_first)

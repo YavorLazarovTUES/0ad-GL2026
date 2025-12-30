@@ -201,7 +201,8 @@ function loadMapTypes()
 
 function loadBiomes()
 {
-	return listFiles(g_BiomesDirectory, ".json", true).filter(biomeID => biomeID != "defaultbiome").map(biomeID => {
+	return listFiles(g_BiomesDirectory, ".json", true).filter(biomeID => biomeID != "defaultbiome").map(biomeID =>
+	{
 		const description = Engine.ReadJSONFile(g_BiomesDirectory + biomeID + ".json").Description;
 		return {
 			"Id": biomeID,
@@ -221,7 +222,8 @@ function loadVictoryConditions()
 {
 	const subdir = "victory_conditions/";
 
-	const victoryConditions = listFiles(g_SettingsDirectory + subdir, ".json", false).map(victoryScriptName => {
+	const victoryConditions = listFiles(g_SettingsDirectory + subdir, ".json", false).map(victoryScriptName =>
+	{
 		const victoryCondition = loadSettingValuesFile(subdir + victoryScriptName + ".json");
 		if (victoryCondition)
 			victoryCondition.Name = victoryScriptName;

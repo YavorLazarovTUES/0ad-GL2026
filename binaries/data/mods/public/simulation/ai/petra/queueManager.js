@@ -163,7 +163,8 @@ QueueManager.prototype.wantedGatherRates = function(gameState)
 QueueManager.prototype.printQueues = function(gameState)
 {
 	let numWorkers = 0;
-	gameState.getOwnUnits().forEach(ent => {
+	gameState.getOwnUnits().forEach(ent =>
+	{
 		if (ent.getMetadata(PlayerID, "role") === Worker.ROLE_WORKER &&
 			ent.getMetadata(PlayerID, "plan") === undefined)
 		{

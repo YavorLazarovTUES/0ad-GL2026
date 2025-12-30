@@ -512,7 +512,8 @@ export function* generateMap(mapSettings)
 				new TileClassPainter(g_TileClasses.mountain)
 			]);
 
-		const getCoords = (distance, playerID, playerIDOffset) => {
+		const getCoords = (distance, playerID, playerIDOffset) =>
+		{
 			const angle = startAngle + (playerID + playerIDOffset) * 2 * Math.PI / numPlayers;
 			return Vector2D.add(mapCenter, new Vector2D(fractionToTiles(distance), 0).rotate(-angle))
 				.round();

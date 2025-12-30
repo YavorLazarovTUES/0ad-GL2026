@@ -67,7 +67,8 @@ class testResistance
 		TS_ASSERT(!this.cmpResistance.IsInvulnerable());
 
 		const cmpHealth = AddMock(this.EntityID, IID_Health, {
-			"TakeDamage": (amount, __, ___) => {
+			"TakeDamage": (amount, __, ___) =>
+			{
 				TS_ASSERT_EQUALS(amount, damage);
 				return { "healthChange": -amount };
 			}
@@ -113,7 +114,8 @@ class testResistance
 		});
 
 		const cmpHealth = AddMock(this.EntityID, IID_Health, {
-			"TakeDamage": (amount, __, ___) => {
+			"TakeDamage": (amount, __, ___) =>
+			{
 				TS_ASSERT_EQUALS(amount, damage * bonus);
 				return { "healthChange": -amount };
 			}
@@ -147,7 +149,8 @@ class testResistance
 		};
 
 		const cmpHealth = AddMock(this.EntityID, IID_Health, {
-			"TakeDamage": (amount, __, ___) => {
+			"TakeDamage": (amount, __, ___) =>
+			{
 				TS_ASSERT_EQUALS(amount, damage * Math.pow(0.9, resistanceValue));
 				return { "healthChange": -amount };
 			}
@@ -178,7 +181,8 @@ class testResistance
 		};
 
 		const cmpCapturable = AddMock(this.EntityID, IID_Capturable, {
-			"Capture": (amount, __, ___) => {
+			"Capture": (amount, __, ___) =>
+			{
 				TS_ASSERT_EQUALS(amount, damage * Math.pow(0.9, resistanceValue));
 				return { "captureChange": amount };
 			}
@@ -219,7 +223,8 @@ class testResistance
 		};
 
 		let cmpStatusEffectsReceiver = AddMock(this.EntityID, IID_StatusEffectsReceiver, {
-			"ApplyStatus": (effectData, __, ___) => {
+			"ApplyStatus": (effectData, __, ___) =>
+			{
 				TS_ASSERT_EQUALS(effectData[statusName].Duration, duration * durationFactor);
 				return { "inflictedStatuses": Object.keys(effectData) };
 			}
@@ -246,7 +251,8 @@ class testResistance
 		});
 
 		cmpStatusEffectsReceiver = AddMock(this.EntityID, IID_StatusEffectsReceiver, {
-			"ApplyStatus": (effectData, __, ___) => {
+			"ApplyStatus": (effectData, __, ___) =>
+			{
 				TS_ASSERT_UNEVAL_EQUALS(effectData, {});
 				return { "inflictedStatuses": Object.keys(effectData) };
 			}
@@ -289,7 +295,8 @@ class testResistance
 		};
 
 		cmpStatusEffectsReceiver = AddMock(this.EntityID, IID_StatusEffectsReceiver, {
-			"ApplyStatus": (effectData, __, ___) => {
+			"ApplyStatus": (effectData, __, ___) =>
+			{
 				TS_ASSERT_EQUALS(effectData[reducedStatusName].Duration, duration * durationFactor);
 				TS_ASSERT_UNEVAL_EQUALS(Object.keys(effectData), [reducedStatusName]);
 				return { "inflictedStatuses": Object.keys(effectData) };
@@ -337,7 +344,8 @@ class testResistance
 		});
 
 		const cmpHealth = AddMock(this.EntityID, IID_Health, {
-			"TakeDamage": (amount, __, ___) => {
+			"TakeDamage": (amount, __, ___) =>
+			{
 				TS_ASSERT_EQUALS(amount, damage * bonus * Math.pow(0.9, resistanceValue));
 				return { "healthChange": -amount };
 			}
@@ -382,13 +390,15 @@ class testResistance
 		});
 
 		const cmpCapturable = AddMock(this.EntityID, IID_Capturable, {
-			"Capture": (amount, __, ___) => {
+			"Capture": (amount, __, ___) =>
+			{
 				TS_ASSERT_EQUALS(amount, damage * bonus * Math.pow(0.9, captureResistanceValue));
 				return { "captureChange": amount };
 			}
 		});
 		const cmpHealth = AddMock(this.EntityID, IID_Health, {
-			"TakeDamage": (amount, __, ___) => {
+			"TakeDamage": (amount, __, ___) =>
+			{
 				TS_ASSERT_EQUALS(amount, damage * bonus);
 				return { "healthChange": -amount };
 			},

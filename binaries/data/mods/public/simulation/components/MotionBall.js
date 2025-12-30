@@ -3,12 +3,14 @@ function MotionBallScripted() {}
 MotionBallScripted.prototype.Schema =
 	"<a:component type='test'/><empty/>";
 
-MotionBallScripted.prototype.Init = function() {
+MotionBallScripted.prototype.Init = function()
+{
 	this.speedX = 0;
 	this.speedZ = 0;
 };
 
-MotionBallScripted.prototype.OnUpdate = function(msg) {
+MotionBallScripted.prototype.OnUpdate = function(msg)
+{
 	var dt = msg.turnLength;
 
 	var cmpPos = Engine.QueryInterface(this.entity, IID_Position);

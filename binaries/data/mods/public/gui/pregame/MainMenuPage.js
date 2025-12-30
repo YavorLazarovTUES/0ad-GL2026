@@ -19,7 +19,8 @@ function initCommunityButton(communityButtons)
 {
 	const buttons = Engine.GetGUIObjectByName("communityButtons").children;
 
-	communityButtons.forEach((buttonInfo, i) => {
+	communityButtons.forEach((buttonInfo, i) =>
+	{
 		const button = buttons[i];
 		button.hidden = false;
 		for (const propertyName in buttonInfo)

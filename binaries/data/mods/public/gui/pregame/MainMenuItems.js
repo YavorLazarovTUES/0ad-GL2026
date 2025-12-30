@@ -6,14 +6,16 @@ export const mainMenuItems = [
 			{
 				"caption": translate("Manual"),
 				"tooltip": translate("Open the 0 A.D. Game Manual."),
-				"onPress": () => {
+				"onPress": () =>
+				{
 					Engine.OpenChildPage("page_manual.xml");
 				}
 			},
 			{
 				"caption": translate("Tutorial"),
 				"tooltip": translate("Start the introductory tutorial."),
-				"onPress": () => {
+				"onPress": () =>
+				{
 					Engine.SwitchGuiPage("page_autostart.xml", {
 						"attribs": {
 							"mapType": "scenario",
@@ -43,7 +45,8 @@ export const mainMenuItems = [
 				"caption": translate("Structure Tree"),
 				"tooltip": colorizeHotkey(translate("%(hotkey)s: View the structure tree of civilizations featured in 0 A.D."), "structree"),
 				"hotkey": "structree",
-				"onPress": () => {
+				"onPress": () =>
+				{
 					pageLoop("page_structree.xml");
 				}
 			},
@@ -51,21 +54,24 @@ export const mainMenuItems = [
 				"caption": translate("Civilization Overview"),
 				"tooltip": colorizeHotkey(translate("%(hotkey)s: Learn about the civilizations featured in 0 A.D."), "civinfo"),
 				"hotkey": "civinfo",
-				"onPress": () => {
+				"onPress": () =>
+				{
 					pageLoop("page_civinfo.xml");
 				}
 			},
 			{
 				"caption": translate("Catafalque Overview"),
 				"tooltip": translate("Compare the bonuses of catafalques featured in 0 A.D."),
-				"onPress": () => {
+				"onPress": () =>
+				{
 					Engine.OpenChildPage("page_catafalque.xml");
 				}
 			},
 			{
 				"caption": translate("Map Overview"),
 				"tooltip": translate("View the different maps featured in 0 A.D."),
-				"onPress": () => {
+				"onPress": () =>
+				{
 					Engine.OpenChildPage("page_mapbrowser.xml");
 				}
 			}
@@ -74,12 +80,13 @@ export const mainMenuItems = [
 	{
 		"caption": translate("Continue Campaign"),
 		"tooltip": translate("Relive history through historical military campaigns."),
-		"onPress": () => {
+		"onPress": () =>
+		{
 			try
 			{
 				Engine.SwitchGuiPage(CampaignRun.getCurrentRun().getMenuPath());
 			}
-			catch (err)
+			catch(err)
 			{
 				error("Error opening campaign run:");
 				error(err.toString());
@@ -94,14 +101,16 @@ export const mainMenuItems = [
 			{
 				"caption": translate("Matches"),
 				"tooltip": translate("Start a new single-player game."),
-				"onPress": () => {
+				"onPress": () =>
+				{
 					Engine.SwitchGuiPage("page_gamesetup.xml");
 				}
 			},
 			{
 				"caption": translate("Load Game"),
 				"tooltip": translate("Load a saved game."),
-				"onPress": async() => {
+				"onPress": async() =>
+				{
 					const gameId = await Engine.OpenChildPage("page_loadgame.xml");
 
 					if (!gameId)
@@ -131,12 +140,13 @@ export const mainMenuItems = [
 			{
 				"caption": translate("Continue Campaign"),
 				"tooltip": translate("Relive history through historical military campaigns."),
-				"onPress": () => {
+				"onPress": () =>
+				{
 					try
 					{
 						Engine.SwitchGuiPage(CampaignRun.getCurrentRun().getMenuPath());
 					}
-					catch (err)
+					catch(err)
 					{
 						error("Error opening campaign run:");
 						error(err.toString());
@@ -147,14 +157,16 @@ export const mainMenuItems = [
 			{
 				"caption": translate("New Campaign"),
 				"tooltip": translate("Relive history through historical military campaigns."),
-				"onPress": () => {
+				"onPress": () =>
+				{
 					Engine.SwitchGuiPage("campaigns/setup/page.xml");
 				}
 			},
 			{
 				"caption": translate("Load Campaign"),
 				"tooltip": translate("Relive history through historical military campaigns."),
-				"onPress": () => {
+				"onPress": () =>
+				{
 					// Switch instead of push, otherwise the 'continue'
 					// button might remain enabled.
 					// TODO: find a better solution.
@@ -164,7 +176,8 @@ export const mainMenuItems = [
 			{
 				"caption": translate("Replays"),
 				"tooltip": translate("Playback previous games."),
-				"onPress": () => {
+				"onPress": () =>
+				{
 					Engine.SwitchGuiPage("page_replaymenu.xml", {
 						"replaySelectionData": {
 							"filters": {
@@ -187,7 +200,8 @@ export const mainMenuItems = [
 					(Engine.StartXmppClient ? "" : translate("Launch the multiplayer lobby. \\[DISABLED BY BUILD]")),
 				"enabled": () => !!Engine.StartXmppClient,
 				"hotkey": "lobby",
-				"onPress": () => {
+				"onPress": () =>
+				{
 					if (Engine.StartXmppClient)
 						Engine.OpenChildPage("page_prelobby_entrance.xml");
 				}
@@ -219,7 +233,8 @@ export const mainMenuItems = [
 			{
 				"caption": translate("Replays"),
 				"tooltip": translate("Playback previous games."),
-				"onPress": () => {
+				"onPress": () =>
+				{
 					Engine.SwitchGuiPage("page_replaymenu.xml", {
 						"replaySelectionData": {
 							"filters": {
@@ -238,35 +253,40 @@ export const mainMenuItems = [
 			{
 				"caption": translate("Options"),
 				"tooltip": translate("Adjust game settings."),
-				"onPress": async() => {
+				"onPress": async() =>
+				{
 					fireConfigChangeHandlers(await Engine.OpenChildPage("page_options.xml"));
 				}
 			},
 			{
 				"caption": translate("Hotkeys"),
 				"tooltip": translate("Adjust hotkeys."),
-				"onPress": () => {
+				"onPress": () =>
+				{
 					Engine.OpenChildPage("hotkeys/page_hotkeys.xml");
 				}
 			},
 			{
 				"caption": translate("Language"),
 				"tooltip": translate("Choose the language of the game."),
-				"onPress": () => {
+				"onPress": () =>
+				{
 					Engine.OpenChildPage("page_locale.xml");
 				}
 			},
 			{
 				"caption": translate("Mod Selection"),
 				"tooltip": translate("Select and download mods for the game."),
-				"onPress": () => {
+				"onPress": () =>
+				{
 					Engine.SwitchGuiPage("page_modmod.xml");
 				}
 			},
 			{
 				"caption": translate("Welcome Screen"),
 				"tooltip": translate("Show the Welcome Screen again. Useful if you hid it by mistake."),
-				"onPress": () => {
+				"onPress": () =>
+				{
 					Engine.OpenChildPage("page_splashscreen.xml");
 				}
 			}
@@ -275,7 +295,8 @@ export const mainMenuItems = [
 	{
 		"caption": translate("Scenario Editor"),
 		"tooltip": translate('Open the Atlas Scenario Editor in a new window. You can run this more reliably by starting the game with the command-line argument "-editor".'),
-		"onPress": async(closePageCallback) => {
+		"onPress": async(closePageCallback) =>
+		{
 			if (!Engine.AtlasIsAvailable())
 			{
 				messageBox(
@@ -298,14 +319,16 @@ export const mainMenuItems = [
 	{
 		"caption": translate("Credits"),
 		"tooltip": translate("Show the 0 A.D. credits."),
-		"onPress": () => {
+		"onPress": () =>
+		{
 			Engine.OpenChildPage("page_credits.xml");
 		}
 	},
 	{
 		"caption": translate("Exit"),
 		"tooltip": translate("Exit the game."),
-		"onPress": async(closePageCallback) => {
+		"onPress": async(closePageCallback) =>
+		{
 			const buttonIndex = await messageBox(
 				400, 200,
 				translate("Are you sure you want to quit 0 A.D.?"),

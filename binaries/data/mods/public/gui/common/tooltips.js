@@ -14,7 +14,8 @@ var g_ShowSecondaryNames = Engine.ConfigDB_GetValue("user", "gui.session.howtosh
 
 function initDisplayedNames()
 {
-	registerConfigChangeHandler(changes => {
+	registerConfigChangeHandler(changes =>
+	{
 		if (changes.has("gui.session.howtoshownames"))
 			updateDisplayedNames();
 	});
@@ -269,7 +270,8 @@ function getStatusEffectsResistanceTooltip(resistanceTypeTemplate)
 		"label": headerFont(translate("Status Effects:")),
 		"details":
 			Object.keys(resistanceTypeTemplate).map(
-				statusEffect => {
+				statusEffect =>
+				{
 					if (resistanceTypeTemplate[statusEffect].blockChance == 1)
 						return sprintf(translate("Blocks %(name)s"), {
 							"name": unitFont(translateWithContext("status effect", g_StatusEffectsMetadata.getName(statusEffect)))

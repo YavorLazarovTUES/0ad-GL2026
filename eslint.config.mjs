@@ -3,7 +3,6 @@
 // [1] https://nodejs.org/api/esm.html#esm_no_node_path
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const braceRules = require("eslint-plugin-brace-rules");
 const stylistic = require("@stylistic/eslint-plugin");
 
 
@@ -123,6 +122,7 @@ const configStylistic = {
 	},
 
 	"rules": {
+		"@stylistic/brace-style": ["warn", "allman", { "allowSingleLine": true }],
 		"@stylistic/comma-spacing": "warn",
 		"@stylistic/indent": ["warn", "tab", { "outerIIFEBody": "off" }],
 		"@stylistic/key-spacing": "warn",
@@ -147,41 +147,9 @@ const configStylistic = {
 };
 
 
-const configBracesRules = {
-	"plugins": {
-		"brace-rules": braceRules
-	},
-
-	"rules": {
-		"brace-rules/brace-on-same-line": [
-			"warn",
-			{
-				"FunctionDeclaration": "never",
-				"FunctionExpression": "ignore",
-				"ArrowFunctionExpression": "always",
-				"IfStatement": "never",
-				"TryStatement": "ignore",
-				"CatchClause": "ignore",
-				"DoWhileStatement": "never",
-				"WhileStatement": "never",
-				"ForStatement": "never",
-				"ForInStatement": "never",
-				"ForOfStatement": "never",
-				"SwitchStatement": "never",
-			},
-			{
-				"allowSingleLine": true,
-			}
-		],
-	}
-};
-
-
 const configs = [configIgnores, configEslintRecommended];
 Object.assign(configs[1].rules, configEslintExtra.rules);
-configs[1].plugins = { ...configBracesRules.plugins };
-Object.assign(configs[1].rules, configBracesRules.rules);
-Object.assign(configs[1].plugins, configStylistic.plugins);
+configs[1].plugins = { ...configStylistic.plugins };
 Object.assign(configs[1].rules, configStylistic.rules);
 
 export default configs;

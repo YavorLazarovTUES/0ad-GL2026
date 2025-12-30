@@ -172,7 +172,8 @@ TransportPlan.prototype.assignShip = function(gameState)
 	// and choose the nearest available ship from this unit
 	let distmin = Math.min();
 	let nearest;
-	gameState.ai.HQ.navalManager.seaTransportShips[this.sea].forEach(ship => {
+	gameState.ai.HQ.navalManager.seaTransportShips[this.sea].forEach(ship =>
+	{
 		if (ship.getMetadata(PlayerID, "transporter"))
 			return;
 		if (pos)

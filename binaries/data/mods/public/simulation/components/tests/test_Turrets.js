@@ -15,7 +15,8 @@ const friendlyPlayer = 3;
 const turret = 10;
 const holder = 11;
 
-const createTurretCmp = entity => {
+const createTurretCmp = entity =>
+{
 	AddMock(entity, IID_Identity, {
 		"GetClassesList": () => ["Ranged"],
 		"GetSelectionGroupName": () => "mace_infantry_archer_a"

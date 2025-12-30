@@ -2,7 +2,8 @@ Resources = {
 	"GetCodes": () => ["food", "metal", "stone", "wood"],
 	"GetTradableCodes": () => ["food", "metal", "stone", "wood"],
 	"GetBarterableCodes": () => ["food", "metal", "stone", "wood"],
-	"BuildSchema": () => {
+	"BuildSchema": () =>
+	{
 		let schema = "";
 		for (const res of ["food", "metal"])
 		{
@@ -12,7 +13,8 @@ Resources = {
 		}
 		return "<choice>" + schema + "</choice>";
 	},
-	"GetResource": (type) => {
+	"GetResource": (type) =>
+	{
 		return {
 			"subtypes": {
 				"meat": "meat",

@@ -3,7 +3,8 @@ Resources = {
 	"GetTradableCodes": () => ["food", "metal"],
 	"GetBarterableCodes": () => ["food", "metal"],
 	"GetResource": () => ({}),
-	"BuildSchema": (type) => {
+	"BuildSchema": (type) =>
+	{
 		let schema = "";
 		for (const res of Resources.GetCodes())
 			schema +=
@@ -66,7 +67,8 @@ cmpTimer.OnUpdate({ "turnLength": turnLength });
 TS_ASSERT_UNEVAL_EQUALS(cmpPlayer.GetResourceCounts(), { "food": 300, "metal": 300 });
 
 // Test that only trickling food works.
-ApplyValueModificationsToEntity = (valueName, currentValue, entity) => {
+ApplyValueModificationsToEntity = (valueName, currentValue, entity) =>
+{
 	if (valueName == "ResourceTrickle/Rates/food")
 		return currentValue + 1;
 
@@ -89,7 +91,8 @@ TS_ASSERT_EQUALS(cmpResourceTrickle.ComputeRates(), false);
 cmpTimer.OnUpdate({ "turnLength": turnLength });
 TS_ASSERT_UNEVAL_EQUALS(cmpPlayer.GetResourceCounts(), { "food": 301, "metal": 300 });
 
-ApplyValueModificationsToEntity = (valueName, currentValue, entity) => {
+ApplyValueModificationsToEntity = (valueName, currentValue, entity) =>
+{
 	if (valueName == "ResourceTrickle/Interval")
 		return currentValue + 200;
 	if (valueName == "ResourceTrickle/Rates/food")
@@ -106,7 +109,8 @@ cmpTimer.OnUpdate({ "turnLength": turnLength });
 TS_ASSERT_UNEVAL_EQUALS(cmpPlayer.GetResourceCounts(), { "food": 302, "metal": 300 });
 
 // Interval becomes a normal timer, thus cancelled after the first execution.
-ApplyValueModificationsToEntity = (valueName, currentValue, entity) => {
+ApplyValueModificationsToEntity = (valueName, currentValue, entity) =>
+{
 	if (valueName == "ResourceTrickle/Interval")
 		return currentValue - 200;
 	if (valueName == "ResourceTrickle/Rates/food")
@@ -125,7 +129,8 @@ cmpTimer.OnUpdate({ "turnLength": turnLength });
 TS_ASSERT_UNEVAL_EQUALS(cmpPlayer.GetResourceCounts(), { "food": 303, "metal": 300 });
 
 // Timer became invalidated, check whether it's recreated properly after that.
-ApplyValueModificationsToEntity = (valueName, currentValue, entity) => {
+ApplyValueModificationsToEntity = (valueName, currentValue, entity) =>
+{
 	if (valueName == "ResourceTrickle/Interval")
 		return currentValue - 100;
 	if (valueName == "ResourceTrickle/Rates/food")
@@ -144,7 +149,8 @@ cmpTimer.OnUpdate({ "turnLength": turnLength });
 TS_ASSERT_UNEVAL_EQUALS(cmpPlayer.GetResourceCounts(), { "food": 309, "metal": 300 });
 
 // Value is now invalid, timer should be cancelled.
-ApplyValueModificationsToEntity = (valueName, currentValue, entity) => {
+ApplyValueModificationsToEntity = (valueName, currentValue, entity) =>
+{
 	if (valueName == "ResourceTrickle/Interval")
 		return currentValue - 201;
 	if (valueName == "ResourceTrickle/Rates/food")
@@ -161,7 +167,8 @@ cmpTimer.OnUpdate({ "turnLength": turnLength });
 TS_ASSERT_UNEVAL_EQUALS(cmpPlayer.GetResourceCounts(), { "food": 309, "metal": 300 });
 
 // Timer became invalidated, check whether it's recreated properly after that.
-ApplyValueModificationsToEntity = (valueName, currentValue, entity) => {
+ApplyValueModificationsToEntity = (valueName, currentValue, entity) =>
+{
 	if (valueName == "ResourceTrickle/Rates/food")
 		return currentValue + 1;
 

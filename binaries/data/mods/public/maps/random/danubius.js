@@ -457,14 +457,16 @@ export function* generateMap(mapSettings)
 		"heightLand": heightLand,
 		"meanderShort": 30,
 		"meanderLong": 0,
-		"waterFunc": (position, height, riverFraction) => {
+		"waterFunc": (position, height, riverFraction) =>
+		{
 			const origPos = position.clone().rotateAround(-startAngle, mapCenter);
 			// Distinguish left and right shoreline
 			if (height > 0 && height < 1 &&
 				origPos.y > ShorelineDistance && origPos.y < mapSize - ShorelineDistance)
 				clShore[origPos.x < mapCenter.x ? 0 : 1].add(position);
 		},
-		"landFunc": (position, shoreDist1, shoreDist2) => {
+		"landFunc": (position, shoreDist1, shoreDist2) =>
+		{
 
 			if (shoreDist1 > 0)
 				clLand[0].add(position);

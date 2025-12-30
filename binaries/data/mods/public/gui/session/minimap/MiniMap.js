@@ -12,7 +12,8 @@ class MiniMap
 		this.miniMap.onMouseLeave = this.onMouseLeave.bind(this);
 		this.mouseIsOverMiniMap = false;
 		this.updateFlareLifetime();
-		registerConfigChangeHandler(changes => {
+		registerConfigChangeHandler(changes =>
+		{
 			if (changes.has("gui.session.flarelifetime"))
 				this.updateFlareLifetime();
 		});

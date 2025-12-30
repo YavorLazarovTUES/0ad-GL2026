@@ -10,7 +10,8 @@ const techKey = "Attack/BigAttack";
 const otherKey = "Other/Key";
 
 AddMock(SYSTEM_ENTITY, IID_ModifiersManager, {
-	"ApplyModifiers": (key, val, ent) => {
+	"ApplyModifiers": (key, val, ent) =>
+	{
 		if (key != techKey)
 			return val;
 		if (ent == playerEnt)

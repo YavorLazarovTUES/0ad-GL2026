@@ -512,7 +512,8 @@ TriggerHelper.BalancedTemplateComposition = function(templateBalancing, totalCou
 	// Helper function to add randomized templates to the result
 	let remainder = totalCount;
 	const results = {};
-	const addTemplates = (templateNames, count) => {
+	const addTemplates = (templateNames, count) =>
+	{
 		const templateCounts = TriggerHelper.RandomTemplateComposition(templateNames, count);
 		for (const templateName in templateCounts)
 		{

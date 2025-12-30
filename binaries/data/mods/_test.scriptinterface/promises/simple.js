@@ -13,7 +13,8 @@ async function waitAndIncrement(promise)
 
 {
 	let resolve;
-	const promise = new Promise(res => {
+	const promise = new Promise(res =>
+	{
 		incrementTest();
 		resolve = res;
 	});

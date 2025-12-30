@@ -190,7 +190,8 @@ function sanitizeInitAttributes(attribs)
 	if (attribs.settings.PlayerData.length && attribs.settings.PlayerData[0] == null)
 		attribs.settings.PlayerData.shift();
 
-	attribs.settings.PlayerData.forEach((pData, index) => {
+	attribs.settings.PlayerData.forEach((pData, index) =>
+	{
 		if (!pData.Name)
 			pData.Name = "";
 	});
@@ -229,7 +230,8 @@ function displayReplayList()
 
 	filterReplays();
 
-	var list = g_ReplaysFiltered.map(replay => {
+	var list = g_ReplaysFiltered.map(replay =>
+	{
 		const works = replay.isCompatible;
 		return {
 			"directories": replay.directory,

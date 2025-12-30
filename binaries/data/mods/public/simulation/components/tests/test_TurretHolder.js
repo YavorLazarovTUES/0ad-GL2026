@@ -137,7 +137,8 @@ cmpTurretHolder = ConstructComponent(turretHolderID, "TurretHolder", {
 });
 
 let spawned = 100;
-Engine.AddEntity = function() {
+Engine.AddEntity = function()
+{
 	++spawned;
 	if (spawned > 101)
 	{
@@ -186,7 +187,8 @@ cmpTurretHolder.OnOwnershipChanged({
 TS_ASSERT(cmpTurretHolder.OccupiesTurretPoint(spawned));
 
 // Normal turret creation.
-Engine.AddEntity = function(t) {
+Engine.AddEntity = function(t)
+{
 	++spawned;
 	// Check that we're using the upgraded template.
 	TS_ASSERT(t, "units/iber/cavalry_javelineer_a");

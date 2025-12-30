@@ -1,7 +1,9 @@
 import { logger } from 'tools/dap/logger.js';
 
-export class JsDebugger {
-	constructor() {
+export class JsDebugger
+{
+	constructor()
+	{
 		this.debugger = new Debugger();
 		this.logger = logger.getLogger("SpiderDebugger");
 		this.events = [];
@@ -19,30 +21,36 @@ export class JsDebugger {
 			'onRsumeInFrame': [],
 		};
 
-		this.debugger.uncaughtExceptionHook = (e) => {
+		this.debugger.uncaughtExceptionHook = (e) =>
+		{
 			this._runHooks('onUncaughtException', e);
 		};
 
-		this.debugger.onNewGlobalObject = (global) => {
+		this.debugger.onNewGlobalObject = (global) =>
+		{
 			this._runHooks('onNewGlobalObject', global);
 		};
 
-		this.debugger.onDebuggerStatement = (frame) => {
+		this.debugger.onDebuggerStatement = (frame) =>
+		{
 			this._runHooks('onDebuggerStatement', frame);
 		};
 
-		this.debugger.onNewScript = (script, global) => {
+		this.debugger.onNewScript = (script, global) =>
+		{
 			this._runHooks('onNewScript', { script, global });
 		};
 
-		this.debugger.onEnterFrame = (frame) => {
+		this.debugger.onEnterFrame = (frame) =>
+		{
 			this._runHooks('onEnterFrame', frame);
 		};
 
 		this.debuggerAttached = false;
 	}
 
-	_runHooks(event, data) {
+	_runHooks(event, data)
+	{
 		this.logger.trace(`Running hook for ${event}`);
 		for (const hookInfo of this.hooks[event])
 		{
@@ -53,16 +61,20 @@ export class JsDebugger {
 				continue;
 			}
 
-			try {
+			try
+			{
 				hookInfo.callback(data);
-			} catch (e) {
+			}
+			catch(e)
+			{
 				this.logger.error(`Error in hook for ${hookInfo.source}-${event}: ${e.message}`);
 				this.logger.error(uneval(e.stack));
 			}
 		}
 	}
 
-	on(event, callback, source) {
+	on(event, callback, source)
+	{
 		if (!event || typeof event !== 'string')
 		{
 			this.logger.warn('Invalid event name');
@@ -90,11 +102,13 @@ export class JsDebugger {
 		this.logger.debug(`Hook added for event: ${event}`);
 	}
 
-	get instance() {
+	get instance()
+	{
 		return this.debugger;
 	}
 
-	setAttached(attached) {
+	setAttached(attached)
+	{
 		this.debuggerAttached = attached;
 		if (attached)
 		{
@@ -108,7 +122,8 @@ export class JsDebugger {
 		}
 	}
 
-	pushEvent(eventName, eventData, source) {
+	pushEvent(eventName, eventData, source)
+	{
 		if (!eventName || typeof eventName !== 'string')
 		{
 			this.logger.warn('Invalid event name');
@@ -128,7 +143,8 @@ export class JsDebugger {
 		});
 	}
 
-	stopInframe(frame, onHandler) {
+	stopInframe(frame, onHandler)
+	{
 		if (!frame || !(frame instanceof Debugger.Frame))
 		{
 			this.logger.error('Invalid frame provided to stopInframe');
@@ -150,7 +166,8 @@ export class JsDebugger {
 		this.logger.debug("Client continue");
 	}
 
-	registerHookName(event, source) {
+	registerHookName(event, source)
+	{
 		if (!event || typeof event !== 'string')
 		{
 			this.logger.warn('Invalid event name');
@@ -173,7 +190,8 @@ export class JsDebugger {
 		this.logger.debug(`Hook registered for event: ${event} from source: ${source}`);
 	}
 
-	triggerHook(event, data) {
+	triggerHook(event, data)
+	{
 		if (!event || typeof event !== 'string')
 		{
 			this.logger.warn('Invalid event name');

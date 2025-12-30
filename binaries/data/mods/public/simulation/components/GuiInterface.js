@@ -868,7 +868,8 @@ GuiInterface.prototype.GetFormationInfoFromTemplate = function(player, data)
 
 GuiInterface.prototype.IsFormationSelected = function(player, data)
 {
-	return data.ents.some(ent => {
+	return data.ents.some(ent =>
+	{
 		const cmpUnitAI = Engine.QueryInterface(ent, IID_UnitAI);
 		return cmpUnitAI && cmpUnitAI.GetFormationTemplate() == data.formationTemplate;
 	});
@@ -903,7 +904,8 @@ GuiInterface.prototype.GetAllBuildableEntities = function(player, cmd)
 
 GuiInterface.prototype.UpdateDisplayedPlayerColors = function(player, data)
 {
-	const updateEntityColor = (iids, entities) => {
+	const updateEntityColor = (iids, entities) =>
+	{
 		for (const ent of entities)
 			for (const iid of iids)
 			{
@@ -1986,7 +1988,8 @@ GuiInterface.prototype.SetObstructionDebugOverlay = function(player, enabled)
 
 GuiInterface.prototype.SetMotionDebugOverlay = function(player, data)
 {
-	data.entities.forEach(ent => {
+	data.entities.forEach(ent =>
+	{
 		Engine.QueryInterface(ent, IID_UnitMotion)?.SetDebugOverlay(data.enabled);
 	});
 };

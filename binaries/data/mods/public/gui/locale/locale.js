@@ -3,7 +3,8 @@ function init()
 	var languageList = Engine.GetGUIObjectByName("languageList");
 	const displayLanguages = Engine.GetSupportedLocaleDisplayNames();
 	const displayLanguagesData = Engine.GetSupportedLocaleBaseNames();
-	languageList.list = displayLanguages.map((name, index) => {
+	languageList.list = displayLanguages.map((name, index) =>
+	{
 		return `[locale="${displayLanguagesData[index]}"]${name}[/locale]`;
 	});
 	languageList.list_data = displayLanguagesData;
@@ -18,7 +19,8 @@ function init()
 	var localeText = Engine.GetGUIObjectByName("localeText");
 	localeText.caption = currentLocale;
 
-	return new Promise(closePageCallback => {
+	return new Promise(closePageCallback =>
+	{
 		Engine.GetGUIObjectByName("cancelButton").onPress = closePageCallback;
 	});
 }

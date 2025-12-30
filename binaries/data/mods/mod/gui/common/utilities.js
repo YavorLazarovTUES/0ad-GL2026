@@ -23,8 +23,10 @@ function distributeButtonsHorizontally(button, captions)
 
 function setButtonCaptionsAndVisibility(buttons, captions, cancelHotkey, name)
 {
-	return new Promise(resolve => {
-		captions.forEach((caption, i) => {
+	return new Promise(resolve =>
+	{
+		captions.forEach((caption, i) =>
+		{
 			buttons[i] = Engine.GetGUIObjectByName(name + (i + 1));
 			buttons[i].caption = caption;
 			buttons[i].hidden = false;

@@ -2,11 +2,13 @@ function Modding() {}
 
 Modding.prototype.Schema = "<ref name='anything'/>";
 
-Modding.prototype.Init = function() {
+Modding.prototype.Init = function()
+{
 	this.x = +this.template.x;
 };
 
-Modding.prototype.GetX = function() {
+Modding.prototype.GetX = function()
+{
 	return this.x;
 };
 

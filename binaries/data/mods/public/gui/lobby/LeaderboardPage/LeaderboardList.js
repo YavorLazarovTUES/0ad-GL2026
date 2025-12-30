@@ -47,7 +47,8 @@ class LeaderboardList
 		const list_rank = [];
 		const list_rating = [];
 
-		boardList.forEach((entry, i) => {
+		boardList.forEach((entry, i) =>
+		{
 			list_name.push(escapeText(entry.name));
 			list_rating.push(entry.rating);
 			list_rank.push(i + 1);

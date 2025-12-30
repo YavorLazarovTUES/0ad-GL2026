@@ -1,13 +1,13 @@
 function SkirmishReplacer() {}
 
 SkirmishReplacer.prototype.Schema =
-		"<optional>" +
-			"<element name='general' a:help='The general element replaces {civ} with the civ code.'>" +
-				"<interleave>" +
-					"<text/>" +
-				"</interleave>" +
-			"</element>" +
-		"</optional>";
+	"<optional>" +
+		"<element name='general' a:help='The general element replaces {civ} with the civ code.'>" +
+			"<interleave>" +
+				"<text/>" +
+			"</interleave>" +
+		"</element>" +
+	"</optional>";
 
 SkirmishReplacer.prototype.Init = function()
 {

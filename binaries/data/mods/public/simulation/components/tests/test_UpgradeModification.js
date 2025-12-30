@@ -2,7 +2,8 @@ Engine.LoadHelperScript("Player.js");
 Engine.LoadHelperScript("Requirements.js");
 Engine.LoadHelperScript("ValueModification.js");
 Resources = {
-	"BuildSchema": type => {
+	"BuildSchema": type =>
+	{
 		let schema = "";
 		for (const res of ["food", "metal", "stone", "wood"])
 			schema +=
@@ -92,7 +93,8 @@ AddMock(SYSTEM_ENTITY, IID_Timer, {
 });
 
 AddMock(SYSTEM_ENTITY, IID_ModifiersManager, {
-	"ApplyTemplateModifiers": (valueName, curValue, templ, player) => {
+	"ApplyTemplateModifiers": (valueName, curValue, templ, player) =>
+	{
 		// Called in helpers/ValueModification.js::ApplyValueModificationsToTemplate()
 		// as part of Tests T2 and T5 below.
 		const mods = isResearched ? templateTechModifications.with : templateTechModifications.without;
@@ -101,7 +103,8 @@ AddMock(SYSTEM_ENTITY, IID_ModifiersManager, {
 			return GetTechModifiedProperty(mods[valueName], GetIdentityClasses(template.Identity), curValue);
 		return curValue;
 	},
-	"ApplyModifiers": (valueName, curValue, ent) => {
+	"ApplyModifiers": (valueName, curValue, ent) =>
+	{
 		// Called in helpers/ValueModification.js::ApplyValueModificationsToEntity()
 		// as part of Tests T3, T6 and T7 below.
 		const mods = isResearched ? entityTechModifications.with : entityTechModifications.without;

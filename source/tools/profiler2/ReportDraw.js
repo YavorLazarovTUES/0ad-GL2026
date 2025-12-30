@@ -1,4 +1,4 @@
-// Copyright (C) 2025 Wildfire Games.
+// Copyright (C) 2026 Wildfire Games.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -141,7 +141,8 @@ function display_frames(data, canvas, range)
 		canvas._tooltips.push({
 			'x0': x0, 'x1': x1,
 			'y0': y0, 'y1': y1,
-			'text': function() {
+			'text': function()
+			{
 				var t = '<b>Frame</b><br>';
 				t += 'Length: ' + time_label(duration) + '<br>';
 				if (frame.attrs)
@@ -218,11 +219,13 @@ function display_events(data, canvas)
 		canvas._tooltips.push({
 			'x0': x0, 'x1': x1,
 			'y0': y0, 'y1': y1,
-			'text': function() {
+			'text': function()
+			{
 				var t = '<b>' + event.id + '</b><br>';
 				if (event.attrs)
 				{
-					event.attrs.forEach(function(attr) {
+					event.attrs.forEach(function(attr)
+					{
 						t += attr + '<br>';
 					});
 				}
@@ -339,12 +342,14 @@ function display_hierarchy(main_data, data, canvas, range, zoom)
 		canvas._tooltips.push({
 			'x0': x0, 'x1': x1,
 			'y0': y0, 'y1': y1,
-			'text': function() {
+			'text': function()
+			{
 				var t = '<b>' + interval.id + '</b><br>';
 				t += 'Length: ' + time_label(interval.duration) + '<br>';
 				if (interval.attrs)
 				{
-					interval.attrs.forEach(function(attr) {
+					interval.attrs.forEach(function(attr)
+					{
 						t += attr + '<br>';
 					});
 				}

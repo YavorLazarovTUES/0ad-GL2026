@@ -15,7 +15,8 @@ const template = {
 };
 
 AddMock(SYSTEM_ENTITY, IID_TemplateManager, {
-	"GetTemplate": (name) => {
+	"GetTemplate": (name) =>
+	{
 		return name == "special/spy" ?
 			{
 				"Cost": { "Resources": { "wood": 1000 } },

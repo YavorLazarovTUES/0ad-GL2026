@@ -56,47 +56,57 @@ var g_NetworkOutOfSyncHandlers = new Set();
  * Handle all netmessage types that can occur.
  */
 var g_NetMessageTypes = {
-	"netstatus": msg => {
+	"netstatus": msg =>
+	{
 		handleNetStatusMessage(msg);
 	},
-	"netwarn": msg => {
+	"netwarn": msg =>
+	{
 		addNetworkWarning(msg);
 	},
-	"out-of-sync": msg => {
+	"out-of-sync": msg =>
+	{
 		for (const handler of g_NetworkOutOfSyncHandlers)
 			handler(msg);
 	},
-	"players": msg => {
+	"players": msg =>
+	{
 		handlePlayerAssignmentsMessage(msg);
 	},
-	"paused": msg => {
+	"paused": msg =>
+	{
 		g_PauseControl.setClientPauseState(msg.guid, msg.pause);
 	},
-	"clients-loading": msg => {
+	"clients-loading": msg =>
+	{
 		for (const handler of g_ClientsLoadingHandlers)
 			handler(msg.guids);
 	},
-	"rejoined": msg => {
+	"rejoined": msg =>
+	{
 		addChatMessage({
 			"type": "rejoined",
 			"guid": msg.guid
 		});
 	},
-	"kicked": msg => {
+	"kicked": msg =>
+	{
 		addChatMessage({
 			"type": "kicked",
 			"username": msg.username,
 			"banned": msg.banned
 		});
 	},
-	"chat": msg => {
+	"chat": msg =>
+	{
 		addChatMessage({
 			"type": "message",
 			"guid": msg.guid,
 			"text": msg.text
 		});
 	},
-	"flare": msg => {
+	"flare": msg =>
+	{
 		handleFlare(msg);
 	},
 	"gamesetup": msg => {}, // Needed for autostart
@@ -116,182 +126,182 @@ var g_LastAttack;
  * handled in the same turn can't access the GUI objects anymore.
  */
 var g_NotificationsTypes =
-{
-	"aichat": function(notification, player)
 	{
-		const message = {
-			"type": "message",
-			"text": notification.message,
-			"guid": findGuidForPlayerID(player) || -1,
-			"player": player,
-			"translate": true
-		};
-
-		if (notification.translateParameters)
+		"aichat": function(notification, player)
 		{
-			message.translateParameters = notification.translateParameters;
-			message.parameters = notification.parameters;
-			colorizePlayernameParameters(notification.parameters);
-		}
+			const message = {
+				"type": "message",
+				"text": notification.message,
+				"guid": findGuidForPlayerID(player) || -1,
+				"player": player,
+				"translate": true
+			};
 
-		addChatMessage(message);
-	},
-	"defeat": function(notification, player)
-	{
-		playersFinished(notification.allies, notification.message, false);
-	},
-	"won": function(notification, player)
-	{
-		playersFinished(notification.allies, notification.message, true);
-	},
-	"diplomacy": function(notification, player)
-	{
-		updatePlayerData();
-		g_DiplomacyColors.onDiplomacyChange();
+			if (notification.translateParameters)
+			{
+				message.translateParameters = notification.translateParameters;
+				message.parameters = notification.parameters;
+				colorizePlayernameParameters(notification.parameters);
+			}
 
-		addChatMessage({
-			"type": "diplomacy",
-			"sourcePlayer": player,
-			"targetPlayer": notification.targetPlayer,
-			"status": notification.status
-		});
-	},
-	"ceasefire-ended": function(notification, player)
-	{
-		updatePlayerData();
-		for (const handler of g_CeasefireEndedHandlers)
-			handler();
-	},
-	"tutorial": function(notification, player)
-	{
-		updateTutorial(notification);
-	},
-	"tribute": function(notification, player)
-	{
-		addChatMessage({
-			"type": "tribute",
-			"sourcePlayer": notification.donator,
-			"targetPlayer": player,
-			"amounts": notification.amounts
-		});
-	},
-	"barter": function(notification, player)
-	{
-		addChatMessage({
-			"type": "barter",
-			"player": player,
-			"amountGiven": notification.amountGiven,
-			"amountGained": notification.amountGained,
-			"resourceGiven": notification.resourceGiven,
-			"resourceGained": notification.resourceGained
-		});
-	},
-	"spy-response": function(notification, player)
-	{
-		g_DiplomacyDialog.onSpyResponse(notification, player);
-
-		if (notification.entity && g_ViewedPlayer == player && (!g_IsObserver || g_FollowPlayer))
+			addChatMessage(message);
+		},
+		"defeat": function(notification, player)
 		{
-			g_DiplomacyDialog.close();
-			setCameraFollow(notification.entity);
-		}
-	},
-	"attack": function(notification, player)
-	{
-		if (player != g_ViewedPlayer)
-			return;
-
-		// Focus camera on attacks
-		if (g_FollowPlayer)
+			playersFinished(notification.allies, notification.message, false);
+		},
+		"won": function(notification, player)
 		{
-			setCameraFollow(notification.target);
+			playersFinished(notification.allies, notification.message, true);
+		},
+		"diplomacy": function(notification, player)
+		{
+			updatePlayerData();
+			g_DiplomacyColors.onDiplomacyChange();
 
-			g_Selection.reset();
-			if (notification.target)
-				g_Selection.addList([notification.target]);
-		}
+			addChatMessage({
+				"type": "diplomacy",
+				"sourcePlayer": player,
+				"targetPlayer": notification.targetPlayer,
+				"status": notification.status
+			});
+		},
+		"ceasefire-ended": function(notification, player)
+		{
+			updatePlayerData();
+			for (const handler of g_CeasefireEndedHandlers)
+				handler();
+		},
+		"tutorial": function(notification, player)
+		{
+			updateTutorial(notification);
+		},
+		"tribute": function(notification, player)
+		{
+			addChatMessage({
+				"type": "tribute",
+				"sourcePlayer": notification.donator,
+				"targetPlayer": player,
+				"amounts": notification.amounts
+			});
+		},
+		"barter": function(notification, player)
+		{
+			addChatMessage({
+				"type": "barter",
+				"player": player,
+				"amountGiven": notification.amountGiven,
+				"amountGained": notification.amountGained,
+				"resourceGiven": notification.resourceGiven,
+				"resourceGained": notification.resourceGained
+			});
+		},
+		"spy-response": function(notification, player)
+		{
+			g_DiplomacyDialog.onSpyResponse(notification, player);
 
-		g_LastAttack = { "target": notification.target, "position": notification.position };
+			if (notification.entity && g_ViewedPlayer == player && (!g_IsObserver || g_FollowPlayer))
+			{
+				g_DiplomacyDialog.close();
+				setCameraFollow(notification.entity);
+			}
+		},
+		"attack": function(notification, player)
+		{
+			if (player != g_ViewedPlayer)
+				return;
 
-		if (Engine.ConfigDB_GetValue("user", "gui.session.notifications.attack") !== "true")
-			return;
+			// Focus camera on attacks
+			if (g_FollowPlayer)
+			{
+				setCameraFollow(notification.target);
 
-		addChatMessage({
-			"type": "attack",
-			"player": player,
-			"attacker": notification.attacker,
-			"target": notification.target,
-			"position": notification.position,
-			"targetIsDomesticAnimal": notification.targetIsDomesticAnimal
-		});
-	},
-	"phase": function(notification, player)
-	{
-		addChatMessage({
-			"type": "phase",
-			"player": player,
-			"phaseName": notification.phaseName,
-			"phaseState": notification.phaseState
-		});
-	},
-	"dialog": function(notification, player)
-	{
-		if (player == Engine.GetPlayerID())
-			openDialog(notification.dialogName, notification.data, player);
-	},
-	"playercommand": function(notification, player)
-	{
+				g_Selection.reset();
+				if (notification.target)
+					g_Selection.addList([notification.target]);
+			}
+
+			g_LastAttack = { "target": notification.target, "position": notification.position };
+
+			if (Engine.ConfigDB_GetValue("user", "gui.session.notifications.attack") !== "true")
+				return;
+
+			addChatMessage({
+				"type": "attack",
+				"player": player,
+				"attacker": notification.attacker,
+				"target": notification.target,
+				"position": notification.position,
+				"targetIsDomesticAnimal": notification.targetIsDomesticAnimal
+			});
+		},
+		"phase": function(notification, player)
+		{
+			addChatMessage({
+				"type": "phase",
+				"player": player,
+				"phaseName": notification.phaseName,
+				"phaseState": notification.phaseState
+			});
+		},
+		"dialog": function(notification, player)
+		{
+			if (player == Engine.GetPlayerID())
+				openDialog(notification.dialogName, notification.data, player);
+		},
+		"playercommand": function(notification, player)
+		{
 		// For observers, focus the camera on units commanded by the selected player
-		if (!g_FollowPlayer || player != g_ViewedPlayer)
-			return;
+			if (!g_FollowPlayer || player != g_ViewedPlayer)
+				return;
 
-		const cmd = notification.cmd;
+			const cmd = notification.cmd;
 
-		// Ignore rallypoint commands of trained animals
-		const entState = cmd.entities && cmd.entities[0] && GetEntityState(cmd.entities[0]);
-		if (g_ViewedPlayer != 0 &&
+			// Ignore rallypoint commands of trained animals
+			const entState = cmd.entities && cmd.entities[0] && GetEntityState(cmd.entities[0]);
+			if (g_ViewedPlayer != 0 &&
 		    entState && entState.identity && entState.identity.classes &&
 		    entState.identity.classes.indexOf("Animal") != -1)
-			return;
+				return;
 
-		// Focus the structure to build.
-		if (cmd.type == "repair")
+			// Focus the structure to build.
+			if (cmd.type == "repair")
+			{
+				const targetState = GetEntityState(cmd.target);
+				if (targetState)
+					Engine.CameraMoveTo(targetState.position.x, targetState.position.z);
+			}
+			else if (cmd.type == "delete-entities" && notification.position)
+				Engine.CameraMoveTo(notification.position.x, notification.position.y);
+			// Focus commanded entities, but don't lose previous focus when training units
+			else if (cmd.type != "train" && cmd.type != "research" && entState)
+				setCameraFollow(cmd.entities[0]);
+
+			if (["walk", "attack-walk", "patrol"].indexOf(cmd.type) != -1)
+				DrawTargetMarker(cmd);
+
+			// Select units affected by that command
+			let selection = [];
+			if (cmd.entities)
+				selection = cmd.entities;
+			if (cmd.target)
+				selection.push(cmd.target);
+
+			// Allow gaia in selection when gathering
+			g_Selection.reset();
+			g_Selection.addList(selection, false, cmd.type == "gather");
+		},
+		"play-tracks": function(notification, player)
 		{
-			const targetState = GetEntityState(cmd.target);
-			if (targetState)
-				Engine.CameraMoveTo(targetState.position.x, targetState.position.z);
+			if (notification.lock)
+			{
+				global.music.storeTracks(notification.tracks.map(track => ({ "Type": "custom", "File": track })));
+				global.music.setState(global.music.states.CUSTOM);
+			}
+
+			global.music.setLocked(notification.lock);
 		}
-		else if (cmd.type == "delete-entities" && notification.position)
-			Engine.CameraMoveTo(notification.position.x, notification.position.y);
-		// Focus commanded entities, but don't lose previous focus when training units
-		else if (cmd.type != "train" && cmd.type != "research" && entState)
-			setCameraFollow(cmd.entities[0]);
-
-		if (["walk", "attack-walk", "patrol"].indexOf(cmd.type) != -1)
-			DrawTargetMarker(cmd);
-
-		// Select units affected by that command
-		let selection = [];
-		if (cmd.entities)
-			selection = cmd.entities;
-		if (cmd.target)
-			selection.push(cmd.target);
-
-		// Allow gaia in selection when gathering
-		g_Selection.reset();
-		g_Selection.addList(selection, false, cmd.type == "gather");
-	},
-	"play-tracks": function(notification, player)
-	{
-		if (notification.lock)
-		{
-			global.music.storeTracks(notification.tracks.map(track => ({ "Type": "custom", "File": track })));
-			global.music.setState(global.music.states.CUSTOM);
-		}
-
-		global.music.setLocked(notification.lock);
-	}
-};
+	};
 
 function registerPlayerAssignmentsChangeHandler(handler)
 {
@@ -452,7 +462,8 @@ function handlePlayerAssignmentsMessage(message)
 
 	g_PlayerAssignments = message.newAssignments;
 
-	joins.forEach(guid => {
+	joins.forEach(guid =>
+	{
 		onClientJoin(guid);
 	});
 

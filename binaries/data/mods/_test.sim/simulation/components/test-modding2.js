@@ -1,4 +1,5 @@
-Modding.prototype.GetX = function() {
+Modding.prototype.GetX = function()
+{
 	return this.x * 10;
 };
 

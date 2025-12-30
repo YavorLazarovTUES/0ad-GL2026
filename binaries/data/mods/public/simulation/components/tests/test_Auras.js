@@ -17,7 +17,8 @@ var auraRange = 40;
 var template = { "Identity": { "Classes": { "_string": "CorrectClass OtherClass" } } };
 
 global.AuraTemplates = {
-	"Get": name => {
+	"Get": name =>
+	{
 		const auraTemplate = {
 			"type": name,
 			"affectedPlayers": ["Ally"],
@@ -104,20 +105,23 @@ function testAuras(name, test_function)
 }
 
 targetEnt = playerEnt[playerID[2]];
-testAuras("player", (name, cmpAuras) => {
+testAuras("player", (name, cmpAuras) =>
+{
 	TS_ASSERT_EQUALS(ApplyValueModificationsToEntity("Component/Value", 5, targetEnt), 15);
 });
 targetEnt = 30;
 
 // Test the case when the aura source is a player entity.
 sourceEnt = 11;
-testAuras("global", (name, cmpAuras) => {
+testAuras("global", (name, cmpAuras) =>
+{
 	TS_ASSERT_EQUALS(ApplyValueModificationsToEntity("Component/Value", 5, targetEnt), 15);
 	TS_ASSERT_EQUALS(ApplyValueModificationsToTemplate("Component/Value", 5, playerID[1], template), 15);
 });
 sourceEnt = 20;
 
-testAuras("range", (name, cmpAuras) => {
+testAuras("range", (name, cmpAuras) =>
+{
 	cmpAuras.OnRangeUpdate({ "tag": 1, "added": [targetEnt], "removed": [] });
 	TS_ASSERT_EQUALS(ApplyValueModificationsToEntity("Component/Value", 5, targetEnt), 15);
 	TS_ASSERT_EQUALS(ApplyValueModificationsToTemplate("Component/Value", 5, playerID[1], template), 5);
@@ -125,14 +129,16 @@ testAuras("range", (name, cmpAuras) => {
 	TS_ASSERT_EQUALS(ApplyValueModificationsToEntity("Component/Value", 5, targetEnt), 5);
 });
 
-testAuras("garrisonedUnits", (name, cmpAuras) => {
+testAuras("garrisonedUnits", (name, cmpAuras) =>
+{
 	cmpAuras.OnGarrisonedUnitsChanged({ "added": [targetEnt], "removed": [] });
 	TS_ASSERT_EQUALS(ApplyValueModificationsToEntity("Component/Value", 5, targetEnt), 15);
 	cmpAuras.OnGarrisonedUnitsChanged({ "added": [], "removed": [targetEnt] });
 	TS_ASSERT_EQUALS(ApplyValueModificationsToEntity("Component/Value", 5, targetEnt), 5);
 });
 
-testAuras("garrison", (name, cmpAuras) => {
+testAuras("garrison", (name, cmpAuras) =>
+{
 	TS_ASSERT_EQUALS(cmpAuras.HasGarrisonAura(), true);
 	cmpAuras.ApplyGarrisonAura(targetEnt);
 	TS_ASSERT_EQUALS(ApplyValueModificationsToEntity("Component/Value", 5, targetEnt), 15);
@@ -140,7 +146,8 @@ testAuras("garrison", (name, cmpAuras) => {
 	TS_ASSERT_EQUALS(ApplyValueModificationsToEntity("Component/Value", 5, targetEnt), 5);
 });
 
-testAuras("formation", (name, cmpAuras) => {
+testAuras("formation", (name, cmpAuras) =>
+{
 	TS_ASSERT_EQUALS(cmpAuras.HasFormationAura(), true);
 	cmpAuras.ApplyFormationAura([targetEnt]);
 	TS_ASSERT_EQUALS(ApplyValueModificationsToEntity("Component/Value", 5, targetEnt), 15);
@@ -148,7 +155,8 @@ testAuras("formation", (name, cmpAuras) => {
 	TS_ASSERT_EQUALS(ApplyValueModificationsToEntity("Component/Value", 5, targetEnt), 5);
 });
 
-testAuras("global", (name, cmpAuras) => {
+testAuras("global", (name, cmpAuras) =>
+{
 	TS_ASSERT_EQUALS(ApplyValueModificationsToEntity("Component/Value", 5, targetEnt), 15);
 	TS_ASSERT_EQUALS(ApplyValueModificationsToTemplate("Component/Value", 5, playerID[1], template), 15);
 	TS_ASSERT_EQUALS(ApplyValueModificationsToTemplate("Component/Value", 5, playerID[2], template), 15);
@@ -162,7 +170,8 @@ testAuras("global", (name, cmpAuras) => {
 });
 
 playerDefeated[1] = true;
-testAuras("global", (name, cmpAuras) => {
+testAuras("global", (name, cmpAuras) =>
+{
 	cmpAuras.OnGlobalPlayerDefeated({ "playerId": playerID[1] });
 	TS_ASSERT_EQUALS(ApplyValueModificationsToTemplate("Component/Value", 5, playerID[2], template), 5);
 });

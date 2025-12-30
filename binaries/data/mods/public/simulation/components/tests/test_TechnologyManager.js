@@ -11,7 +11,8 @@ ConstructComponent(SYSTEM_ENTITY, "Trigger");
 const techTemplate = {};
 Engine.RegisterGlobal("TechnologyTemplates", {
 	"GetAll": () => [],
-	"Get": (tech) => {
+	"Get": (tech) =>
+	{
 		return techTemplate;
 	}
 });
@@ -41,12 +42,14 @@ techTemplate.cost = {
 };
 const cmpPlayer = AddMock(playerEntityID, IID_Player, {
 	"GetPlayerID": () => playerID,
-	"TrySubtractResources": (resources) => {
+	"TrySubtractResources": (resources) =>
+	{
 		TS_ASSERT_UNEVAL_EQUALS(resources, techTemplate.cost);
 		// Just have enough resources.
 		return true;
 	},
-	"RefundResources": (resources) => {
+	"RefundResources": (resources) =>
+	{
 		TS_ASSERT_UNEVAL_EQUALS(resources, techTemplate.cost);
 	},
 });

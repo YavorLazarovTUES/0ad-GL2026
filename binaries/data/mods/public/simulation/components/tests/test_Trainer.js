@@ -168,10 +168,12 @@ AddMock(SYSTEM_ENTITY, IID_GuiInterface, {
 const cmpPlayer = AddMock(playerEntityID, IID_Player, {
 	"BlockTraining": () => {},
 	"GetPlayerID": () => playerID,
-	"RefundResources": (resources) => {
+	"RefundResources": (resources) =>
+	{
 		TS_ASSERT_UNEVAL_EQUALS(resources, cost);
 	},
-	"TrySubtractResources": (resources) => {
+	"TrySubtractResources": (resources) =>
+	{
 		TS_ASSERT_UNEVAL_EQUALS(resources, cost);
 		// Just have enough resources.
 		return true;
@@ -231,7 +233,8 @@ TS_ASSERT_EQUALS(cmpTrainer.GetBatch(id).progress, 0.5);
 const spawedEntityIDs = [4, 5, 6, 7, 8];
 let spawned = 0;
 
-Engine.AddEntity = () => {
+Engine.AddEntity = () =>
+{
 	const ent = spawedEntityIDs[spawned++];
 
 	ConstructComponent(ent, "TrainingRestrictions", {
@@ -247,7 +250,8 @@ Engine.AddEntity = () => {
 	});
 
 	AddMock(ent, IID_Ownership, {
-		"SetOwner": (pid) => {
+		"SetOwner": (pid) =>
+		{
 			QueryOwnerInterface(ent, IID_EntityLimits).OnGlobalOwnershipChanged({
 				"entity": ent,
 				"from": -1,
@@ -304,7 +308,8 @@ TS_ASSERT_EQUALS(cmpTrainer.GetBatch(id2).unitTemplate, queuedSecondUnit);
 
 // Add a modifier that replaces unit A with unit C,
 // adds a unit D and removes unit B from the roster.
-Engine.RegisterGlobal("ApplyValueModificationsToEntity", (_, val) => {
+Engine.RegisterGlobal("ApplyValueModificationsToEntity", (_, val) =>
+{
 	return typeof val === "string" ? HandleTokens(val, "units/{civ}/cavalry_javelineer_b>units/{civ}/c units/{civ}/d -units/{civ}/infantry_swordsman_b") : val;
 });
 

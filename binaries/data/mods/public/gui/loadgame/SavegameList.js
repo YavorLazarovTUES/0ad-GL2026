@@ -35,7 +35,8 @@ class SavegameList
 
 		this.gameSelection.onSelectionColumnChange = () => { this.updateSavegameList(); };
 		this.gameSelection.onMouseLeftDoubleClickItem = () => { this.confirmButton.onPress(); };
-		this.gameSelection.onSelectionChange = () => {
+		this.gameSelection.onSelectionChange = () =>
+		{
 			const gameId = this.gameSelection.list_data[this.gameSelection.selected];
 			const metadata = this.savedGamesMetadata[this.gameSelection.selected];
 			const label = this.generateSavegameLabel(metadata, engineInfo);
@@ -74,7 +75,8 @@ class SavegameList
 		const engineInfo = Engine.GetEngineInfo();
 
 		if (this.compatibilityFilter.checked)
-			savedGames = savedGames.filter(game => {
+			savedGames = savedGames.filter(game =>
+			{
 				return this.isCompatibleSavegame(game.metadata, engineInfo) &&
 				this.campaignFilter(game.metadata, this.campaignRun);
 			});
@@ -88,7 +90,8 @@ class SavegameList
 		const selectedGameId = this.gameSelection.list_data[this.gameSelection.selected];
 
 		// Save metadata for the detailed view
-		this.savedGamesMetadata = savedGames.map(game => {
+		this.savedGamesMetadata = savedGames.map(game =>
+		{
 			game.metadata.id = game.id;
 			return game.metadata;
 		});
@@ -96,7 +99,8 @@ class SavegameList
 		const sortKey = this.gameSelection.selected_column;
 		const sortOrder = this.gameSelection.selected_column_order;
 
-		this.savedGamesMetadata = this.savedGamesMetadata.sort((a, b) => {
+		this.savedGamesMetadata = this.savedGamesMetadata.sort((a, b) =>
+		{
 			let cmpA, cmpB;
 			switch (sortKey)
 			{
@@ -128,7 +132,8 @@ class SavegameList
 			return 0;
 		});
 
-		let list = this.savedGamesMetadata.map(metadata => {
+		let list = this.savedGamesMetadata.map(metadata =>
+		{
 			const isCompatible = this.isCompatibleSavegame(metadata, engineInfo) &&
 			                   this.campaignFilter(metadata, this.campaignRun);
 			// Backwards compatibility for pre-A25 savegames

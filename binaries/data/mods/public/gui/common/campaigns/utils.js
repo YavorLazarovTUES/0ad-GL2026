@@ -7,10 +7,12 @@
 function _watch(object, callback)
 {
 	return new Proxy(object, {
-		"get": (obj, key) => {
+		"get": (obj, key) =>
+		{
 			return obj[key];
 		},
-		"set": (obj, key, value) => {
+		"set": (obj, key, value) =>
+		{
 			obj[key] = value;
 			callback(key);
 			return true;

@@ -289,7 +289,8 @@ GarrisonHolder.prototype.UnloadTemplate = function(template, owner, all)
  */
 GarrisonHolder.prototype.UnloadAllByOwner = function(owner)
 {
-	const entities = this.entities.filter(ent => {
+	const entities = this.entities.filter(ent =>
+	{
 		const cmpOwnership = Engine.QueryInterface(ent, IID_Ownership);
 		return cmpOwnership && cmpOwnership.GetOwner() == owner;
 	});

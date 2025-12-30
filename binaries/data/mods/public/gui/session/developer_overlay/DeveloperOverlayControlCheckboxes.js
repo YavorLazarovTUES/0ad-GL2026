@@ -221,7 +221,8 @@ DeveloperOverlayControlCheckboxes.prototype.ActivateRejoinTest = class
 		box.Caption = "Warning: the rejoin test can't be de-activated and is quite slow. Its only purpose is to check for OOS.";
 		const self = this;
 		box.Buttons = [
-			{ "caption": "Cancel" }, { "caption": "OK", "onPress": () => {
+			{ "caption": "Cancel" }, { "caption": "OK", "onPress": () =>
+			{
 				Engine.ActivateRejoinTest();
 				this.disabled = true;
 				this.update();

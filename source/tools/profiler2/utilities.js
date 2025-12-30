@@ -1,4 +1,4 @@
-// Copyright (C) 2025 Wildfire Games.
+// Copyright (C) 2026 Wildfire Games.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -37,7 +37,8 @@ function graph_colour(id)
 function concat_events(data)
 {
 	var events = [];
-	data.events.forEach(function(ev) {
+	data.events.forEach(function(ev)
+	{
 		ev.pop(); // remove the dummy null markers
 		Array.prototype.push.apply(events, ev);
 	});
@@ -152,10 +153,12 @@ function set_tooltip_handlers(canvas)
 		}
 	}
 
-	$(canvas).mousemove(function(event) {
+	$(canvas).mousemove(function(event)
+	{
 		do_tooltip(event);
 	});
-	$(canvas).mouseleave(function(event) {
+	$(canvas).mouseleave(function(event)
+	{
 		$('#tooltip').css('visibility', 'hidden');
 	});
 }

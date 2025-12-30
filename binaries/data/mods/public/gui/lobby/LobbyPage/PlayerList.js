@@ -145,7 +145,8 @@ class PlayerList
 		this.nickList.length = length;
 		this.ratingList.length = length;
 
-		playerList.forEach((player, i) => {
+		playerList.forEach((player, i) =>
+		{
 			// TODO: COList.cpp columns should support horizontal center align
 			const rating = player.rating ? ("     " + player.rating).substr(-5) : "     -";
 

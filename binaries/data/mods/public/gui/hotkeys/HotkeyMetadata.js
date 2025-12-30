@@ -48,7 +48,8 @@ class HotkeyMetadata
 		}
 		// Sort categories (JS objects are (in this case) sorted by insertion order).
 		this.categories = {};
-		const keys = Object.keys(categories).sort((a, b) => {
+		const keys = Object.keys(categories).sort((a, b) =>
+		{
 			if (a === this.DEFAULT_CATEGORY || b === this.DEFAULT_CATEGORY)
 				return a === this.DEFAULT_CATEGORY ? 1 : -1;
 			if (categories[a].order === undefined || categories[b].order === undefined)

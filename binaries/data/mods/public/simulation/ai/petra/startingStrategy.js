@@ -355,7 +355,8 @@ Headquarters.prototype.dispatchUnits = function(gameState)
 		let num1 = Math.floor(num / 2);
 		let num2 = num1;
 		// first pass to affect ranged infantry
-		units.filter(filters.byClasses(["Infantry+Ranged"])).forEach(ent => {
+		units.filter(filters.byClasses(["Infantry+Ranged"])).forEach(ent =>
+		{
 			if (!num || !num1)
 				return;
 			if (ent.getMetadata(PlayerID, "allied"))
@@ -374,7 +375,8 @@ Headquarters.prototype.dispatchUnits = function(gameState)
 			}
 		});
 		// second pass to affect melee infantry
-		units.filter(filters.byClasses(["Infantry+Melee"])).forEach(ent => {
+		units.filter(filters.byClasses(["Infantry+Melee"])).forEach(ent =>
+		{
 			if (!num || !num2)
 				return;
 			if (ent.getMetadata(PlayerID, "allied"))
@@ -393,7 +395,8 @@ Headquarters.prototype.dispatchUnits = function(gameState)
 			}
 		});
 		// and now complete the affectation, including all support units
-		units.forEach(ent => {
+		units.forEach(ent =>
+		{
 			if (!num && !ent.hasClass("Support"))
 				return;
 			if (ent.getMetadata(PlayerID, "allied"))

@@ -122,7 +122,8 @@ export function* generateMap()
 			"heightLand": heightLand,
 			"meanderShort": 0,
 			"meanderLong": 0,
-			"waterFunc": (position, height, z) => {
+			"waterFunc": (position, height, z) =>
+			{
 				clWater.add(position);
 			}
 		});

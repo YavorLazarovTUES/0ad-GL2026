@@ -502,7 +502,8 @@ Trainer.prototype.CalculateEntitiesMap = function()
 	 * This also updates currently queued production (it's more convenient to do it here).
 	 */
 
-	const removeAllQueuedTemplate = (token) => {
+	const removeAllQueuedTemplate = (token) =>
+	{
 		const queue = clone(this.queue);
 		const template = this.entitiesMap.get(token);
 		for (const [id, item] of queue)
@@ -511,7 +512,8 @@ Trainer.prototype.CalculateEntitiesMap = function()
 	};
 
 	// ToDo: Notice this doesn't account for entity limits changing due to the template change.
-	const updateAllQueuedTemplate = (token, updateTo) => {
+	const updateAllQueuedTemplate = (token, updateTo) =>
+	{
 		const template = this.entitiesMap.get(token);
 		for (const [id, item] of this.queue)
 			if (item.templateName === template)
@@ -526,7 +528,8 @@ Trainer.prototype.CalculateEntitiesMap = function()
 	const playerCiv = QueryOwnerInterface(this.entity, IID_Identity)?.GetCiv();
 
 	const addedDict = addedTokens.reduce((out, token) => { out[token] = true; return out; }, {});
-	this.entitiesMap = toks.reduce((entMap, token) => {
+	this.entitiesMap = toks.reduce((entMap, token) =>
+	{
 		const rawToken = token;
 		if (!(token in addedDict))
 		{

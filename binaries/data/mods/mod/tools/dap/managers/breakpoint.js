@@ -1,14 +1,17 @@
 import { Plugin } from 'tools/dap/plugin.js';
 
-class BreakpointManager extends Plugin {
-	constructor(jsDebugger, dapHandler) {
+class BreakpointManager extends Plugin
+{
+	constructor(jsDebugger, dapHandler)
+	{
 		super('BreakpointManager', 'manager');
 		this.breakpoints = [];
 
 		this.dbg = jsDebugger.instance;
 		this.jsDebugger = jsDebugger;
 		this.logger.debug('Setting up BreakpointManager');
-		jsDebugger.on('onNewScript', ({ script, global }) => {
+		jsDebugger.on('onNewScript', ({ script, global }) =>
+		{
 			if (!jsDebugger.debuggerAttached)
 				return;
 
@@ -24,7 +27,8 @@ class BreakpointManager extends Plugin {
 
 			this.logger.debug(`Setting breakpoints for script: ${script.url}`);
 			const sourceReferenceIndex = jsDebugger.sourcesReferences.findIndex((src) => src.path === url);
-			this.breakpoints[index].lines.forEach((bp, i) => {
+			this.breakpoints[index].lines.forEach((bp, i) =>
+			{
 				jsDebugger.pushEvent('breakpoint', {
 					'reason': 'changed',
 					'breakpoint': {
@@ -40,13 +44,15 @@ class BreakpointManager extends Plugin {
 			});
 		}, this.name);
 
-		jsDebugger.on('onDebuggerDetached', () => {
+		jsDebugger.on('onDebuggerDetached', () =>
+		{
 			this.logger.debug('Debugger detached');
 			this.dbg.clearAllBreakpoints();
 			this.breakpoints = [];
 		}, this.name);
 
-		dapHandler.registerCommand('setBreakpoints', (req) => {
+		dapHandler.registerCommand('setBreakpoints', (req) =>
+		{
 			const path = req.arguments.source.path;
 			const name = req.arguments.source.name;
 			this.logger.debug(`Handling setBreakpoints command for source: ${req.arguments.source.path}`);
@@ -76,7 +82,8 @@ class BreakpointManager extends Plugin {
 		});
 	}
 
-	createOrUpdateBreakpoint(name, url, lines) {
+	createOrUpdateBreakpoint(name, url, lines)
+	{
 		let index = this.breakpoints.findIndex((bp) => (!name || bp.name === name) && bp.url === url);
 		if (index === -1)
 		{
@@ -89,7 +96,8 @@ class BreakpointManager extends Plugin {
 		return index + 1;
 	}
 
-	addBreakpointsByPath(path, instance_script) {
+	addBreakpointsByPath(path, instance_script)
+	{
 		const infoBk = this.breakpoints.find((bp) => bp.url === path);
 
 		if (!infoBk)
@@ -100,15 +108,18 @@ class BreakpointManager extends Plugin {
 			return false;
 
 		this.logger.trace(`Found ${scripts.length} scripts for path: ${path}`);
-		this.scriptTreeWalk(scripts, (script) => {
+		this.scriptTreeWalk(scripts, (script) =>
+		{
 			script.clearAllBreakpoints();
 		});
 
-		infoBk.lines.forEach((bp) => {
+		infoBk.lines.forEach((bp) =>
+		{
 			this.logger.debug(`Setting breakpoint at: ${uneval(bp)}`);
 			bp.verified = false;
 			bp.message = "No offset found";
-			this.scriptTreeWalk(scripts, (script) => {
+			this.scriptTreeWalk(scripts, (script) =>
+			{
 				const offsets = script.getPossibleBreakpointOffsets({
 					'line': bp.line,
 				});
@@ -128,7 +139,8 @@ class BreakpointManager extends Plugin {
 		return true;
 	}
 
-	scriptTreeWalk(script, callback) {
+	scriptTreeWalk(script, callback)
+	{
 		if (!script || script.length === 0)
 			return;
 
@@ -143,8 +155,10 @@ class BreakpointManager extends Plugin {
 		}
 	}
 
-	handleBreakpoint(frame) {
-		this.jsDebugger.stopInframe(frame, () => {
+	handleBreakpoint(frame)
+	{
+		this.jsDebugger.stopInframe(frame, () =>
+		{
 			this.jsDebugger.pushEvent('stopped', {
 				'reason': 'breakpoint',
 				'threadId': 1,

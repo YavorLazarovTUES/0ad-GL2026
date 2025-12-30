@@ -63,13 +63,15 @@ var gy = 100;
 var experiments = {};
 
 experiments.single_unit = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		WalkTo(gx, gy + 100, QuickSpawn(gx, gy, UNIT_TEMPLATE));
 	}
 };
 
 experiments.two_followers = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		WalkTo(gx, gy + 100, QuickSpawn(gx, gy, UNIT_TEMPLATE));
 		const follow = WalkTo(gx, gy + 102, QuickSpawn(gx, gy + 2, UNIT_TEMPLATE));
 		Guard(follow, QuickSpawn(gx, gy - 2, UNIT_TEMPLATE));
@@ -77,14 +79,16 @@ experiments.two_followers = {
 };
 
 experiments.follow_faster = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		WalkTo(gx, gy + 100, QuickSpawn(gx, gy, FAST_UNIT_TEMPLATE));
 		WalkTo(gx, gy + 104, QuickSpawn(gx, gy + 4, UNIT_TEMPLATE));
 	}
 };
 
 experiments.group = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		for (let i = -3; i <= 3; ++i)
 			for (let j = -3; j <= 3; ++j)
 				WalkTo(gx, gy + 100, QuickSpawn(gx + i * 2, gy + j * 2, UNIT_TEMPLATE));
@@ -92,14 +96,16 @@ experiments.group = {
 };
 
 experiments.single_unit_building = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		QuickSpawn(gx, gy + 40, SMALL_STRUCTURE_TEMPLATE);
 		WalkTo(gx, gy + 100, QuickSpawn(gx, gy, UNIT_TEMPLATE));
 	}
 };
 
 experiments.single_unit_pass_nopass = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		WalkTo(gx, gy + 100, QuickSpawn(gx, gy, UNIT_TEMPLATE));
 		QuickSpawn(gx - 10, gy + 40, SMALL_STRUCTURE_TEMPLATE);
 		QuickSpawn(gx + 10, gy + 40, SMALL_STRUCTURE_TEMPLATE);
@@ -111,7 +117,8 @@ experiments.single_unit_pass_nopass = {
 
 
 experiments.units_dense_forest = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		WalkTo(gx, gy + 100, QuickSpawn(gx, gy, UNIT_TEMPLATE));
 		WalkTo(gx, gy + 100, QuickSpawn(gx - 2, gy, UNIT_TEMPLATE));
 		WalkTo(gx, gy + 100, QuickSpawn(gx + 2, gy + 2, UNIT_TEMPLATE));
@@ -129,7 +136,8 @@ experiments.units_dense_forest = {
 };
 
 experiments.units_sparse_forest = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		gx += 10;
 		for (let i = -4; i <= 4; i += 2)
 			for (let j = -4; j <= 4; j += 2)
@@ -146,7 +154,8 @@ experiments.units_sparse_forest = {
 };
 
 experiments.units_running_into_eachother = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		for (let i = -4; i <= 4; i += 2)
 			for (let j = -4; j <= 4; j += 2)
 				WalkTo(gx, gy + 100, QuickSpawn(gx + i, gy + j, UNIT_TEMPLATE));
@@ -157,7 +166,8 @@ experiments.units_running_into_eachother = {
 };
 
 experiments.enclosed = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		QuickSpawn(gx, gy - 8, "structures/palisades_long");
 		QuickSpawn(gx, gy + 8, "structures/palisades_long");
 		Rotate(Math.PI / 2, QuickSpawn(gx - 8, gy, "structures/palisades_long"));
@@ -175,13 +185,15 @@ experiments.enclosed = {
 		WalkTo(gx, gy + 100, QuickSpawn(gx, gy + 28, UNIT_TEMPLATE));
 	},
 
-	"timeout": () => {
+	"timeout": () =>
+	{
 		Engine.DestroyEntity(experiments.enclosed.remove);
 	}
 };
 
 experiments.line_of_rams = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		for (let i = -20; i <= 20; i+=4)
 			WalkTo(gx + i, gy + 50, QuickSpawn(gx + i, gy, LARGE_UNIT_TEMPLATE));
 		WalkTo(gx, gy + 100, QuickSpawn(gx, gy - 10, UNIT_TEMPLATE));
@@ -190,7 +202,8 @@ experiments.line_of_rams = {
 
 
 experiments.units_sparse_forest_of_units = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		for (let i = -16; i <= 16; i += 8)
 			for (let j = -16; j <= 16; j += 8)
 				Do("stance", { "name": "standground" }, QuickSpawn(gx + i, gy + 50 + j, UNIT_TEMPLATE));
@@ -200,7 +213,8 @@ experiments.units_sparse_forest_of_units = {
 };
 
 experiments.units_dense_forest_of_units = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		for (let i = -16; i <= 16; i += 4)
 			for (let j = -16; j <= 16; j += 4)
 				Do("stance", { "name": "standground" }, QuickSpawn(gx + i, gy + 50 + j, UNIT_TEMPLATE));
@@ -210,7 +224,8 @@ experiments.units_dense_forest_of_units = {
 };
 
 experiments.units_superdense_forest_of_units = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		for (let i = -6; i <= 6; i += 2)
 			for (let j = -6; j <= 6; j += 2)
 				Do("stance", { "name": "standground" }, QuickSpawn(gx + i, gy + 50 + j, UNIT_TEMPLATE));
@@ -220,7 +235,8 @@ experiments.units_superdense_forest_of_units = {
 };
 
 experiments.u_shape_tight_exit = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		Rotate(Math.PI / 2, QuickSpawn(gx + 8, gy, "structures/palisades_long"));
 		Rotate(Math.PI / 2, QuickSpawn(gx + 8, gy + 12, "structures/palisades_long"));
 		QuickSpawn(gx, gy + 16, "structures/palisades_long");
@@ -246,7 +262,8 @@ experiments.u_shape_tight_exit = {
 };
 
 experiments.cluttered_around_tree = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		const tree = QuickSpawn(gx, gy + 50, "gaia/tree/acacia");
 
 		for (let i = -3; i <= 3; i += 1)
@@ -259,7 +276,8 @@ experiments.cluttered_around_tree = {
 };
 
 experiments.formation_move = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		const ents = [];
 		for (let i = -3; i <= 3; ++i)
 			for (let j = -3; j <= 3; ++j)
@@ -270,7 +288,8 @@ experiments.formation_move = {
 };
 
 experiments.formation_attack = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		const ents = [];
 		for (let i = -3; i <= 3; ++i)
 			for (let j = -3; j <= 3; ++j)
@@ -281,7 +300,8 @@ experiments.formation_attack = {
 };
 
 experiments.multiple_resources = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		QuickSpawn(gx, gy + 80, "structures/athen/civil_centre");
 
 		const chicken = QuickSpawn(gx, gy + 50, "gaia/fauna_chicken");
@@ -299,7 +319,8 @@ experiments.multiple_resources = {
  * However, the vertex pathfinder should be able to find a way out, then a way in.
  */
 experiments.locked_within = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		QuickSpawn(gx + 10, gy + 7, SMALL_STRUCTURE_TEMPLATE);
 		QuickSpawn(gx - 10, gy + 7, SMALL_STRUCTURE_TEMPLATE);
 		QuickSpawn(gx, gy, SMALL_STRUCTURE_TEMPLATE);
@@ -327,7 +348,8 @@ experiments.locked_within = {
  * so the short-pathfinder has to backtrack.
  */
 experiments.need_to_backtrack = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		gx += 50;
 		QuickSpawn(gx + 10, gy + 60, SMALL_STRUCTURE_TEMPLATE);
 		QuickSpawn(gx - 10, gy + 60, SMALL_STRUCTURE_TEMPLATE);
@@ -351,7 +373,8 @@ experiments.need_to_backtrack = {
  * (note that it's not an entirely perfect fix, but it should just be a few units, not half)
  */
 experiments.small_exit_of_hill = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		const x = 350;
 		const y = 615;
 		for (let i = -5; i <= 5; i += 1)

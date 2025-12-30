@@ -1,7 +1,8 @@
 /**
  * Class that can be tagged to any tile. Can be used to constrain placers and entity placement to given areas.
  */
-class TileClass {
+class TileClass
+{
 
 	constructor(size)
 	{

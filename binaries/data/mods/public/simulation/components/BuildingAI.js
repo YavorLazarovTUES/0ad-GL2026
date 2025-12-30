@@ -178,7 +178,8 @@ BuildingAI.prototype.OnRangeUpdate = function(msg)
 	// Target enemy units except non-dangerous animals.
 	if (msg.tag == this.gaiaUnitsQuery)
 	{
-		msg.added = msg.added.filter(e => {
+		msg.added = msg.added.filter(e =>
+		{
 			const cmpUnitAI = Engine.QueryInterface(e, IID_UnitAI);
 			return cmpUnitAI && (!cmpUnitAI.IsAnimal() || cmpUnitAI.IsDangerousAnimal());
 		});
@@ -347,7 +348,8 @@ BuildingAI.prototype.FireArrows = function()
 		for (const target of this.targetUnits)
 			addTarget(target);
 		// Sort targets by preference and then by proximity.
-		targets.sort((a, b) => {
+		targets.sort((a, b) =>
+		{
 			if (a.preference > b.preference)
 				return 1;
 			else if (a.preference < b.preference)

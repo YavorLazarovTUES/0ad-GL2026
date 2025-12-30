@@ -44,36 +44,42 @@ function initialRallyPointTest(test_function)
 
 initialRallyPointTest((cmpRallyPoint) => {});
 
-initialRallyPointTest((cmpRallyPoint) => {
+initialRallyPointTest((cmpRallyPoint) =>
+{
 	cmpRallyPoint.Unset();
 	return true;
 });
 
-initialRallyPointTest((cmpRallyPoint) => {
+initialRallyPointTest((cmpRallyPoint) =>
+{
 	cmpRallyPoint.Reset();
 	return true;
 });
 
 // Construction
-initialRallyPointTest((cmpRallyPoint) => {
+initialRallyPointTest((cmpRallyPoint) =>
+{
 	cmpRallyPoint.OnOwnershipChanged({ "from": INVALID_PLAYER, "to": 1 });
 	return false;
 });
 
 // Capturing
-initialRallyPointTest((cmpRallyPoint) => {
+initialRallyPointTest((cmpRallyPoint) =>
+{
 	cmpRallyPoint.OnOwnershipChanged({ "from": 1, "to": 2 });
 	return true;
 });
 
 // Destruction
-initialRallyPointTest((cmpRallyPoint) => {
+initialRallyPointTest((cmpRallyPoint) =>
+{
 	cmpRallyPoint.OnOwnershipChanged({ "from": 2, "to": INVALID_PLAYER });
 	return false;
 });
 
 // Gaia
-initialRallyPointTest((cmpRallyPoint) => {
+initialRallyPointTest((cmpRallyPoint) =>
+{
 	cmpRallyPoint.OnOwnershipChanged({ "from": 2, "to": 0 });
 	return true;
 });

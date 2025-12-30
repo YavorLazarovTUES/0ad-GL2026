@@ -293,7 +293,8 @@ export function* generateMap(mapSettings)
 		[false, 7 / 8],
 		// 10 Hilltop
 		[false, 8 / 8]
-	].map(([underWater, ratio]) => {
+	].map(([underWater, ratio]) =>
+	{
 		const base = underWater ? heightRange.min : heightSeaGroundAdjusted;
 		const factor = underWater ? heightSeaGroundAdjusted - heightRange.min :
 			heightRange.max - heightSeaGroundAdjusted;
@@ -593,7 +594,8 @@ export function* generateMap(mapSettings)
 	 * Get midpoint slope of each area
 	 */
 	const slopeMap = getSlopeMap();
-	const slopeMidpoints = areas.map(area => {
+	const slopeMidpoints = areas.map(area =>
+	{
 		const slopesInThisArea = area.map(({ x, y }) => slopeMap[x][y]);
 		return Math.min(...slopesInThisArea) + Math.max(...slopesInThisArea);
 	});

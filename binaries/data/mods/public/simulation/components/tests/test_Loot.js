@@ -3,7 +3,8 @@ Resources = {
 	"GetTradableCodes": () => ["food", "metal", "stone", "wood"],
 	"GetBarterableCodes": () => ["food", "metal", "stone", "wood"],
 	"GetResource": () => ({}),
-	"BuildSchema": (type) => {
+	"BuildSchema": (type) =>
+	{
 		let schema = "";
 		for (const res of Resources.GetCodes())
 			schema +=
@@ -21,12 +22,14 @@ Engine.LoadComponentScript("Loot.js");
 Engine.LoadHelperScript("ValueModification.js");
 Engine.LoadComponentScript("interfaces/ModifiersManager.js");
 
-let applyModifierOverride = (key, val, ent) => {
+let applyModifierOverride = (key, val, ent) =>
+{
 	return val;
 };
 
 AddMock(SYSTEM_ENTITY, IID_ModifiersManager, {
-	"ApplyModifiers": (key, val, ent) => {
+	"ApplyModifiers": (key, val, ent) =>
+	{
 		return applyModifierOverride(key, val, ent);
 	}
 });
@@ -54,13 +57,15 @@ TS_ASSERT_EQUALS(cmpLootNoXp.GetResources().stone, 0);
 TS_ASSERT_UNEVAL_EQUALS(cmpLootNoXp.GetResources(), { "food": 0, "metal": 10, "stone": 0, "wood": 20 });
 TS_ASSERT_EQUALS(cmpLootNoXp.GetXp(), 0);
 
-applyModifierOverride = (key, val, ent) => {
+applyModifierOverride = (key, val, ent) =>
+{
 	return key == "Loot/xp" ? 100 : val;
 };
 
 TS_ASSERT_EQUALS(cmpLootNoXp.GetXp(), 100);
 
-applyModifierOverride = (key, val, ent) => {
+applyModifierOverride = (key, val, ent) =>
+{
 	return key == "Loot/wood" ? 100 : val;
 };
 

@@ -314,8 +314,8 @@ PlayerSettingControls.PlayerAssignment.prototype.AutocompleteOrder = 100;
 	};
 
 	PlayerAssignmentItem.Removed.prototype.Label =
-	translate("Removed");
+		translate("Removed");
 
 	PlayerAssignmentItem.Removed.prototype.Tags =
-	{ "color": "255 140 140" };
+		{ "color": "255 140 140" };
 }

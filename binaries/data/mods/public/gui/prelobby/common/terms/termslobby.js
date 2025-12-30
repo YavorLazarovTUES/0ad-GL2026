@@ -37,13 +37,15 @@ function initLobbyTerms()
 		}
 	};
 
-	Object.keys(terms).forEach((page, i) => {
+	Object.keys(terms).forEach((page, i) =>
+	{
 
 		const button = Engine.GetGUIObjectByName("termsButton[" + i + "]");
 
 		button.caption = terms[page].title;
 
-		button.onPress = () => {
+		button.onPress = () =>
+		{
 			openTerms(page);
 		};
 

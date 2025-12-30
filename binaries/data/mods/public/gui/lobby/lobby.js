@@ -34,7 +34,8 @@ var g_LobbyHandler;
 async function init(attribs)
 {
 	if (g_Settings)
-		return new Promise(closePageCallback => {
+		return new Promise(closePageCallback =>
+		{
 			g_LobbyHandler = new LobbyHandler(closePageCallback, attribs && attribs.dialog);
 		});
 

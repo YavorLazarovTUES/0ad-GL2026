@@ -202,7 +202,8 @@ BasesManager.prototype.checkEvents = function(gameState, events)
 			const builders = this.bulkPickWorkers(gameState, newbase, 10);
 			if (builders !== false)
 			{
-				builders.forEach(worker => {
+				builders.forEach(worker =>
+				{
 					worker.setMetadata(PlayerID, "base", newbase.ID);
 					worker.setMetadata(PlayerID, "subrole", Worker.SUBROLE_BUILDER);
 					worker.setMetadata(PlayerID, "target-foundation", ent.id());
@@ -216,7 +217,8 @@ BasesManager.prototype.checkEvents = function(gameState, events)
 			const builders = this.bulkPickWorkers(gameState, newbase, 4);
 			if (builders != false)
 			{
-				builders.forEach(worker => {
+				builders.forEach(worker =>
+				{
 					worker.setMetadata(PlayerID, "base", newbase.ID);
 					worker.setMetadata(PlayerID, "subrole", Worker.SUBROLE_BUILDER);
 					worker.setMetadata(PlayerID, "target-foundation", ent.id());
@@ -359,7 +361,8 @@ BasesManager.prototype.bulkPickWorkers = function(gameState, baseRef, number)
 	const baseBest = this.baseManagers.slice();
 	// We can also use workers without a base.
 	baseBest.push(this.noBase);
-	baseBest.sort((a, b) => {
+	baseBest.sort((a, b) =>
+	{
 		if (a.accessIndex == accessIndex && b.accessIndex != accessIndex)
 			return -1;
 		else if (b.accessIndex == accessIndex && a.accessIndex != accessIndex)

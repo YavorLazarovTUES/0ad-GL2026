@@ -200,7 +200,8 @@ export function* generateMap(mapSettings)
 	const lowerHeightLimit = terrainTypes[3].upperHeightLimit;
 	const upperHeightLimit = terrainTypes[6].upperHeightLimit;
 
-	const { playerIDs, playerPosition } = (() => {
+	const { playerIDs, playerPosition } = (() =>
+	{
 		while (true)
 		{
 			g_Map.log("Randomizing heightmap");
@@ -272,7 +273,8 @@ export function* generateMap(mapSettings)
 		const resourceSpacing = 1;
 		const resourceCount = 4;
 
-		playerPosition.forEach((position, i) => {
+		playerPosition.forEach((position, i) =>
+		{
 			placeCivDefaultStartingEntities(position, playerIDs[i], false);
 
 			for (let j = 1; j <= 4; ++j)

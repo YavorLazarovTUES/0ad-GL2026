@@ -41,7 +41,8 @@ export async function init(initialColor)
 
 	const splitColor = initialColor.split(" ");
 
-	const chanels = labels.map((label, i) => {
+	const chanels = labels.map((label, i) =>
+	{
 		Engine.GetGUIObjectByName("colorLabel[" + i + "]").caption = label;
 		resizeChanel(i);
 
@@ -70,8 +71,10 @@ export async function init(initialColor)
 	while (true)
 	{
 		colorDisplay.sprite = "color:" + currentColor();
-		const chanelPromises = chanels.map(chanel => {
-			return new Promise(resolve => {
+		const chanelPromises = chanels.map(chanel =>
+		{
+			return new Promise(resolve =>
+			{
 				chanel.slider.onValueChange = resolve.bind(undefined, { "value": chanel });
 			});
 		});

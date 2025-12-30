@@ -121,7 +121,8 @@ function testBuildingFoundation()
 
 	let increased = false;
 	AddMock(target, IID_Foundation, {
-		"Build": (entity, amount) => {
+		"Build": (entity, amount) =>
+		{
 			increased = true;
 			TS_ASSERT_EQUALS(amount, 1);
 		},

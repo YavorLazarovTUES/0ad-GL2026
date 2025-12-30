@@ -149,7 +149,8 @@ TS_ASSERT_UNEVAL_EQUALS(cmpEntityLimits.GetCounts(), { "Tower": 0, "Wonder": 0, 
 
 // Test AllowedToReplace
 AddMock(SYSTEM_ENTITY, IID_TemplateManager, {
-	"GetTemplate": name => {
+	"GetTemplate": name =>
+	{
 		switch (name)
 		{
 		case "templateA":
@@ -164,7 +165,8 @@ AddMock(SYSTEM_ENTITY, IID_TemplateManager, {
 			return null;
 		}
 	},
-	"GetCurrentTemplateName": id => {
+	"GetCurrentTemplateName": id =>
+	{
 		switch (id)
 		{
 		case 100:

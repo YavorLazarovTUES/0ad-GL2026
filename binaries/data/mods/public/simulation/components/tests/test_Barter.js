@@ -40,7 +40,8 @@ const cmpBarter = ConstructComponent(SYSTEM_ENTITY, "Barter");
 
 AddMock(SYSTEM_ENTITY, IID_Timer, {
 	"CancelTimer": id => { timerActivated = false; },
-	"SetInterval": (ent, iid, funcname, time, repeattime, data) => {
+	"SetInterval": (ent, iid, funcname, time, repeattime, data) =>
+	{
 		TS_ASSERT_EQUALS(time, cmpBarter.RESTORE_TIMER_INTERVAL);
 		TS_ASSERT_EQUALS(repeattime, cmpBarter.RESTORE_TIMER_INTERVAL);
 		timerActivated = true;
@@ -53,11 +54,13 @@ TS_ASSERT_EQUALS(cmpBarter.restoreTimer, undefined);
 TS_ASSERT_UNEVAL_EQUALS(cmpBarter.priceDifferences, { "wood": 0, "stone": 0, "metal": 0 });
 
 const cmpPlayer = AddMock(playerEnt, IID_Player, {
-	"TrySubtractResources": amounts => {
+	"TrySubtractResources": amounts =>
+	{
 		sold = amounts[Object.keys(amounts)[0]];
 		return true;
 	},
-	"AddResource": (type, amount) => {
+	"AddResource": (type, amount) =>
+	{
 		bought = amount;
 		return true;
 	},

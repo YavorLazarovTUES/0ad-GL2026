@@ -59,7 +59,8 @@ AlertRaiser.prototype.RaiseAlert = function()
 		const size = cmpGarrisonable.TotalSize();
 		const cmpUnitAI = Engine.QueryInterface(unit, IID_UnitAI);
 
-		const holder = cmpRangeManager.ExecuteQuery(unit, 0, +this.template.SearchRange, mutualAllies, IID_GarrisonHolder, true).find(ent => {
+		const holder = cmpRangeManager.ExecuteQuery(unit, 0, +this.template.SearchRange, mutualAllies, IID_GarrisonHolder, true).find(ent =>
+		{
 			// Ignore moving garrison holders
 			if (Engine.QueryInterface(ent, IID_UnitAI))
 				return false;
@@ -130,7 +131,8 @@ AlertRaiser.prototype.EndOfAlert = function()
 			continue;
 
 		const cmpGarrisonHolder = Engine.QueryInterface(holder, IID_GarrisonHolder);
-		const garrisonedUnits = cmpGarrisonHolder.GetEntities().filter(ent => {
+		const garrisonedUnits = cmpGarrisonHolder.GetEntities().filter(ent =>
+		{
 			const cmpOwner = Engine.QueryInterface(ent, IID_Ownership);
 			return cmpOwner && cmpOwner.GetOwner() == owner && this.UnitFilter(ent);
 		});

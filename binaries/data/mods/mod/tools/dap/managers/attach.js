@@ -1,21 +1,26 @@
 import { Plugin } from 'tools/dap/plugin.js';
 
-class AttachManager extends Plugin {
-	constructor(jsDebugger, dapHandler) {
+class AttachManager extends Plugin
+{
+	constructor(jsDebugger, dapHandler)
+	{
 		super('AttachManager', 'manager');
 
 		this.logger.debug('Setting up AttachManager');
-		jsDebugger.on('onDebuggerAttached', () => {
+		jsDebugger.on('onDebuggerAttached', () =>
+		{
 			this.logger.debug('Debugger attached');
 			jsDebugger.instance.addAllGlobalsAsDebuggees();
 		}, this.name);
 
-		jsDebugger.on('onDebuggerDetached', () => {
+		jsDebugger.on('onDebuggerDetached', () =>
+		{
 			this.logger.debug('Debugger detached');
 			jsDebugger.instance.removeAllDebuggees();
 		}, this.name);
 
-		jsDebugger.on('onNewGlobalObject', (global) => {
+		jsDebugger.on('onNewGlobalObject', (global) =>
+		{
 			if (!jsDebugger.debuggerAttached)
 				return;
 
@@ -23,7 +28,8 @@ class AttachManager extends Plugin {
 			jsDebugger.instance.addDebuggee(global);
 		}, this.name);
 
-		jsDebugger.on('onUncaughtException', (e) => {
+		jsDebugger.on('onUncaughtException', (e) =>
+		{
 			this.logger.error(`Uncaught exception: ${e}`);
 		}, this.name);
 	}

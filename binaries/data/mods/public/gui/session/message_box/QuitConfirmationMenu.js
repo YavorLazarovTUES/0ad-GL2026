@@ -10,7 +10,8 @@ ReturnQuestion.prototype.Buttons = [
 	},
 	{
 		"caption": translate("I resign"),
-		"onPress": () => {
+		"onPress": () =>
+		{
 			Engine.PostNetworkCommand({
 				"type": "resign"
 			});
@@ -67,14 +68,15 @@ QuitConfirmationMenu.prototype.MultiplayerClient.prototype.Caption =
 	translate("Are you sure you want to quit?");
 
 QuitConfirmationMenu.prototype.MultiplayerClient.prototype.Buttons =
-[
-	{
-		"caption": translate("No")
-	},
-	{
-		"caption": translate("Yes"),
-		"onPress": () => {
-			(new ReturnQuestion()).display();
+	[
+		{
+			"caption": translate("No")
+		},
+		{
+			"caption": translate("Yes"),
+			"onPress": () =>
+			{
+				(new ReturnQuestion()).display();
+			}
 		}
-	}
-];
+	];

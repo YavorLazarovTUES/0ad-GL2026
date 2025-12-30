@@ -125,7 +125,8 @@ class GameList
 		{
 			Engine.ProfileStart("sortGameList");
 			const sortOrder = this.gamesBox.selected_column_order;
-			this.gameList.sort((game1, game2) => {
+			this.gameList.sort((game1, game2) =>
+			{
 				if (game1.sortValue < game2.sortValue) return -sortOrder;
 				if (game1.sortValue > game2.sortValue) return +sortOrder;
 				return 0;
@@ -148,7 +149,8 @@ class GameList
 			this.list_gameRating.length = length;
 			this.list.length = length;
 
-			this.gameList.forEach((game, i) => {
+			this.gameList.forEach((game, i) =>
+			{
 
 				const displayData = game.displayData;
 				this.list_buddy[i] = displayData.buddy || "";

@@ -46,7 +46,8 @@ g_SelectionPanels.Alert = {
 	},
 	"setupButton": function(data)
 	{
-		data.button.onPress = function() {
+		data.button.onPress = function()
+		{
 			switch (data.item)
 			{
 			case "raise":
@@ -142,7 +143,8 @@ g_SelectionPanels.Command = {
 	{
 		data.button.tooltip = data.item.tooltip;
 
-		data.button.onPress = function() {
+		data.button.onPress = function()
+		{
 			if (data.item.callback)
 				data.item.callback(data.item);
 			else
@@ -281,7 +283,8 @@ g_SelectionPanels.Formation = {
 			"formationTemplate": data.item
 		});
 
-		data.button.onPress = function() {
+		data.button.onPress = function()
+		{
 			performFormation(unitIds, data.item);
 		};
 
@@ -345,7 +348,8 @@ g_SelectionPanels.Garrison = {
 		if (!template)
 			return false;
 
-		data.button.onPress = function() {
+		data.button.onPress = function()
+		{
 			unloadTemplate(template.selectionGroupName || entState.template, entState.player);
 		};
 
@@ -813,11 +817,13 @@ g_SelectionPanels.Research = {
 			tooltips.push(getNeededResourcesTooltip(neededResources));
 			button.tooltip = tooltips.filter(tip => tip).join("\n");
 
-			button.onPress = (t => function() {
+			button.onPress = (t => function()
+			{
 				addResearchToQueue(data.item.researchFacilityId, t);
 			})(tech);
 
-			const showTemplateFunc = (t => function() {
+			const showTemplateFunc = (t => function()
+			{
 				showTemplateDetails(
 					t,
 					GetTemplateData(data.unitEntStates.find(state => state.id == data.item.researchFacilityId).template).nativeCiv);
@@ -830,10 +836,12 @@ g_SelectionPanels.Research = {
 			{
 				// On mouse enter, show a cross over the other icon
 				const unchosenIcon = Engine.GetGUIObjectByName("unitResearchUnchosenIcon[" + (position + data.rowLength) % (2 * data.rowLength) + "]");
-				button.onMouseEnter = function() {
+				button.onMouseEnter = function()
+				{
 					unchosenIcon.hidden = false;
 				};
-				button.onMouseLeave = function() {
+				button.onMouseLeave = function()
+				{
 					unchosenIcon.hidden = true;
 				};
 			}
@@ -943,7 +951,8 @@ g_SelectionPanels.Selection = {
 
 		data.countDisplay.caption = data.item.ents.length > 1 ? data.item.ents.length : "";
 
-		data.button.onPress = function() {
+		data.button.onPress = function()
+		{
 			if (Engine.HotkeyIsPressed("session.deselectgroup"))
 				removeFromSelectionGroup(data.item.key);
 			else
@@ -1024,7 +1033,8 @@ g_SelectionPanels.Training = {
 				"player": data.player
 			});
 
-		data.button.onPress = function() {
+		data.button.onPress = function()
+		{
 			if (!neededResources)
 				addTrainingToQueue(unitIds, data.item, data.playerState);
 		};
@@ -1188,7 +1198,8 @@ g_SelectionPanels.Upgrade = {
 
 			tooltip = tooltips.filter(tip => tip).join("\n");
 
-			data.button.onPress = function() {
+			data.button.onPress = function()
+			{
 				upgradeEntity(
 					data.item.entity,
 					upgradableEntStates.map(state => state.id));

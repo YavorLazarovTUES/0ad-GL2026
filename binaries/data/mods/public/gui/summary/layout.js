@@ -160,7 +160,8 @@ var getScorePanelsData = () => [
 			{ "identifier": "playername", "caption": translate("Player name"), "yStart": 26, "width": 200 },
 			{ "identifier": "tradeIncome", "caption": translate("Trade income"), "yStart": 0, "width": 120 },
 			{ "identifier": "barterEfficency", "caption": translate("Barter efficiency"), "yStart": 0, "width": 120, "format": "PERCENTAGE" },
-			...g_ResourceData.GetResources().map(res => {
+			...g_ResourceData.GetResources().map(res =>
+			{
 				return {
 					"identifier": res.code,
 					"caption":

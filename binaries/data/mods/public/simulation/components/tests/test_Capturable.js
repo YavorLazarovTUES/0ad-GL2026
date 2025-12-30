@@ -93,7 +93,8 @@ function testCapturable(data, test_function)
 		if (testCaptureAttacks[entity] === undefined)
 			continue;
 		AddMock(entity, IID_Attack, {
-			"GetAttackEffectsData": (type) => {
+			"GetAttackEffectsData": (type) =>
+			{
 				return type === "Capture" ? { "Capture": testCaptureAttacks[entity] } : undefined;
 			},
 		});
@@ -106,8 +107,10 @@ function testCapturable(data, test_function)
 }
 
 // Tests initialisation of the capture points when the entity is created
-testCapturable(testData, cmpCapturable => {
-	Engine.PostMessage = function(ent, iid, message) {
+testCapturable(testData, cmpCapturable =>
+{
+	Engine.PostMessage = function(ent, iid, message)
+	{
 		TS_ASSERT_UNEVAL_EQUALS(message, { "regenerating": true, "regenRate": cmpCapturable.GetRegenRate(), "territoryDecay": 0 });
 	};
 	cmpCapturable.OnOwnershipChanged({ "from": INVALID_PLAYER, "to": testData.playerID });
@@ -115,7 +118,8 @@ testCapturable(testData, cmpCapturable => {
 });
 
 // Tests if the message is sent when capture points change
-testCapturable(testData, cmpCapturable => {
+testCapturable(testData, cmpCapturable =>
+{
 	cmpCapturable.SetCapturePoints([0, 2000, 0, 1000]);
 	TS_ASSERT_UNEVAL_EQUALS(cmpCapturable.GetCapturePoints(), [0, 2000, 0, 1000]);
 	Engine.PostMessage = function(ent, iid, message)
@@ -126,10 +130,12 @@ testCapturable(testData, cmpCapturable => {
 });
 
 // Tests reducing capture points (after a capture attack or a decay)
-testCapturable(testData, cmpCapturable => {
+testCapturable(testData, cmpCapturable =>
+{
 	cmpCapturable.SetCapturePoints([0, 2000, 0, 1000]);
 	cmpCapturable.CheckTimer();
-	Engine.PostMessage = function(ent, iid, message) {
+	Engine.PostMessage = function(ent, iid, message)
+	{
 		if (iid == MT_CapturePointsChanged)
 			TS_ASSERT_UNEVAL_EQUALS(message, { "capturePoints": [0, 2000 - 100, 0, 1000 + 100] });
 		if (iid == MT_CaptureRegenStateChanged)
@@ -140,7 +146,8 @@ testCapturable(testData, cmpCapturable => {
 });
 
 // Tests reducing capture points (after a capture attack or a decay)
-testCapturable(testData, cmpCapturable => {
+testCapturable(testData, cmpCapturable =>
+{
 	cmpCapturable.SetCapturePoints([0, 2000, 0, 1000]);
 	cmpCapturable.CheckTimer();
 	TS_ASSERT_EQUALS(cmpCapturable.Reduce(2500, 3), 2000);
@@ -149,10 +156,12 @@ testCapturable(testData, cmpCapturable => {
 
 function testRegen(data, capturePointsIn, capturePointsOut, regenerating)
 {
-	testCapturable(data, cmpCapturable => {
+	testCapturable(data, cmpCapturable =>
+	{
 		cmpCapturable.SetCapturePoints(capturePointsIn);
 		cmpCapturable.CheckTimer();
-		Engine.PostMessage = function(ent, iid, message) {
+		Engine.PostMessage = function(ent, iid, message)
+		{
 			if (iid == MT_CaptureRegenStateChanged)
 				TS_ASSERT_UNEVAL_EQUALS(message.regenerating, regenerating);
 		};
@@ -174,10 +183,12 @@ testData.regenRate = 2;
 
 function testDecay(data, capturePointsIn, capturePointsOut)
 {
-	testCapturable(data, cmpCapturable => {
+	testCapturable(data, cmpCapturable =>
+	{
 		cmpCapturable.SetCapturePoints(capturePointsIn);
 		cmpCapturable.CheckTimer();
-		Engine.PostMessage = function(ent, iid, message) {
+		Engine.PostMessage = function(ent, iid, message)
+		{
 			if (iid == MT_CaptureRegenStateChanged)
 				TS_ASSERT_UNEVAL_EQUALS(message.territoryDecay, data.decayRate);
 		};
@@ -195,7 +206,8 @@ testData.decay = false;
 // Tests Reduce
 function testReduce(data, amount, player, taken)
 {
-	testCapturable(data, cmpCapturable => {
+	testCapturable(data, cmpCapturable =>
+	{
 		cmpCapturable.SetCapturePoints([0, 2000, 0, 1000]);
 		cmpCapturable.CheckTimer();
 		TS_ASSERT_UNEVAL_EQUALS(cmpCapturable.Reduce(amount, player), taken);
@@ -213,7 +225,8 @@ testReduce(testData, 2000, 3, 2000);
 testReduce(testData, 3000, 3, 2000);
 
 // Test defeated player
-testCapturable(testData, cmpCapturable => {
+testCapturable(testData, cmpCapturable =>
+{
 	cmpCapturable.SetCapturePoints([500, 1000, 0, 250]);
 	cmpCapturable.OnGlobalPlayerDefeated({ "playerId": 3 });
 	TS_ASSERT_UNEVAL_EQUALS(cmpCapturable.GetCapturePoints(), [750, 1000, 0, 0]);

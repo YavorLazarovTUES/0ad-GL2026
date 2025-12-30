@@ -84,7 +84,8 @@ class GameSettingsController
 			// and particularly could fail with mods that change persistent settings, so this is
 			// difficult to fully fix from the gameSettings code.
 			// Also include hotloaded data because that can also fail and having to restart isn't very useful.
-			try {
+			try
+			{
 				if (hotloadData)
 					this.parseSettings(hotloadData.initAttributes, false);
 				else if (g_IsController && (initData?.gameSettings || this.persistentMatchSettings.enabled))
@@ -96,7 +97,9 @@ class GameSettingsController
 					if (settings)
 						this.parseSettings(settings, true);
 				}
-			} catch (err) {
+			}
+			catch(err)
+			{
 				error("There was an error loading game settings. You may need to disable persistent match settings.");
 				warn(err?.toString() ?? uneval(err));
 				if (err.stack)
@@ -231,7 +234,8 @@ class GameSettingsController
 	{
 		if (this.layoutTimer)
 			return;
-		this.layoutTimer = setTimeout(() => {
+		this.layoutTimer = setTimeout(() =>
+		{
 			for (const handler of this.updateLayoutHandlers)
 				handler();
 			delete this.layoutTimer;

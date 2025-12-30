@@ -158,7 +158,8 @@ AddMock(5, IID_Ownership, {
 TS_ASSERT_EQUALS(ApplyValueModificationsToEntity("Test_D", 10, 5), 16);
 
 // Test: Entity changes owner from player 2 (HP modifier) to player 3 (Vision modifier)
-(function Test_OwnerChange_ModifierSwitch() {
+(function Test_OwnerChange_ModifierSwitch()
+{
 	const PLAYER2_ID = 2;
 	const PLAYER3_ID = 3;
 	const PLAYER2_ENTITY = 20;

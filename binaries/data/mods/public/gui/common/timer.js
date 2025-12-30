@@ -57,9 +57,12 @@ function updateTimers()
 		if (!t)
 			continue; // an earlier timer might have cancelled this one, so skip it
 
-		try {
+		try
+		{
 			t[1]();
-		} catch (e) {
+		}
+		catch(e)
+		{
 			var stack = e.stack.trimRight().replace(/^/mg, '  '); // indent the stack trace
 			error(sprintf("Error in timer: %(error)s", { "error": e }) + "\n" + stack + "\n");
 		}

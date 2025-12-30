@@ -46,7 +46,8 @@ var jebelBarkal_templateClasses = deepfreeze({
 	"civilians": "Civilian"
 });
 
-var jebelBarkal_templates = deepfreeze(Object.keys(jebelBarkal_templateClasses).reduce((templates, name) => {
+var jebelBarkal_templates = deepfreeze(Object.keys(jebelBarkal_templateClasses).reduce((templates, name) =>
+{
 	templates[name] = TriggerHelper.GetTemplateNamesByClasses(jebelBarkal_templateClasses[name], "kush", undefined, jebelBarkal_rank, true);
 	return templates;
 }, {}));

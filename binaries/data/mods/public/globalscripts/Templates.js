@@ -165,7 +165,8 @@ function GetTemplateDataHelper(template, player, auraTemplates, resources, modif
 	// @param {string} value_path - Route to the value within the template.
 	// @param {string} mod_key - Modification key, if not the same as the value_path.
 	// @param {number} default_value - A value to use if one is not specified in the template.
-	const getEntityValue = function(value_path, mod_key, default_value = 0) {
+	const getEntityValue = function(value_path, mod_key, default_value = 0)
+	{
 		return GetModifiedTemplateDataValue(template, value_path, mod_key, player, modifiers, default_value);
 	};
 
@@ -197,7 +198,8 @@ function GetTemplateDataHelper(template, player, auraTemplates, resources, modif
 		}
 	}
 
-	const getAttackEffects = (temp, path) => {
+	const getAttackEffects = (temp, path) =>
+	{
 		const effects = {};
 		if (temp.Capture)
 			effects.Capture = getEntityValue(path + "/Capture");
@@ -220,7 +222,8 @@ function GetTemplateDataHelper(template, player, auraTemplates, resources, modif
 		ret.attack = {};
 		for (const type in template.Attack)
 		{
-			const getAttackStat = function(stat) {
+			const getAttackStat = function(stat)
+			{
 				return getEntityValue("Attack/" + type + "/" + stat);
 			};
 

@@ -79,7 +79,8 @@ TS_ASSERT_EQUALS(cmpHealth.IsInjured(), false);
 TS_ASSERT_EQUALS(cmpHealth.IsUnhealable(), true);
 
 // Check death.
-Engine.AddLocalEntity = function(template) {
+Engine.AddLocalEntity = function(template)
+{
 	corpse_entity = template;
 
 	AddMock(corpse_id, IID_Position, {

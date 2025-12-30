@@ -114,7 +114,8 @@ Timer.prototype.OnUpdate = function(msg)
 	// (We do this in two stages to avoid deleting from the timer list while
 	// we're in the middle of iterating through it)
 	const run = [];
-	this.timers.forEach((timer, id) => {
+	this.timers.forEach((timer, id) =>
+	{
 		if (timer.time <= this.time)
 			run.push(id);
 	});
@@ -139,7 +140,7 @@ Timer.prototype.OnUpdate = function(msg)
 		{
 			timerTargetComponent[timer.functionName](timer.data, this.time - timer.time);
 		}
-		catch (e)
+		catch(e)
 		{
 			error(
 				"Error in timer on entity " + timer.entity + ", " +

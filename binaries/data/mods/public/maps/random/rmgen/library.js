@@ -146,7 +146,8 @@ function createObjectGroupsByAreasDeprecated(group, player, constraints, amount,
  */
 function createAreas(centeredPlacer, painter, constraints, amount, retryFactor = 10)
 {
-	const placeFunc = function() {
+	const placeFunc = function()
+	{
 		centeredPlacer.setCenterPosition(g_Map.randomCoordinate(false));
 		return createArea(centeredPlacer, painter, constraints);
 	};
@@ -167,7 +168,8 @@ function createAreasInAreas(centeredPlacer, painter, constraints, amount, retryF
 		return [];
 	}
 
-	const placeFunc = function() {
+	const placeFunc = function()
+	{
 		centeredPlacer.setCenterPosition(pickRandom(pickRandom(areas).getPoints()));
 		return createArea(centeredPlacer, painter, constraints);
 	};
@@ -181,7 +183,8 @@ function createAreasInAreas(centeredPlacer, painter, constraints, amount, retryF
  */
 function createObjectGroups(group, player, constraints, amount, retryFactor = 10, behaveDeprecated = false)
 {
-	const placeFunc = function() {
+	const placeFunc = function()
+	{
 		group.setCenterPosition(g_Map.randomCoordinate(true));
 		return createObjectGroup(group, player, constraints);
 	};
@@ -202,7 +205,8 @@ function createObjectGroupsByAreas(group, player, constraints, amount, retryFact
 		return [];
 	}
 
-	const placeFunc = function() {
+	const placeFunc = function()
+	{
 		group.setCenterPosition(pickRandom(pickRandom(areas).getPoints()));
 		return createObjectGroup(group, player, constraints);
 	};

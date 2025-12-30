@@ -23,7 +23,8 @@ class SavegameDeleter
 	onSelectionChange(gameID, metadata, label)
 	{
 		this.deleteGameButton.enabled = !!metadata;
-		this.deleteGameButton.onPress = () => {
+		this.deleteGameButton.onPress = () =>
+		{
 			this.deleteGame(gameID, label);
 		};
 	}

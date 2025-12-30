@@ -427,7 +427,8 @@ DefenseManager.prototype.assignDefenders = function(gameState)
 
 	// Let's get our potential units.
 	const potentialDefenders = [];
-	gameState.getOwnUnits().forEach(function(ent) {
+	gameState.getOwnUnits().forEach(function(ent)
+	{
 		if (!ent.position())
 			return;
 		if (ent.getMetadata(PlayerID, "plan") == -2 || ent.getMetadata(PlayerID, "plan") == -3)
@@ -474,7 +475,8 @@ DefenseManager.prototype.assignDefenders = function(gameState)
 					continue;
 
 				// Do not assign defender if it cannot attack at least part of the attacking army.
-				if (!armiesNeeding[a].army.foeEntities.some(eEnt => {
+				if (!armiesNeeding[a].army.foeEntities.some(eEnt =>
+				{
 					const eEntID = gameState.getEntityById(eEnt);
 					return ent.canAttackTarget(eEntID, allowCapture(gameState, ent, eEntID));
 				}))
@@ -789,7 +791,8 @@ DefenseManager.prototype.garrisonUnitsInside = function(gameState, target, data)
 		else
 			allowMelee = true;
 	}
-	const units = gameState.getOwnUnits().filter(ent => {
+	const units = gameState.getOwnUnits().filter(ent =>
+	{
 		if (!ent.position())
 			return false;
 		if (!ent.hasClasses(garrisonArrowClasses))

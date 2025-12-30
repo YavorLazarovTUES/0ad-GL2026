@@ -5,7 +5,8 @@ function CityPainter(templates, angle, playerID)
 {
 	this.angle = angle;
 	this.playerID = playerID;
-	this.templates = templates.map(template => {
+	this.templates = templates.map(template =>
+	{
 
 		const obstructionSize = getObstructionSize(template.templateName, template.margin || 0);
 		return {

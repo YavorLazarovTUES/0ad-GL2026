@@ -262,7 +262,8 @@ GameState.prototype.checkTechRequirements = function(reqs)
 	if (!reqs.length)
 		return true;
 
-	const doesEntitySpecPass = entity => {
+	const doesEntitySpecPass = entity =>
+	{
 		switch (entity.check)
 		{
 		case "count":
@@ -278,8 +279,10 @@ GameState.prototype.checkTechRequirements = function(reqs)
 		}
 	};
 
-	return reqs.some(req => {
-		return Object.keys(req).every(type => {
+	return reqs.some(req =>
+	{
+		return Object.keys(req).every(type =>
+		{
 			switch (type)
 			{
 			case "techs":
@@ -316,11 +319,13 @@ GameState.prototype.getPopulation = function()
 	return this.playerData.popCount;
 };
 
-GameState.prototype.getPopulationLimit = function() {
+GameState.prototype.getPopulationLimit = function()
+{
 	return this.playerData.popLimit;
 };
 
-GameState.prototype.getPopulationMax = function() {
+GameState.prototype.getPopulationMax = function()
+{
 	return this.playerData.popMax;
 };
 
@@ -625,7 +630,8 @@ GameState.prototype.countEntitiesAndQueuedByType = function(type, maintain)
 	{
 		// Count entities in building production queues
 		// TODO: maybe this fails for corrals.
-		this.getOwnTrainingFacilities().forEach(function(ent) {
+		this.getOwnTrainingFacilities().forEach(function(ent)
+		{
 			for (const item of ent.trainingQueue())
 				if (item.unitTemplate == type)
 					count += item.count;
@@ -646,7 +652,8 @@ GameState.prototype.countFoundationsByType = function(type, maintain)
 	}
 
 	let count = 0;
-	this.getOwnStructures().forEach(function(ent) {
+	this.getOwnStructures().forEach(function(ent)
+	{
 		if (ent.templateName() == foundationType)
 			++count;
 	});
@@ -663,7 +670,8 @@ GameState.prototype.countOwnEntitiesAndQueuedWithRole = function(role)
 	let count = this.countOwnEntitiesByRole(role);
 
 	// Count entities in building production queues
-	this.getOwnTrainingFacilities().forEach(function(ent) {
+	this.getOwnTrainingFacilities().forEach(function(ent)
+	{
 		for (const item of ent.trainingQueue())
 			if (item.metadata && item.metadata.role && item.metadata.role == role)
 				count += item.count;
@@ -675,7 +683,8 @@ GameState.prototype.countOwnQueuedEntitiesWithMetadata = function(data, value)
 {
 	// Count entities in building production queues
 	let count = 0;
-	this.getOwnTrainingFacilities().forEach(function(ent) {
+	this.getOwnTrainingFacilities().forEach(function(ent)
+	{
 		for (const item of ent.trainingQueue())
 			if (item.metadata && item.metadata[data] && item.metadata[data] == value)
 				count += item.count;
@@ -727,7 +736,8 @@ GameState.prototype.findTrainableUnits = function(classes, anticlasses)
 {
 	const allTrainable = [];
 	const civ = this.playerData.civ;
-	this.getOwnTrainingFacilities().forEach(function(ent) {
+	this.getOwnTrainingFacilities().forEach(function(ent)
+	{
 		const trainable = ent.trainableEntities(civ);
 		if (!trainable)
 			return;
@@ -822,7 +832,8 @@ GameState.prototype.hasTrainer = function(template)
 GameState.prototype.findTrainers = function(template)
 {
 	const civ = this.playerData.civ;
-	return this.getOwnTrainingFacilities().filter(function(ent) {
+	return this.getOwnTrainingFacilities().filter(function(ent)
+	{
 		const trainable = ent.trainableEntities(civ);
 		return trainable && trainable.indexOf(template) !== -1;
 	});
@@ -886,7 +897,8 @@ GameState.prototype.findResearchers = function(templateName, noRequirementCheck)
 	const self = this;
 	const civ = this.playerData.civ;
 
-	return this.getOwnResearchFacilities().filter(function(ent) {
+	return this.getOwnResearchFacilities().filter(function(ent)
+	{
 		const techs = ent.researchableTechs(self, civ);
 		for (const tech of techs)
 		{

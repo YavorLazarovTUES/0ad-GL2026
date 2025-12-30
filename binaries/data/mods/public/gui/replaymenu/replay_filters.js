@@ -101,7 +101,8 @@ function initPopCapFilter(filters)
 	const popCapOptions = g_PopulationCapacities.Options
 		.map(item => item.List)
 		.flat()
-		.reduce((list, cap) => {
+		.reduce((list, cap) =>
+		{
 			if (!list.includes(cap))
 				list.push(cap);
 			return list;
@@ -124,7 +125,8 @@ function initPopCapFilter(filters)
 function initDurationFilter(filters)
 {
 	var durationFilter = Engine.GetGUIObjectByName("durationFilter");
-	durationFilter.list = g_DurationFilterIntervals.map((interval, index) => {
+	durationFilter.list = g_DurationFilterIntervals.map((interval, index) =>
+	{
 
 		if (index == 0)
 			return translateWithContext("duration", "Any");
@@ -201,7 +203,8 @@ function filterReplays()
 	const sortKey = Engine.GetGUIObjectByName("replaySelection").selected_column;
 	const sortOrder = Engine.GetGUIObjectByName("replaySelection").selected_column_order;
 
-	g_ReplaysFiltered = g_Replays.filter(replay => filterReplay(replay)).sort((a, b) => {
+	g_ReplaysFiltered = g_Replays.filter(replay => filterReplay(replay)).sort((a, b) =>
+	{
 		let cmpA, cmpB, cmpA_secondary, cmpB_secondary;
 		switch (sortKey)
 		{

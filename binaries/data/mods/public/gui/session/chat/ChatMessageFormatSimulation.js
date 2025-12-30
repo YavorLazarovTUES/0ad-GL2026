@@ -21,7 +21,8 @@ ChatMessageFormatSimulation.attack = class
 				"icon": '[icon="icon_focusattacked"]',
 				"attacker": colorizePlayernameByID(msg.attacker)
 			}),
-			"callback": ((target, position) => function() {
+			"callback": ((target, position) => function()
+			{
 				focusAttack({ "target": target, "position": position });
 			})(msg.target, msg.position),
 			"tooltip": translate("Click to focus on the attacked unit.")
@@ -198,7 +199,8 @@ ChatMessageFormatSimulation.flare = class
 				"icon": "[icon=\"icon_focusflare\" displace=\"0 1\"]",
 				"player": colorizePlayernameByGUID(msg.guid)
 			}),
-			"callback": ((position) => function() {
+			"callback": ((position) => function()
+			{
 				Engine.CameraMoveTo(position.x, position.z);
 			})(msg.position),
 			"tooltip": translate("Click to focus on the flare's location.")

@@ -121,7 +121,8 @@ PopulationCapManager.prototype.InitializeTeamPopCaps = function()
 PopulationCapManager.prototype.RedistributeTeamPopCap = function(team)
 {
 	const activePlayers = Engine.QueryInterface(SYSTEM_ENTITY, IID_PlayerManager).GetActivePlayers();
-	const teamMembers = activePlayers.reduce((list, player) => {
+	const teamMembers = activePlayers.reduce((list, player) =>
+	{
 		if (QueryPlayerIDInterface(player, IID_Diplomacy).GetTeam() === team)
 			list.push(player);
 		return list;

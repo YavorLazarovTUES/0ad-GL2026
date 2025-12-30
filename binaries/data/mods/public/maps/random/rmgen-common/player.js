@@ -784,7 +784,8 @@ function placeStronghold(teamsArray, distance, groupedDistance, startAngle)
 	const playerIDs = [];
 	const playerPosition = [];
 	const teamPositions = [];
-	const strongholdRadius = teamsArray.map(team => {
+	const strongholdRadius = teamsArray.map(team =>
+	{
 		// If we have a solo player, place them on the center of the team's location
 		if (team.length == 1)
 			return 0;
@@ -795,11 +796,13 @@ function placeStronghold(teamsArray, distance, groupedDistance, startAngle)
 	const distanceBetweenStrongholds = (distance * 2 * Math.PI -
 		2 * strongholdRadius.reduce((a, b) => a + b)) / strongholdRadius.length;
 
-	const relativeTeamAngles = strongholdRadius.map((r1, i) => {
+	const relativeTeamAngles = strongholdRadius.map((r1, i) =>
+	{
 		return (distanceBetweenStrongholds + strongholdRadius.at(i - 1) + r1) / distance;
 	});
 
-	const teamAngles = relativeTeamAngles.reduce((acc, angle, i) => {
+	const teamAngles = relativeTeamAngles.reduce((acc, angle, i) =>
+	{
 		acc.push((i === 0 ? startAngle : acc.at(-1)) + angle);
 		return acc;
 	}, []);
@@ -896,7 +899,8 @@ function groupPlayersByArea(playerIDs, locations)
 
 	// Of all permutations of starting locations, find the one where
 	// the sum of the distances between allies is minimal, weighted by teamsize.
-	heapsPermute(shuffleArray(locations).slice(0, playerIDs.length), v => v.clone(), permutation => {
+	heapsPermute(shuffleArray(locations).slice(0, playerIDs.length), v => v.clone(), permutation =>
+	{
 		let dist = 0;
 		let teamDist = 0;
 		let teamSize = 0;

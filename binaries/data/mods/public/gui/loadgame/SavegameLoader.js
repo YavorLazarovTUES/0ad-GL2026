@@ -14,7 +14,8 @@ class SavegameLoader
 	onSelectionChange(gameID, metadata, label)
 	{
 		this.confirmButton.enabled = !!metadata;
-		this.confirmButton.onPress = () => {
+		this.confirmButton.onPress = () =>
+		{
 			this.loadGame(gameID, metadata);
 		};
 	}

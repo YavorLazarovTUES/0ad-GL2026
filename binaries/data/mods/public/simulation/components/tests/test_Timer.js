@@ -8,14 +8,16 @@ var cmpTimer = ConstructComponent(SYSTEM_ENTITY, "Timer");
 var fired = [];
 
 AddMock(10, IID_Test, {
-	"Callback": function(data, lateness) {
+	"Callback": function(data, lateness)
+	{
 		fired.push([data, lateness]);
 	}
 });
 
 var cancelId;
 AddMock(20, IID_Test, {
-	"Callback": function(data, lateness) {
+	"Callback": function(data, lateness)
+	{
 		fired.push([data, lateness]);
 		cmpTimer.CancelTimer(cancelId);
 	}

@@ -143,7 +143,8 @@ export function* generateMap(mapSettings)
 			"minHeight": heightSeaGround,
 			"meanderShort": 10,
 			"meanderLong": 0,
-			"waterFunc": (position, height, riverFraction) => {
+			"waterFunc": (position, height, riverFraction) =>
+			{
 
 				clWater.add(position);
 

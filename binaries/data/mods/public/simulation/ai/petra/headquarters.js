@@ -407,7 +407,8 @@ Headquarters.prototype.trainMoreWorkers = function(gameState, queues)
 	// counting the workers that aren't part of a plan
 	let numberOfWorkers = 0;   // all workers
 	let numberOfSupports = 0;  // only support workers (i.e. non fighting)
-	gameState.getOwnUnits().forEach(ent => {
+	gameState.getOwnUnits().forEach(ent =>
+	{
 		if (ent.getMetadata(PlayerID, "role") === Worker.ROLE_WORKER && ent.getMetadata(PlayerID, "plan") === undefined)
 		{
 			++numberOfWorkers;
@@ -416,7 +417,8 @@ Headquarters.prototype.trainMoreWorkers = function(gameState, queues)
 		}
 	});
 	let numberInTraining = 0;
-	gameState.getOwnTrainingFacilities().forEach(function(ent) {
+	gameState.getOwnTrainingFacilities().forEach(function(ent)
+	{
 		for (const item of ent.trainingQueue())
 		{
 			numberInTraining += item.count;
@@ -541,7 +543,8 @@ Headquarters.prototype.findBestTrainableUnit = function(gameState, classes, requ
 			parameters.push(["costsResource", costsResource, type]);
 	}
 
-	units.sort((a, b) => {
+	units.sort((a, b) =>
+	{
 		const aCost = 1 + a[1].costSum();
 		const bCost = 1 + b[1].costSum();
 		let aValue = 0.1;
@@ -640,7 +643,8 @@ Headquarters.prototype.pickMostNeededResources = function(gameState, allowedReso
 	for (const res of allowedResources)
 		needed.push({ "type": res, "wanted": wantedRates[res], "current": currentRates[res] });
 
-	needed.sort((a, b) => {
+	needed.sort((a, b) =>
+	{
 		if (a.current < a.wanted && b.current < b.wanted)
 		{
 			if (a.current && b.current)

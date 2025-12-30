@@ -71,7 +71,8 @@ SmoothElevationPainter.prototype.paint = function(area)
 		"brushSize": brushSize,
 		"gridSize": heightmapSize,
 		"withinArea": withinArea,
-		"paintTile": (point, distance) => {
+		"paintTile": (point, distance) =>
+		{
 			let a = 1;
 			if (distance <= this.blendRadius)
 				a = (distance - 1) / this.blendRadius;

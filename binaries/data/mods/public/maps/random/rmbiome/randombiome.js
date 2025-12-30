@@ -46,7 +46,8 @@ function loadBiomeFile(file)
 
 	const biome = Engine.ReadJSONFile(path);
 
-	const copyProperties = (from, to) => {
+	const copyProperties = (from, to) =>
+	{
 		for (const prop in from)
 		{
 			if (from[prop] !== null && typeof from[prop] === "object" && !Array.isArray(from[prop]))

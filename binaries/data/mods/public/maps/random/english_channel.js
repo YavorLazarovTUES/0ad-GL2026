@@ -105,10 +105,12 @@ export function* generateMap()
 		"heightLand": heightLand,
 		"meanderShort": 20,
 		"meanderLong": 0,
-		"waterFunc": (position, height, riverFraction) => {
+		"waterFunc": (position, height, riverFraction) =>
+		{
 			createTerrain(height < -1.5 ? tWater : tShore).place(position);
 		},
-		"landFunc": (position, shoreDist1, shoreDist2) => {
+		"landFunc": (position, shoreDist1, shoreDist2) =>
+		{
 			g_Map.setHeight(position, heightLand + 0.1);
 		}
 	});

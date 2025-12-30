@@ -80,7 +80,8 @@ function summaryAddObject(obj1, obj2)
  */
 function summaryArraySum(array)
 {
-	return array.reduce((sum, val) => {
+	return array.reduce((sum, val) =>
+	{
 		if (typeof sum !== "object")
 			return sum + val;
 		summaryAddObject(sum, val);

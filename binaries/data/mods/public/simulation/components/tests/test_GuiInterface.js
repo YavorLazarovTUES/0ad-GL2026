@@ -67,7 +67,8 @@ var cmp = ConstructComponent(SYSTEM_ENTITY, "GuiInterface");
 
 
 AddMock(SYSTEM_ENTITY, IID_Barter, {
-	"GetPrices": function() {
+	"GetPrices": function()
+	{
 		return {
 			"buy": { "food": 150 },
 			"sell": { "food": 25 }
@@ -159,7 +160,8 @@ AddMock(100, IID_TechnologyManager, {
 });
 
 AddMock(100, IID_StatisticsTracker, {
-	"GetBasicStatistics": function() {
+	"GetBasicStatistics": function()
+	{
 		return {
 			"resourcesGathered": {
 				"food": 100,
@@ -171,7 +173,8 @@ AddMock(100, IID_StatisticsTracker, {
 			"percentMapExplored": 10
 		};
 	},
-	"GetSequences": function() {
+	"GetSequences": function()
+	{
 		return {
 			"unitsTrained": [0, 10],
 			"unitsLost": [0, 42],
@@ -254,7 +257,8 @@ AddMock(101, IID_TechnologyManager, {
 });
 
 AddMock(101, IID_StatisticsTracker, {
-	"GetBasicStatistics": function() {
+	"GetBasicStatistics": function()
+	{
 		return {
 			"resourcesGathered": {
 				"food": 100,
@@ -266,7 +270,8 @@ AddMock(101, IID_StatisticsTracker, {
 			"percentMapExplored": 10
 		};
 	},
-	"GetSequences": function() {
+	"GetSequences": function()
+	{
 		return {
 			"unitsTrained": [0, 10],
 			"unitsLost": [0, 9],
@@ -569,7 +574,8 @@ TS_ASSERT_UNEVAL_EQUALS(cmp.GetExtendedSimulationState(), {
 
 
 AddMock(10, IID_Builder, {
-	"GetEntitiesList": function() {
+	"GetEntitiesList": function()
+	{
 		return ["test1", "test2"];
 	},
 });
@@ -593,10 +599,12 @@ AddMock(10, IID_Identity, {
 
 AddMock(10, IID_Position, {
 	"GetTurretParent": function() { return INVALID_ENTITY; },
-	"GetPosition": function() {
+	"GetPosition": function()
+	{
 		return { "x": 1, "y": 2, "z": 3 };
 	},
-	"IsInWorld": function() {
+	"IsInWorld": function()
+	{
 		return true;
 	}
 });

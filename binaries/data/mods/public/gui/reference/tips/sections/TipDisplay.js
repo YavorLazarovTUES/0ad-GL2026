@@ -37,7 +37,8 @@ class TipDisplay
 		else
 			this.tipFilesData =
 				hotloadData?.tipFilesData ||
-				shuffleArray(Engine.ReadJSONFile(this.TipFilesDataFile).map(category => category.files).flat().map(tip => {
+				shuffleArray(Engine.ReadJSONFile(this.TipFilesDataFile).map(category => category.files).flat().map(tip =>
+				{
 					tip.imageFiles = shuffleArray(tip.imageFiles);
 					return tip;
 				}));

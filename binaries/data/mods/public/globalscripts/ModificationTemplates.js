@@ -118,41 +118,41 @@ function DeriveModificationsFromTechnologies(techsDataArray)
  * Common definition of the XML schema for in-template modifications.
  */
 const ModificationSchema =
-"<interleave>" +
-	"<element name='Paths' a:help='Space separated value paths to modify.'>" +
-		"<attribute name='datatype'>" +
-			"<value>tokens</value>" +
-		"</attribute>" +
-		"<text/>" +
-	"</element>" +
-	"<element name='Affects' a:help='An array of classes to affect.'>" +
-		"<attribute name='datatype'>" +
-			"<value>tokens</value>" +
-		"</attribute>" +
-		"<text/>" +
-	"</element>" +
-	"<choice>" +
-		"<element name='Add'>" +
-			"<data type='decimal' />" +
-		"</element>" +
-		"<element name='Multiply'>" +
-			"<data type='decimal' />" +
-		"</element>" +
-		"<element name='Replace'>" +
+	"<interleave>" +
+		"<element name='Paths' a:help='Space separated value paths to modify.'>" +
+			"<attribute name='datatype'>" +
+				"<value>tokens</value>" +
+			"</attribute>" +
 			"<text/>" +
 		"</element>" +
-	"</choice>" +
-"</interleave>";
+		"<element name='Affects' a:help='An array of classes to affect.'>" +
+			"<attribute name='datatype'>" +
+				"<value>tokens</value>" +
+			"</attribute>" +
+			"<text/>" +
+		"</element>" +
+		"<choice>" +
+			"<element name='Add'>" +
+				"<data type='decimal' />" +
+			"</element>" +
+			"<element name='Multiply'>" +
+				"<data type='decimal' />" +
+			"</element>" +
+			"<element name='Replace'>" +
+				"<text/>" +
+			"</element>" +
+		"</choice>" +
+	"</interleave>";
 
 const ModificationsSchema =
-"<element name='Modifiers' a:help='List of modifiers.'>" +
-	"<oneOrMore>" +
-		"<element>" +
-			"<anyName />" +
-			ModificationSchema +
-		"</element>" +
-	"</oneOrMore>" +
-"</element>";
+	"<element name='Modifiers' a:help='List of modifiers.'>" +
+		"<oneOrMore>" +
+			"<element>" +
+				"<anyName />" +
+				ModificationSchema +
+			"</element>" +
+		"</oneOrMore>" +
+	"</element>";
 
 /**
  * Derives a single modification (to be applied to entities) from a given XML template.

@@ -3,7 +3,8 @@ Resources = {
 	"GetTradableCodes": () => ["food", "metal", "stone", "wood"],
 	"GetBarterableCodes": () => ["food", "metal", "stone", "wood"],
 	"GetResource": () => ({}),
-	"BuildSchema": (type) => {
+	"BuildSchema": (type) =>
+	{
 		let schema = "";
 		for (const res of Resources.GetCodes())
 			schema +=
@@ -49,7 +50,8 @@ AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
 
 const resourceCount = {};
 AddMock(playerEntity, IID_Player, {
-	"AddResources": (amounts) => {
+	"AddResources": (amounts) =>
+	{
 		for (const type in amounts)
 			resourceCount[type] = (resourceCount[type] ?? 0) +amounts[type];
 	}

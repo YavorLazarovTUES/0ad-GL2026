@@ -60,7 +60,8 @@ class PanelEntityManager
 
 		// Sort depending on given order
 		const insertPos = this.handlers.reduce(
-			(pos, handler) => {
+			(pos, handler) =>
+			{
 				if (handler.orderKey <= orderKey)
 					++pos;
 				return pos;

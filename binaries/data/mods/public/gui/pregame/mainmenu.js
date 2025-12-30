@@ -11,7 +11,8 @@ export function init(data, hotloadData)
 	initUserReport();
 	Engine.GetGUIObjectByName("userReport").onTick = updateUserReportStatus;
 
-	return new Promise(closePageCallback => {
+	return new Promise(closePageCallback =>
+	{
 		const mainMenuPage = new MainMenuPage(
 			closePageCallback,
 			data,

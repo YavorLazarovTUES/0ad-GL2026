@@ -195,7 +195,8 @@ function EntitySelection()
 	this.groups = new EntityGroups();
 
 	this.UpdateFormationSelectionBehaviour();
-	registerConfigChangeHandler(changes => {
+	registerConfigChangeHandler(changes =>
+	{
 		if (changes.has("gui.session.selectformationasone"))
 			this.UpdateFormationSelectionBehaviour();
 	});

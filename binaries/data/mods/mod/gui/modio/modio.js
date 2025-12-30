@@ -27,12 +27,14 @@ var g_ModIOState = {
 	/**
 	 * Finished status indicators
 	 */
-	"ready": (progressData, closePageCallback) => {
+	"ready": (progressData, closePageCallback) =>
+	{
 		// GameID acquired, ready to fetch mod list
 		if (!g_RequestCancelled)
 			updateModList(closePageCallback);
 	},
-	"listed": progressData => {
+	"listed": progressData =>
+	{
 		// List of available mods acquired
 
 		// Only run this once (for each update).
@@ -44,7 +46,8 @@ var g_ModIOState = {
 		g_ModsAvailableOnline = Engine.ModIoGetMods();
 		displayMods();
 	},
-	"success": progressData => {
+	"success": progressData =>
+	{
 		// Successfully acquired a mod file
 		hideDialog();
 		Engine.GetGUIObjectByName("downloadButton").enabled = true;
@@ -52,20 +55,24 @@ var g_ModIOState = {
 	/**
 	 * In-progress status indicators.
 	 */
-	"gameid": progressData => {
+	"gameid": progressData =>
+	{
 		// Acquiring GameID from mod.io
 	},
-	"listing": progressData => {
+	"listing": progressData =>
+	{
 		// Acquiring list of available mods from mod.io
 	},
-	"downloading": progressData => {
+	"downloading": progressData =>
+	{
 		// Downloading a mod file
 		updateProgressBar(progressData.progress, g_ModsAvailableOnline[selectedModIndex()].filesize);
 	},
 	/**
 	 * Error/Failure status indicators.
 	 */
-	"failed_gameid": async(progressData, closePageCallback) => {
+	"failed_gameid": async(progressData, closePageCallback) =>
+	{
 		// Game ID couldn't be retrieved
 		const promise = showErrorMessageBox(
 			sprintf(translateWithContext("mod.io error message", "Game ID could not be retrieved.\n\n%(technicalDetails)s"), {
@@ -80,7 +87,8 @@ var g_ModIOState = {
 		else
 			init();
 	},
-	"failed_listing": async(progressData, closePageCallback) => {
+	"failed_listing": async(progressData, closePageCallback) =>
+	{
 		// Mod list couldn't be retrieved
 		const promise = showErrorMessageBox(
 			sprintf(translateWithContext("mod.io error message", "Mod List could not be retrieved.\n\n%(technicalDetails)s"), {
@@ -95,7 +103,8 @@ var g_ModIOState = {
 		else
 			updateModList(closePageCallback);
 	},
-	"failed_downloading": async(progressData) => {
+	"failed_downloading": async(progressData) =>
+	{
 		// File couldn't be retrieved
 		const promise = showErrorMessageBox(
 			sprintf(translateWithContext("mod.io error message", "File download failed.\n\n%(technicalDetails)s"), {
@@ -110,7 +119,8 @@ var g_ModIOState = {
 		else
 			downloadMod();
 	},
-	"failed_filecheck": async(progressData) => {
+	"failed_filecheck": async(progressData) =>
+	{
 		// The file is corrupted
 		const promise = showErrorMessageBox(
 			sprintf(translateWithContext("mod.io error message", "File verification error.\n\n%(technicalDetails)s"), {
@@ -126,7 +136,8 @@ var g_ModIOState = {
 	/**
 	 * Default
 	 */
-	"none": progressData => {
+	"none": progressData =>
+	{
 		// Nothing has happened yet.
 	}
 };
@@ -144,7 +155,8 @@ function init(data)
 
 	return Promise.race([
 		promise,
-		new Promise(closePageCallback => {
+		new Promise(closePageCallback =>
+		{
 			Engine.GetGUIObjectByName("backButton").onPress = closePageCallback;
 			Engine.GetGUIObjectByName("modio").onTick = onTick.bind(null, closePageCallback);
 		})
@@ -327,7 +339,8 @@ async function progressDialog(dialogCaption, dialogTitle, showProgressBar, butto
 
 	const downloadDialog_button = Engine.GetGUIObjectByName("downloadDialog_button");
 	downloadDialog_button.caption = buttonCaption;
-	await new Promise(resolve => {
+	await new Promise(resolve =>
+	{
 		downloadDialog_button.onPress = resolve;
 	});
 	cancelRequest();

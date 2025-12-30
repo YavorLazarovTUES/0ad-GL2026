@@ -1,12 +1,15 @@
 import { Plugin } from 'tools/dap/plugin.js';
 
-class SourcesManager extends Plugin {
-	constructor(jsDebugger, dapHandler) {
+class SourcesManager extends Plugin
+{
+	constructor(jsDebugger, dapHandler)
+	{
 		super('SourcesManager', 'manager');
 		this.jsDebugger = jsDebugger;
 		this.logger.debug('Setting up SourcesManager');
 
-		jsDebugger.on('onNewScript', ({ script, global }) => {
+		jsDebugger.on('onNewScript', ({ script, global }) =>
+		{
 			if (!jsDebugger.debuggerAttached)
 				return;
 
@@ -31,15 +34,18 @@ class SourcesManager extends Plugin {
 			}, this.name);
 		}, this.name);
 
-		jsDebugger.on('onDebuggerDetached', () => {
+		jsDebugger.on('onDebuggerDetached', () =>
+		{
 			this.logger.debug('Debugger detached');
 			this.jsDebugger.sourcesReferences = [];
 		}, this.name);
 
-		jsDebugger.on('onDebuggerAttached', () => {
+		jsDebugger.on('onDebuggerAttached', () =>
+		{
 			this.logger.debug('Debugger attached');
 			this.jsDebugger.sourcesReferences = [];
-			this.jsDebugger.instance.findSources().forEach((source) => {
+			this.jsDebugger.instance.findSources().forEach((source) =>
+			{
 				const url = source.url;
 				if (this.jsDebugger.sourcesReferences.some((src) => src.path === url))
 					return;
@@ -50,7 +56,8 @@ class SourcesManager extends Plugin {
 			});
 		}, this.name);
 
-		dapHandler.registerCommand('loadedSources', (req) => {
+		dapHandler.registerCommand('loadedSources', (req) =>
+		{
 			if (!jsDebugger.debuggerAttached)
 			{
 				this.logger.error('Debugger not attached, cannot handle loadedSources command');
@@ -66,7 +73,8 @@ class SourcesManager extends Plugin {
 			return dapHandler.successResponse(req, { 'sources': sources });
 		});
 
-		dapHandler.registerCommand('source', (req) => {
+		dapHandler.registerCommand('source', (req) =>
+		{
 			if (!jsDebugger.debuggerAttached)
 			{
 				this.logger.error('Debugger not attached, cannot handle source command');

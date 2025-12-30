@@ -31,7 +31,8 @@ const cancelTag = Symbol("cancelTag");
  */
 function cancelOr(costumPromise)
 {
-	return Promise.race([costumPromise, new Promise(resolve => {
+	return Promise.race([costumPromise, new Promise(resolve =>
+	{
 		Engine.GetGUIObjectByName("cancelButton").onPress = resolve.bind(undefined, cancelTag);
 	})]);
 }
@@ -42,7 +43,8 @@ async function waitOnEvent(loadSavedGame, joinFromLobby)
 	{
 		if (!joinFromLobby)
 		{
-			const continueResult = await cancelOr(new Promise(resolve => {
+			const continueResult = await cancelOr(new Promise(resolve =>
+			{
 				Engine.GetGUIObjectByName("continueButton").onPress = resolve;
 			}));
 			if (continueResult === cancelTag)
@@ -55,7 +57,7 @@ async function waitOnEvent(loadSavedGame, joinFromLobby)
 			{
 				confirmSetup(loadSavedGame);
 			}
-			catch (e)
+			catch(e)
 			{
 				if (cancelSetup())
 					return;
@@ -64,7 +66,8 @@ async function waitOnEvent(loadSavedGame, joinFromLobby)
 		}
 		while (true)
 		{
-			const tickResult = await cancelOr(new Promise(resolve => {
+			const tickResult = await cancelOr(new Promise(resolve =>
+			{
 				Engine.GetGUIObjectByName("multiplayerPages").onTick = resolve;
 			}));
 			if (tickResult === cancelTag || await onTick(loadSavedGame))
@@ -92,7 +95,8 @@ async function init(attribs)
 		{
 			g_ServerName = attribs.name;
 			switchSetupPage("pagePassword");
-			const passwordResult = await cancelOr(new Promise(resolve => {
+			const passwordResult = await cancelOr(new Promise(resolve =>
+			{
 				Engine.GetGUIObjectByName("confirmPasswordButton").onPress = resolve;
 			}));
 			if (passwordResult === cancelTag)
@@ -104,7 +108,7 @@ async function init(attribs)
 				attribs.hasPassword ? Engine.GetGUIObjectByName("clientPassword").caption : "");
 			switchSetupPage("pageConnecting");
 		}
-		catch (e)
+		catch(e)
 		{
 			if (cancelSetup())
 				return;
@@ -439,7 +443,7 @@ function startHost(playername, servername, port, password, loadSavedGame)
 		Engine.StartNetworkHost(playername + (g_UserRating ? " (" + g_UserRating + ")" : ""), port,
 			password, loadSavedGame, true);
 	}
-	catch (e)
+	catch(e)
 	{
 		messageBox(
 			400, 200,
@@ -465,7 +469,7 @@ function startJoin(playername, ip, port)
 	{
 		Engine.StartNetworkJoin(playername, ip, port, true);
 	}
-	catch (e)
+	catch(e)
 	{
 		messageBox(
 			400, 200,
@@ -507,7 +511,7 @@ function startJoinFromLobby(playername, hostJID, password)
 	{
 		Engine.StartNetworkJoinLobby(playername + (g_UserRating ? " (" + g_UserRating + ")" : ""), hostJID, password);
 	}
-	catch (e)
+	catch(e)
 	{
 		messageBox(
 			400, 200,

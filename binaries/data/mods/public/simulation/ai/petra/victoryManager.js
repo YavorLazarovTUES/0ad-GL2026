@@ -678,7 +678,8 @@ VictoryManager.prototype.captureGaiaRelic = function(gameState, relic)
 		return;
 	const relicPosition = relic.position();
 	const access = getLandAccess(gameState, relic);
-	const units = gameState.getOwnUnits().filter(ent => {
+	const units = gameState.getOwnUnits().filter(ent =>
+	{
 		if (!ent.position() || !ent.canCapture(relic))
 			return false;
 		if (ent.getMetadata(PlayerID, "transport") !== undefined)

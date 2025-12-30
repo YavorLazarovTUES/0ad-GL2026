@@ -1,6 +1,7 @@
 function TestScript1_Helper() {}
 
-TestScript1_Helper.prototype.GetX = function() {
+TestScript1_Helper.prototype.GetX = function()
+{
 	return AdditionHelper(1, 2);
 };
 

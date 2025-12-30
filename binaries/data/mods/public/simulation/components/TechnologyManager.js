@@ -339,8 +339,10 @@ TechnologyManager.prototype.CheckTechnologyRequirements = function(reqs, civonly
 	if (civonly || !reqs.length)
 		return true;
 
-	return reqs.some(req => {
-		return Object.keys(req).every(type => {
+	return reqs.some(req =>
+	{
+		return Object.keys(req).every(type =>
+		{
 			switch (type)
 			{
 			case "techs":

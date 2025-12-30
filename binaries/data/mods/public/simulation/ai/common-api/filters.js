@@ -177,7 +177,8 @@ export function isDropsite(resourceType)
 export function isTreasure()
 {
 	return {
-		"func": ent => {
+		"func": ent =>
+		{
 			if (!ent.isTreasure())
 				return false;
 
@@ -194,7 +195,8 @@ export function isTreasure()
 export function byResource(resourceType)
 {
 	return {
-		"func": ent => {
+		"func": ent =>
+		{
 			if (!ent.resourceSupplyMax())
 				return false;
 

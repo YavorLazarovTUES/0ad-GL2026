@@ -101,14 +101,16 @@ function Test_Generic()
 	});
 
 	AddMock(target, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			damageTaken = true;
 			return { "healthChange": -amount };
 		},
 	});
 
 	AddMock(SYSTEM_ENTITY, IID_DelayedDamage, {
-		"Hit": () => {
+		"Hit": () =>
+		{
 			damageTaken = true;
 		},
 	});
@@ -234,7 +236,8 @@ function TestLinearSplashDamage()
 	});
 
 	AddMock(60, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			hitEnts.add(60);
 			TS_ASSERT_EQUALS(amount, 100 * fallOff(3, -0.5));
 			return { "healthChange": -amount };
@@ -242,7 +245,8 @@ function TestLinearSplashDamage()
 	});
 
 	AddMock(61, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			hitEnts.add(61);
 			TS_ASSERT_EQUALS(amount, 100 * fallOff(0, 0));
 			return { "healthChange": -amount };
@@ -250,7 +254,8 @@ function TestLinearSplashDamage()
 	});
 
 	AddMock(62, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			hitEnts.add(62);
 			// Minor numerical precision issues make this necessary
 			TS_ASSERT(amount < 0.00001);
@@ -267,7 +272,8 @@ function TestLinearSplashDamage()
 	data.direction = new Vector3D(0.6, 747, 0.8);
 
 	AddMock(60, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			hitEnts.add(60);
 			TS_ASSERT_EQUALS(amount, 100 * fallOff(1, 2));
 			return { "healthChange": -amount };
@@ -347,34 +353,39 @@ function TestCircularSplashDamage()
 	});
 
 	AddMock(60, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			TS_ASSERT_EQUALS(amount, 100 * fallOff(0));
 			return { "healthChange": -amount };
 		}
 	});
 
 	AddMock(61, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			TS_ASSERT_EQUALS(amount, 100 * fallOff(5));
 			return { "healthChange": -amount };
 		}
 	});
 
 	AddMock(62, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			TS_ASSERT_EQUALS(amount, 100 * fallOff(1));
 			return { "healthChange": -amount };
 		}
 	});
 
 	AddMock(63, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			TS_ASSERT(false);
 		}
 	});
 
 	const cmphealth64 = AddMock(64, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			TS_ASSERT_EQUALS(amount, 0);
 			return { "healthChange": -amount };
 		}
@@ -382,7 +393,8 @@ function TestCircularSplashDamage()
 	const spy64 = new Spy(cmphealth64, "TakeDamage");
 
 	const cmpHealth65 = AddMock(65, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			TS_ASSERT_EQUALS(amount, 100 * fallOff(2));
 			return { "healthChange": -amount };
 		}
@@ -454,7 +466,8 @@ function Test_MissileHit()
 	});
 
 	AddMock(60, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			hitEnts.add(60);
 			TS_ASSERT_EQUALS(amount, 100);
 			return { "healthChange": -amount };
@@ -500,7 +513,8 @@ function Test_MissileHit()
 	});
 
 	AddMock(61, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			hitEnts.add(61);
 			TS_ASSERT_EQUALS(amount, 100);
 			return { "healthChange": -amount };
@@ -530,7 +544,8 @@ function Test_MissileHit()
 	});
 
 	AddMock(60, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			TS_ASSERT_EQUALS(false);
 			return { "healthChange": -amount };
 		}
@@ -564,7 +579,8 @@ function Test_MissileHit()
 
 	let dealtDamage = 0;
 	AddMock(61, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			hitEnts.add(61);
 			dealtDamage += amount;
 			return { "healthChange": -amount };
@@ -579,7 +595,8 @@ function Test_MissileHit()
 	});
 
 	AddMock(62, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			hitEnts.add(62);
 			TS_ASSERT_EQUALS(amount, 200 * 0.75);
 			return { "healthChange": -amount };
@@ -671,7 +688,8 @@ function Test_MissileHit()
 
 	dealtDamage = 0;
 	AddMock(61, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			hitEnts.add(61);
 			dealtDamage += amount;
 			return { "healthChange": -amount };
@@ -686,7 +704,8 @@ function Test_MissileHit()
 	});
 
 	AddMock(62, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			hitEnts.add(62);
 			TS_ASSERT_EQUALS(amount, 200 * 0.75);
 			return { "healtChange": -amount };

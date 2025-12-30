@@ -83,13 +83,12 @@ repos:
         args:
           - --strict
   - repo: https://github.com/eslint/eslint
-    rev: v9.33.0
+    rev: v9.39.2
     hooks:
       - id: eslint
         language_version: 22.14.0
         additional_dependencies:
-          - eslint-plugin-brace-rules@0.1.6
-          - "@stylistic/eslint-plugin@4.4.0"
+          - "@stylistic/eslint-plugin@5.6.1"
         args:
           - --max-warnings=0
           - --no-warn-ignored

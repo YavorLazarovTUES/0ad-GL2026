@@ -168,7 +168,8 @@ Trigger.prototype.UnitsIntoShipThenAnotherCloseBy = function()
 	// Don't do this at home
 	const holder = Engine.QueryInterface(ship, IID_GarrisonHolder);
 	const og = Object.getPrototypeOf(holder).PerformGarrison;
-	holder.PerformGarrison = (...args) => {
+	holder.PerformGarrison = (...args) =>
+	{
 		const res = og.apply(holder, args);
 		delete holder.PerformGarrison;
 		pos = TriggerHelper.GetEntityPosition2D(point_coast_2);

@@ -23,7 +23,8 @@ class Menu
 				"There are " + handlerNames.length + " menu buttons defined, " +
 				"but only " + menuButtons.length + " objects!");
 
-		this.buttons = handlerNames.map((handlerName, i) => {
+		this.buttons = handlerNames.map((handlerName, i) =>
+		{
 			const handler = new MenuButtons.prototype[handlerName](menuButtons[i], pauseControl, playerViewControl, chat);
 			this.initButton(handler, menuButtons[i], i);
 			return handler;
@@ -63,7 +64,8 @@ class Menu
 
 	initButton(handler, button, i)
 	{
-		button.onPress = () => {
+		button.onPress = () =>
+		{
 			this.close();
 			handler.onPress();
 		};

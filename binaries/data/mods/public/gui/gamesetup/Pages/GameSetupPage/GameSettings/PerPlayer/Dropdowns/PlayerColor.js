@@ -30,7 +30,8 @@ PlayerSettingControls.PlayerColor = class PlayerColor extends GameSettingControl
 		this.values = g_GameSettings.playerColor.available;
 		this.dropdown.list = this.values.map(color => coloredText(this.ColorIcon, rgbToGuiColor(color)));
 		this.dropdown.list_data = this.values.map((color, i) => i);
-		this.setSelectedValue(this.values.map((color, i) => {
+		this.setSelectedValue(this.values.map((color, i) =>
+		{
 			if (color.r === value.r && color.g === value.g && color.b === value.b)
 				return i;
 			return undefined;

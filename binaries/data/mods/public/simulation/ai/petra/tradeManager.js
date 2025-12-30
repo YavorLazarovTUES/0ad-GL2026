@@ -50,7 +50,8 @@ TradeManager.prototype.trainMoreTraders = function(gameState, queues)
 	let numSeaTraders = this.traders.filter(filters.byClass("Ship")).length;
 	let numLandTraders = numTraders - numSeaTraders;
 	// add traders already in training
-	gameState.getOwnTrainingFacilities().forEach(function(ent) {
+	gameState.getOwnTrainingFacilities().forEach(function(ent)
+	{
 		for (const item of ent.trainingQueue())
 		{
 			if (!item.metadata || !item.metadata.role || item.metadata.role !== Worker.ROLE_TRADER)
@@ -76,7 +77,8 @@ TradeManager.prototype.trainMoreTraders = function(gameState, queues)
 		// and the naval manager will train now more appropriate ships.
 		let already = false;
 		let shipToSwitch;
-		gameState.ai.HQ.navalManager.seaTransportShips[this.tradeRoute.sea].forEach(function(ship) {
+		gameState.ai.HQ.navalManager.seaTransportShips[this.tradeRoute.sea].forEach(function(ship)
+		{
 			if (already || !ship.hasClass("Trader"))
 				return;
 			if (ship.getMetadata(PlayerID, "role") === Worker.ROLE_SWITCH_TO_TRADER)

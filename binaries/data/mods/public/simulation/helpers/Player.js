@@ -14,7 +14,8 @@ function LoadPlayerSettings(settings, newPlayers)
 	if (!playerData)
 		warn("Player.js: Setup has no player data - using defaults.");
 
-	const getPlayerSetting = (idx, property) => {
+	const getPlayerSetting = (idx, property) =>
+	{
 		if (playerData && playerData[idx] && (property in playerData[idx]))
 			return playerData[idx][property];
 

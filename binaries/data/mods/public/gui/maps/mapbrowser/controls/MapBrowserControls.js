@@ -29,7 +29,8 @@ class MapBrowserPageControls
 	setupButtons()
 	{
 		this.pickRandom = Engine.GetGUIObjectByName("mapBrowserPagePickRandom");
-		this.pickRandom.onPress = () => {
+		this.pickRandom.onPress = () =>
+		{
 			const index = randIntInclusive(0, this.gridBrowser.itemCount - 1);
 			this.gridBrowser.setSelectedIndex(index);
 			this.gridBrowser.goToPageOfSelected();

@@ -20,7 +20,8 @@ class AutoFormation
 			this.setDefault(NULL_FORMATION);
 		this.lastDefault = this.defaultFormation === NULL_FORMATION ?
 			"special/formations/box" : this.defaultFormation;
-		Engine.SetGlobalHotkey("session.toggledefaultformation", "Press", () => {
+		Engine.SetGlobalHotkey("session.toggledefaultformation", "Press", () =>
+		{
 			if (this.defaultFormation === NULL_FORMATION)
 				this.setDefault(this.lastDefault);
 			else

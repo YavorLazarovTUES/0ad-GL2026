@@ -195,49 +195,60 @@ UnitAI.prototype.UnitFsmSpec = {
 
 	// Default event handlers:
 
-	"MovementUpdate": function(msg) {
+	"MovementUpdate": function(msg)
+	{
 		// ignore spurious movement messages
 		// (these can happen when stopping moving at the same time
 		// as switching states)
 	},
 
-	"ConstructionFinished": function(msg) {
+	"ConstructionFinished": function(msg)
+	{
 		// ignore uninteresting construction messages
 	},
 
-	"LosRangeUpdate": function(msg) {
+	"LosRangeUpdate": function(msg)
+	{
 		// Ignore newly-seen units by default.
 	},
 
-	"LosHealRangeUpdate": function(msg) {
+	"LosHealRangeUpdate": function(msg)
+	{
 		// Ignore newly-seen injured units by default.
 	},
 
-	"LosAttackRangeUpdate": function(msg) {
+	"LosAttackRangeUpdate": function(msg)
+	{
 		// Ignore newly-seen enemy units by default.
 	},
 
-	"Attacked": function(msg) {
+	"Attacked": function(msg)
+	{
 		// ignore attacker
 	},
 
-	"PackFinished": function(msg) {
+	"PackFinished": function(msg)
+	{
 		// ignore
 	},
 
-	"PickupCanceled": function(msg) {
+	"PickupCanceled": function(msg)
+	{
 		// ignore
 	},
 
-	"TradingCanceled": function(msg) {
+	"TradingCanceled": function(msg)
+	{
 		// ignore
 	},
 
-	"GuardedAttacked": function(msg) {
+	"GuardedAttacked": function(msg)
+	{
 		// ignore
 	},
 
-	"OrderTargetRenamed": function() {
+	"OrderTargetRenamed": function()
+	{
 		// By default, trigger an exit-reenter
 		// so that state preconditions are checked against the new entity
 		// (there is no reason to assume the target is still valid).
@@ -246,7 +257,8 @@ UnitAI.prototype.UnitFsmSpec = {
 
 	// Formation handlers:
 
-	"FormationLeave": function(msg) {
+	"FormationLeave": function(msg)
+	{
 		// Overloaded by FORMATIONMEMBER
 		// We end up here if LeaveFormation was called when the entity
 		// was executing an order in an individual state, so we must
@@ -256,7 +268,8 @@ UnitAI.prototype.UnitFsmSpec = {
 	},
 
 	// Called when being told to walk as part of a formation
-	"Order.FormationWalk": function(msg) {
+	"Order.FormationWalk": function(msg)
+	{
 		if (!this.IsFormationMember() || !this.AbleToMove())
 			return this.FinishOrder();
 
@@ -277,7 +290,8 @@ UnitAI.prototype.UnitFsmSpec = {
 	// Special orders:
 	// (these will be overridden by various states)
 
-	"Order.LeaveFoundation": function(msg) {
+	"Order.LeaveFoundation": function(msg)
+	{
 		if (!this.WillMoveFromFoundation(msg.data.target))
 			return this.FinishOrder();
 		msg.data.min = g_LeaveFoundationRange;
@@ -287,7 +301,8 @@ UnitAI.prototype.UnitFsmSpec = {
 
 	// Individual orders:
 
-	"Order.LeaveFormation": function() {
+	"Order.LeaveFormation": function()
+	{
 		if (!this.IsFormationMember())
 			return this.FinishOrder();
 
@@ -297,12 +312,14 @@ UnitAI.prototype.UnitFsmSpec = {
 		return ACCEPT_ORDER;
 	},
 
-	"Order.Stop": function(msg) {
+	"Order.Stop": function(msg)
+	{
 		this.FinishOrder();
 		return ACCEPT_ORDER;
 	},
 
-	"Order.Walk": function(msg) {
+	"Order.Walk": function(msg)
+	{
 		if (!this.AbleToMove())
 			return this.FinishOrder();
 
@@ -318,7 +335,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		return ACCEPT_ORDER;
 	},
 
-	"Order.WalkAndFight": function(msg) {
+	"Order.WalkAndFight": function(msg)
+	{
 		if (!this.AbleToMove())
 			return this.FinishOrder();
 
@@ -335,7 +353,8 @@ UnitAI.prototype.UnitFsmSpec = {
 	},
 
 
-	"Order.WalkToTarget": function(msg) {
+	"Order.WalkToTarget": function(msg)
+	{
 		if (!this.AbleToMove())
 			return this.FinishOrder();
 
@@ -354,7 +373,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		return ACCEPT_ORDER;
 	},
 
-	"Order.PickupUnit": function(msg) {
+	"Order.PickupUnit": function(msg)
+	{
 		const cmpHolder = Engine.QueryInterface(this.entity, msg.data.iid);
 		if (!cmpHolder || cmpHolder.IsFull())
 			return this.FinishOrder();
@@ -380,7 +400,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		return ACCEPT_ORDER;
 	},
 
-	"Order.Guard": function(msg) {
+	"Order.Guard": function(msg)
+	{
 		if (!this.AddGuard(msg.data.target))
 			return this.FinishOrder();
 
@@ -393,14 +414,16 @@ UnitAI.prototype.UnitFsmSpec = {
 		return ACCEPT_ORDER;
 	},
 
-	"Order.Flee": function(msg) {
+	"Order.Flee": function(msg)
+	{
 		if (!this.AbleToMove())
 			return this.FinishOrder();
 		this.SetNextState("INDIVIDUAL.FLEEING");
 		return ACCEPT_ORDER;
 	},
 
-	"Order.Attack": function(msg) {
+	"Order.Attack": function(msg)
+	{
 		const type = this.GetBestAttackAgainst(msg.data.target, msg.data.allowCapture);
 		if (!type)
 			return this.FinishOrder();
@@ -442,7 +465,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		return ACCEPT_ORDER;
 	},
 
-	"Order.Patrol": function(msg) {
+	"Order.Patrol": function(msg)
+	{
 		if (!this.AbleToMove())
 			return this.FinishOrder();
 
@@ -458,7 +482,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		return ACCEPT_ORDER;
 	},
 
-	"Order.Heal": function(msg) {
+	"Order.Heal": function(msg)
+	{
 		if (!this.TargetIsAlive(msg.data.target))
 			return this.FinishOrder();
 
@@ -481,7 +506,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		return ACCEPT_ORDER;
 	},
 
-	"Order.Gather": function(msg) {
+	"Order.Gather": function(msg)
+	{
 		const cmpResourceGatherer = Engine.QueryInterface(this.entity, IID_ResourceGatherer);
 		if (!cmpResourceGatherer)
 			return this.FinishOrder();
@@ -555,7 +581,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		return ACCEPT_ORDER;
 	},
 
-	"Order.GatherNearPosition": function(msg) {
+	"Order.GatherNearPosition": function(msg)
+	{
 		if (!this.AbleToMove())
 			return this.FinishOrder();
 		this.SetNextState("INDIVIDUAL.GATHER.WALKING");
@@ -564,7 +591,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		return ACCEPT_ORDER;
 	},
 
-	"Order.DropAtNearestDropSite": function(msg) {
+	"Order.DropAtNearestDropSite": function(msg)
+	{
 		const cmpResourceGatherer = Engine.QueryInterface(this.entity, IID_ResourceGatherer);
 		if (!cmpResourceGatherer)
 			return this.FinishOrder();
@@ -575,7 +603,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		return ACCEPT_ORDER;
 	},
 
-	"Order.ReturnResource": function(msg) {
+	"Order.ReturnResource": function(msg)
+	{
 		if (this.CheckTargetRange(msg.data.target, IID_ResourceGatherer))
 			this.SetNextState("INDIVIDUAL.RETURNRESOURCE.DROPPINGRESOURCES");
 		else if (this.AbleToMove())
@@ -585,7 +614,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		return ACCEPT_ORDER;
 	},
 
-	"Order.Trade": function(msg) {
+	"Order.Trade": function(msg)
+	{
 		if (!this.AbleToMove())
 			return this.FinishOrder();
 		// We must check if this trader has both markets in case it was a back-to-work order.
@@ -598,7 +628,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		return ACCEPT_ORDER;
 	},
 
-	"Order.Repair": function(msg) {
+	"Order.Repair": function(msg)
+	{
 		if (this.CheckTargetRange(msg.data.target, IID_Builder))
 			this.SetNextState("INDIVIDUAL.REPAIR.REPAIRING");
 		else if (this.AbleToMove())
@@ -608,7 +639,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		return ACCEPT_ORDER;
 	},
 
-	"Order.Garrison": function(msg) {
+	"Order.Garrison": function(msg)
+	{
 		if (!this.AbleToMove())
 			return this.FinishOrder();
 
@@ -626,7 +658,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		return ACCEPT_ORDER;
 	},
 
-	"Order.Ungarrison": function(msg) {
+	"Order.Ungarrison": function(msg)
+	{
 		// Note that this order MUST succeed, or we break
 		// the assumptions done in garrisonable/garrisonHolder,
 		// especially in Unloading in the latter. (For user feedback.)
@@ -635,32 +668,37 @@ UnitAI.prototype.UnitFsmSpec = {
 		return ACCEPT_ORDER;
 	},
 
-	"Order.Cheer": function(msg) {
+	"Order.Cheer": function(msg)
+	{
 		return this.FinishOrder();
 	},
 
-	"Order.Pack": function(msg) {
+	"Order.Pack": function(msg)
+	{
 		if (!this.CanPack())
 			return this.FinishOrder();
 		this.SetNextState("INDIVIDUAL.PACKING");
 		return ACCEPT_ORDER;
 	},
 
-	"Order.Unpack": function(msg) {
+	"Order.Unpack": function(msg)
+	{
 		if (!this.CanUnpack())
 			return this.FinishOrder();
 		this.SetNextState("INDIVIDUAL.UNPACKING");
 		return ACCEPT_ORDER;
 	},
 
-	"Order.MoveToChasingPoint": function(msg) {
+	"Order.MoveToChasingPoint": function(msg)
+	{
 		// Overriden by the CHASING state.
 		// Can however happen outside of it when renaming...
 		// TODO: don't use an order for that behaviour.
 		return this.FinishOrder();
 	},
 
-	"Order.CollectTreasure": function(msg) {
+	"Order.CollectTreasure": function(msg)
+	{
 		if (this.CheckTargetRange(msg.data.target, IID_TreasureCollector))
 			this.SetNextState("INDIVIDUAL.COLLECTTREASURE.COLLECTING");
 		else if (this.AbleToMove())
@@ -671,7 +709,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		return ACCEPT_ORDER;
 	},
 
-	"Order.CollectTreasureNearPosition": function(msg) {
+	"Order.CollectTreasureNearPosition": function(msg)
+	{
 		if (!this.AbleToMove())
 			return this.FinishOrder();
 		this.SetNextState("INDIVIDUAL.COLLECTTREASURE.WALKING");
@@ -683,7 +722,8 @@ UnitAI.prototype.UnitFsmSpec = {
 	// States for the special entity representing a group of units moving in formation:
 	"FORMATIONCONTROLLER": {
 
-		"Order.Walk": function(msg) {
+		"Order.Walk": function(msg)
+		{
 			if (!this.AbleToMove())
 				return this.FinishOrder();
 			this.CallMemberFunction("SetHeldPosition", [msg.data.x, msg.data.z]);
@@ -691,7 +731,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			return ACCEPT_ORDER;
 		},
 
-		"Order.WalkAndFight": function(msg) {
+		"Order.WalkAndFight": function(msg)
+		{
 			if (!this.AbleToMove())
 				return this.FinishOrder();
 			this.CallMemberFunction("SetHeldPosition", [msg.data.x, msg.data.z]);
@@ -699,7 +740,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			return ACCEPT_ORDER;
 		},
 
-		"Order.MoveIntoFormation": function(msg) {
+		"Order.MoveIntoFormation": function(msg)
+		{
 			if (!this.AbleToMove())
 				return this.FinishOrder();
 			this.CallMemberFunction("SetHeldPosition", [msg.data.x, msg.data.z]);
@@ -708,7 +750,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		},
 
 		// Only used by other orders to walk there in formation.
-		"Order.WalkToTargetRange": function(msg) {
+		"Order.WalkToTargetRange": function(msg)
+		{
 			if (this.CheckRange(msg.data))
 				return this.FinishOrder();
 			if (!this.AbleToMove())
@@ -717,7 +760,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			return ACCEPT_ORDER;
 		},
 
-		"Order.WalkToTarget": function(msg) {
+		"Order.WalkToTarget": function(msg)
+		{
 			if (this.CheckRange(msg.data))
 				return this.FinishOrder();
 			if (!this.AbleToMove())
@@ -726,7 +770,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			return ACCEPT_ORDER;
 		},
 
-		"Order.WalkToPointRange": function(msg) {
+		"Order.WalkToPointRange": function(msg)
+		{
 			if (this.CheckRange(msg.data))
 				return this.FinishOrder();
 			if (!this.AbleToMove())
@@ -735,7 +780,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			return ACCEPT_ORDER;
 		},
 
-		"Order.Patrol": function(msg) {
+		"Order.Patrol": function(msg)
+		{
 			if (!this.AbleToMove())
 				return this.FinishOrder();
 			this.CallMemberFunction("SetHeldPosition", [msg.data.x, msg.data.z]);
@@ -743,13 +789,15 @@ UnitAI.prototype.UnitFsmSpec = {
 			return ACCEPT_ORDER;
 		},
 
-		"Order.Guard": function(msg) {
+		"Order.Guard": function(msg)
+		{
 			this.CallMemberFunction("Guard", [msg.data.target, false]);
 			Engine.QueryInterface(this.entity, IID_Formation).Disband();
 			return ACCEPT_ORDER;
 		},
 
-		"Order.Stop": function(msg) {
+		"Order.Stop": function(msg)
+		{
 			const cmpFormation = Engine.QueryInterface(this.entity, IID_Formation);
 			cmpFormation.ResetOrderVariant();
 			if (!this.IsAttackingAsFormation())
@@ -761,7 +809,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			// TODO: this should be improved in the formation reshaping code.
 		},
 
-		"Order.Attack": function(msg) {
+		"Order.Attack": function(msg)
+		{
 			const target = msg.data.target;
 			let formationTarget;
 			const cmpTargetUnitAI = Engine.QueryInterface(target, IID_UnitAI);
@@ -787,7 +836,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			return ACCEPT_ORDER;
 		},
 
-		"Order.Garrison": function(msg) {
+		"Order.Garrison": function(msg)
+		{
 			if (!Engine.QueryInterface(msg.data.target,
 				msg.data.garrison ? IID_GarrisonHolder : IID_TurretHolder))
 				return this.FinishOrder();
@@ -803,7 +853,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			return ACCEPT_ORDER;
 		},
 
-		"Order.Gather": function(msg) {
+		"Order.Gather": function(msg)
+		{
 			if (this.MustKillGatherTarget(msg.data.target))
 			{
 				// The target was visible when this order was given,
@@ -855,7 +906,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			return ACCEPT_ORDER;
 		},
 
-		"Order.GatherNearPosition": function(msg) {
+		"Order.GatherNearPosition": function(msg)
+		{
 			// TODO: on what should we base this range?
 			if (!this.CheckPointRangeExplicit(msg.data.x, msg.data.z, 0, 20))
 			{
@@ -870,7 +922,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			return ACCEPT_ORDER;
 		},
 
-		"Order.Heal": function(msg) {
+		"Order.Heal": function(msg)
+		{
 			// TODO: on what should we base this range?
 			if (!this.CheckTargetRangeExplicit(msg.data.target, 0, 10))
 			{
@@ -892,7 +945,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			return ACCEPT_ORDER;
 		},
 
-		"Order.CollectTreasure": function(msg) {
+		"Order.CollectTreasure": function(msg)
+		{
 			// TODO: on what should we base this range?
 			if (this.CheckTargetRangeExplicit(msg.data.target, 0, 20))
 			{
@@ -909,7 +963,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			return ACCEPT_ORDER;
 		},
 
-		"Order.CollectTreasureNearPosition": function(msg) {
+		"Order.CollectTreasureNearPosition": function(msg)
+		{
 			// TODO: on what should we base this range?
 			if (!this.CheckPointRangeExplicit(msg.data.x, msg.data.z, 0, 20))
 			{
@@ -922,7 +977,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			return ACCEPT_ORDER;
 		},
 
-		"Order.Repair": function(msg) {
+		"Order.Repair": function(msg)
+		{
 			// TODO: on what should we base this range?
 			if (!this.CheckTargetRangeExplicit(msg.data.target, 0, 10))
 			{
@@ -944,7 +1000,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			return ACCEPT_ORDER;
 		},
 
-		"Order.ReturnResource": function(msg) {
+		"Order.ReturnResource": function(msg)
+		{
 			// TODO: on what should we base this range?
 			if (!this.CheckTargetRangeExplicit(msg.data.target, 0, 10))
 			{
@@ -966,21 +1023,24 @@ UnitAI.prototype.UnitFsmSpec = {
 			return ACCEPT_ORDER;
 		},
 
-		"Order.Pack": function(msg) {
+		"Order.Pack": function(msg)
+		{
 			this.CallMemberFunction("Pack", [false]);
 
 			this.SetNextState("MEMBER");
 			return ACCEPT_ORDER;
 		},
 
-		"Order.Unpack": function(msg) {
+		"Order.Unpack": function(msg)
+		{
 			this.CallMemberFunction("Unpack", [false]);
 
 			this.SetNextState("MEMBER");
 			return ACCEPT_ORDER;
 		},
 
-		"Order.DropAtNearestDropSite": function(msg) {
+		"Order.DropAtNearestDropSite": function(msg)
+		{
 			this.CallMemberFunction("DropAtNearestDropSite", [false, false]);
 
 			this.SetNextState("MEMBER");
@@ -988,19 +1048,22 @@ UnitAI.prototype.UnitFsmSpec = {
 		},
 
 		"IDLE": {
-			"enter": function(msg) {
+			"enter": function(msg)
+			{
 				// Start the timer on the next turn to catch up with potential stragglers.
 				this.StartTimer(100, 2000);
 				this.isIdle = true;
 				return false;
 			},
 
-			"leave": function() {
+			"leave": function()
+			{
 				this.isIdle = false;
 				this.StopTimer();
 			},
 
-			"Timer": function(msg) {
+			"Timer": function(msg)
+			{
 				const cmpFormation = Engine.QueryInterface(this.entity, IID_Formation);
 				if (!cmpFormation)
 					return;
@@ -1011,7 +1074,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		},
 
 		"WALKING": {
-			"enter": function() {
+			"enter": function()
+			{
 				this.RequestFormationUpdate(true, true);
 				this.StartTimer(100, 2000);
 
@@ -1023,25 +1087,29 @@ UnitAI.prototype.UnitFsmSpec = {
 				return false;
 			},
 
-			"leave": function() {
+			"leave": function()
+			{
 				this.StopTimer();
 				this.StopMoving();
 			},
 
-			"MovementUpdate": function(msg) {
+			"MovementUpdate": function(msg)
+			{
 				if (msg.veryObstructed && !this.obstructionMitigationAttempted)
 					this.AttemptObstructionMitigation();
 				else if (msg.likelyFailure || this.CheckRange(this.order.data))
 					this.FinishOrder();
 			},
-			"Timer": function() {
+			"Timer": function()
+			{
 				// Update Formation in case some members left.
 				this.RequestFormationUpdate(false, true);
 			}
 		},
 
 		"WALKINGANDFIGHTING": {
-			"enter": function(msg) {
+			"enter": function(msg)
+			{
 				this.RequestFormationUpdate(true, true, "combat");
 				if (!this.MoveTo(this.order.data))
 				{
@@ -1053,12 +1121,14 @@ UnitAI.prototype.UnitFsmSpec = {
 				return false;
 			},
 
-			"leave": function() {
+			"leave": function()
+			{
 				this.StopMoving();
 				this.StopTimer();
 			},
 
-			"Timer": function(msg) {
+			"Timer": function(msg)
+			{
 				Engine.ProfileStart("FindWalkAndFightTargets");
 				if (this.FindWalkAndFightTargets())
 					this.SetNextState("MEMBER");
@@ -1066,7 +1136,8 @@ UnitAI.prototype.UnitFsmSpec = {
 				Engine.ProfileStop();
 			},
 
-			"MovementUpdate": function(msg) {
+			"MovementUpdate": function(msg)
+			{
 				if (msg.veryObstructed && !this.obstructionMitigationAttempted)
 					this.AttemptObstructionMitigation();
 				else if (msg.likelyFailure || this.CheckRange(this.order.data))
@@ -1075,7 +1146,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		},
 
 		"PATROL": {
-			"enter": function() {
+			"enter": function()
+			{
 				const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
 				if (!cmpPosition || !cmpPosition.IsInWorld())
 				{
@@ -1095,13 +1167,15 @@ UnitAI.prototype.UnitFsmSpec = {
 				return false;
 			},
 
-			"leave": function() {
+			"leave": function()
+			{
 				delete this.patrolStartPosOrder;
 				this.SetDefaultAnimationVariant();
 			},
 
 			"PATROLLING": {
-				"enter": function() {
+				"enter": function()
+				{
 					const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
 					if (!cmpPosition || !cmpPosition.IsInWorld() ||
 					    !this.MoveTo(this.order.data))
@@ -1115,12 +1189,14 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					this.StopMoving();
 					this.StopTimer();
 				},
 
-				"Timer": function(msg) {
+				"Timer": function(msg)
+				{
 					// Force the units to stick together
 					// TODO : better handling of formation patrolling
 					// See https://gitea.wildfiregames.com/0ad/0ad/issues/8558
@@ -1130,7 +1206,8 @@ UnitAI.prototype.UnitFsmSpec = {
 						this.SetNextState("MEMBER");
 				},
 
-				"MovementUpdate": function(msg) {
+				"MovementUpdate": function(msg)
+				{
 					if (msg.veryObstructed && !this.obstructionMitigationAttempted)
 					{
 						this.AttemptObstructionMitigation();
@@ -1149,19 +1226,22 @@ UnitAI.prototype.UnitFsmSpec = {
 			},
 
 			"CHECKINGWAYPOINT": {
-				"enter": function() {
+				"enter": function()
+				{
 					this.StartTimer(0, 1000);
 					this.stopSurveying = 0;
 					// TODO: pick a proper animation
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					this.StopTimer();
 					delete this.stopSurveying;
 				},
 
-				"Timer": function(msg) {
+				"Timer": function(msg)
+				{
 					if (this.stopSurveying >= +this.template.PatrolWaitTime)
 					{
 						this.FinishOrder();
@@ -1177,7 +1257,8 @@ UnitAI.prototype.UnitFsmSpec = {
 
 		"GARRISON": {
 			"APPROACHING": {
-				"enter": function() {
+				"enter": function()
+				{
 					if (!this.MoveToTargetRange(this.order.data.target, this.order.data.garrison ? IID_Garrisonable : IID_Turretable))
 					{
 						this.FinishOrder();
@@ -1195,7 +1276,8 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					this.StopMoving();
 					if (this.pickup)
 					{
@@ -1204,14 +1286,16 @@ UnitAI.prototype.UnitFsmSpec = {
 					}
 				},
 
-				"MovementUpdate": function(msg) {
+				"MovementUpdate": function(msg)
+				{
 					if (msg.likelyFailure || msg.likelySuccess)
 						this.SetNextState("GARRISONING");
 				},
 			},
 
 			"GARRISONING": {
-				"enter": function() {
+				"enter": function()
+				{
 					this.CallMemberFunction(this.order.data.garrison ? "Garrison" : "OccupyTurret", [this.order.data.target, false]);
 					// We might have been disbanded due to the lack of members.
 					if (Engine.QueryInterface(this.entity, IID_Formation).GetMemberCount())
@@ -1222,7 +1306,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		},
 
 		"FORMING": {
-			"enter": function() {
+			"enter": function()
+			{
 				this.RequestFormationUpdate(true, true);
 
 				if (!this.MoveTo(this.order.data))
@@ -1233,11 +1318,13 @@ UnitAI.prototype.UnitFsmSpec = {
 				return false;
 			},
 
-			"leave": function() {
+			"leave": function()
+			{
 				this.StopMoving();
 			},
 
-			"MovementUpdate": function(msg) {
+			"MovementUpdate": function(msg)
+			{
 				if (!msg.likelyFailure && !this.CheckRange(this.order.data))
 					return;
 
@@ -1247,7 +1334,8 @@ UnitAI.prototype.UnitFsmSpec = {
 
 		"COMBAT": {
 			"APPROACHING": {
-				"enter": function() {
+				"enter": function()
+				{
 					this.RequestFormationUpdate(true, true, "combat");
 
 					if (!this.MoveFormationToTargetAttackRange(this.order.data.target))
@@ -1258,11 +1346,13 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					this.StopMoving();
 				},
 
-				"MovementUpdate": function(msg) {
+				"MovementUpdate": function(msg)
+				{
 					let target = this.order.data.target;
 					const cmpTargetUnitAI = Engine.QueryInterface(target, IID_UnitAI);
 					if (cmpTargetUnitAI && cmpTargetUnitAI.IsFormationMember())
@@ -1278,7 +1368,8 @@ UnitAI.prototype.UnitFsmSpec = {
 
 			"ATTACKING": {
 				// Wait for individual members to finish
-				"enter": function(msg) {
+				"enter": function(msg)
+				{
 					const target = this.order.data.target;
 					if (!this.CheckFormationTargetAttackRange(target))
 					{
@@ -1295,7 +1386,8 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"Timer": function(msg) {
+				"Timer": function(msg)
+				{
 					const target = this.order.data.target;
 					if (!this.CheckFormationTargetAttackRange(target))
 					{
@@ -1309,7 +1401,8 @@ UnitAI.prototype.UnitFsmSpec = {
 					}
 				},
 
-				"leave": function(msg) {
+				"leave": function(msg)
+				{
 					this.StopTimer();
 				},
 			},
@@ -1317,7 +1410,8 @@ UnitAI.prototype.UnitFsmSpec = {
 
 		// Wait for individual members to finish
 		"MEMBER": {
-			"OrderTargetRenamed": function(msg) {
+			"OrderTargetRenamed": function(msg)
+			{
 				// In general, don't react - we don't want to send spurious messages to members.
 				// This looks odd for hunting however because we wait for all
 				// entities to have clumped around the dead resource before proceeding
@@ -1328,7 +1422,8 @@ UnitAI.prototype.UnitFsmSpec = {
 					this.FinishOrder();
 			},
 
-			"enter": function(msg) {
+			"enter": function(msg)
+			{
 				// While waiting on members, the formation is more like
 				// a group of unit and does not have a well-defined position,
 				// so move the controller out of the world to enforce that.
@@ -1340,7 +1435,8 @@ UnitAI.prototype.UnitFsmSpec = {
 				return false;
 			},
 
-			"Timer": function(msg) {
+			"Timer": function(msg)
+			{
 				const cmpFormation = Engine.QueryInterface(this.entity, IID_Formation);
 				if (cmpFormation && !cmpFormation.AreAllMembersFinished())
 					return;
@@ -1351,7 +1447,8 @@ UnitAI.prototype.UnitFsmSpec = {
 					this.FinishOrder();
 			},
 
-			"leave": function(msg) {
+			"leave": function(msg)
+			{
 				this.StopTimer();
 
 				// Update the held position so entities respond to orders.
@@ -1368,7 +1465,8 @@ UnitAI.prototype.UnitFsmSpec = {
 
 	// States for entities moving as part of a formation:
 	"FORMATIONMEMBER": {
-		"FormationLeave": function(msg) {
+		"FormationLeave": function(msg)
+		{
 			// Called when selecting units out of a formation
 			// Stop moving as soon as the formation disbands
 			// Keep current rotation
@@ -1393,7 +1491,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		// Override the LeaveFoundation order since we're not doing
 		// anything more important (and we might be stuck in the WALKING
 		// state forever and need to get out of foundations in that case)
-		"Order.LeaveFoundation": function(msg) {
+		"Order.LeaveFoundation": function(msg)
+		{
 			if (!this.WillMoveFromFoundation(msg.data.target))
 				return this.FinishOrder();
 			msg.data.min = g_LeaveFoundationRange;
@@ -1401,7 +1500,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			return ACCEPT_ORDER;
 		},
 
-		"enter": function() {
+		"enter": function()
+		{
 			const cmpFormation = Engine.QueryInterface(this.formationController, IID_Formation);
 			if (cmpFormation)
 			{
@@ -1414,7 +1514,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			return false;
 		},
 
-		"leave": function() {
+		"leave": function()
+		{
 			this.SetDefaultAnimationVariant();
 			this.formationAnimationVariant = undefined;
 		},
@@ -1424,7 +1525,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		"CHEERING": "INDIVIDUAL.CHEERING",
 
 		"WALKING": {
-			"enter": function() {
+			"enter": function()
+			{
 				const cmpUnitMotion = Engine.QueryInterface(this.entity, IID_UnitMotion);
 				cmpUnitMotion.MoveToFormationOffset(this.order.data.target, this.order.data.x, this.order.data.z);
 				if (this.order.data.offsetsChanged)
@@ -1448,7 +1550,8 @@ UnitAI.prototype.UnitFsmSpec = {
 				return false;
 			},
 
-			"leave": function() {
+			"leave": function()
+			{
 				// Don't use the logic from unitMotion, as SetInPosition
 				// has already given us a custom rotation
 				// (or we failed to move and thus don't care.)
@@ -1460,7 +1563,8 @@ UnitAI.prototype.UnitFsmSpec = {
 
 			// Occurs when the unit has reached its destination and the controller
 			// is done moving. The controller is notified.
-			"MovementUpdate": function(msg) {
+			"MovementUpdate": function(msg)
+			{
 				// When walking in formation, we'll only get notified in case of failure
 				// if the formation controller has stopped walking.
 				// Formations can start lagging a lot if many entities request short path
@@ -1473,7 +1577,8 @@ UnitAI.prototype.UnitFsmSpec = {
 
 		// Special case used by Order.LeaveFoundation
 		"WALKINGTOPOINT": {
-			"enter": function() {
+			"enter": function()
+			{
 				if (!this.MoveTo(this.order.data))
 				{
 					this.FinishOrder();
@@ -1482,11 +1587,13 @@ UnitAI.prototype.UnitFsmSpec = {
 				return false;
 			},
 
-			"leave": function() {
+			"leave": function()
+			{
 				this.StopMoving();
 			},
 
-			"MovementUpdate": function() {
+			"MovementUpdate": function()
+			{
 				if (!this.CheckRange(this.order.data))
 					return;
 				this.FinishOrder();
@@ -1497,12 +1604,14 @@ UnitAI.prototype.UnitFsmSpec = {
 
 	// States for entities not part of a formation:
 	"INDIVIDUAL": {
-		"Attacked": function(msg) {
+		"Attacked": function(msg)
+		{
 			if (this.GetStance().targetAttackersAlways || !this.order || !this.order.data || !this.order.data.force)
 				this.RespondToTargetedEntities([msg.data.attacker]);
 		},
 
-		"GuardedAttacked": function(msg) {
+		"GuardedAttacked": function(msg)
+		{
 			// do nothing if we have a forced order in queue before the guard order
 			for (var i = 0; i < this.orderQueue.length; ++i)
 			{
@@ -1554,7 +1663,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		},
 
 		"IDLE": {
-			"Order.Cheer": function() {
+			"Order.Cheer": function()
+			{
 				// Do not cheer if there is no cheering time and we are not idle yet.
 				if (!this.cheeringTime || !this.isIdle)
 					return this.FinishOrder();
@@ -1563,7 +1673,8 @@ UnitAI.prototype.UnitFsmSpec = {
 				return ACCEPT_ORDER;
 			},
 
-			"enter": function() {
+			"enter": function()
+			{
 				// Mark unit as idle internally, but delay idle behaviors and notifications
 				// to prevent spurious state changes and infinite loops.
 				this.isIdle = true;
@@ -1582,7 +1693,8 @@ UnitAI.prototype.UnitFsmSpec = {
 				return false;
 			},
 
-			"leave": function() {
+			"leave": function()
+			{
 				this.isIdle = false;
 
 				const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
@@ -1600,7 +1712,8 @@ UnitAI.prototype.UnitFsmSpec = {
 				delete this.isIdleConfirmed;
 			},
 
-			"Attacked": function(msg) {
+			"Attacked": function(msg)
+			{
 				if (this.isIdle && (this.GetStance().targetAttackersAlways || !this.order || !this.order.data || !this.order.data.force))
 					this.RespondToTargetedEntities([msg.data.attacker]);
 			},
@@ -1610,22 +1723,26 @@ UnitAI.prototype.UnitFsmSpec = {
 			// when receiving a Los*RangeUpdate on the same turn as the entity becomes idle
 			// since this.FindNew*Targets is called in the timer.
 
-			"LosRangeUpdate": function(msg) {
+			"LosRangeUpdate": function(msg)
+			{
 				if (this.isIdle && msg && msg.data && msg.data.added && msg.data.added.length)
 					this.RespondToSightedEntities(msg.data.added);
 			},
 
-			"LosHealRangeUpdate": function(msg) {
+			"LosHealRangeUpdate": function(msg)
+			{
 				if (this.isIdle && msg && msg.data && msg.data.added && msg.data.added.length)
 					this.RespondToHealableEntities(msg.data.added);
 			},
 
-			"LosAttackRangeUpdate": function(msg) {
+			"LosAttackRangeUpdate": function(msg)
+			{
 				if (this.isIdle && msg && msg.data && msg.data.added && msg.data.added.length && this.GetStance().targetVisibleEnemies)
 					this.AttackEntitiesByPreference(msg.data.added);
 			},
 
-			"Timer": function(msg) {
+			"Timer": function(msg)
+			{
 				if (this.isGuardOf)
 				{
 					this.Guard(this.isGuardOf, false);
@@ -1667,49 +1784,57 @@ UnitAI.prototype.UnitFsmSpec = {
 			},
 
 			"ROAMING": {
-				"enter": function() {
+				"enter": function()
+				{
 					this.SetFacePointAfterMove(false);
 					this.MoveRandomly(+this.template.RoamDistance);
 					this.StartTimer(randIntInclusive(+this.template.RoamTimeMin, +this.template.RoamTimeMax));
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					this.StopMoving();
 					this.StopTimer();
 					this.SetFacePointAfterMove(true);
 				},
 
-				"Timer": function(msg) {
+				"Timer": function(msg)
+				{
 					this.SetNextState("LINGERING");
 				},
 
-				"MovementUpdate": function() {
+				"MovementUpdate": function()
+				{
 					this.MoveRandomly(+this.template.RoamDistance);
 				},
 			},
 
 			"LINGERING": {
-				"enter": function() {
+				"enter": function()
+				{
 					// ToDo: rename animations?
 					this.SelectAnimation("feeding");
 					this.StartTimer(randIntInclusive(+this.template.FeedTimeMin, +this.template.FeedTimeMax));
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					this.ResetAnimation();
 					this.StopTimer();
 				},
 
-				"Timer": function(msg) {
+				"Timer": function(msg)
+				{
 					this.SetNextState("ROAMING");
 				},
 			},
 		},
 
 		"WALKING": {
-			"enter": function() {
+			"enter": function()
+			{
 				if (!this.MoveTo(this.order.data))
 				{
 					this.FinishOrder();
@@ -1718,11 +1843,13 @@ UnitAI.prototype.UnitFsmSpec = {
 				return false;
 			},
 
-			"leave": function() {
+			"leave": function()
+			{
 				this.StopMoving();
 			},
 
-			"MovementUpdate": function(msg) {
+			"MovementUpdate": function(msg)
+			{
 				// If it looks like the path is failing, and we are close enough stop anyways.
 				// This avoids pathing for an unreachable goal and reduces lag considerably.
 				if (msg.likelyFailure || msg.obstructed && this.RelaxedMaxRangeCheck(this.order.data, this.DefaultRelaxedMaxRange) ||
@@ -1732,7 +1859,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		},
 
 		"WALKINGANDFIGHTING": {
-			"enter": function() {
+			"enter": function()
+			{
 				if (!this.MoveTo(this.order.data))
 				{
 					this.FinishOrder();
@@ -1745,17 +1873,20 @@ UnitAI.prototype.UnitFsmSpec = {
 				return false;
 			},
 
-			"Timer": function(msg) {
+			"Timer": function(msg)
+			{
 				this.FindWalkAndFightTargets();
 			},
 
-			"leave": function(msg) {
+			"leave": function(msg)
+			{
 				this.StopMoving();
 				this.StopTimer();
 				this.SetDefaultAnimationVariant();
 			},
 
-			"MovementUpdate": function(msg) {
+			"MovementUpdate": function(msg)
+			{
 				// If it looks like the path is failing, and we are close enough stop anyways.
 				// This avoids pathing for an unreachable goal and reduces lag considerably.
 				if (msg.likelyFailure || msg.obstructed && this.RelaxedMaxRangeCheck(this.order.data, this.DefaultRelaxedMaxRange) ||
@@ -1765,7 +1896,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		},
 
 		"PATROL": {
-			"enter": function() {
+			"enter": function()
+			{
 				const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
 				if (!cmpPosition || !cmpPosition.IsInWorld())
 				{
@@ -1786,13 +1918,15 @@ UnitAI.prototype.UnitFsmSpec = {
 				return false;
 			},
 
-			"leave": function() {
+			"leave": function()
+			{
 				delete this.patrolStartPosOrder;
 				this.SetDefaultAnimationVariant();
 			},
 
 			"PATROLLING": {
-				"enter": function() {
+				"enter": function()
+				{
 					const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
 					if (!cmpPosition || !cmpPosition.IsInWorld() ||
 					    !this.MoveTo(this.order.data))
@@ -1804,16 +1938,19 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					this.StopMoving();
 					this.StopTimer();
 				},
 
-				"Timer": function(msg) {
+				"Timer": function(msg)
+				{
 					this.FindWalkAndFightTargets();
 				},
 
-				"MovementUpdate": function(msg) {
+				"MovementUpdate": function(msg)
+				{
 					if (!msg.likelyFailure && !msg.likelySuccess && !this.RelaxedMaxRangeCheck(this.order.data, this.DefaultRelaxedMaxRange))
 						return;
 
@@ -1826,19 +1963,22 @@ UnitAI.prototype.UnitFsmSpec = {
 			},
 
 			"CHECKINGWAYPOINT": {
-				"enter": function() {
+				"enter": function()
+				{
 					this.StartTimer(0, 1000);
 					this.stopSurveying = 0;
 					// TODO: pick a proper animation
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					this.StopTimer();
 					delete this.stopSurveying;
 				},
 
-				"Timer": function(msg) {
+				"Timer": function(msg)
+				{
 					if (this.stopSurveying >= +this.template.PatrolWaitTime)
 					{
 						this.FinishOrder();
@@ -1851,12 +1991,14 @@ UnitAI.prototype.UnitFsmSpec = {
 		},
 
 		"GUARD": {
-			"RemoveGuard": function() {
+			"RemoveGuard": function()
+			{
 				this.FinishOrder();
 			},
 
 			"ESCORTING": {
-				"enter": function() {
+				"enter": function()
+				{
 					if (!this.MoveToTargetRangeExplicit(this.isGuardOf, 0, this.guardRange))
 					{
 						this.FinishOrder();
@@ -1871,7 +2013,8 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"Timer": function(msg) {
+				"Timer": function(msg)
+				{
 					if (!this.ShouldGuard(this.isGuardOf))
 					{
 						this.FinishOrder();
@@ -1885,20 +2028,23 @@ UnitAI.prototype.UnitFsmSpec = {
 					this.SetHeldPositionOnEntity(this.isGuardOf);
 				},
 
-				"leave": function(msg) {
+				"leave": function(msg)
+				{
 					this.StopMoving();
 					this.StopTimer();
 					this.SetDefaultAnimationVariant();
 				},
 
-				"MovementUpdate": function(msg) {
+				"MovementUpdate": function(msg)
+				{
 					if (msg.likelyFailure || this.CheckTargetRangeExplicit(this.isGuardOf, 0, this.guardRange))
 						this.SetNextState("GUARDING");
 				},
 			},
 
 			"GUARDING": {
-				"enter": function() {
+				"enter": function()
+				{
 					this.StartTimer(1000, 1000);
 					this.SetHeldPositionOnEntity(this.entity);
 					this.SetAnimationVariant("combat");
@@ -1906,12 +2052,14 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"LosAttackRangeUpdate": function(msg) {
+				"LosAttackRangeUpdate": function(msg)
+				{
 					if (this.GetStance().targetVisibleEnemies)
 						this.AttackEntitiesByPreference(msg.data.added);
 				},
 
-				"Timer": function(msg) {
+				"Timer": function(msg)
+				{
 					if (!this.ShouldGuard(this.isGuardOf))
 					{
 						this.FinishOrder();
@@ -1935,7 +2083,8 @@ UnitAI.prototype.UnitFsmSpec = {
 					}
 				},
 
-				"leave": function(msg) {
+				"leave": function(msg)
+				{
 					this.StopTimer();
 					this.SetDefaultAnimationVariant();
 				},
@@ -1943,7 +2092,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		},
 
 		"FLEEING": {
-			"enter": function() {
+			"enter": function()
+			{
 				// We use the distance between the entities to account for ranged attacks
 				this.order.data.distanceToFlee = PositionHelper.DistanceBetweenEntities(this.entity, this.order.data.target) + (+this.template.FleeDistance);
 				const cmpUnitMotion = Engine.QueryInterface(this.entity, IID_UnitMotion);
@@ -1961,7 +2111,8 @@ UnitAI.prototype.UnitFsmSpec = {
 				return false;
 			},
 
-			"OrderTargetRenamed": function(msg) {
+			"OrderTargetRenamed": function(msg)
+			{
 				// To avoid replaying the panic sound, handle this explicitly.
 				const cmpUnitMotion = Engine.QueryInterface(this.entity, IID_UnitMotion);
 				if (this.CheckTargetRangeExplicit(this.order.data.target, this.order.data.distanceToFlee, -1) ||
@@ -1969,7 +2120,8 @@ UnitAI.prototype.UnitFsmSpec = {
 					this.FinishOrder();
 			},
 
-			"Attacked": function(msg) {
+			"Attacked": function(msg)
+			{
 				if (msg.data.attacker == this.order.data.target)
 					return;
 
@@ -1981,36 +2133,42 @@ UnitAI.prototype.UnitFsmSpec = {
 					this.RespondToTargetedEntities([msg.data.attacker]);
 			},
 
-			"leave": function() {
+			"leave": function()
+			{
 				this.StopMoving();
 			},
 
-			"MovementUpdate": function(msg) {
+			"MovementUpdate": function(msg)
+			{
 				if (msg.likelyFailure || this.CheckTargetRangeExplicit(this.order.data.target, this.order.data.distanceToFlee, -1))
 					this.FinishOrder();
 			},
 		},
 
 		"COMBAT": {
-			"Order.LeaveFoundation": function(msg) {
+			"Order.LeaveFoundation": function(msg)
+			{
 				// Ignore the order as we're busy.
 				return this.FinishOrder();
 			},
 
-			"Attacked": function(msg) {
+			"Attacked": function(msg)
+			{
 				// If we're already in combat mode, ignore anyone else who's attacking us
 				// unless it's a melee attack since they may be blocking our way to the target
 				if (msg.data.type == "Melee" && (this.GetStance().targetAttackersAlways || !this.order.data.force))
 					this.RespondToTargetedEntities([msg.data.attacker]);
 			},
 
-			"leave": function() {
+			"leave": function()
+			{
 				if (!this.formationAnimationVariant)
 					this.SetDefaultAnimationVariant();
 			},
 
 			"APPROACHING": {
-				"enter": function() {
+				"enter": function()
+				{
 					// Set this.order.data.target and this.order.formationTarget.
 					// Should only mutate these once, when receiving a order with
 					// a formation controller as target.
@@ -2029,12 +2187,14 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					this.StopMoving();
 					this.StopTimer();
 				},
 
-				"Timer": function(msg) {
+				"Timer": function(msg)
+				{
 					if (this.ShouldAbandonChase(this.order.data.target, this.order.data.force, IID_Attack, this.order.data.attackType))
 					{
 						this.FinishOrder();
@@ -2051,7 +2211,8 @@ UnitAI.prototype.UnitFsmSpec = {
 					}
 				},
 
-				"MovementUpdate": function(msg) {
+				"MovementUpdate": function(msg)
+				{
 					if (msg.likelyFailure)
 					{
 						// This also handles hunting.
@@ -2095,7 +2256,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			},
 
 			"ATTACKING": {
-				"enter": function() {
+				"enter": function()
+				{
 					// Set this.order.data.target and this.order.formationTarget.
 					// Should only mutate these once, when receiving a order with
 					// a formation controller as target.
@@ -2152,7 +2314,8 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					const cmpBuildingAI = Engine.QueryInterface(this.entity, IID_BuildingAI);
 					if (cmpBuildingAI)
 						cmpBuildingAI.SetUnitAITarget(0);
@@ -2161,7 +2324,8 @@ UnitAI.prototype.UnitFsmSpec = {
 						cmpAttack.StopAttacking();
 				},
 
-				"OutOfRange": function() {
+				"OutOfRange": function()
+				{
 					if (this.ShouldChaseTargetedEntity(this.order.data.target, this.order.data.force))
 					{
 						if (this.CanPack())
@@ -2175,11 +2339,13 @@ UnitAI.prototype.UnitFsmSpec = {
 					this.SetNextState("FINDINGNEWTARGET");
 				},
 
-				"TargetInvalidated": function() {
+				"TargetInvalidated": function()
+				{
 					this.SetNextState("FINDINGNEWTARGET");
 				},
 
-				"Attacked": function(msg) {
+				"Attacked": function(msg)
+				{
 					if (this.order.data.attackType == "Capture" && (this.GetStance().targetAttackersAlways || !this.order.data.force) &&
 						this.order.data.target != msg.data.attacker && this.GetBestAttackAgainst(msg.data.attacker, true) != "Capture")
 						this.RespondToTargetedEntities([msg.data.attacker]);
@@ -2187,7 +2353,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			},
 
 			"FINDINGNEWTARGET": {
-				"Order.Cheer": function() {
+				"Order.Cheer": function()
+				{
 					if (!this.cheeringTime)
 						return this.FinishOrder();
 
@@ -2195,7 +2362,8 @@ UnitAI.prototype.UnitFsmSpec = {
 					return ACCEPT_ORDER;
 				},
 
-				"enter": function() {
+				"enter": function()
+				{
 					// Check if we are attacking a formation.
 					let cmpFormation = Engine.QueryInterface(this.order.data.target, IID_Formation);
 					if (cmpFormation)
@@ -2249,7 +2417,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			},
 
 			"CHASING": {
-				"Order.MoveToChasingPoint": function(msg) {
+				"Order.MoveToChasingPoint": function(msg)
+				{
 					if (this.CheckPointRangeExplicit(msg.data.x, msg.data.z, 0, msg.data.max) || !this.AbleToMove())
 						return this.FinishOrder();
 					msg.data.relaxed = true;
@@ -2257,7 +2426,8 @@ UnitAI.prototype.UnitFsmSpec = {
 					this.SetNextState("MOVINGTOPOINT");
 					return ACCEPT_ORDER;
 				},
-				"enter": function() {
+				"enter": function()
+				{
 					if (!this.MoveToTargetAttackRange(this.order.data.target, this.order.data.attackType))
 					{
 						this.FinishOrder();
@@ -2274,12 +2444,14 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					this.StopMoving();
 					this.StopTimer();
 				},
 
-				"Timer": function(msg) {
+				"Timer": function(msg)
+				{
 					if (this.ShouldAbandonChase(this.order.data.target, this.order.data.force, IID_Attack, this.order.data.attackType))
 					{
 						this.FinishOrder();
@@ -2296,7 +2468,8 @@ UnitAI.prototype.UnitFsmSpec = {
 					}
 				},
 
-				"MovementUpdate": function(msg) {
+				"MovementUpdate": function(msg)
+				{
 					if (msg.likelyFailure)
 					{
 						// This also handles hunting.
@@ -2339,7 +2512,8 @@ UnitAI.prototype.UnitFsmSpec = {
 							this.FinishOrder();
 				},
 				"MOVINGTOPOINT": {
-					"enter": function() {
+					"enter": function()
+					{
 						if (!this.MoveTo(this.order.data))
 						{
 							this.FinishOrder();
@@ -2347,10 +2521,12 @@ UnitAI.prototype.UnitFsmSpec = {
 						}
 						return false;
 					},
-					"leave": function() {
+					"leave": function()
+					{
 						this.StopMoving();
 					},
-					"MovementUpdate": function(msg) {
+					"MovementUpdate": function(msg)
+					{
 						// If it looks like the path is failing, and we are close enough from wanted range
 						// stop anyways. This avoids pathing for an unreachable goal and reduces lag considerably.
 						if (msg.likelyFailure ||
@@ -2363,14 +2539,16 @@ UnitAI.prototype.UnitFsmSpec = {
 		},
 
 		"GATHER": {
-			"enter": function() {
+			"enter": function()
+			{
 				const cmpResourceGatherer = Engine.QueryInterface(this.entity, IID_ResourceGatherer);
 				if (cmpResourceGatherer)
 					cmpResourceGatherer.AddToPlayerCounter(this.order.data.type.generic);
 				return false;
 			},
 
-			"leave": function() {
+			"leave": function()
+			{
 				const cmpResourceGatherer = Engine.QueryInterface(this.entity, IID_ResourceGatherer);
 				if (cmpResourceGatherer)
 					cmpResourceGatherer.RemoveFromPlayerCounter();
@@ -2380,7 +2558,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			},
 
 			"APPROACHING": {
-				"enter": function() {
+				"enter": function()
+				{
 					this.gatheringTarget = this.order.data.target;	// temporary, deleted in "leave".
 					if (this.CheckRange(this.order.data, IID_ResourceGatherer))
 					{
@@ -2421,7 +2600,8 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"MovementUpdate": function(msg) {
+				"MovementUpdate": function(msg)
+				{
 					// The GATHERING timer will handle finding a valid resource.
 					if (msg.likelyFailure)
 						this.SetNextState("FINDINGNEWTARGET");
@@ -2429,7 +2609,8 @@ UnitAI.prototype.UnitFsmSpec = {
 						this.SetNextState("GATHERING");
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					this.StopMoving();
 					this.SetDefaultAnimationVariant();
 
@@ -2446,7 +2627,8 @@ UnitAI.prototype.UnitFsmSpec = {
 
 			// Walking to a good place to gather resources near, used by GatherNearPosition
 			"WALKING": {
-				"enter": function() {
+				"enter": function()
+				{
 					if (!this.MoveTo(this.order.data))
 					{
 						this.FinishOrder();
@@ -2456,12 +2638,14 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					this.StopMoving();
 					this.SetDefaultAnimationVariant();
 				},
 
-				"MovementUpdate": function(msg) {
+				"MovementUpdate": function(msg)
+				{
 					if (msg.likelyFailure || msg.obstructed && this.RelaxedMaxRangeCheck(this.order.data, this.DefaultRelaxedMaxRange) ||
 						 this.CheckRange(this.order.data))
 						this.SetNextState("FINDINGNEWTARGET");
@@ -2469,7 +2653,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			},
 
 			"GATHERING": {
-				"enter": function() {
+				"enter": function()
+				{
 					const cmpResourceGatherer = Engine.QueryInterface(this.entity, IID_ResourceGatherer);
 					if (!cmpResourceGatherer)
 					{
@@ -2498,17 +2683,20 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					const cmpResourceGatherer = Engine.QueryInterface(this.entity, IID_ResourceGatherer);
 					if (cmpResourceGatherer)
 						cmpResourceGatherer.StopGathering();
 				},
 
-				"InventoryFilled": function(msg) {
+				"InventoryFilled": function(msg)
+				{
 					this.SetNextState("RETURNINGRESOURCE");
 				},
 
-				"OutOfRange": function(msg) {
+				"OutOfRange": function(msg)
+				{
 					if (this.MoveToTargetRange(this.order.data.target, IID_ResourceGatherer))
 						this.SetNextState("APPROACHING");
 					// Our target is no longer visible - go to its last known position first
@@ -2523,13 +2711,15 @@ UnitAI.prototype.UnitFsmSpec = {
 						this.SetNextState("FINDINGNEWTARGET");
 				},
 
-				"TargetInvalidated": function(msg) {
+				"TargetInvalidated": function(msg)
+				{
 					this.SetNextState("FINDINGNEWTARGET");
 				},
 			},
 
 			"FINDINGNEWTARGET": {
-				"enter": function() {
+				"enter": function()
+				{
 					const previousForced = this.order.data.force;
 					const previousTarget = this.order.data.target;
 					const resourceTemplate = this.order.data.template;
@@ -2559,7 +2749,8 @@ UnitAI.prototype.UnitFsmSpec = {
 					if (!cmpPosition || !cmpPosition.IsInWorld())
 						return true;
 
-					const filter = (ent, type, template) => {
+					const filter = (ent, type, template) =>
+					{
 						if (previousTarget == ent)
 							return false;
 
@@ -2614,7 +2805,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			},
 
 			"RETURNINGRESOURCE": {
-				"enter": function() {
+				"enter": function()
+				{
 					const nearestDropsite = this.FindNearestDropsite(this.order.data.type.generic);
 					if (!nearestDropsite)
 					{
@@ -2635,13 +2827,15 @@ UnitAI.prototype.UnitFsmSpec = {
 					return true;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 				},
 
 				"APPROACHING": "INDIVIDUAL.RETURNRESOURCE.APPROACHING",
 
 				"DROPPINGRESOURCES": {
-					"enter": function() {
+					"enter": function()
+					{
 						const cmpResourceGatherer = Engine.QueryInterface(this.entity, IID_ResourceGatherer);
 						if (this.CanReturnResource(this.order.data.target, true, cmpResourceGatherer) &&
 							cmpResourceGatherer.IsTargetInRange(this.order.data.target))
@@ -2658,7 +2852,8 @@ UnitAI.prototype.UnitFsmSpec = {
 						return true;
 					},
 
-					"leave": function() {
+					"leave": function()
+					{
 					},
 				},
 			},
@@ -2666,7 +2861,8 @@ UnitAI.prototype.UnitFsmSpec = {
 
 		"HEAL": {
 			"APPROACHING": {
-				"enter": function() {
+				"enter": function()
+				{
 					if (this.CheckRange(this.order.data, IID_Heal))
 					{
 						this.SetNextState("HEALING");
@@ -2683,24 +2879,28 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					this.StopMoving();
 					this.StopTimer();
 				},
 
-				"Timer": function(msg) {
+				"Timer": function(msg)
+				{
 					if (this.ShouldAbandonChase(this.order.data.target, this.order.data.force, IID_Heal, null))
 						this.SetNextState("FINDINGNEWTARGET");
 				},
 
-				"MovementUpdate": function(msg) {
+				"MovementUpdate": function(msg)
+				{
 					if (msg.likelyFailure || this.CheckRange(this.order.data, IID_Heal))
 						this.SetNextState("HEALING");
 				},
 			},
 
 			"HEALING": {
-				"enter": function() {
+				"enter": function()
+				{
 					const cmpHeal = Engine.QueryInterface(this.entity, IID_Heal);
 					if (!cmpHeal)
 					{
@@ -2724,13 +2924,15 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					const cmpHeal = Engine.QueryInterface(this.entity, IID_Heal);
 					if (cmpHeal)
 						cmpHeal.StopHealing();
 				},
 
-				"OutOfRange": function(msg) {
+				"OutOfRange": function(msg)
+				{
 					if (this.ShouldChaseTargetedEntity(this.order.data.target, this.order.data.force))
 					{
 						if (this.CanPack())
@@ -2742,13 +2944,15 @@ UnitAI.prototype.UnitFsmSpec = {
 						this.SetNextState("FINDINGNEWTARGET");
 				},
 
-				"TargetInvalidated": function(msg) {
+				"TargetInvalidated": function(msg)
+				{
 					this.SetNextState("FINDINGNEWTARGET");
 				},
 			},
 
 			"FINDINGNEWTARGET": {
-				"enter": function() {
+				"enter": function()
+				{
 					// If we have another order, do that instead.
 					if (this.FinishOrder())
 						return true;
@@ -2768,7 +2972,8 @@ UnitAI.prototype.UnitFsmSpec = {
 		// Returning to dropsite
 		"RETURNRESOURCE": {
 			"APPROACHING": {
-				"enter": function() {
+				"enter": function()
+				{
 					if (this.CheckTargetRange(this.order.data.target, IID_ResourceGatherer))
 					{
 						this.SetNextState("DROPPINGRESOURCES");
@@ -2785,18 +2990,21 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					this.StopMoving();
 				},
 
-				"MovementUpdate": function(msg) {
+				"MovementUpdate": function(msg)
+				{
 					if (msg.likelyFailure || this.CheckTargetRange(this.order.data.target, IID_ResourceGatherer))
 						this.SetNextState("DROPPINGRESOURCES");
 				},
 			},
 
 			"DROPPINGRESOURCES": {
-				"enter": function() {
+				"enter": function()
+				{
 					const cmpResourceGatherer = Engine.QueryInterface(this.entity, IID_ResourceGatherer);
 					if (this.CanReturnResource(this.order.data.target, true, cmpResourceGatherer) &&
 						cmpResourceGatherer.IsTargetInRange(this.order.data.target))
@@ -2817,17 +3025,20 @@ UnitAI.prototype.UnitFsmSpec = {
 					return true;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 				},
 			},
 		},
 
 		"COLLECTTREASURE": {
-			"leave": function() {
+			"leave": function()
+			{
 			},
 
 			"APPROACHING": {
-				"enter": function() {
+				"enter": function()
+				{
 					// If we can't move, assume we'll fail any subsequent order
 					// and finish the order entirely to avoid an infinite loop.
 					if (!this.AbleToMove())
@@ -2843,11 +3054,13 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					this.StopMoving();
 				},
 
-				"MovementUpdate": function(msg) {
+				"MovementUpdate": function(msg)
+				{
 					if (this.CheckTargetRange(this.order.data.target, IID_TreasureCollector))
 						this.SetNextState("COLLECTING");
 					else if (msg.likelyFailure)
@@ -2856,7 +3069,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			},
 
 			"COLLECTING": {
-				"enter": function() {
+				"enter": function()
+				{
 					const cmpTreasureCollector = Engine.QueryInterface(this.entity, IID_TreasureCollector);
 					if (!cmpTreasureCollector.StartCollecting(this.order.data.target, IID_UnitAI))
 					{
@@ -2867,23 +3081,27 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					const cmpTreasureCollector = Engine.QueryInterface(this.entity, IID_TreasureCollector);
 					if (cmpTreasureCollector)
 						cmpTreasureCollector.StopCollecting();
 				},
 
-				"OutOfRange": function(msg) {
+				"OutOfRange": function(msg)
+				{
 					this.SetNextState("APPROACHING");
 				},
 
-				"TargetInvalidated": function(msg) {
+				"TargetInvalidated": function(msg)
+				{
 					this.SetNextState("FINDINGNEWTARGET");
 				},
 			},
 
 			"FINDINGNEWTARGET": {
-				"enter": function() {
+				"enter": function()
+				{
 					const oldTarget = this.order.data.target || INVALID_ENTITY;
 
 					// Switch to the next order (if any).
@@ -2900,7 +3118,8 @@ UnitAI.prototype.UnitFsmSpec = {
 
 			// Walking to a good place to collect treasures near, used by CollectTreasureNearPosition.
 			"WALKING": {
-				"enter": function() {
+				"enter": function()
+				{
 					if (!this.MoveTo(this.order.data))
 					{
 						this.FinishOrder();
@@ -2909,11 +3128,13 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					this.StopMoving();
 				},
 
-				"MovementUpdate": function(msg) {
+				"MovementUpdate": function(msg)
+				{
 					if (msg.likelyFailure || msg.obstructed && this.RelaxedMaxRangeCheck(this.order.data, this.DefaultRelaxedMaxRange) ||
 						 this.CheckRange(this.order.data))
 						this.SetNextState("FINDINGNEWTARGET");
@@ -2922,16 +3143,19 @@ UnitAI.prototype.UnitFsmSpec = {
 		},
 
 		"TRADE": {
-			"Attacked": function(msg) {
+			"Attacked": function(msg)
+			{
 				// Ignore attack
 				// TODO: Inform player
 			},
 
-			"leave": function() {
+			"leave": function()
+			{
 			},
 
 			"APPROACHINGMARKET": {
-				"enter": function() {
+				"enter": function()
+				{
 					if (!this.MoveToMarket(this.order.data.target))
 					{
 						this.FinishOrder();
@@ -2940,11 +3164,13 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					this.StopMoving();
 				},
 
-				"MovementUpdate": function(msg) {
+				"MovementUpdate": function(msg)
+				{
 					if (!msg.likelyFailure && !this.CheckRange(this.order.data.nextTarget, IID_Trader))
 						return;
 					if (this.waypoints && this.waypoints.length)
@@ -2958,7 +3184,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			},
 
 			"TRADING": {
-				"enter": function() {
+				"enter": function()
+				{
 					if (!this.CanTrade(this.order.data.target))
 					{
 						this.FinishOrder();
@@ -2993,11 +3220,13 @@ UnitAI.prototype.UnitFsmSpec = {
 					return true;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 				},
 			},
 
-			"TradingCanceled": function(msg) {
+			"TradingCanceled": function(msg)
+			{
 				if (msg.market != this.order.data.target)
 					return;
 				const cmpTrader = Engine.QueryInterface(this.entity, IID_Trader);
@@ -3011,7 +3240,8 @@ UnitAI.prototype.UnitFsmSpec = {
 
 		"REPAIR": {
 			"APPROACHING": {
-				"enter": function() {
+				"enter": function()
+				{
 					if (!this.MoveTo(this.order.data, IID_Builder))
 					{
 						this.FinishOrder();
@@ -3020,18 +3250,21 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					this.StopMoving();
 				},
 
-				"MovementUpdate": function(msg) {
+				"MovementUpdate": function(msg)
+				{
 					if (msg.likelyFailure || msg.likelySuccess)
 						this.SetNextState("REPAIRING");
 				},
 			},
 
 			"REPAIRING": {
-				"enter": function() {
+				"enter": function()
+				{
 					const cmpBuilder = Engine.QueryInterface(this.entity, IID_Builder);
 					if (!cmpBuilder)
 					{
@@ -3071,22 +3304,26 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					const cmpBuilder = Engine.QueryInterface(this.entity, IID_Builder);
 					if (cmpBuilder)
 						cmpBuilder.StopRepairing();
 				},
 
-				"OutOfRange": function(msg) {
+				"OutOfRange": function(msg)
+				{
 					this.SetNextState("APPROACHING");
 				},
 
-				"TargetInvalidated": function(msg) {
+				"TargetInvalidated": function(msg)
+				{
 					this.FinishOrder();
 				},
 			},
 
-			"ConstructionFinished": function(msg) {
+			"ConstructionFinished": function(msg)
+			{
 				if (msg.data.entity != this.order.data.target)
 					return; // ignore other buildings
 
@@ -3174,7 +3411,8 @@ UnitAI.prototype.UnitFsmSpec = {
 
 		"GARRISON": {
 			"APPROACHING": {
-				"enter": function() {
+				"enter": function()
+				{
 					if (this.order.data.garrison ? !this.CanGarrison(this.order.data.target) :
 						!this.CanOccupyTurret(this.order.data.target))
 					{
@@ -3200,7 +3438,8 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					if (this.pickup)
 					{
 						Engine.PostMessage(this.pickup, MT_PickupCanceled, { "entity": this.entity });
@@ -3209,7 +3448,8 @@ UnitAI.prototype.UnitFsmSpec = {
 					this.StopMoving();
 				},
 
-				"MovementUpdate": function(msg) {
+				"MovementUpdate": function(msg)
+				{
 					if (!msg.likelyFailure && !msg.likelySuccess)
 						return;
 
@@ -3230,7 +3470,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			},
 
 			"GARRISONING": {
-				"enter": function() {
+				"enter": function()
+				{
 					const target = this.order.data.target;
 					if (this.order.data.garrison)
 					{
@@ -3269,19 +3510,22 @@ UnitAI.prototype.UnitFsmSpec = {
 					return true;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 				},
 			},
 		},
 
 		"CHEERING": {
-			"enter": function() {
+			"enter": function()
+			{
 				this.SelectAnimation("promotion");
 				this.StartTimer(this.cheeringTime);
 				return false;
 			},
 
-			"leave": function() {
+			"leave": function()
+			{
 				// PushOrderFront preserves the cheering order,
 				// which can lead to very bad behaviour, so make
 				// sure to delete any queued ones.
@@ -3292,81 +3536,96 @@ UnitAI.prototype.UnitFsmSpec = {
 				this.ResetAnimation();
 			},
 
-			"LosRangeUpdate": function(msg) {
+			"LosRangeUpdate": function(msg)
+			{
 				if (msg && msg.data && msg.data.added && msg.data.added.length)
 					this.RespondToSightedEntities(msg.data.added);
 			},
 
-			"LosHealRangeUpdate": function(msg) {
+			"LosHealRangeUpdate": function(msg)
+			{
 				if (msg && msg.data && msg.data.added && msg.data.added.length)
 					this.RespondToHealableEntities(msg.data.added);
 			},
 
-			"LosAttackRangeUpdate": function(msg) {
+			"LosAttackRangeUpdate": function(msg)
+			{
 				if (msg && msg.data && msg.data.added && msg.data.added.length && this.GetStance().targetVisibleEnemies)
 					this.AttackEntitiesByPreference(msg.data.added);
 			},
 
-			"Timer": function(msg) {
+			"Timer": function(msg)
+			{
 				this.FinishOrder();
 			},
 		},
 
 		"PACKING": {
-			"enter": function() {
+			"enter": function()
+			{
 				const cmpPack = Engine.QueryInterface(this.entity, IID_Pack);
 				cmpPack.Pack();
 				return false;
 			},
 
-			"Order.CancelPack": function(msg) {
+			"Order.CancelPack": function(msg)
+			{
 				this.FinishOrder();
 				return ACCEPT_ORDER;
 			},
 
-			"PackFinished": function(msg) {
+			"PackFinished": function(msg)
+			{
 				this.FinishOrder();
 			},
 
-			"leave": function() {
+			"leave": function()
+			{
 				const cmpPack = Engine.QueryInterface(this.entity, IID_Pack);
 				cmpPack.CancelPack();
 			},
 
-			"Attacked": function(msg) {
+			"Attacked": function(msg)
+			{
 				// Ignore attacks while packing
 			},
 		},
 
 		"UNPACKING": {
-			"enter": function() {
+			"enter": function()
+			{
 				const cmpPack = Engine.QueryInterface(this.entity, IID_Pack);
 				cmpPack.Unpack();
 				return false;
 			},
 
-			"Order.CancelUnpack": function(msg) {
+			"Order.CancelUnpack": function(msg)
+			{
 				this.FinishOrder();
 				return ACCEPT_ORDER;
 			},
 
-			"PackFinished": function(msg) {
+			"PackFinished": function(msg)
+			{
 				this.FinishOrder();
 			},
 
-			"leave": function() {
+			"leave": function()
+			{
 				const cmpPack = Engine.QueryInterface(this.entity, IID_Pack);
 				cmpPack.CancelPack();
 			},
 
-			"Attacked": function(msg) {
+			"Attacked": function(msg)
+			{
 				// Ignore attacks while unpacking
 			},
 		},
 
 		"PICKUP": {
 			"APPROACHING": {
-				"enter": function() {
+				"enter": function()
+				{
 					if (!this.MoveTo(this.order.data))
 					{
 						this.FinishOrder();
@@ -3375,22 +3634,26 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"leave": function() {
+				"leave": function()
+				{
 					this.StopMoving();
 				},
 
-				"MovementUpdate": function(msg) {
+				"MovementUpdate": function(msg)
+				{
 					if (msg.likelyFailure || msg.likelySuccess)
 						this.SetNextState("LOADING");
 				},
 
-				"PickupCanceled": function() {
+				"PickupCanceled": function()
+				{
 					this.FinishOrder();
 				},
 			},
 
 			"LOADING": {
-				"enter": function() {
+				"enter": function()
+				{
 					const cmpHolder = Engine.QueryInterface(this.entity, this.order.data.iid);
 					if (!cmpHolder || cmpHolder.IsFull())
 					{
@@ -3400,7 +3663,8 @@ UnitAI.prototype.UnitFsmSpec = {
 					return false;
 				},
 
-				"PickupCanceled": function() {
+				"PickupCanceled": function()
+				{
 					this.FinishOrder();
 				},
 			},
@@ -4388,7 +4652,8 @@ UnitAI.prototype.FindNearbyResource = function(position, filter)
 	const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
 	// Don't account for entity size, we need to match LOS visibility.
 	const nearby = cmpRangeManager.ExecuteQueryAroundPos(position, 0, range, players, IID_ResourceSupply, false);
-	return nearby.find(ent => {
+	return nearby.find(ent =>
+	{
 		if (!this.CanGather(ent) || !this.CheckTargetVisible(ent))
 			return false;
 
@@ -4744,7 +5009,8 @@ UnitAI.prototype.MoveFormationToTargetAttackRange = function(target)
  * Requests the formation component to update member positions.
  * Called by formation controller when formation needs reorganization.
  */
-UnitAI.prototype.RequestFormationUpdate = function(moveCenter = false, force = false, formationType = "default") {
+UnitAI.prototype.RequestFormationUpdate = function(moveCenter = false, force = false, formationType = "default")
+{
 	const cmpFormation = Engine.QueryInterface(this.entity, IID_Formation);
 	if (!cmpFormation)
 		return;
@@ -6005,7 +6271,8 @@ UnitAI.prototype.FindWalkAndFightTargets = function()
 		entities = cmpRangeManager.ResetActiveQuery(this.losAttackRangeQuery);
 	}
 
-	const attackfilter = e => {
+	const attackfilter = e =>
+	{
 		if (this?.order?.data?.targetClasses)
 		{
 			const cmpIdentity = Engine.QueryInterface(e, IID_Identity);
@@ -6027,7 +6294,8 @@ UnitAI.prototype.FindWalkAndFightTargets = function()
 		return cmpUnitAI && (!cmpUnitAI.IsAnimal() || cmpUnitAI.IsDangerousAnimal());
 	};
 
-	const attack = target => {
+	const attack = target =>
+	{
 		const order = {
 			"target": target,
 			"force": false,
@@ -6411,7 +6679,8 @@ UnitAI.prototype.AttackEntitiesByPreference = function(ents)
 	if (!cmpAttack)
 		return false;
 
-	const attackfilter = function(e) {
+	const attackfilter = function(e)
+	{
 		if (!cmpAttack.CanAttack(e))
 			return false;
 
@@ -6479,7 +6748,8 @@ UnitAI.prototype.CallMemberFunction = function(funcname, args, resetFinishedEnti
 		cmpFormation.ResetFinishedEntities();
 
 	let result = false;
-	cmpFormation.GetMembers().forEach(ent => {
+	cmpFormation.GetMembers().forEach(ent =>
+	{
 		const cmpUnitAI = Engine.QueryInterface(ent, IID_UnitAI);
 		if (cmpUnitAI[funcname].apply(cmpUnitAI, args))
 			result = true;

@@ -48,7 +48,8 @@ GameSettingControls.PopulationCap = class PopulationCap extends GameSettingContr
 	{
 		const popCap = g_GameSettings.population.currentData.Options.List[this.dropdown.hovered];
 		const nbPlayers = g_GameSettings.playerCount.nbPlayers;
-		const nbTeams = g_GameSettings.playerTeam.values.reduce((teamList, team) => {
+		const nbTeams = g_GameSettings.playerTeam.values.reduce((teamList, team) =>
+		{
 			if (!teamList.includes(team) || team == -1)
 				teamList.push(team);
 			return teamList;

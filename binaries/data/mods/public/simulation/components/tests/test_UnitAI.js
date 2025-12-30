@@ -59,7 +59,8 @@ function TestTargetEntityRenaming(init_state, post_state, setup)
 
 TestTargetEntityRenaming(
 	"INDIVIDUAL.GARRISON.APPROACHING", "INDIVIDUAL.IDLE",
-	(unitAI, player_ent, target_ent) => {
+	(unitAI, player_ent, target_ent) =>
+	{
 		unitAI.CanGarrison = (target) => target == target_ent;
 		unitAI.MoveToTargetRange = (target) => target == target_ent;
 		unitAI.AbleToMove = () => true;
@@ -70,7 +71,8 @@ TestTargetEntityRenaming(
 
 TestTargetEntityRenaming(
 	"INDIVIDUAL.REPAIR.REPAIRING", "INDIVIDUAL.REPAIR.REPAIRING",
-	(unitAI, player_ent, target_ent) => {
+	(unitAI, player_ent, target_ent) =>
+	{
 
 		AddMock(player_ent, IID_Builder, {
 			"StartRepairing": () => true,
@@ -88,7 +90,8 @@ TestTargetEntityRenaming(
 
 TestTargetEntityRenaming(
 	"INDIVIDUAL.FLEEING", "INDIVIDUAL.FLEEING",
-	(unitAI, player_ent, target_ent) => {
+	(unitAI, player_ent, target_ent) =>
+	{
 		PositionHelper.DistanceBetweenEntities = () => 10;
 		unitAI.CheckTargetRangeExplicit = () => false;
 
@@ -127,7 +130,8 @@ function TestFormationExiting(mode)
 	});
 
 	AddMock(SYSTEM_ENTITY, IID_RangeManager, {
-		"CreateActiveQuery": function(ent, minRange, maxRange, players, iid, flags, accountForSize) {
+		"CreateActiveQuery": function(ent, minRange, maxRange, players, iid, flags, accountForSize)
+		{
 			return 1;
 		},
 		"EnableActiveQuery": function(id) { },
@@ -307,7 +311,8 @@ function TestMoveIntoFormationWhileAttacking()
 
 
 	AddMock(SYSTEM_ENTITY, IID_RangeManager, {
-		"CreateActiveQuery": function(ent, minRange, maxRange, players, iid, flags, accountForSize) {
+		"CreateActiveQuery": function(ent, minRange, maxRange, players, iid, flags, accountForSize)
+		{
 			return 1;
 		},
 		"EnableActiveQuery": function(id) { },
@@ -568,11 +573,13 @@ function TestAttemptObstructionMitigation()
 		let canceledTimer = null;
 
 		return {
-			"SetTimeout": function(entity, iid, functionName, time, data) {
+			"SetTimeout": function(entity, iid, functionName, time, data)
+			{
 				timerId = 123;
 				return timerId;
 			},
-			"CancelTimer": function(id) {
+			"CancelTimer": function(id)
+			{
 				canceledTimer = id;
 			},
 			"SetInterval": function() { return null; }
@@ -611,7 +618,8 @@ function TestAttemptObstructionMitigation()
 		"GetRotation": () => ({ "y": 0 }),
 		"GetTurretParent": () => INVALID_ENTITY,
 		"TurnTo": () => {},
-		"JumpTo": function(x, z) {
+		"JumpTo": function(x, z)
+		{
 			controllerX = x;
 			controllerZ = z;
 		},
@@ -676,7 +684,8 @@ function TestAttemptObstructionMitigation()
 	}
 
 	// Should not execute if already attempted
-	(function() {
+	(function()
+	{
 		controllerAI.obstructionMitigationAttempted = true;
 		const originalX = controllerX;
 		const originalZ = controllerZ;
@@ -691,7 +700,8 @@ function TestAttemptObstructionMitigation()
 	})();
 
 	// Should not execute without formation component
-	(function() {
+	(function()
+	{
 		const originalX = controllerX;
 		const originalZ = controllerZ;
 
@@ -703,7 +713,8 @@ function TestAttemptObstructionMitigation()
 	})();
 
 	// Should not execute without valid destination
-	(function() {
+	(function()
+	{
 		const formationMock = { "GetClosestMemberToPosition": () => member1ID };
 
 		// Test with missing destination
@@ -717,19 +728,22 @@ function TestAttemptObstructionMitigation()
 	})();
 
 	// Should not execute if no closest member found
-	(function() {
+	(function()
+	{
 		const formationMock = { "GetClosestMemberToPosition": () => INVALID_ENTITY };
 		testObstructionMitigation(formationMock, { "x": 100, "z": 100 }, 0, 0, false);
 	})();
 
 	// Should not execute if member or controller missing position component
-	(function() {
+	(function()
+	{
 		const formationMock = { "GetClosestMemberToPosition": () => member1ID };
 		testObstructionMitigation(formationMock, { "x": 100, "z": 100 }, 0, 0, false);
 	})();
 
 	// Should jump when member is more than 2 meters closer to destination
-	(function() {
+	(function()
+	{
 		AddMock(member1ID, IID_Position, {
 			"GetPosition2D": () => new Vector2D(90, 90)
 		});
@@ -742,7 +756,8 @@ function TestAttemptObstructionMitigation()
 	})();
 
 	// Should NOT jump when member is NOT more than 2 meters closer
-	(function() {
+	(function()
+	{
 		AddMock(member1ID, IID_Position, {
 			"GetPosition2D": () => new Vector2D(95, 96)
 		});
@@ -765,7 +780,8 @@ function TestAttemptObstructionMitigation()
 	})();
 
 	// Should NOT jump when member is actually farther away
-	(function() {
+	(function()
+	{
 		AddMock(member1ID, IID_Position, {
 			"GetPosition2D": () => new Vector2D(0, 0)
 		});
@@ -788,7 +804,8 @@ function TestAttemptObstructionMitigation()
 	})();
 
 	// Should jump when member is exactly 2.1 meters closer (edge case)
-	(function() {
+	(function()
+	{
 		AddMock(member1ID, IID_Position, {
 			"GetPosition2D": () => new Vector2D(2, 1)
 		});
@@ -801,7 +818,8 @@ function TestAttemptObstructionMitigation()
 	})();
 
 	// Test SetObstructionMitigationFlag and ResetObstructionMitigationFlag
-	(function() {
+	(function()
+	{
 		// Use SetTimeout version for this test
 		AddMock(SYSTEM_ENTITY, IID_Timer, createTimerMock(true));
 
@@ -816,7 +834,8 @@ function TestAttemptObstructionMitigation()
 	})();
 
 	// Multiple members, should pick closest one
-	(function() {
+	(function()
+	{
 		const members = [member1ID, member2ID, member3ID];
 
 		AddMock(member1ID, IID_Position, {
@@ -835,7 +854,8 @@ function TestAttemptObstructionMitigation()
 		});
 
 		const formationMock = {
-			"GetClosestMemberToPosition": function(targetPosition, filter) {
+			"GetClosestMemberToPosition": function(targetPosition, filter)
+			{
 				const memberPositions = {
 					[member1ID]: { "x": 80, "y": 80 },
 					[member2ID]: { "x": 90, "y": 90 },

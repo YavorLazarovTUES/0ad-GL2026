@@ -3,7 +3,8 @@ function init()
 	if (Engine.ConfigDB_GetValue("user", "lobby.login"))
 		loginButton();
 
-	return new Promise(closePageCallback => {
+	return new Promise(closePageCallback =>
+	{
 		Engine.GetGUIObjectByName("cancel").onPress = closePageCallback;
 	});
 }

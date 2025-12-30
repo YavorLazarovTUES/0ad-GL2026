@@ -116,7 +116,8 @@ export function* generateMap(mapSettings)
 		"heightLand": heightLand,
 		"meanderShort": 20,
 		"meanderLong": 0,
-		"waterFunc": (position, height, riverFraction) => {
+		"waterFunc": (position, height, riverFraction) =>
+		{
 
 			if (height < heightShore2)
 				clWater.add(position);

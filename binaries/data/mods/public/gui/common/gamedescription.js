@@ -153,7 +153,8 @@ function formatPlayerInfo(playerDataArray, playerStates)
 
 	// If there are teams, merge "Team N:" + playerDescriptions
 	else
-		teamDescription = teams.map(team => {
+		teamDescription = teams.map(team =>
+		{
 
 			const teamCaption = team == -1 ?
 				translate("No Team") :

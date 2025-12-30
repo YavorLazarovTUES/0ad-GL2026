@@ -61,7 +61,8 @@ class GameSettingControlSlider extends GameSettingControl
 	onValueChangeSuper()
 	{
 		if (!this.isInGuiUpdate && !this.timer)
-			this.timer = setTimeout(() => {
+			this.timer = setTimeout(() =>
+			{
 				this.onValueChange(this.slider.value);
 				delete this.timer;
 			}, this.Timeout);

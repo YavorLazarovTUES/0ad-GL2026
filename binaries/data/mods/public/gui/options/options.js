@@ -58,7 +58,8 @@ var g_OptionType = {
 	"boolean":
 	{
 		"configToValue": config => config == "true",
-		"valueToGui": (value, control) => {
+		"valueToGui": (value, control) =>
+		{
 			control.checked = value;
 		},
 		"guiToValue": control => control.checked,
@@ -67,7 +68,8 @@ var g_OptionType = {
 	"string":
 	{
 		"configToValue": value => value,
-		"valueToGui": (value, control) => {
+		"valueToGui": (value, control) =>
+		{
 			control.caption = value;
 		},
 		"guiToValue": control => control.caption,
@@ -76,11 +78,14 @@ var g_OptionType = {
 	"color":
 	{
 		"configToValue": value => value,
-		"valueToGui": (value, control) => {
+		"valueToGui": (value, control) =>
+		{
 			control.caption = value;
 		},
-		"initGUI": (option, control) => {
-			control.children[2].onPress = async() => {
+		"initGUI": (option, control) =>
+		{
+			control.children[2].onPress = async() =>
+			{
 				const color = await Engine.OpenChildPage("page_colormixer.xml", control.caption);
 
 				if (color != control.caption)
@@ -92,7 +97,8 @@ var g_OptionType = {
 		},
 		"guiToValue": control => control.caption,
 		"guiSetter": "onTextEdit",
-		"sanitizeValue": (value, control, option) => {
+		"sanitizeValue": (value, control, option) =>
+		{
 			const color = guiToRgbColor(value);
 			const sanitized = rgbToGuiColor(color);
 			if (control)
@@ -110,12 +116,14 @@ var g_OptionType = {
 	"number":
 	{
 		"configToValue": value => value,
-		"valueToGui": (value, control) => {
+		"valueToGui": (value, control) =>
+		{
 			control.caption = value;
 		},
 		"guiToValue": control => control.caption,
 		"guiSetter": "onTextEdit",
-		"sanitizeValue": (value, control, option) => {
+		"sanitizeValue": (value, control, option) =>
+		{
 			const sanitized =
 				Math.min(option.max !== undefined ? option.max : +Infinity,
 					Math.max(option.min !== undefined ? option.min : -Infinity,
@@ -143,15 +151,18 @@ var g_OptionType = {
 	"dropdown":
 	{
 		"configToValue": value => value,
-		"valueToGui": (value, control) => {
+		"valueToGui": (value, control) =>
+		{
 			control.selected = control.list_data.indexOf(value);
 		},
 		"guiToValue": control => control.list_data[control.selected],
 		"guiSetter": "onSelectionChange",
-		"initGUI": (option, control) => {
+		"initGUI": (option, control) =>
+		{
 			control.list = option.list.map(e => e.label);
 			control.list_data = option.list.map(e => e.value);
-			control.onHoverChange = () => {
+			control.onHoverChange = () =>
+			{
 				const item = option.list[control.hovered];
 				control.tooltip = item && item.tooltip || option.tooltip;
 			};
@@ -160,20 +171,24 @@ var g_OptionType = {
 	"dropdownNumber":
 	{
 		"configToValue": value => +value,
-		"valueToGui": (value, control) => {
+		"valueToGui": (value, control) =>
+		{
 			control.selected = control.list_data.indexOf("" + value);
 		},
 		"guiToValue": control => +control.list_data[control.selected],
 		"guiSetter": "onSelectionChange",
-		"initGUI": (option, control) => {
+		"initGUI": (option, control) =>
+		{
 			control.list = option.list.map(e => e.label);
 			control.list_data = option.list.map(e => e.value);
-			control.onHoverChange = () => {
+			control.onHoverChange = () =>
+			{
 				const item = option.list[control.hovered];
 				control.tooltip = item && item.tooltip || option.tooltip;
 			};
 		},
-		"timeout": async(option, oldValue, hasChanges, newValue) => {
+		"timeout": async(option, oldValue, hasChanges, newValue) =>
+		{
 			if (!option.timeout)
 				return;
 			const buttonIndex = await timedConfirmation(
@@ -191,12 +206,14 @@ var g_OptionType = {
 	"slider":
 	{
 		"configToValue": value => +value,
-		"valueToGui": (value, control) => {
+		"valueToGui": (value, control) =>
+		{
 			control.value = +value;
 		},
 		"guiToValue": control => control.value,
 		"guiSetter": "onValueChange",
-		"initGUI": (option, control) => {
+		"initGUI": (option, control) =>
+		{
 			control.max_value = option.max;
 			control.min_value = option.min;
 		},
@@ -282,7 +299,8 @@ function displayOptions()
 		if (optionType.sanitizeValue)
 			optionType.sanitizeValue(value, control, option);
 
-		control[optionType.guiSetter] = function() {
+		control[optionType.guiSetter] = function()
+		{
 
 			const newValue = optionType.guiToValue(control);
 
@@ -326,8 +344,10 @@ function displayOptions()
  */
 function enableButtons()
 {
-	g_Options[g_TabCategorySelected].options.forEach((option, i) => {
-		const isDependencyMet = dependency => {
+	g_Options[g_TabCategorySelected].options.forEach((option, i) =>
+	{
+		const isDependencyMet = dependency =>
+		{
 			if (typeof dependency === "string")
 				return Engine.ConfigDB_GetValue("user", dependency) == "true";
 			else if (typeof dependency === "object")
@@ -409,8 +429,10 @@ function revertChanges()
 
 async function saveChanges()
 {
-	const category = Object.keys(g_Options).find(key => {
-		return g_Options[key].options.some(option => {
+	const category = Object.keys(g_Options).find(key =>
+	{
+		return g_Options[key].options.some(option =>
+		{
 			const optionType = g_OptionType[option.type];
 			if (!optionType.sanitizeValue)
 				return false;

@@ -1,7 +1,9 @@
 import { Plugin } from 'tools/dap/plugin.js';
 
-class FrameManager extends Plugin {
-	constructor(jsDebugger, dapHandler) {
+class FrameManager extends Plugin
+{
+	constructor(jsDebugger, dapHandler)
+	{
 		super('FrameManager', 'manager');
 
 		this.logger.debug('Setting up FrameManager');
@@ -12,7 +14,8 @@ class FrameManager extends Plugin {
 		jsDebugger.registerHookName('onStepIn', this.name);
 		jsDebugger.registerHookName('onStepOut', this.name);
 
-		jsDebugger.on('onDebuggerDetached', () => {
+		jsDebugger.on('onDebuggerDetached', () =>
+		{
 			this.logger.debug('Debugger detached');
 			let frame = jsDebugger.currentFrame;
 			while (frame)
@@ -24,8 +27,10 @@ class FrameManager extends Plugin {
 			jsDebugger.currentFrame = undefined;
 		}, this.name);
 
-		jsDebugger.on('onDebuggerStatement', (frame) => {
-			jsDebugger.stopInframe(frame, () => {
+		jsDebugger.on('onDebuggerStatement', (frame) =>
+		{
+			jsDebugger.stopInframe(frame, () =>
+			{
 				this.logger.debug(`Paused on debugger statement in frame: ${frame.script.url}`);
 				jsDebugger.pushEvent('stopped', {
 					'reason': 'debugger',
@@ -35,7 +40,8 @@ class FrameManager extends Plugin {
 			});
 		}, this.name);
 
-		jsDebugger.on('onEnterFrame', (frame) => {
+		jsDebugger.on('onEnterFrame', (frame) =>
+		{
 			if (!frame || !frame.older || !frame.older.stepIn || frame.onStep !== undefined)
 				return;
 
@@ -43,7 +49,8 @@ class FrameManager extends Plugin {
 			this.hookFrameDebugger(frame, "stepIn", "Paused on stepIn");
 		}, this.name);
 
-		dapHandler.registerCommand('stackTrace', (req) => {
+		dapHandler.registerCommand('stackTrace', (req) =>
+		{
 			this.logger.debug('Handling stackTrace command');
 			if (!jsDebugger.currentFrame)
 			{
@@ -71,7 +78,8 @@ class FrameManager extends Plugin {
 			return dapHandler.successResponse(req, { 'stackFrames': stackFrames });
 		});
 
-		dapHandler.registerCommand('continue', (req) => {
+		dapHandler.registerCommand('continue', (req) =>
+		{
 			this.logger.debug('Handling continue command');
 			let frame = jsDebugger.currentFrame;
 			while (frame)
@@ -84,7 +92,8 @@ class FrameManager extends Plugin {
 			return dapHandler.successResponse(req, { 'allThreadsContinued': true });
 		});
 
-		dapHandler.registerCommand('next', (req) => {
+		dapHandler.registerCommand('next', (req) =>
+		{
 			this.logger.debug('Handling next command');
 			if (!jsDebugger.currentFrame)
 			{
@@ -103,7 +112,8 @@ class FrameManager extends Plugin {
 			return dapHandler.successResponse(req, undefined);
 		});
 
-		dapHandler.registerCommand('stepIn', (req) => {
+		dapHandler.registerCommand('stepIn', (req) =>
+		{
 			this.logger.debug('Handling stepIn command');
 			if (!jsDebugger.currentFrame)
 			{
@@ -122,7 +132,8 @@ class FrameManager extends Plugin {
 			return dapHandler.successResponse(req, undefined);
 		});
 
-		dapHandler.registerCommand('stepOut', (req) => {
+		dapHandler.registerCommand('stepOut', (req) =>
+		{
 			this.logger.debug('Handling stepOut command');
 			if (!jsDebugger.currentFrame)
 			{
@@ -142,28 +153,32 @@ class FrameManager extends Plugin {
 		});
 	}
 
-	extractScriptName(url) {
+	extractScriptName(url)
+	{
 		if (!url)
 			return "[No Name]";
 		const parts = url.split('\\');
 		return parts[parts.length - 1] || "[No Name]";
 	}
 
-	hookFrameDebugger(frame, reason, msg) {
+	hookFrameDebugger(frame, reason, msg)
+	{
 		if (!frame)
 			return;
 
 		const that = this;
 		if (frame.onStep === undefined)
 		{
-			frame.onStep = function() {
+			frame.onStep = function()
+			{
 				if (this.stepOut === true && this.stepOver !== true)
 					return;
 				const currentLocation = this.script.getOffsetLocation(frame.offset);
 				if (this.currentLocation?.lineNumber === currentLocation.lineNumber)
 					return;
 
-				that.jsDebugger.stopInframe(this, () => {
+				that.jsDebugger.stopInframe(this, () =>
+				{
 					that.jsDebugger.pushEvent('stopped', {
 						'reason': reason,
 						'threadId': 1,
@@ -176,7 +191,8 @@ class FrameManager extends Plugin {
 
 		if (frame.onPop === undefined)
 		{
-			frame.onPop = function() {
+			frame.onPop = function()
+			{
 				if (this.stepIn || this.stepOut)
 					that.hookFrameDebugger(this.older, reason, msg);
 				that.cleanFrameDebugger(this);
@@ -184,7 +200,8 @@ class FrameManager extends Plugin {
 		}
 	}
 
-	cleanFrameDebugger(frame) {
+	cleanFrameDebugger(frame)
+	{
 		if (!frame)
 			return;
 

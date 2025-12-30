@@ -1,23 +1,28 @@
 import { Plugin } from 'tools/dap/plugin.js';
 
-class InspectorManager extends Plugin {
-	constructor(jsDebugger, dapHandler) {
+class InspectorManager extends Plugin
+{
+	constructor(jsDebugger, dapHandler)
+	{
 		super('InspectorManager', 'manager');
 		this.variableReferences = [];
 
 		this.logger.debug('Setting up InspectorManager');
 
-		jsDebugger.on('onDebuggerDetached', () => {
+		jsDebugger.on('onDebuggerDetached', () =>
+		{
 			this.logger.debug('Debugger attached');
 			this.variableReferences = [];
 		}, this.name);
 
-		jsDebugger.on('onContinue', () => {
+		jsDebugger.on('onContinue', () =>
+		{
 			this.logger.debug('Continuing execution');
 			this.variableReferences = [];
 		}, this.name);
 
-		dapHandler.registerCommand('scopes', (req) => {
+		dapHandler.registerCommand('scopes', (req) =>
+		{
 			this.logger.debug('Handling scopes command');
 			if (!jsDebugger.currentFrame)
 			{
@@ -49,7 +54,8 @@ class InspectorManager extends Plugin {
 			return dapHandler.successResponse(req, { 'scopes': this.createScopeAndVariableReferences(frame, req.arguments.frameId) });
 		});
 
-		dapHandler.registerCommand('variables', (req) => {
+		dapHandler.registerCommand('variables', (req) =>
+		{
 			this.logger.debug('Handling variables command');
 			if (!jsDebugger.currentFrame)
 			{
@@ -61,7 +67,8 @@ class InspectorManager extends Plugin {
 			return dapHandler.successResponse(req, { 'variables': variables });
 		});
 
-		dapHandler.registerCommand('evaluate', (req) => {
+		dapHandler.registerCommand('evaluate', (req) =>
+		{
 			this.logger.debug('Handling evaluate command');
 			if (!jsDebugger.currentFrame)
 			{
@@ -91,7 +98,7 @@ class InspectorManager extends Plugin {
 					});
 				return dapHandler.successResponse(req, { 'result': JSON.stringify(result) || "null", 'variablesReference': 0 });
 			}
-			catch (error)
+			catch(error)
 			{
 				this.logger.error(`Error evaluating expression: ${error.message}`);
 				return dapHandler.errorResponse(req, `Error evaluating expression: ${error.message}`);
@@ -99,7 +106,8 @@ class InspectorManager extends Plugin {
 		});
 	}
 
-	createOrUpdateVariableReference(name, data) {
+	createOrUpdateVariableReference(name, data)
+	{
 		let index = this.variableReferences.findIndex((ref) => ref.name === name);
 		if (index === -1)
 		{
@@ -112,7 +120,8 @@ class InspectorManager extends Plugin {
 		return index + 1;
 	}
 
-	createScopeAndVariableReferences(frame, frameId) {
+	createScopeAndVariableReferences(frame, frameId)
+	{
 		if (!frame || !frame.onStack || frame.terminated)
 		{
 			this.logger.error(`Invalid frame: ${frameId}`);
@@ -181,7 +190,8 @@ class InspectorManager extends Plugin {
 		return scopes;
 	}
 
-	describeJSObjectCallable(jsObject, varName) {
+	describeJSObjectCallable(jsObject, varName)
+	{
 		if (!jsObject || !(jsObject instanceof Debugger.Object) || !jsObject.callable)
 		{
 			this.logger.error('Invalid JS Object for callable description');
@@ -221,7 +231,8 @@ class InspectorManager extends Plugin {
 		return variable;
 	}
 
-	describeJSObjectVariable(jsObject, varRefName, varReference, varName) {
+	describeJSObjectVariable(jsObject, varRefName, varReference, varName)
+	{
 		if (!jsObject || !(jsObject instanceof Debugger.Object))
 		{
 			this.logger.error('Invalid JS Object for description');
@@ -307,7 +318,8 @@ class InspectorManager extends Plugin {
 		return variable;
 	}
 
-	expandVariableReference(variableReferenceIndex, frame) {
+	expandVariableReference(variableReferenceIndex, frame)
+	{
 		if (variableReferenceIndex === 0 || this.variableReferences.length < variableReferenceIndex - 1)
 		{
 			this.logger.warn(`Invalid variable reference index: ${variableReferenceIndex}`);

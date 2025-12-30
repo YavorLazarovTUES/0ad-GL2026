@@ -3,7 +3,8 @@ Resources = {
 	"GetTradableCodes": () => ["food", "metal"],
 	"GetBarterableCodes": () => ["food", "metal"],
 	"GetResource": () => ({}),
-	"BuildSchema": (type) => {
+	"BuildSchema": (type) =>
+	{
 		let schema = "";
 		for (const res of Resources.GetCodes())
 			schema +=
@@ -68,7 +69,8 @@ cmpTimer.OnUpdate({ "turnLength": turnLength });
 TS_ASSERT_UNEVAL_EQUALS(cmpPlayer.GetResourceCounts(), { "food": 300, "metal": 300 });
 
 // Test that only requiring food works.
-ApplyValueModificationsToEntity = (valueName, currentValue, entity) => {
+ApplyValueModificationsToEntity = (valueName, currentValue, entity) =>
+{
 	if (valueName == "Upkeep/Rates/food")
 		return currentValue + 1;
 
@@ -91,7 +93,8 @@ TS_ASSERT_EQUALS(cmpUpkeep.ComputeRates(), false);
 cmpTimer.OnUpdate({ "turnLength": turnLength });
 TS_ASSERT_UNEVAL_EQUALS(cmpPlayer.GetResourceCounts(), { "food": 299, "metal": 300 });
 
-ApplyValueModificationsToEntity = (valueName, currentValue, entity) => {
+ApplyValueModificationsToEntity = (valueName, currentValue, entity) =>
+{
 	if (valueName == "Upkeep/Interval")
 		return currentValue + 200;
 	if (valueName == "Upkeep/Rates/food")
@@ -108,7 +111,8 @@ cmpTimer.OnUpdate({ "turnLength": turnLength });
 TS_ASSERT_UNEVAL_EQUALS(cmpPlayer.GetResourceCounts(), { "food": 298, "metal": 300 });
 
 // Interval becomes a normal timer, thus cancelled after the first execution.
-ApplyValueModificationsToEntity = (valueName, currentValue, entity) => {
+ApplyValueModificationsToEntity = (valueName, currentValue, entity) =>
+{
 	if (valueName == "Upkeep/Interval")
 		return currentValue - 200;
 	if (valueName == "Upkeep/Rates/food")
@@ -127,7 +131,8 @@ cmpTimer.OnUpdate({ "turnLength": turnLength });
 TS_ASSERT_UNEVAL_EQUALS(cmpPlayer.GetResourceCounts(), { "food": 297, "metal": 300 });
 
 // Timer became invalidated, check whether it's recreated properly after that.
-ApplyValueModificationsToEntity = (valueName, currentValue, entity) => {
+ApplyValueModificationsToEntity = (valueName, currentValue, entity) =>
+{
 	if (valueName == "Upkeep/Interval")
 		return currentValue - 100;
 	if (valueName == "Upkeep/Rates/food")
@@ -146,7 +151,8 @@ cmpTimer.OnUpdate({ "turnLength": turnLength });
 TS_ASSERT_UNEVAL_EQUALS(cmpPlayer.GetResourceCounts(), { "food": 291, "metal": 300 });
 
 // Value is now invalid, timer should be cancelled.
-ApplyValueModificationsToEntity = (valueName, currentValue, entity) => {
+ApplyValueModificationsToEntity = (valueName, currentValue, entity) =>
+{
 	if (valueName == "Upkeep/Interval")
 		return currentValue - 201;
 	if (valueName == "Upkeep/Rates/food")
@@ -163,7 +169,8 @@ cmpTimer.OnUpdate({ "turnLength": turnLength });
 TS_ASSERT_UNEVAL_EQUALS(cmpPlayer.GetResourceCounts(), { "food": 291, "metal": 300 });
 
 // Timer became invalidated, check whether it's recreated properly after that.
-ApplyValueModificationsToEntity = (valueName, currentValue, entity) => {
+ApplyValueModificationsToEntity = (valueName, currentValue, entity) =>
+{
 	if (valueName == "Upkeep/Rates/food")
 		return currentValue + 1;
 
@@ -180,7 +187,8 @@ cmpTimer.OnUpdate({ "turnLength": turnLength });
 TS_ASSERT_UNEVAL_EQUALS(cmpPlayer.GetResourceCounts(), { "food": 288, "metal": 300 });
 
 // Test multiple upkeep resources.
-ApplyValueModificationsToEntity = (valueName, currentValue, entity) => {
+ApplyValueModificationsToEntity = (valueName, currentValue, entity) =>
+{
 	if (valueName == "Upkeep/Rates/food")
 		return currentValue + 1;
 	if (valueName == "Upkeep/Rates/metal")
@@ -203,7 +211,8 @@ const cmpGUI = AddMock(SYSTEM_ENTITY, IID_GuiInterface, {
 	"PushNotification": () => {}
 });
 const notificationSpy = new Spy(cmpGUI, "PushNotification");
-ApplyValueModificationsToEntity = (valueName, currentValue, entity) => {
+ApplyValueModificationsToEntity = (valueName, currentValue, entity) =>
+{
 	if (valueName == "Upkeep/Rates/food")
 		return currentValue + 1;
 

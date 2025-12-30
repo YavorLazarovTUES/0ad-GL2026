@@ -1,4 +1,5 @@
-const MatchSort = (function() {
+const MatchSort = (function()
+{
 const Highscore = -10E7;
 
 return class

@@ -228,7 +228,8 @@ ModifiersManager.prototype.OnGlobalOwnershipChanged = function(msg)
 	// Warn entities that our values have changed.
 	// Local modifiers will be added by the relevant components, so no need to check for them here.
 	const modifiedComponents = {};
-	const fetchPlayerModifiedValueNames = (owner) => {
+	const fetchPlayerModifiedValueNames = (owner) =>
+	{
 		if (!owner)
 			return;
 		const playerModifs = this.modifiersStorage.GetAllItems(owner);
@@ -238,7 +239,8 @@ ModifiersManager.prototype.OnGlobalOwnershipChanged = function(msg)
 			const component = propertyName.split("/")[0];
 			// Only inform if the modifier actually applies to the entity as an optimisation.
 			// TODO: would it be better to call FetchModifiedProperty here and compare values?
-			playerModifs[propertyName].forEach(item => item.value.forEach(modif => {
+			playerModifs[propertyName].forEach(item => item.value.forEach(modif =>
+			{
 				if (!DoesModificationApply(modif, classes))
 					return;
 				if (!modifiedComponents[component])
@@ -259,35 +261,43 @@ ModifiersManager.prototype.OnGlobalOwnershipChanged = function(msg)
 /**
  * The following functions simply proxy MultiKeyMap's interface.
  */
-ModifiersManager.prototype.AddModifier = function(propName, ModifID, Modif, entity, stackable = false) {
+ModifiersManager.prototype.AddModifier = function(propName, ModifID, Modif, entity, stackable = false)
+{
 	return this.modifiersStorage.AddItem(propName, ModifID, Modif, entity, stackable);
 };
 
-ModifiersManager.prototype.AddModifiers = function(ModifID, Modifs, entity, stackable = false) {
+ModifiersManager.prototype.AddModifiers = function(ModifID, Modifs, entity, stackable = false)
+{
 	return this.modifiersStorage.AddItems(ModifID, Modifs, entity, stackable);
 };
 
-ModifiersManager.prototype.RemoveModifier = function(propName, ModifID, entity, stackable = false) {
+ModifiersManager.prototype.RemoveModifier = function(propName, ModifID, entity, stackable = false)
+{
 	return this.modifiersStorage.RemoveItem(propName, ModifID, entity, stackable);
 };
 
-ModifiersManager.prototype.RemoveAllModifiers = function(ModifID, entity, stackable = false) {
+ModifiersManager.prototype.RemoveAllModifiers = function(ModifID, entity, stackable = false)
+{
 	return this.modifiersStorage.RemoveAllItems(ModifID, entity, stackable);
 };
 
-ModifiersManager.prototype.HasModifier = function(propName, ModifID, entity) {
+ModifiersManager.prototype.HasModifier = function(propName, ModifID, entity)
+{
 	return this.modifiersStorage.HasItem(propName, ModifID, entity);
 };
 
-ModifiersManager.prototype.HasAnyModifier = function(ModifID, entity) {
+ModifiersManager.prototype.HasAnyModifier = function(ModifID, entity)
+{
 	return this.modifiersStorage.HasAnyItem(ModifID, entity);
 };
 
-ModifiersManager.prototype.GetModifiers = function(propName, entity, stackable = false) {
+ModifiersManager.prototype.GetModifiers = function(propName, entity, stackable = false)
+{
 	return this.modifiersStorage.GetItems(propName, entity, stackable);
 };
 
-ModifiersManager.prototype.GetAllModifiers = function(entity, stackable = false) {
+ModifiersManager.prototype.GetAllModifiers = function(entity, stackable = false)
+{
 	return this.modifiersStorage.GetAllItems(entity, stackable);
 };
 

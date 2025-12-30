@@ -51,7 +51,8 @@ Trigger.prototype.SpawnWolvesAndAttack = function()
 
 		// The returned entities are sorted by RangeManager already
 		// Only consider units implementing Health since wolves deal damage.
-		const targets = PositionHelper.EntitiesNearPoint(attackerPos, 200, players, IID_Health).filter(ent => {
+		const targets = PositionHelper.EntitiesNearPoint(attackerPos, 200, players, IID_Health).filter(ent =>
+		{
 			const cmpIdentity = Engine.QueryInterface(ent, IID_Identity);
 			return cmpIdentity && MatchesClassList(cmpIdentity.GetClassesList(), targetClasses);
 		});
@@ -62,12 +63,14 @@ Trigger.prototype.SpawnWolvesAndAttack = function()
 		if (goodTargets.length < targetCount)
 		{
 			if (!allTargets)
-				allTargets = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager).GetNonGaiaEntities().filter(ent => {
+				allTargets = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager).GetNonGaiaEntities().filter(ent =>
+				{
 					const cmpIdentity = Engine.QueryInterface(ent, IID_Identity);
 					return cmpIdentity && MatchesClassList(cmpIdentity.GetClassesList(), targetClasses);
 				});
 
-			const getDistance = target => {
+			const getDistance = target =>
+			{
 				const targetPos = TriggerHelper.GetEntityPosition2D(target);
 				return targetPos ? attackerPos.distanceToSquared(targetPos) : Infinity;
 			};

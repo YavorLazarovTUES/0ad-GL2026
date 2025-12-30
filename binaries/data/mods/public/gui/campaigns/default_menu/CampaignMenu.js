@@ -237,12 +237,15 @@ var g_CampaignMenu;
 function init(initData)
 {
 	let run = initData?.filename || CampaignRun.getCurrentRunFilename();
-	try {
+	try
+	{
 		run = new CampaignRun(run).load();
 		if (!run.isCurrent())
 			run.setCurrent();
 		g_CampaignMenu = new CampaignMenu(run);
-	} catch (err) {
+	}
+	catch(err)
+	{
 		error(sprintf("Error loading campaign run %s: %s.", CampaignRun.getCurrentRunFilename(), err));
 		Engine.SwitchGuiPage("page_pregame.xml", {});
 	}

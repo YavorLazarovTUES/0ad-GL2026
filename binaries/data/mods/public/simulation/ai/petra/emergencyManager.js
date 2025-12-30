@@ -65,7 +65,8 @@ EmergencyManager.prototype.emergencyUpdate = function(gameState)
 EmergencyManager.prototype.rootCount = function(gameState)
 {
 	let roots = 0;
-	gameState.getOwnStructures().toEntityArray().forEach(ent => {
+	gameState.getOwnStructures().toEntityArray().forEach(ent =>
+	{
 		if (ent?.get("TerritoryInfluence")?.Root === "true")
 			roots++;
 	});

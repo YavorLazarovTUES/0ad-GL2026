@@ -36,7 +36,8 @@ export async function init(data)
 
 	Engine.GetGUIObjectByName("displaySplashScreen").checked = Engine.ConfigDB_GetValue("user", "gui.splashscreen.enable") === "true";
 
-	await new Promise(resolve => {
+	await new Promise(resolve =>
+	{
 		Engine.GetGUIObjectByName("btnOK").onPress = resolve;
 	});
 

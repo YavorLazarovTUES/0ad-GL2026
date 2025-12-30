@@ -629,7 +629,8 @@ AttackPlan.prototype.trainMoreUnits = function(gameState)
 		aQueued += this.queueSiege.countQueuedUnitsWithMetadata("special", special);
 		order[0] = order[2].length + aQueued;
 	}
-	this.buildOrders.sort((a, b) => {
+	this.buildOrders.sort((a, b) =>
+	{
 		let va = a[0]/a[3].targetSize - a[3].priority;
 		if (a[0] >= a[3].targetSize)
 			va += 1000;
@@ -1353,7 +1354,8 @@ AttackPlan.prototype.update = function(gameState, events)
 		// let's proceed on with whatever happens now.
 		this.state = "";
 		this.startingAttack = true;
-		this.unitCollection.forEach(ent => {
+		this.unitCollection.forEach(ent =>
+		{
 			ent.stopMoving();
 			ent.setMetadata(PlayerID, "subrole", Worker.SUBROLE_ATTACKING);
 		});
@@ -1628,7 +1630,8 @@ AttackPlan.prototype.update = function(gameState, events)
 			// Checking for gates if we're a siege unit.
 			if (siegeUnit)
 			{
-				const mStruct = enemyStructures.filter(enemy => {
+				const mStruct = enemyStructures.filter(enemy =>
+				{
 					if (!enemy.position() || !ent.canAttackTarget(enemy, allowCapture(gameState, ent, enemy)))
 						return false;
 					if (SquareVectorDistance(enemy.position(), ent.position()) > range)
@@ -1641,7 +1644,8 @@ AttackPlan.prototype.update = function(gameState, events)
 				}).toEntityArray();
 				if (mStruct.length)
 				{
-					mStruct.sort((structa, structb) => {
+					mStruct.sort((structa, structb) =>
+					{
 						let vala = structa.costSum();
 						if (structa.hasClass("Gate") && ent.canAttackClass("Wall"))
 							vala += 10000;
@@ -1680,7 +1684,8 @@ AttackPlan.prototype.update = function(gameState, events)
 			else
 			{
 				const nearby = !ent.hasClasses(["FastMoving", "Ranged"]);
-				const mUnit = enemyUnits.filter(enemy => {
+				const mUnit = enemyUnits.filter(enemy =>
+				{
 					if (!enemy.position() || !ent.canAttackTarget(enemy, allowCapture(gameState, ent, enemy)))
 						return false;
 					if (enemy.hasClass("Animal"))
@@ -1703,7 +1708,8 @@ AttackPlan.prototype.update = function(gameState, events)
 				}, this).toEntityArray();
 				if (mUnit.length)
 				{
-					mUnit.sort((unitA, unitB) => {
+					mUnit.sort((unitA, unitB) =>
+					{
 						let vala = unitA.hasClass("Support") ? 50 : 0;
 						if (ent.counters(unitA))
 							vala += 100;
@@ -1746,7 +1752,8 @@ AttackPlan.prototype.update = function(gameState, events)
 				}
 				else
 				{
-					const mStruct = enemyStructures.filter(enemy => {
+					const mStruct = enemyStructures.filter(enemy =>
+					{
 						if (this.isBlocked && enemy.id() != this.target.id())
 							return false;
 						if (!enemy.position() || !ent.canAttackTarget(enemy, allowCapture(gameState, ent, enemy)))
@@ -1759,7 +1766,8 @@ AttackPlan.prototype.update = function(gameState, events)
 					}, this).toEntityArray();
 					if (mStruct.length)
 					{
-						mStruct.sort((structa, structb) => {
+						mStruct.sort((structa, structb) =>
+						{
 							let vala = structa.costSum();
 							if (structa.hasClass("Gate") && ent.canAttackClass("Wall"))
 								vala += 10000;
@@ -1784,7 +1792,8 @@ AttackPlan.prototype.update = function(gameState, events)
 					{
 						let distmin = Math.min();
 						let attacker;
-						this.unitCollection.forEach(unit => {
+						this.unitCollection.forEach(unit =>
+						{
 							if (!unit.position())
 								return;
 							if (unit.unitAIState().split(".")[1] != "COMBAT" || !unit.unitAIOrderData().length ||

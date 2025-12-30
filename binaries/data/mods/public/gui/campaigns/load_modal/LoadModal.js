@@ -47,7 +47,8 @@ class LoadModal extends AutoWatcher
 
 		this.selectedRun = -1;
 		this.runSelection = Engine.GetGUIObjectByName("runSelection");
-		this.runSelection.onSelectionChange = () => {
+		this.runSelection.onSelectionChange = () =>
+		{
 			this.selectedRun = this.runSelection.selected;
 			if (this.selectedRun === -1)
 				Engine.GetGUIObjectByName('runDescription').caption = "";
@@ -71,7 +72,7 @@ class LoadModal extends AutoWatcher
 			{
 				out.push(new CampaignRun(name).load());
 			}
-			catch (err)
+			catch(err)
 			{
 				warn(err.toString());
 				out.push(new BrokenRun(name));

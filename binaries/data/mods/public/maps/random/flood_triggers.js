@@ -102,7 +102,8 @@ Trigger.prototype.OnGlobalInitGame = function(msg)
 		return;
 	}
 
-	const schedule = (targetWaterLevel, riseStartTime) => {
+	const schedule = (targetWaterLevel, riseStartTime) =>
+	{
 		this.DoAfterDelay(riseStartTime * 1000, "RaiseWaterLevelStep", targetWaterLevel);
 		this.DoAfterDelay((riseStartTime - this.warningDuration) * 1000, "DisplayWarning");
 	};

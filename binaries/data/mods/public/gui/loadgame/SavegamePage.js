@@ -38,7 +38,8 @@ var g_SavegamePage;
 
 function init(data)
 {
-	return new Promise(closePageCallback => {
+	return new Promise(closePageCallback =>
+	{
 		g_SavegamePage = new SavegamePage(data, closePageCallback);
 	});
 }

@@ -151,7 +151,8 @@ function displaySingle(entState)
 	captureSection.hidden = !entState.capturePoints;
 	if (entState.capturePoints)
 	{
-		const setCaptureBarPart = function(playerID, startSize) {
+		const setCaptureBarPart = function(playerID, startSize)
+		{
 			const unitCaptureBar = Engine.GetGUIObjectByName("captureBar[" + playerID + "]");
 
 			const width = 100 * Math.max(0, Math.min(1, entState.capturePoints[playerID] / entState.maxCapturePoints));
@@ -331,11 +332,13 @@ function displaySingle(entState)
 	{
 		const iconBorder = Engine.GetGUIObjectByName("iconBorder");
 
-		iconBorder.onPress = () => {
+		iconBorder.onPress = () =>
+		{
 			setCameraFollow(entState.id);
 		};
 
-		iconBorder.onPressRight = () => {
+		iconBorder.onPressRight = () =>
+		{
 			showTemplateDetails(entState.template, playerState.civ);
 		};
 	}

@@ -90,7 +90,8 @@ function selectNextTab(direction)
 function selectPanel(category)
 {
 	g_TabCategorySelected = category;
-	Engine.GetGUIObjectByName("tabButtons").children.forEach((button, j) => {
+	Engine.GetGUIObjectByName("tabButtons").children.forEach((button, j) =>
+	{
 		button.sprite = g_TabHorizontal ?
 			category == j ?
 				"ModernTabHorizontalForeground" :

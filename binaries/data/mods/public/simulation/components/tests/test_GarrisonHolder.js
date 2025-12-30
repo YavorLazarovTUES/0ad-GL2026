@@ -268,7 +268,8 @@ const oldApplyValueModificationsToEntity = ApplyValueModificationsToEntity;
 TS_ASSERT(cmpGarrisonHolder.Garrison(siegeEngineId));
 TS_ASSERT_UNEVAL_EQUALS(cmpGarrisonHolder.GetEntities(), [siegeEngineId]);
 
-Engine.RegisterGlobal("ApplyValueModificationsToEntity", (valueName, currentValue, entity) => {
+Engine.RegisterGlobal("ApplyValueModificationsToEntity", (valueName, currentValue, entity) =>
+{
 	if (valueName !== "GarrisonHolder/List/_string")
 		return valueName;
 

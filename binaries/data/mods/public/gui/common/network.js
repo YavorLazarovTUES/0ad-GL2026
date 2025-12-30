@@ -211,7 +211,8 @@ function kickObservers(ban)
  */
 function sortGUIDsByPlayerID()
 {
-	return Object.keys(g_PlayerAssignments).sort((guidA, guidB) => {
+	return Object.keys(g_PlayerAssignments).sort((guidA, guidB) =>
+	{
 
 		const playerIdA = g_PlayerAssignments[guidA].player;
 		const playerIdB = g_PlayerAssignments[guidB].player;

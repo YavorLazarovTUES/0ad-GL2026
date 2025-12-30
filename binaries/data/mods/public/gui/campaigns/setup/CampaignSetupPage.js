@@ -15,12 +15,14 @@ class CampaignSetupPage extends AutoWatcher
 		Engine.GetGUIObjectByName("startCampButton").onPress = () => Engine.OpenChildPage("campaigns/new_modal/page.xml", this.selectedTemplate);
 
 		this.campaignSelection = Engine.GetGUIObjectByName("campaignSelection");
-		this.campaignSelection.onMouseLeftDoubleClickItem = () => {
+		this.campaignSelection.onMouseLeftDoubleClickItem = () =>
+		{
 			if (this.selectedIndex === -1)
 				return;
 			Engine.OpenChildPage("campaigns/new_modal/page.xml", this.selectedTemplate);
 		};
-		this.campaignSelection.onSelectionChange = () => {
+		this.campaignSelection.onSelectionChange = () =>
+		{
 			this.selectedIndex = this.campaignSelection.selected;
 			if (this.selectedIndex !== -1)
 				this.selectedTemplate = this.templates[this.selectedIndex];

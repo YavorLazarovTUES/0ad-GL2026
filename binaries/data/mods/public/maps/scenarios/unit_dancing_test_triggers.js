@@ -87,7 +87,8 @@ var experiments = {};
 
 var manual_dance = function(attacker, target, dance_distance, att_distance = 50, n_attackers = 1)
 {
-	return () => {
+	return () =>
+	{
 		const dancer = QuickSpawn(gx, gy, target);
 		for (let i = 0; i < 100; ++i)
 			WalkTo(gx, gy + dance_distance * (i % 2), true, dancer);
@@ -102,7 +103,8 @@ var manual_dance = function(attacker, target, dance_distance, att_distance = 50,
 
 var manual_square_dance = function(attacker, target, dance_distance, att_distance = 50, n_attackers = 1)
 {
-	return () => {
+	return () =>
+	{
 		const dancer = QuickSpawn(gx, gy, target);
 		for (let i = 0; i < 25; ++i)
 		{
@@ -122,7 +124,8 @@ var manual_square_dance = function(attacker, target, dance_distance, att_distanc
 
 var manual_zigzag_dance = function(attacker, target, dance_distance, att_distance = 50, n_attackers = 1)
 {
-	return () => {
+	return () =>
+	{
 		const dancer = QuickSpawn(gx, gy, target);
 		for (let i = 0; i < 12; ++i)
 		{
@@ -150,7 +153,8 @@ var manual_zigzag_dance = function(attacker, target, dance_distance, att_distanc
 
 var patrol_dance = function(attacker, target, dance_distance, att_distance = 50, n_attackers = 1)
 {
-	return () => {
+	return () =>
+	{
 		const dancer = QuickSpawn(gx, gy, target);
 		Patrol(gx, gy + dance_distance, true, dancer);
 
@@ -164,7 +168,8 @@ var patrol_dance = function(attacker, target, dance_distance, att_distance = 50,
 
 var manual_formation_dance = function(attacker, target, dance_distance, att_distance = 50, n_attackers = 1)
 {
-	return () => {
+	return () =>
+	{
 		const dancers = [];
 		for (let x = 0; x < 4; x++)
 			for (let z = 0; z < 4; z++)
@@ -186,7 +191,8 @@ var manual_formation_dance = function(attacker, target, dance_distance, att_dist
  */
 var avoidance = function(attacker, target, att_distance = 10)
 {
-	return () => {
+	return () =>
+	{
 		const dancer = QuickSpawn(200, 300, target);
 		for (let i = 0; i < 5; ++i)
 		{
@@ -317,7 +323,8 @@ Trigger.prototype.SetupUnits = function()
 	for (const key in experiments)
 	{
 		const [dancers, attackers] = experiments[key].spawn();
-		const ReportResults = (killed) => {
+		const ReportResults = (killed) =>
+		{
 			warn(`Exp ${key} finished in ${Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).GetTime() - start}, ` +
 				`target was ${killed ? "killed" : "not killed (failure)"}`);
 			ProcessCommand(1, {
@@ -335,7 +342,8 @@ Trigger.prototype.SetupUnits = function()
 		const uai = Engine.QueryInterface(dancers[0], IID_UnitAI);
 		const odes = uai.OnDestroy;
 		uai.OnDestroy = () => ReportResults(true) && odes();
-		uai.FindNewTargets = () => {
+		uai.FindNewTargets = () =>
+		{
 			ReportResults(false);
 			uai.OnDestroy = odes;
 		};

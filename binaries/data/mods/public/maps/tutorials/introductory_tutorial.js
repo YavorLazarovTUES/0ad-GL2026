@@ -390,18 +390,21 @@ Trigger.prototype.LaunchAttack = function()
 	const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
 	const entities = cmpRangeManager.GetEntitiesByPlayer(this.playerID);
 	const target =
-		entities.find(e => {
+		entities.find(e =>
+		{
 			const cmpIdentity = Engine.QueryInterface(e, IID_Identity);
 			return cmpIdentity && cmpIdentity.HasClass("Tower") && Engine.QueryInterface(e, IID_Position);
 		}) ||
-		entities.find(e => {
+		entities.find(e =>
+		{
 			const cmpIdentity = Engine.QueryInterface(e, IID_Identity);
 			return cmpIdentity && cmpIdentity.HasClass("CivilCentre") && Engine.QueryInterface(e, IID_Position);
 		});
 
 	const position = Engine.QueryInterface(target, IID_Position).GetPosition2D();
 
-	this.attackers = cmpRangeManager.GetEntitiesByPlayer(this.enemyID).filter(e => {
+	this.attackers = cmpRangeManager.GetEntitiesByPlayer(this.enemyID).filter(e =>
+	{
 		const cmpIdentity = Engine.QueryInterface(e, IID_Identity);
 		return Engine.QueryInterface(e, IID_UnitAI) && cmpIdentity && cmpIdentity.HasClass("CitizenSoldier");
 	});

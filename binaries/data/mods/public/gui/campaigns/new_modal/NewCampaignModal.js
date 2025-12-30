@@ -12,7 +12,8 @@ class NewCampaignModal
 		Engine.GetGUIObjectByName('cancelButton').onPress = closePageCallback;
 		Engine.GetGUIObjectByName('startButton').onPress = () => this.createAndStartCampaign();
 		Engine.GetGUIObjectByName('runDescription').caption = translateWithContext("Campaign Template", this.template.Name);
-		Engine.GetGUIObjectByName('runDescription').onTextEdit = () => {
+		Engine.GetGUIObjectByName('runDescription').onTextEdit = () =>
+		{
 			Engine.GetGUIObjectByName('startButton').enabled = Engine.GetGUIObjectByName('runDescription').caption.length > 0;
 		};
 		Engine.GetGUIObjectByName('runDescription').focus();
@@ -38,7 +39,8 @@ var g_NewCampaignModal;
 
 function init(campaign_template_data)
 {
-	return new Promise(closePageCallback => {
+	return new Promise(closePageCallback =>
+	{
 		g_NewCampaignModal = new NewCampaignModal(campaign_template_data, closePageCallback);
 	});
 }

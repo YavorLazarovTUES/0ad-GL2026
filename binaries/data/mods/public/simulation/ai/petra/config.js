@@ -46,122 +46,122 @@ export function Config(difficulty = difficultyLevel.MEDIUM, behavior)
 	// Note: attack settings are set directly in attack_plan.js
 	// defense
 	this.Defense =
-	{
-		"defenseRatio": { "ally": 1.4, "neutral": 1.8, "own": 2 },	// ratio of defenders/attackers.
-		"armyCompactSize": 2000,	// squared. Half-diameter of an army.
-		"armyBreakawaySize": 3500,	// squared.
-		"armyMergeSize": 1400	// squared.
-	};
+		{
+			"defenseRatio": { "ally": 1.4, "neutral": 1.8, "own": 2 },	// ratio of defenders/attackers.
+			"armyCompactSize": 2000,	// squared. Half-diameter of an army.
+			"armyBreakawaySize": 3500,	// squared.
+			"armyMergeSize": 1400	// squared.
+		};
 
 	// Additional buildings that the AI does not yet know when to build
 	// and that it will try to build on phase 3 when enough resources.
 	this.buildings =
-	{
-		"default": [],
-		"athen": [
-			"structures/{civ}/gymnasium",
-			"structures/{civ}/prytaneion",
-			"structures/{civ}/theater"
-		],
-		"brit": [],
-		"cart": [
-			"structures/{civ}/embassy_celtic",
-			"structures/{civ}/embassy_iberian",
-			"structures/{civ}/embassy_italic"
-		],
-		"gaul": [
-			"structures/{civ}/assembly"
-		],
-		"han": [
-			"structures/{civ}/academy"
-		],
-		"iber": [
-			"structures/{civ}/monument"
-		],
-		"kush": [
-			"structures/{civ}/camp_blemmye",
-			"structures/{civ}/camp_noba",
-			"structures/{civ}/pyramid_large",
-			"structures/{civ}/pyramid_small",
-			"structures/{civ}/temple_amun"
-		],
-		"mace": [
-			"structures/{civ}/theater"
-		],
-		"maur": [
-			"structures/{civ}/palace",
-			"structures/{civ}/pillar_ashoka"
-		],
-		"pers": [
-			"structures/{civ}/tachara"
-		],
-		"ptol": [
-			"structures/{civ}/library",
-			"structures/{civ}/theater"
-		],
-		"rome": [
-			"structures/{civ}/army_camp",
-			"structures/{civ}/temple_vesta"
-		],
-		"sele": [
-			"structures/{civ}/theater"
-		],
-		"spart": [
-			"structures/{civ}/syssiton",
-			"structures/{civ}/theater"
-		]
-	};
+		{
+			"default": [],
+			"athen": [
+				"structures/{civ}/gymnasium",
+				"structures/{civ}/prytaneion",
+				"structures/{civ}/theater"
+			],
+			"brit": [],
+			"cart": [
+				"structures/{civ}/embassy_celtic",
+				"structures/{civ}/embassy_iberian",
+				"structures/{civ}/embassy_italic"
+			],
+			"gaul": [
+				"structures/{civ}/assembly"
+			],
+			"han": [
+				"structures/{civ}/academy"
+			],
+			"iber": [
+				"structures/{civ}/monument"
+			],
+			"kush": [
+				"structures/{civ}/camp_blemmye",
+				"structures/{civ}/camp_noba",
+				"structures/{civ}/pyramid_large",
+				"structures/{civ}/pyramid_small",
+				"structures/{civ}/temple_amun"
+			],
+			"mace": [
+				"structures/{civ}/theater"
+			],
+			"maur": [
+				"structures/{civ}/palace",
+				"structures/{civ}/pillar_ashoka"
+			],
+			"pers": [
+				"structures/{civ}/tachara"
+			],
+			"ptol": [
+				"structures/{civ}/library",
+				"structures/{civ}/theater"
+			],
+			"rome": [
+				"structures/{civ}/army_camp",
+				"structures/{civ}/temple_vesta"
+			],
+			"sele": [
+				"structures/{civ}/theater"
+			],
+			"spart": [
+				"structures/{civ}/syssiton",
+				"structures/{civ}/theater"
+			]
+		};
 
 	this.priorities =
-	{
-		"villager": 300,      // should be slightly lower than the citizen soldier one to not get all the food
-		"citizenSoldier": 600,
-		"trader": 1,
-		"healer": 20,
-		"ships": 1,
-		"house": 250,
-		"dropsites": 950,
-		"field": 480,
-		"dock": 90,
-		"corral": 1,
-		"economicBuilding": 700,
-		"militaryBuilding": 330,
-		"defenseBuilding": 70,
-		"civilCentre": 1,
-		"majorTech": 700,
-		"minorTech": 250,
-		"wonder": 1,
-		"emergency": 1000    // used only in emergency situations, should be the highest one
-	};
+		{
+			"villager": 300,      // should be slightly lower than the citizen soldier one to not get all the food
+			"citizenSoldier": 600,
+			"trader": 1,
+			"healer": 20,
+			"ships": 1,
+			"house": 250,
+			"dropsites": 950,
+			"field": 480,
+			"dock": 90,
+			"corral": 1,
+			"economicBuilding": 700,
+			"militaryBuilding": 330,
+			"defenseBuilding": 70,
+			"civilCentre": 1,
+			"majorTech": 700,
+			"minorTech": 250,
+			"wonder": 1,
+			"emergency": 1000    // used only in emergency situations, should be the highest one
+		};
 
 	// Default personality (will be updated in setConfig)
 	this.personality =
-	{
-		"aggressive": 0.5,
-		"cooperative": 0.5,
-		"defensive": 0.5
-	};
+		{
+			"aggressive": 0.5,
+			"cooperative": 0.5,
+			"defensive": 0.5
+		};
 
 	// See QueueManager.prototype.wantedGatherRates()
 	this.queues =
-	{
-		"firstTurn": {
-			"food": 10,
-			"wood": 10,
-			"default": 0
-		},
-		"short": {
-			"food": 200,
-			"wood": 200,
-			"default": 100
-		},
-		"medium": {
-			"default": 0
-		},
-		"long": {
-			"default": 0
-		}
-	};
+		{
+			"firstTurn": {
+				"food": 10,
+				"wood": 10,
+				"default": 0
+			},
+			"short": {
+				"food": 200,
+				"wood": 200,
+				"default": 100
+			},
+			"medium": {
+				"default": 0
+			},
+			"long": {
+				"default": 0
+			}
+		};
 
 	this.garrisonHealthLevel = { "low": 0.4, "medium": 0.55, "high": 0.7 };
 

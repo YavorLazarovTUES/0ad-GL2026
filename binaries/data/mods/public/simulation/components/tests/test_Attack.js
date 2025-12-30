@@ -185,7 +185,8 @@ function attackComponentTest(defenderClass, isEnemy, test_function)
 }
 
 // Validate template getter functions
-attackComponentTest(undefined, true, (attacker, cmpAttack, defender) => {
+attackComponentTest(undefined, true, (attacker, cmpAttack, defender) =>
+{
 
 	TS_ASSERT_UNEVAL_EQUALS(cmpAttack.GetAttackTypes(), ["Melee", "Ranged", "Capture"]);
 	TS_ASSERT_UNEVAL_EQUALS(cmpAttack.GetAttackTypes([]), ["Melee", "Ranged", "Capture"]);
@@ -282,7 +283,8 @@ attackComponentTest(undefined, true, (attacker, cmpAttack, defender) => {
 });
 
 for (const className of ["Infantry", "Cavalry"])
-	attackComponentTest(className, true, (attacker, cmpAttack, defender) => {
+	attackComponentTest(className, true, (attacker, cmpAttack, defender) =>
+	{
 
 		TS_ASSERT_EQUALS(cmpAttack.GetAttackEffectsData("Melee").Bonuses.BonusCav.Multiplier, 2);
 
@@ -297,17 +299,20 @@ for (const className of ["Infantry", "Cavalry"])
 	});
 
 // CanAttack rejects elephant attack due to RestrictedClasses
-attackComponentTest("Elephant", true, (attacker, cmpAttack, defender) => {
+attackComponentTest("Elephant", true, (attacker, cmpAttack, defender) =>
+{
 	TS_ASSERT_EQUALS(cmpAttack.CanAttack(defender), false);
 });
 
 function testGetBestAttackAgainst(defenderClass, bestAttack, bestAllyAttack, isBuilding = false)
 {
-	attackComponentTest(defenderClass, true, (attacker, cmpAttack, defender) => {
+	attackComponentTest(defenderClass, true, (attacker, cmpAttack, defender) =>
+	{
 
 		if (isBuilding)
 			AddMock(defender, IID_Capturable, {
-				"CanCapture": playerID => {
+				"CanCapture": playerID =>
+				{
 					TS_ASSERT_EQUALS(playerID, 1);
 					return true;
 				}
@@ -331,11 +336,13 @@ function testGetBestAttackAgainst(defenderClass, bestAttack, bestAllyAttack, isB
 			TS_ASSERT_EQUALS(cmpAttack.GetBestAttackAgainst(defender, ac), bestAttack);
 	});
 
-	attackComponentTest(defenderClass, false, (attacker, cmpAttack, defender) => {
+	attackComponentTest(defenderClass, false, (attacker, cmpAttack, defender) =>
+	{
 
 		if (isBuilding)
 			AddMock(defender, IID_Capturable, {
-				"CanCapture": playerID => {
+				"CanCapture": playerID =>
+				{
 					TS_ASSERT_EQUALS(playerID, 1);
 					return true;
 				}

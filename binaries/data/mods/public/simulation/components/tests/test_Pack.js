@@ -45,7 +45,8 @@ AddMock(SYSTEM_ENTITY, IID_Timer, {
 	"SetInterval": (entity, iid, funcname, time, repeattime, data) => { timerActivated = true; return 7; }
 });
 
-Engine.AddEntity = function(template) {
+Engine.AddEntity = function(template)
+{
 	TS_ASSERT_EQUALS(template, "finalTemplate");
 	return true;
 };

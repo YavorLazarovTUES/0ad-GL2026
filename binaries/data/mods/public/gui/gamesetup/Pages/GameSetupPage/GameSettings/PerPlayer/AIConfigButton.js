@@ -5,7 +5,8 @@ PlayerSettingControls.AIConfigButton = class AIConfigButton extends GameSettingC
 		super(...args);
 
 		this.aiConfigButton = Engine.GetGUIObjectByName("aiConfigButton[" + this.playerIndex + "]");
-		this.aiConfigButton.onPress = () => {
+		this.aiConfigButton.onPress = () =>
+		{
 			this.setupWindow.pages.AIConfigPage.openPage(this.playerIndex, this.enabled);
 		};
 

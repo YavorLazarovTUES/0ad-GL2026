@@ -17,7 +17,8 @@ const friendlyPlayer = 3;
 const garrison = 10;
 const holder = 11;
 
-const createGarrisonCmp = entity => {
+const createGarrisonCmp = entity =>
+{
 	AddMock(entity, IID_Identity, {
 		"GetClassesList": () => ["Ranged"],
 		"GetSelectionGroupName": () => "mace_infantry_archer_a"

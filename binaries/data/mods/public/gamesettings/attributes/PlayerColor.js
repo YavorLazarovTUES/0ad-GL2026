@@ -183,7 +183,8 @@ GameSettings.prototype.Attributes.PlayerColor = class PlayerColor extends GameSe
 
 	_getUnusedColor()
 	{
-		return this.available.find(color => {
+		return this.available.find(color =>
+		{
 			return this.values.every(otherColor => !otherColor || !sameColor(color, otherColor));
 		});
 	}

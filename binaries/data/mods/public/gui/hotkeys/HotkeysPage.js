@@ -4,7 +4,8 @@ class HotkeysPage
 	{
 		this.metadata = metadata;
 
-		Engine.GetGUIObjectByName("hotkeyList").onMouseLeftDoubleClickItem = () => {
+		Engine.GetGUIObjectByName("hotkeyList").onMouseLeftDoubleClickItem = () =>
+		{
 			const idx = Engine.GetGUIObjectByName("hotkeyList").selected;
 			const picker = new HotkeyPicker(
 				this.metadata,
@@ -25,7 +26,8 @@ class HotkeysPage
 
 		Engine.GetGUIObjectByName("hotkeyClose").onPress = closePageCallback;
 		Engine.GetGUIObjectByName("hotkeyReset").onPress = () => this.resetUserHotkeys();
-		this.saveButton.onPress = () => {
+		this.saveButton.onPress = () =>
+		{
 			this.saveUserHotkeys();
 			this.saveButton.enabled = false;
 		};
@@ -55,7 +57,8 @@ class HotkeysPage
 				categories[this.metadata.DEFAULT_CATEGORY].hotkeys.push(hotkeyName);
 		}
 		for (const cat in categories)
-			categories[cat].hotkeys.sort((a, b) => {
+			categories[cat].hotkeys.sort((a, b) =>
+			{
 				if (!this.metadata.hotkeys[a] || !this.metadata.hotkeys[b])
 					return !this.metadata.hotkeys[a] ? 1 : -1;
 				return this.metadata.hotkeys[a].order - this.metadata.hotkeys[b].order;
@@ -89,7 +92,8 @@ class HotkeysPage
 			hotkeys = this.categories[dropdown.list_data[dropdown.selected]].hotkeys;
 		else
 			hotkeys = Object.values(this.categories).map(x => x.hotkeys).flat();
-		hotkeys = hotkeys.filter(x => {
+		hotkeys = hotkeys.filter(x =>
+		{
 			return x.indexOf(textFilter) !== -1 ||
 				translateWithContext("hotkey metadata", this.metadata.hotkeys[x]?.name || x).toLowerCase().indexOf(textFilter) !== -1;
 		});
@@ -151,7 +155,8 @@ class HotkeysPage
 			return;
 
 		for (const cat in this.categories)
-			this.categories[cat].hotkeys.forEach((name) => {
+			this.categories[cat].hotkeys.forEach((name) =>
+			{
 				Engine.ConfigDB_RemoveValue("user", "hotkey." + name);
 			});
 		Engine.ConfigDB_SaveChanges("user");
@@ -181,7 +186,8 @@ class HotkeysPage
 
 function init()
 {
-	return new Promise(closePageCallback => {
+	return new Promise(closePageCallback =>
+	{
 		// FIXME: There are proposals to remove init and allowing to specify
 		// controller classes in the gui xml, therefore leave it as a class and
 		// suppress the warning.

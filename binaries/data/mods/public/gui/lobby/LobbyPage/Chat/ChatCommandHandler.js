@@ -86,21 +86,24 @@ ChatCommandHandler.prototype.ChatCommandTags = {
 ChatCommandHandler.prototype.ChatCommands = {
 	"away": {
 		"description": translate("Set your state to 'Away'."),
-		"handler": function(args) {
+		"handler": function(args)
+		{
 			Engine.LobbySetPlayerPresence("away");
 			return true;
 		}
 	},
 	"back": {
 		"description": translate("Set your state to 'Online'."),
-		"handler": function(args) {
+		"handler": function(args)
+		{
 			Engine.LobbySetPlayerPresence("available");
 			return true;
 		}
 	},
 	"kick": {
 		"description": translate("Kick a specified user from the lobby. Usage: /kick nick reason"),
-		"handler": function(args) {
+		"handler": function(args)
+		{
 			const index = args.indexOf(" ");
 			if (index == -1)
 				Engine.LobbyKick(args, "");
@@ -112,7 +115,8 @@ ChatCommandHandler.prototype.ChatCommands = {
 	},
 	"ban": {
 		"description": translate("Ban a specified user from the lobby. Usage: /ban nick reason"),
-		"handler": function(args) {
+		"handler": function(args)
+		{
 			const index = args.indexOf(" ");
 			if (index == -1)
 				Engine.LobbyBan(args, "");
@@ -124,7 +128,8 @@ ChatCommandHandler.prototype.ChatCommands = {
 	},
 	"help": {
 		"description": translate("Show this help."),
-		"handler": function(args) {
+		"handler": function(args)
+		{
 			const isModerator = Engine.LobbyGetPlayerRole(g_Nickname) == "moderator";
 			let txt = translate("Chat commands:");
 			for (const command in this.ChatCommands)
@@ -145,21 +150,24 @@ ChatCommandHandler.prototype.ChatCommands = {
 	},
 	"me": {
 		"description": translate("Send a chat message about yourself. Example: /me goes swimming."),
-		"handler": function(args) {
+		"handler": function(args)
+		{
 			// Translation: Chat command
 			return this.argumentCount(translate("/me"), args);
 		}
 	},
 	"say": {
 		"description": translate("Send text as a chat message (even if it starts with slash). Example: /say /help is a great command."),
-		"handler": function(args) {
+		"handler": function(args)
+		{
 			// Translation: Chat command
 			return this.argumentCount(translate("/say"), args);
 		}
 	},
 	"clear": {
 		"description": translate("Clear all chat scrollback."),
-		"handler": function(args) {
+		"handler": function(args)
+		{
 			this.chatMessagesPanel.clearChatMessages();
 			return true;
 		}

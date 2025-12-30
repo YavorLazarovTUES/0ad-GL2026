@@ -155,7 +155,8 @@ class TemplateLoader
 					production.units.push(templateName);
 			}
 
-		const appendTechnology = (technologyName) => {
+		const appendTechnology = (technologyName) =>
+		{
 			const technology = this.loadTechnologyTemplate(technologyName, civCode);
 			if (DeriveTechnologyRequirements(technology, civCode))
 				production.techs.push(technologyName);

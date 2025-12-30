@@ -33,7 +33,8 @@ var graphFormat = {
 		"unit": "Megabytes",
 		"digits": 2,
 		"scale": 1 / 1024 / 1024,
-		"isColumn": function(label) {
+		"isColumn": function(label)
+		{
 			return label.indexOf("bytes") != -1;
 		}
 	},
@@ -42,7 +43,8 @@ var graphFormat = {
 		"unit": "",
 		"scale": 1,
 		"digits": 0,
-		"isColumn": function(label) {
+		"isColumn": function(label)
+		{
 			return label == "number of GCs";
 		}
 	}
@@ -68,7 +70,8 @@ function showReplayData()
 		}
 	});
 
-	$("#replayGraph").bind("plothover", function(event, pos, item) {
+	$("#replayGraph").bind("plothover", function(event, pos, item)
+	{
 		$("#tooltip").remove();
 		if (!item)
 			return;
