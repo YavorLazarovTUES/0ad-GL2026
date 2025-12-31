@@ -95,21 +95,11 @@ function initMapNameFilter(filters)
  */
 function initPopCapFilter(filters)
 {
-	var populationFilter = Engine.GetGUIObjectByName("populationFilter");
+	const populationFilter = Engine.GetGUIObjectByName("populationFilter");
+	const popCapSet = new Set(g_Replays.map(replay => replay.attribs.settings.PopulationCap));
+	const popCapOptions = [...popCapSet.values()].sort((a, b) => b - a);
 
-	// Merge the pop cap options of all pop cap types into one single list.
-	const popCapOptions = g_PopulationCapacities.Options
-		.map(item => item.List)
-		.flat()
-		.reduce((list, cap) =>
-		{
-			if (!list.includes(cap))
-				list.push(cap);
-			return list;
-		}, [])
-		.sort((a, b) => a > b);
-
-	populationFilter.list = [translateWithContext("population capacity", "Any")].concat(popCapOptions.map(cap => cap >= 10000 ? "Unlimited" : cap));
+	populationFilter.list = [translateWithContext("population capacity", "Any")].concat(popCapOptions.map(cap => cap === Infinity ? "Unlimited" : cap));
 	populationFilter.list_data = [""].concat(popCapOptions);
 
 	if (filters?.popCap)

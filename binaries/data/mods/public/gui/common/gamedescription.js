@@ -382,9 +382,9 @@ function getGameDescription(initAttributes, mapCache)
 			"value":
 				initAttributes.settings.PlayerData?.some(pData => pData?.PopulationLimit !== undefined) ?
 					translateWithContext("population capacity", "Per Player") :
-					initAttributes.settings.PopulationCap < 10000 ?
-						initAttributes.settings.PopulationCap :
-						translateWithContext("population capacity", "Unlimited")
+					initAttributes.settings.PopulationCap === Infinity ?
+						translateWithContext("population capacity", "Unlimited") :
+						initAttributes.settings.PopulationCap
 		});
 
 	titles.push({

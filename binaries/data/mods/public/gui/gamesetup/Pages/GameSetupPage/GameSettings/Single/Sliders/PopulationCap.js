@@ -2,7 +2,7 @@ const CAPTYPE_PLAYER_POPULATION = "player";
 const CAPTYPE_TEAM_POPULATION = "team";
 const CAPTYPE_WORLD_POPULATION = "world";
 
-GameSettingControls.PopulationCap = class PopulationCap extends GameSettingControlDropdown
+GameSettingControls.PopulationCap = class PopulationCap extends GameSettingControlSlider
 {
 	constructor(...args)
 	{
@@ -15,38 +15,52 @@ GameSettingControls.PopulationCap = class PopulationCap extends GameSettingContr
 		this.render();
 	}
 
+	round(value)
+	{
+		return Math.round(value / 10) * 10;
+	}
+
+	linearToLogarythmic(value)
+	{
+		return this.round((1 / (1 - value) + 28 * value / (1 + 5 * value)) *
+			g_GameSettings.population.currentData.Factor / 6);
+	}
+
 	render()
 	{
 		this.setEnabled(g_GameSettings.map.type != "scenario" && !g_GameSettings.population.perPlayer);
 		this.title.caption = g_GameSettings.population.currentData.CapTitle;
 		if (g_GameSettings.population.perPlayer)
 			this.label.caption = this.PerPlayerCaption;
-		if (!this.enabled)
-			return;
+		else
+			this.setTooltip(0);
 
-		this.dropdown.list_data = g_GameSettings.population.currentData.Options.List;
-		this.dropdown.list = this.dropdown.list_data.map(population =>
-			population < 10000 ? population : translate("Unlimited")
-		);
-		this.setSelectedValue(g_GameSettings.population.cap);
+		const linear = this.gameSettingsController.guiData.linearPopulationCapacity ?? 0.5;
+		const display = g_GameSettings.population.cap === Infinity ? translate("Unlimited") :
+			g_GameSettings.population.cap;
+		this.setSelectedValue(linear, display);
 	}
 
-
-	onHoverChange()
+	onValueChange(value)
 	{
-		if (this.dropdown.hovered == -1)
-			return;
+		this.gameSettingsController.guiData.linearPopulationCapacity = value;
+		const popCap = this.linearToLogarythmic(value);
+		g_GameSettings.population.setPopCap(popCap);
+		this.setTooltip(popCap);
+		this.gameSettingsController.setNetworkInitAttributes();
+	}
+
+	setTooltip(popCap)
+	{
 		let tooltip = g_GameSettings.population.currentData.CapTooltip;
-		if (this.canTotalPopExceedRecommendedMax())
+		if (this.canTotalPopExceedRecommendedMax(popCap))
 			tooltip = setStringTags(this.WarningTooltip, this.WarningTags);
 
-		this.dropdown.tooltip = tooltip;
+		this.slider.tooltip = tooltip;
 	}
 
-
-	canTotalPopExceedRecommendedMax()
+	canTotalPopExceedRecommendedMax(popCap)
 	{
-		const popCap = g_GameSettings.population.currentData.Options.List[this.dropdown.hovered];
 		const nbPlayers = g_GameSettings.playerCount.nbPlayers;
 		const nbTeams = g_GameSettings.playerTeam.values.reduce((teamList, team) =>
 		{
@@ -86,3 +100,6 @@ GameSettingControls.PopulationCap.prototype.WarningTags = {
  * It means a 4v4 with 150 population can still run nicely, but more than that might "lag".
  */
 GameSettingControls.PopulationCap.prototype.PopulationCapacityRecommendation = 1200;
+
+GameSettingControls.PopulationCap.prototype.MinValue = 0;
+GameSettingControls.PopulationCap.prototype.MaxValue = 1;

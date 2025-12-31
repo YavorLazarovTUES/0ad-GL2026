@@ -358,7 +358,7 @@ function translatePopulationCapacity(popCap, popCapType)
 	if (!popCapTypeData)
 		return translateWithContext("population capacity", "Unknown");
 
-	return popCap >= 10000 ?
+	return popCap === Infinity ?
 		translateWithContext("population capacity", "Unlimited") :
 		sprintf(translate("%(populationCapacity)s (%(populationCapacityType)s)"), {
 			"populationCapacity": popCap,

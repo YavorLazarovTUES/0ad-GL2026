@@ -174,8 +174,7 @@ function sanitizeInitAttributes(attribs)
 	if (!attribs.settings.PlayerData)
 		attribs.settings.PlayerData = [];
 
-	if (!attribs.settings.PopulationCap)
-		attribs.settings.PopulationCap = 300;
+	attribs.settings.PopulationCap ??= Infinity;
 
 	if (!attribs.settings.PopulationCapType)
 		attribs.settings.PopulationCapType =

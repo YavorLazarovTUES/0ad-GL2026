@@ -65,7 +65,7 @@ function InitGame(settings)
 	}
 
 	{
-		const popCap = settings.PopulationCap || 300;
+		const popCap = settings.PopulationCap ?? Infinity;
 		const cmpPopulationCapManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_PopulationCapManager);
 		const nonGaiaPlayers = settings.PlayerData.slice(1);
 		if (nonGaiaPlayers.some(player => player.PopulationLimit))

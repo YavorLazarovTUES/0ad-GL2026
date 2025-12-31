@@ -35,8 +35,9 @@ GameSettings.prototype.Attributes.Population = class Population extends GameSett
 		if (this.getLegacySetting(attribs, "PopulationCapType") !== undefined)
 			this.setPopCapType(this.getLegacySetting(attribs, "PopulationCapType"));
 
-		if (this.getLegacySetting(attribs, "PopulationCap") !== undefined)
-			this.setPopCap(this.getLegacySetting(attribs, "PopulationCap"));
+		const cap = this.getLegacySetting(attribs, "PopulationCap");
+		if (cap !== undefined)
+			this.setPopCap(cap ?? Infinity);
 	}
 
 	onMapChange()
@@ -64,7 +65,9 @@ GameSettings.prototype.Attributes.Population = class Population extends GameSett
 	setPopCapType(capType)
 	{
 		this.capType = capType;
+		const oldFactor = this.currentData?.Factor;
 		this.currentData = g_Settings.PopulationCapacities.find(type => type.Name == capType);
-		this.setPopCap(this.currentData.Options.Default);
+		this.setPopCap(10 * Math.round(
+			(this.cap && oldFactor ? (this.cap / oldFactor) : 1) * this.currentData.Factor / 10));
 	}
 };

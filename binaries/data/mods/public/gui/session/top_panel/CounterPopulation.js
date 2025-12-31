@@ -18,7 +18,9 @@ class CounterPopulation
 
 	rebuild(playerState, getAllyStatTooltip)
 	{
-		this.count.caption = sprintf(translate(this.CounterCaption), playerState);
+		const state = Object.fromEntries(Object.entries(playerState).map(([key, value]) =>
+			[key, value === Infinity ? translateWithContext("In other places refered as 'Unlimited', here is to litle space.", "∞") : value]));
+		this.count.caption = sprintf(translate(this.CounterCaption), state);
 		let total = 0;
 		for (const resCode of g_ResourceData.GetCodes())
 			total += playerState.resourceGatherers[resCode];
