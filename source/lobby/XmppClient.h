@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -63,7 +63,6 @@ private:
 	// State
 	gloox::CertStatus m_certStatus;
 	bool m_initialLoadComplete;
-	bool m_isConnected;
 	bool m_regOpt;
 
 public:

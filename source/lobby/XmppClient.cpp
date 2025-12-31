@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -97,7 +97,6 @@ XmppClient::XmppClient(const ScriptInterface* scriptInterface, const std::string
 	  m_xpartamuppId{g_ConfigDB.Get("lobby.xpartamupp", std::string{}) + "@" + m_server + "/CC"},
 	  m_echelonId{g_ConfigDB.Get("lobby.echelon", std::string{}) + "@" + m_server + "/CC"},
 	  m_initialLoadComplete(false),
-	  m_isConnected(false),
 	  m_sessionManager(nullptr),
 	  m_certStatus(gloox::CertStatus::CertOk),
 	  m_PlayerMapUpdate(false),
@@ -222,7 +221,7 @@ void XmppClient::disconnect()
 
 bool XmppClient::isConnected()
 {
-	return m_isConnected;
+	return m_client->state() == gloox::StateConnected;
 }
 
 void XmppClient::recv()
@@ -249,7 +248,6 @@ void XmppClient::onConnect()
 {
 	if (m_mucRoom)
 	{
-		m_isConnected = true;
 		CreateGUIMessage("system", "connected", std::time(nullptr));
 		m_mucRoom->join();
 	}
@@ -282,7 +280,6 @@ void XmppClient::onDisconnect(gloox::ConnectionError error)
 	m_PlayerMapUpdate = true;
 	m_Profile.clear();
 	m_HistoricGuiMessages.clear();
-	m_isConnected = false;
 	m_initialLoadComplete = false;
 
 	CreateGUIMessage(
@@ -724,7 +721,7 @@ bool XmppClient::GuiPollHasPlayerListUpdate()
 
 JS::Value XmppClient::GuiPollNewMessages(const ScriptInterface& guiInterface)
 {
-	if ((m_isConnected && !m_initialLoadComplete) || m_GuiMessageQueue.empty())
+	if ((isConnected() && !m_initialLoadComplete) || m_GuiMessageQueue.empty())
 		return JS::UndefinedValue();
 
 	ScriptRequest rq(m_ScriptInterface);
