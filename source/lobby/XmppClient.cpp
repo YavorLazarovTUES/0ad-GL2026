@@ -713,9 +713,7 @@ bool XmppClient::GuiPollHasPlayerListUpdate()
 	if (!m_initialLoadComplete)
 		return false;
 
-	bool hasUpdate = m_PlayerMapUpdate;
-	m_PlayerMapUpdate = false;
-	return hasUpdate;
+	return std::exchange(m_PlayerMapUpdate, false);
 }
 
 JS::Value XmppClient::GuiPollNewMessages(const ScriptInterface& guiInterface)
