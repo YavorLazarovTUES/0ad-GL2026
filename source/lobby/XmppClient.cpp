@@ -53,7 +53,7 @@
 #if 1
 #define DbgXMPP(x)
 #else
-#define DbgXMPP(x) std::cout << x << std::endl;
+#define DbgXMPP(x) std::cout << "XMPP DEBUG: " << x << std::endl;
 
 static std::string tag_xml(const gloox::IQ& iq)
 {
@@ -295,15 +295,14 @@ void XmppClient::onDisconnect(gloox::ConnectionError error)
  */
 bool XmppClient::onTLSConnect(const gloox::CertInfo& info)
 {
-	DbgXMPP("onTLSConnect");
-	DbgXMPP(
-		"status: " << info.status <<
-		"\nissuer: " << info.issuer <<
-		"\npeer: " << info.server <<
-		"\nprotocol: " << info.protocol <<
-		"\nmac: " << info.mac <<
-		"\ncipher: " << info.cipher <<
-		"\ncompression: " << info.compression );
+	DbgXMPP("onTLSConnect:" <<
+		" status: " << info.status <<
+		", issuer: " << info.issuer <<
+		", peer: " << info.server <<
+		", protocol: " << info.protocol <<
+		", mac: " << info.mac <<
+		", cipher: " << info.cipher <<
+		", compression: " << info.compression);
 
 	m_certStatus = static_cast<gloox::CertStatus>(info.status);
 
