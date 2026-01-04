@@ -1110,7 +1110,8 @@ void XmppClient::handleMUCParticipantPresence(gloox::MUCRoom*, const gloox::MUCR
 				std::time(nullptr),
 				"nick", nick,
 				"oldrole", it->second.m_Role,
-				"newrole", participant.role);
+				"newrole", participant.role,
+				"reason", participant.reason);
 		}
 		else
 		{

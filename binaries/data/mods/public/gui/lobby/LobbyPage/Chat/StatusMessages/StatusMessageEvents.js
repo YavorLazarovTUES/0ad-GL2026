@@ -94,6 +94,9 @@ ChatMessageEvents.Role = class
 			txt = sprintf(roleType.nick, this.args);
 		}
 
+		if (message.reason)
+			txt = sprintf(translate("%(rolechangemessage)s Reason: %(reason)s"), { "rolechangemessage": txt, "reason": message.reason });
+
 		this.chatMessagesPanel.addText(
 			message.time,
 			this.statusMessageFormat.format(txt));
