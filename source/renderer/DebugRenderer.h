@@ -30,6 +30,7 @@ class CBrush;
 class CCamera;
 class CMatrix3D;
 class CVector3D;
+namespace Renderer::Backend { class IDeviceCommandContext; }
 namespace Renderer::Backend { class IVertexInputLayout; }
 struct CColor;
 

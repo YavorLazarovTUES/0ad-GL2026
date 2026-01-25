@@ -33,6 +33,8 @@ class AtlasViewGame;
 class CCanvas2D;
 class CSimulation2;
 
+namespace Renderer::Backend { class IDeviceCommandContext; }
+
 /**
  * Superclass for all Atlas game views.
  */

@@ -20,6 +20,8 @@
 
 class RNSpline;
 
+namespace Renderer::Backend { class IDeviceCommandContext; }
+
 struct CColor;
 
 /**
