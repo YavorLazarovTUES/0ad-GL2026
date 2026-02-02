@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -148,9 +148,7 @@ JS::Value GetEdgesOfStaticObstructionsOnScreenNearTo(const ScriptInterface& scri
 	ENSURE(sim);
 
 	ScriptRequest rq(scriptInterface);
-	JS::RootedValue edgeList(rq.cx);
-	Script::CreateArray(rq, &edgeList);
-	int edgeListIndex = 0;
+	JS::RootedValueVector edgeList{rq.cx};
 
 	const float distanceThreshold{g_ConfigDB.Get("gui.session.snaptoedgesdistancethreshold", 10.0f)};
 	CFixedVector2D entityPos(x, z);
@@ -202,10 +200,11 @@ JS::Value GetEdgesOfStaticObstructionsOnScreenNearTo(const ScriptInterface& scri
 				"normal", normal,
 				"order", "cw");
 
-			Script::SetPropertyInt(rq, edgeList, edgeListIndex++, edge);
+			if (!edgeList.append(edge))
+				throw std::runtime_error{"Append failed"};
 		}
 	}
-	return edgeList;
+	return JS::ObjectValue(*JS::NewArrayObject(rq.cx, edgeList));
 }
 
 std::vector<entity_id_t> PickSimilarPlayerEntities(const std::string& templateName, bool includeOffScreen, bool matchRank, bool allowFoundations)

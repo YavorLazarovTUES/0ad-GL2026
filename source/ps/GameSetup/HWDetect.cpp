@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -193,14 +193,13 @@ JS::Value MakeFreeTypeReport(const ScriptRequest& rq)
 
 void ReportLibraries(const ScriptRequest& rq, JS::HandleValue settings)
 {
-	JS::RootedValue librariesSettings(rq.cx);
-	Script::CreateArray(rq, &librariesSettings);
-	int libraryCount = 0;
+	JS::RootedValueVector librariesSettings{rq.cx};
 
-	auto appendLibrary = [&rq, &librariesSettings, &libraryCount](const JS::Value& librarySettings)
+	auto appendLibrary = [&rq, &librariesSettings](const JS::Value& librarySettings)
 	{
 		JS::RootedValue value(rq.cx, librarySettings);
-		Script::SetPropertyInt(rq, librariesSettings, libraryCount++, value);
+		if (!librariesSettings.append(value))
+			throw std::runtime_error{"Append failed"};
 	};
 
 	appendLibrary(MakeSDLReport(rq));
@@ -230,7 +229,8 @@ void ReportLibraries(const ScriptRequest& rq, JS::HandleValue settings)
 		.MakeReport());
 #endif
 
-	Script::SetProperty(rq, settings, "libraries", librariesSettings);
+	Script::SetProperty(rq, settings, "libraries",
+		JS::RootedValue{rq.cx, JS::ObjectValue(*JS::NewArrayObject(rq.cx, librariesSettings))});
 }
 
 void WriteSystemInfo(Renderer::Backend::IDevice* device, const utsname& un)

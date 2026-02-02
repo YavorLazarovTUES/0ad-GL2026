@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -269,15 +269,6 @@ inline bool CreateObject(const ScriptRequest& rq, JS::MutableHandleValue objectV
 	JS::RootedValue val(rq.cx);
 	ToJSVal(rq, &val, propertyValue);
 	return CreateObject(rq, objectValue, args...) && SetProperty(rq, objectValue, propertyName, val, false, true);
-}
-
-/**
- * Sets the given value to a new JS object or Null Value in case of out-of-memory.
- */
-inline bool CreateArray(const ScriptRequest& rq, JS::MutableHandleValue objectValue, size_t length = 0)
-{
-	objectValue.setObjectOrNull(JS::NewArrayObject(rq.cx, length));
-	return !objectValue.isNullOrUndefined();
 }
 
 } // namespace Script

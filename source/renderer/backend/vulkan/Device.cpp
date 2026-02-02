@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -726,16 +726,19 @@ void CDevice::Report(const ScriptRequest& rq, JS::HandleValue settings)
 	ReportAvailablePhysicalDevice(m_ChoosenDevice, rq, device);
 	Script::SetProperty(rq, settings, "choosen_device", device);
 
-	JS::RootedValue availableDevices(rq.cx);
-	Script::CreateArray(rq, &availableDevices, m_AvailablePhysicalDevices.size());
-	for (size_t index = 0; index < m_AvailablePhysicalDevices.size(); ++index)
+	JS::RootedValueVector availableDevices{rq.cx};
+	if (!availableDevices.reserve(m_AvailablePhysicalDevices.size()))
+		throw std::runtime_error{"Reserve failed"};
+	for (const SAvailablePhysicalDevice& d : m_AvailablePhysicalDevices)
 	{
 		JS::RootedValue device(rq.cx);
 		Script::CreateObject(rq, &device);
-		ReportAvailablePhysicalDevice(m_AvailablePhysicalDevices[index], rq, device);
-		Script::SetPropertyInt(rq, availableDevices, index, device);
+		ReportAvailablePhysicalDevice(d, rq, device);
+		if (!availableDevices.append(device))
+			throw std::runtime_error{"Append failed"};
 	}
-	Script::SetProperty(rq, settings, "available_devices", availableDevices);
+	Script::SetProperty(rq, settings, "available_devices",
+		JS::RootedValue{rq.cx, JS::ObjectValue(*JS::NewArrayObject(rq.cx, availableDevices))});
 
 	Script::SetProperty(rq, settings, "instance_extensions", m_InstanceExtensions);
 	Script::SetProperty(rq, settings, "validation_layers", m_ValidationLayers);

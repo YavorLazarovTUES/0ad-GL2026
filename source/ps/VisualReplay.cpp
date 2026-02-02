@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -255,19 +255,20 @@ JS::Value VisualReplay::GetReplays(const ScriptInterface& scriptInterface, bool 
 	ScriptRequest rq(scriptInterface);
 	JS::RootedObject replays(rq.cx, ReloadReplayCache(scriptInterface, compareFiles));
 	// Only take entries with data
-	JS::RootedValue replaysWithoutNullEntries(rq.cx);
-	Script::CreateArray(rq, &replaysWithoutNullEntries);
+	JS::RootedValueVector replaysWithoutNullEntries{rq.cx};
 
 	u32 replaysLength = 0;
 	JS::GetArrayLength(rq.cx, replays, &replaysLength);
-	for (u32 j = 0, i = 0; j < replaysLength; ++j)
+	for (u32 j = 0; j < replaysLength; ++j)
 	{
 		JS::RootedValue replay(rq.cx);
 		JS_GetElement(rq.cx, replays, j, &replay);
-		if (Script::HasProperty(rq, replay, "attribs"))
-			Script::SetPropertyInt(rq, replaysWithoutNullEntries, i++, replay);
+		if (!Script::HasProperty(rq, replay, "attribs"))
+			continue;
+		if (!replaysWithoutNullEntries.append(replay))
+			throw std::runtime_error{"Append failed"};
 	}
-	return replaysWithoutNullEntries;
+	return JS::ObjectValue(*JS::NewArrayObject(rq.cx, replaysWithoutNullEntries));
 }
 
 /**

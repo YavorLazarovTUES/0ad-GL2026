@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -70,10 +70,10 @@ JS::Value GetMods(const ScriptRequest& rq)
 
 	const std::vector<ModIoModData>& availableMods = g_ModIo->GetMods();
 
-	JS::RootedValue mods(rq.cx);
-	Script::CreateArray(rq, &mods, availableMods.size());
+	JS::RootedValueVector mods{rq.cx};
+	if (!mods.reserve(availableMods.size()))
+		throw std::runtime_error{"Reserve failed"};
 
-	u32 i = 0;
 	for (const ModIoModData& mod : availableMods)
 	{
 		JS::RootedValue m(rq.cx);
@@ -83,10 +83,11 @@ JS::Value GetMods(const ScriptRequest& rq)
 			Script::SetProperty(rq, m, prop.first.c_str(), prop.second, true);
 
 		Script::SetProperty(rq, m, "dependencies", mod.dependencies, true);
-		Script::SetPropertyInt(rq, mods, i++, m);
+		if (!mods.append(m))
+			throw std::runtime_error{"Append failed"};
 	}
 
-	return mods;
+	return JS::ObjectValue(*JS::NewArrayObject(rq.cx, mods));
 }
 
 const std::map<DownloadProgressStatus, std::string> statusStrings = {

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -163,14 +163,13 @@ QUERYHANDLER(GenerateMap)
 		ScriptRequest rq(scriptInterface);
 
 		// Set up 8-element array of empty objects to satisfy init
-		JS::RootedValue playerData(rq.cx);
-		Script::CreateArray(rq, &playerData);
+		JS::RootedValueArray<8> playerData{rq.cx};
 
-		for (int i = 0; i < 8; ++i)
+		for (JS::Value& p : playerData.get().elements)
 		{
 			JS::RootedValue player(rq.cx);
 			Script::CreateObject(rq, &player);
-			Script::SetPropertyInt(rq, playerData, i, player);
+			p = player;
 		}
 
 		JS::RootedValue settings(rq.cx);
@@ -178,7 +177,8 @@ QUERYHANDLER(GenerateMap)
 			rq,
 			&settings,
 			"mapType", "scenario",
-			"PlayerData", playerData);
+			"PlayerData",
+			JS::RootedValue{rq.cx, JS::ObjectValue(*JS::NewArrayObject(rq.cx, playerData))});
 
 		JS::RootedValue attrs(rq.cx);
 		Script::CreateObject(

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -279,8 +279,7 @@ JS::Value SavedGames::GetSavedGames(const ScriptInterface& scriptInterface)
 	PROFILE2("GetSavedGames");
 	ScriptRequest rq(scriptInterface);
 
-	JS::RootedValue games(rq.cx);
-	Script::CreateArray(rq, &games);
+	JS::RootedValueVector games{rq.cx};
 
 	Status err;
 
@@ -288,10 +287,10 @@ JS::Value SavedGames::GetSavedGames(const ScriptInterface& scriptInterface)
 	err = vfs::GetPathnames(g_VFS, "saves/", L"*.0adsave", pathnames);
 	WARN_IF_ERR(err);
 
-	for (size_t i = 0; i < pathnames.size(); ++i)
+	for (const VfsPath& pathname : pathnames)
 	{
 		OsPath realPath;
-		err = g_VFS->GetRealPath(pathnames[i], realPath);
+		err = g_VFS->GetRealPath(pathname, realPath);
 		if (err < 0)
 		{
 			DEBUG_WARN_ERR(err);
@@ -319,13 +318,14 @@ JS::Value SavedGames::GetSavedGames(const ScriptInterface& scriptInterface)
 		Script::CreateObject(
 			rq,
 			&game,
-			"id", pathnames[i].Basename(),
+			"id", pathname.Basename(),
 			"metadata", metadata);
 
-		Script::SetPropertyInt(rq, games, i, game);
+		if (!games.append(game))
+			throw std::runtime_error{"Append failed"};
 	}
 
-	return games;
+	return JS::ObjectValue(*JS::NewArrayObject(rq.cx, games));
 }
 
 bool SavedGames::DeleteSavedGame(const std::wstring& name)

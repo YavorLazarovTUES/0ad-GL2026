@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -227,21 +227,20 @@ JS::Value ReadFileLines(const ScriptRequest& rq, const std::wstring& filename)
 	// split into array of strings (one per line)
 	std::stringstream ss(contents);
 
-	JS::RootedValue line_array(rq.cx);
-	Script::CreateArray(rq, &line_array);
+	JS::RootedValueVector lineArray{rq.cx};
 
 	std::string line;
-	int cur_line = 0;
 
 	while (std::getline(ss, line))
 	{
 		// Decode each line as UTF-8
 		JS::RootedValue val(rq.cx);
 		Script::ToJSVal(rq, &val, CStr(line).FromUTF8());
-		Script::SetPropertyInt(rq, line_array, cur_line++, val);
+		if (!lineArray.append(val))
+			throw std::runtime_error{"Append failed"};
 	}
 
-	return line_array;
+	return JS::ObjectValue(*JS::NewArrayObject(rq.cx, lineArray));
 }
 
 // Return file contents parsed as a JS Object

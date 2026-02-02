@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -37,11 +37,9 @@ public:
 		ScriptInterface script("Test", "Test", g_ScriptContext);
 		ScriptRequest rq(script);
 
-		JS::RootedValue val(rq.cx);
-		Script::CreateArray(rq, &val);
-		Script::SetPropertyInt(rq, val, 0, 4);
-
-		CSimulationMessage msg(script, 1, 2, 3, val);
+		JS::RootedValueArray<1> val{rq.cx, JS::ValueArray<1>{JS::NumberValue(4)}};
+		CSimulationMessage msg(script, 1, 2, 3,
+			JS::RootedValue{rq.cx, JS::ObjectValue(*JS::NewArrayObject(rq.cx, val))});
 		TS_ASSERT_STR_EQUALS(msg.ToString(), "CSimulationMessage { m_Client: 1, m_Player: 2, m_Turn: 3, m_Data: [4] }");
 
 		size_t len = msg.GetSerializedLength();

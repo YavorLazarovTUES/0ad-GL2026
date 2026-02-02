@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -244,11 +244,16 @@ bool JSI_GUIProxy<T>::get(JSContext* cx, JS::HandleObject proxy, JS::HandleValue
 	}
 	else if (propName == "children")
 	{
-		Script::CreateArray(rq, vp);
+		JS::RootedValueVector children{rq.cx};
 
-		for (size_t i = 0; i < e->m_Children.size(); ++i)
-			Script::SetPropertyInt(rq, vp, i, e->m_Children[i]);
-
+		for (const auto& child : e->m_Children)
+		{
+			JS::RootedValue rootedChild{rq.cx};
+			Script::ToJSVal(rq, &rootedChild, child);
+			if (!children.append(rootedChild))
+				throw std::runtime_error{"Append failed"};
+		}
+		vp.set(JS::ObjectValue(*JS::NewArrayObject(rq.cx, children)));
 		return true;
 	}
 	else if (propName == "name")

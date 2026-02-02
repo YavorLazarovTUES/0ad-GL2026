@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -494,19 +494,23 @@ namespace
 
 			for (size_t r = 0; r < table->GetNumberRows(); ++r)
 			{
-				JS::RootedValue row(rq.cx);
-				Script::CreateArray(rq, &row);
+				JS::RootedValueVector row{rq.cx};
+				if (!row.resize(columns.size() + 1))
+					throw std::runtime_error{"Resize failed"};
 
 				Script::SetProperty(rq, data, table->GetCellText(r, 0).c_str(), row);
 
 				if (table->GetChild(r))
 				{
 					JS::RootedValue childRows(rq.cx, DumpRows(table->GetChild(r)));
-					Script::SetPropertyInt(rq, row, 0, childRows);
+					row[0].set(childRows);
 				}
 
 				for (size_t c = 1; c < columns.size(); ++c)
-					Script::SetPropertyInt(rq, row, c, table->GetCellText(r, c));
+				{
+					row[c].set(JS::StringValue(
+						JS_NewStringCopyZ(rq.cx, table->GetCellText(r, c).c_str())));
+				}
 			}
 
 			return data;
