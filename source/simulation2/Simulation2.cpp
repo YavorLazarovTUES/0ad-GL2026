@@ -67,6 +67,7 @@
 #include <js/RootingAPI.h>
 #include <js/Value.h>
 #include <memory>
+#include <optional>
 #include <set>
 #include <sstream>
 
@@ -85,12 +86,16 @@ public:
 			std::holds_alternative<SimulationDebugOptions::SerializationTest>(debugOptions.test) ||
 			CConfigDB::GetIfInitialised("serializationtest", false)},
 		// Handle bogus values of the arg
-		m_RejoinTestTurn{[&]
+		m_RejoinTestTurn{[&]() -> std::optional<int>
 		{
 			const auto* rejoinTestOption{
 				std::get_if<SimulationDebugOptions::RejoinTest>(&debugOptions.test)};
-			return rejoinTestOption ? rejoinTestOption->turn :
-				std::max(CConfigDB::GetIfInitialised("rejointest", -1), -1);
+			if (rejoinTestOption)
+				return rejoinTestOption->turn;
+			const int configVal{CConfigDB::GetIfInitialised("rejointest", -1)};
+			if (configVal >= 0)
+				return configVal;
+			return std::nullopt;
 		}()}
 	{
 		m_ComponentManager.LoadComponentTypes();
@@ -160,7 +165,7 @@ public:
 	// Functions and data for the serialization test mode: (see Update() for relevant comments)
 
 	bool m_EnableSerializationTest{false};
-	int m_RejoinTestTurn{-1};
+	std::optional<int> m_RejoinTestTurn;
 	bool m_TestingRejoin{false};
 
 	// Secondary simulation (NB: order matters for destruction).
@@ -387,7 +392,8 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 	SerializationTestState primaryStateBefore;
 	const ScriptInterface& scriptInterface = m_ComponentManager.GetScriptInterface();
 
-	const bool startRejoinTest = (int64_t) m_RejoinTestTurn == m_TurnNumber;
+	const bool startRejoinTest = m_RejoinTestTurn.has_value() &&
+		static_cast<int64_t>(m_RejoinTestTurn.value()) == m_TurnNumber;
 	if (startRejoinTest)
 		m_TestingRejoin = true;
 
@@ -866,7 +872,7 @@ bool CSimulation2::DeserializeState(std::istream& stream)
 
 void CSimulation2::ActivateRejoinTest(int turn)
 {
-	if (m->m_RejoinTestTurn != -1)
+	if (m->m_RejoinTestTurn.has_value())
 		return;
 	LOGMESSAGERENDER("Rejoin test will activate in %i turns", turn - m->m_TurnNumber);
 	m->m_RejoinTestTurn = turn;
