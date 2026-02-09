@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -366,6 +366,7 @@ bool CParticleEmitterType::LoadXML(const VfsPath& path)
 	m_Variables[VAR_COLOR_G] = IParticleVarPtr(new CParticleVarConstant(1.f));
 	m_Variables[VAR_COLOR_B] = IParticleVarPtr(new CParticleVarConstant(1.f));
 	m_BlendMode = BlendMode::ADD;
+	m_SortMode = SortMode::UNSPECIFIED;
 	m_StartFull = false;
 	m_UseRelativeVelocity = false;
 	m_Texture = g_Renderer.GetTextureManager().GetErrorTexture();
@@ -383,6 +384,7 @@ bool CParticleEmitterType::LoadXML(const VfsPath& path)
 	EL(start_full);
 	EL(use_relative_velocity);
 	EL(constant);
+	EL(sort);
 	EL(uniform);
 	EL(copy);
 	EL(expr);
@@ -422,6 +424,16 @@ bool CParticleEmitterType::LoadXML(const VfsPath& path)
 				m_BlendMode = BlendMode::OVERLAY;
 			else if (mode == "multiply")
 				m_BlendMode = BlendMode::MULTIPLY;
+		}
+		else if (Child.GetNodeName() == el_sort)
+		{
+			const CStr mode{Child.GetAttributes().GetNamedItem(at_mode)};
+			if (mode == "closest_in_front")
+				m_SortMode = SortMode::CLOSEST_IN_FRONT;
+			else if (mode == "youngest_in_front")
+				m_SortMode = SortMode::YOUNGEST_IN_FRONT;
+			else if (mode == "oldest_in_front")
+				m_SortMode = SortMode::OLDEST_IN_FRONT;
 		}
 		else if (Child.GetNodeName() == el_start_full)
 		{

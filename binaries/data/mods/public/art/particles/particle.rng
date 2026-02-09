@@ -19,6 +19,17 @@
       </element>
     </optional>
     <optional>
+      <element name="sort">
+        <attribute name="mode">
+          <choice>
+            <value>closest_in_front</value>
+            <value>youngest_in_front</value>
+            <value>oldest_in_front</value>
+          </choice>
+        </attribute>
+      </element>
+    </optional>
+    <optional>
       <element name="start_full">
         <!-- flag; true if present -->
         <empty/>

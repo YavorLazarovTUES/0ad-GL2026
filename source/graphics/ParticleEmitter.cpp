@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,9 +25,11 @@
 #include "graphics/ParticleManager.h"
 #include "graphics/RenderableObject.h"
 #include "graphics/TextureManager.h"
+#include "lib/allocators/STLAllocators.h"
 #include "lib/debug.h"
 #include "lib/types.h"
 #include "maths/Matrix3D.h"
+#include "ps/memory/LinearAllocator.h"
 #include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
 #include "renderer/Renderer.h"
@@ -41,6 +43,37 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+
+namespace
+{
+
+struct ParticleYoungestInFrontCompare
+{
+	bool operator()(const SParticle& lhs, const SParticle& rhs) const
+	{
+		return lhs.age > rhs.age;
+	}
+};
+
+struct ParticleOldestInFrontCompare
+{
+	bool operator()(const SParticle& lhs, const SParticle& rhs) const
+	{
+		return lhs.age < rhs.age;
+	}
+};
+
+struct ParticleClosestInFrontCompare
+{
+	bool operator()(const SParticle& lhs, const SParticle& rhs) const
+	{
+		return cameraForward.Dot(lhs.pos) > cameraForward.Dot(rhs.pos);
+	}
+
+	CVector3D cameraForward;
+};
+
+} // anonymous namespace
 
 CParticleEmitter::CParticleEmitter(const CParticleEmitterTypePtr& type) :
 	m_Type(type), m_Active(true), m_NextParticleIdx(0), m_EmissionRoundingError(0.f),
@@ -115,6 +148,11 @@ void CParticleEmitter::UpdateArrayData(int frameNumber)
 	if (m_LastFrameNumber == frameNumber)
 		return;
 
+	PS::Memory::ScopedLinearAllocator scopedLinearAllocator{g_Renderer.GetLinearAllocator()};
+
+	using ParticlesVector = std::vector<SParticle, ProxyAllocator<SParticle, PS::Memory::ScopedLinearAllocator>>;
+	ParticlesVector sortedParticles((ParticlesVector::allocator_type(scopedLinearAllocator)));
+
 	m_LastFrameNumber = frameNumber;
 
 	// Update m_Particles
@@ -132,24 +170,48 @@ void CParticleEmitter::UpdateArrayData(int frameNumber)
 
 	CBoundingBoxAligned bounds;
 
-	for (size_t i = 0; i < m_Particles.size(); ++i)
+	if (m_Type->m_SortMode != CParticleEmitterType::SortMode::UNSPECIFIED)
+	{
+		sortedParticles.insert(sortedParticles.end(), m_Particles.begin(), m_Particles.end());
+
+		switch (m_Type->m_SortMode)
+		{
+		case CParticleEmitterType::SortMode::YOUNGEST_IN_FRONT:
+			std::sort(sortedParticles.begin(), sortedParticles.end(), ParticleYoungestInFrontCompare{});
+			break;
+		case CParticleEmitterType::SortMode::OLDEST_IN_FRONT:
+			std::sort(sortedParticles.begin(), sortedParticles.end(), ParticleOldestInFrontCompare{});
+			break;
+		case CParticleEmitterType::SortMode::CLOSEST_IN_FRONT:
+			std::sort(sortedParticles.begin(), sortedParticles.end(), ParticleClosestInFrontCompare{
+				g_Renderer.GetSceneRenderer().GetViewCamera().GetOrientation().GetIn()});
+			break;
+		default:
+			break;
+		}
+	}
+
+	const std::span<SParticle> particles{
+		m_Type->m_SortMode == CParticleEmitterType::SortMode::UNSPECIFIED ?
+			std::span<SParticle>{m_Particles} : std::span<SParticle>{sortedParticles}};
+	for (const SParticle& particle : particles)
 	{
 		// TODO: for more efficient rendering, maybe we should replace this with
 		// a degenerate quad if alpha is 0
 
-		bounds += m_Particles[i].pos;
+		bounds += particle.pos;
 
-		*attrPos++ = m_Particles[i].pos;
-		*attrPos++ = m_Particles[i].pos;
-		*attrPos++ = m_Particles[i].pos;
-		*attrPos++ = m_Particles[i].pos;
+		*attrPos++ = particle.pos;
+		*attrPos++ = particle.pos;
+		*attrPos++ = particle.pos;
+		*attrPos++ = particle.pos;
 
 		// Compute corner offsets, split into sin/cos components so the vertex
 		// shader can multiply by the camera-right (or left?) and camera-up vectors
 		// to get rotating billboards:
 
-		float s = sin(m_Particles[i].angle) * m_Particles[i].size/2.f;
-		float c = cos(m_Particles[i].angle) * m_Particles[i].size/2.f;
+		float s = sin(particle.angle) * particle.size * 0.5f;
+		float c = cos(particle.angle) * particle.size * 0.5f;
 
 		(*attrAxis)[0] = c;
 		(*attrAxis)[1] = s;
@@ -177,7 +239,7 @@ void CParticleEmitter::UpdateArrayData(int frameNumber)
 		(*attrUV)[1] = 1;
 		++attrUV;
 
-		SColor4ub color = m_Particles[i].color;
+		SColor4ub color{particle.color};
 
 		// Special case: If the blending depends on the source color, not the source alpha,
 		// then pre-multiply by the alpha. (This is kind of a hack.)

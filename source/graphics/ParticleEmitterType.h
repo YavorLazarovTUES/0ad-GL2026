@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -87,6 +87,14 @@ private:
 		MULTIPLY
 	};
 
+	enum class SortMode
+	{
+		UNSPECIFIED,
+		YOUNGEST_IN_FRONT,
+		OLDEST_IN_FRONT,
+		CLOSEST_IN_FRONT
+	};
+
 	int GetVariableID(const std::string& name);
 
 	bool LoadXML(const VfsPath& path);
@@ -106,7 +114,8 @@ private:
 
 	CTexturePtr m_Texture;
 
-	BlendMode m_BlendMode = BlendMode::ADD;
+	BlendMode m_BlendMode{BlendMode::ADD};
+	SortMode m_SortMode{SortMode::UNSPECIFIED};
 	bool m_StartFull;
 	bool m_UseRelativeVelocity;
 
