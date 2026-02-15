@@ -124,7 +124,7 @@ const configStylistic = {
 	"rules": {
 		"@stylistic/brace-style": ["warn", "allman", { "allowSingleLine": true }],
 		"@stylistic/comma-spacing": "warn",
-		"@stylistic/indent": ["warn", "tab", { "outerIIFEBody": "off" }],
+		"@stylistic/indent": ["warn", "tab", { "SwitchCase": 0, "outerIIFEBody": "off" }],
 		"@stylistic/key-spacing": "warn",
 		"@stylistic/keyword-spacing": ["warn", { "before": true, "after": true }],
 		"@stylistic/new-parens": "warn",
