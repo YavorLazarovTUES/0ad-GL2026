@@ -16,6 +16,9 @@ get-windows-libs.bat downloads a checkout of headers and precompiled
   macos-patches
     see license of applicable library
 
+  source/cpp-httplib
+  	MIT
+
   source/cxxtest-4.4
     LGPL v3 - see COPYING
 
@@ -26,7 +29,7 @@ get-windows-libs.bat downloads a checkout of headers and precompiled
     MIT - see src/NVIDIA_Texture_Tools_LICENSE.txt
 
   source/glad
-    Apache-2.0 / (WTFPL OR CC0-1.0) 
+    Apache-2.0 / (WTFPL OR CC0-1.0)
 
   source/spidermonkey
     MPL / GPL / LGPL

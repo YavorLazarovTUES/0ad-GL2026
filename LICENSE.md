@@ -81,9 +81,6 @@ please inform Wildfire Games at webmaster at wildfiregames dot com.
 - source/third_party/mikktspace/
   - zlib
 
-- source/third_party/mongoose/
-  - MIT - see license_mit.txt
-
 - source/third_party/tinygettext/
   - zlib
 
