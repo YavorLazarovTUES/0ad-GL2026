@@ -1253,7 +1253,6 @@ int CMapReader::ReadXML()
 // progressive
 PS::Loader::Task CMapReader::ReadXMLEntities()
 {
-	ENSURE(pSimulation2);
 	if (m_SkipEntities)
 		co_return 0;
 
@@ -1265,6 +1264,7 @@ PS::Loader::Task CMapReader::ReadXMLEntities()
 	{
 		return node.GetChildNodes().size();
 	})};
+	ENSURE(pSimulation2 || totalJobs == 0);
 	std::size_t completedJobs{0};
 	for (XMBElement node : m_XmlReader->nodes)
 	{
