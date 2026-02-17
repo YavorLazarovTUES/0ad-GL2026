@@ -30,13 +30,60 @@
       </element>
     </optional>
     <optional>
+      <element name="particle">
+        <interleave>
+          <zeroOrMore>
+            <element name="fixed_orientation">
+              <attribute name="name"/>
+              <optional>
+                <attribute name="mode">
+                  <choice>
+                    <value>absolute</value>
+                    <value>relative</value>
+                    <value>velocity</value>
+                  </choice>
+                </attribute>
+              </optional>
+              <optional>
+                <attribute name="x">
+                  <data type="float"/>
+                </attribute>
+              </optional>
+              <optional>
+                <attribute name="y">
+                  <data type="float"/>
+                </attribute>
+              </optional>
+              <optional>
+                <attribute name="z">
+                  <data type="float"/>
+                </attribute>
+              </optional>
+            </element>
+          </zeroOrMore>
+        </interleave>
+      </element>
+    </optional>
+    <optional>
       <element name="start_full">
         <!-- flag; true if present -->
         <empty/>
       </element>
     </optional>
     <optional>
+      <element name="use_relative_position">
+        <!-- flag; true if present -->
+        <empty/>
+      </element>
+    </optional>
+    <optional>
       <element name="use_relative_velocity">
+        <!-- flag; true if present -->
+        <empty/>
+      </element>
+    </optional>
+    <optional>
+      <element name="use_local_space">
         <!-- flag; true if present -->
         <empty/>
       </element>

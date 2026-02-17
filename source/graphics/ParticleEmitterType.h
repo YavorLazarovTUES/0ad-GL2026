@@ -117,7 +117,14 @@ private:
 	BlendMode m_BlendMode{BlendMode::ADD};
 	SortMode m_SortMode{SortMode::UNSPECIFIED};
 	bool m_StartFull;
-	bool m_UseRelativeVelocity;
+	bool m_UseLocalSpace{false};
+	bool m_UseRelativePosition{false}, m_UseRelativeVelocity{false};
+
+	// A non-zero vector in case of a fixed axis for the corresponding direction.
+	CVector3D m_AxisX{}, m_AxisY{};
+	bool m_UseRelativeAxisX{false}, m_UseRelativeAxisY{false};
+
+	bool m_UseVelocityAsAxisX{false};
 
 	float m_MaxLifetime;
 	u16 m_MaxParticles;

@@ -12,4 +12,8 @@
     <uniform name="velocity.y" min="-10.0" max="-16.0"/>
     <uniform name="size" min="1.0" max="2.0"/>
     <force y="-6.0"/>
+    <constant name="angle" value="1.57079"/>
+    <particle>
+        <fixed_orientation name="axisX" y="1.0"/>
+    </particle>
 </particles>

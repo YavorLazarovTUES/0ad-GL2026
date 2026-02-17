@@ -368,6 +368,8 @@ bool CParticleEmitterType::LoadXML(const VfsPath& path)
 	m_BlendMode = BlendMode::ADD;
 	m_SortMode = SortMode::UNSPECIFIED;
 	m_StartFull = false;
+	m_UseLocalSpace = false;
+	m_UseRelativePosition = false;
 	m_UseRelativeVelocity = false;
 	m_Texture = g_Renderer.GetTextureManager().GetErrorTexture();
 
@@ -379,23 +381,27 @@ bool CParticleEmitterType::LoadXML(const VfsPath& path)
 	// Define all the elements and attributes used in the XML file
 #define EL(x) int el_##x = XeroFile.GetElementID(#x)
 #define AT(x) int at_##x = XeroFile.GetAttributeID(#x)
-	EL(texture);
 	EL(blend);
-	EL(start_full);
-	EL(use_relative_velocity);
 	EL(constant);
-	EL(sort);
-	EL(uniform);
 	EL(copy);
 	EL(expr);
 	EL(force);
+	EL(fixed_orientation);
+	EL(particle);
+	EL(sort);
+	EL(start_full);
+	EL(texture);
+	EL(uniform);
+	EL(use_local_space);
+	EL(use_relative_position);
+	EL(use_relative_velocity);
+	AT(from);
+	AT(max);
+	AT(min);
 	AT(mode);
+	AT(mul);
 	AT(name);
 	AT(value);
-	AT(min);
-	AT(max);
-	AT(mul);
-	AT(from);
 	AT(x);
 	AT(y);
 	AT(z);
@@ -438,6 +444,14 @@ bool CParticleEmitterType::LoadXML(const VfsPath& path)
 		else if (Child.GetNodeName() == el_start_full)
 		{
 			m_StartFull = true;
+		}
+		else if (Child.GetNodeName() == el_use_local_space)
+		{
+			m_UseLocalSpace = true;
+		}
+		else if (Child.GetNodeName() == el_use_relative_position)
+		{
+			m_UseRelativePosition = true;
 		}
 		else if (Child.GetNodeName() == el_use_relative_velocity)
 		{
@@ -490,6 +504,36 @@ bool CParticleEmitterType::LoadXML(const VfsPath& path)
 			float z = Child.GetAttributes().GetNamedItem(at_z).ToFloat();
 			m_Effectors.push_back(IParticleEffectorPtr(new CParticleEffectorForce(x, y, z)));
 		}
+		else if (Child.GetNodeName() == el_particle)
+		{
+			XERO_ITER_EL(Child, particleChild)
+			{
+				if (particleChild.GetNodeName() == el_fixed_orientation)
+				{
+					CVector3D axis{
+						particleChild.GetAttributes().GetNamedItem(at_x).ToFloat(),
+						particleChild.GetAttributes().GetNamedItem(at_y).ToFloat(),
+						particleChild.GetAttributes().GetNamedItem(at_z).ToFloat()};
+					// The axis must be a non-zero vector else it's not valid.
+					const float axisLength{axis.Length()};
+					if (axisLength > 0.0f)
+						axis *= 1.0f / axisLength;
+					else
+						axis = CVector3D{0.0f, 0.0f, 0.0f};
+					if (particleChild.GetAttributes().GetNamedItem(at_name) == "axisX")
+					{
+						m_AxisX = axis;
+						m_UseRelativeAxisX = particleChild.GetAttributes().GetNamedItem(at_mode) == "relative";
+						m_UseVelocityAsAxisX = particleChild.GetAttributes().GetNamedItem(at_mode) == "velocity";
+					}
+					else if (particleChild.GetAttributes().GetNamedItem(at_name) == "axisY")
+					{
+						m_AxisY = axis;
+						m_UseRelativeAxisY = particleChild.GetAttributes().GetNamedItem(at_mode) == "relative";
+					}
+				}
+			}
+		}
 	}
 
 	return true;
@@ -533,6 +577,10 @@ void CParticleEmitterType::UpdateEmitterStep(CParticleEmitter& emitter, float dt
 		// we'll immediately overwrite, so clamp it
 		newParticles = std::min(newParticles, (int)m_MaxParticles);
 
+		const CMatrix3D rotationMatrix{emitter.GetRotation().ToMatrix()};
+		const CVector3D axisX{!m_UseLocalSpace && m_UseRelativeAxisX ? rotationMatrix.Transform(m_AxisX) : m_AxisX};
+		const CVector3D axisY{!m_UseLocalSpace && m_UseRelativeAxisY ? rotationMatrix.Transform(m_AxisY) : m_AxisY};
+
 		for (int i = 0; i < newParticles; ++i)
 		{
 			// Compute new particle state based on variables
@@ -541,22 +589,20 @@ void CParticleEmitterType::UpdateEmitterStep(CParticleEmitter& emitter, float dt
 			particle.pos.X = m_Variables[VAR_POSITION_X]->Evaluate(emitter);
 			particle.pos.Y = m_Variables[VAR_POSITION_Y]->Evaluate(emitter);
 			particle.pos.Z = m_Variables[VAR_POSITION_Z]->Evaluate(emitter);
-			particle.pos += emitter.m_Pos;
 
-			if (m_UseRelativeVelocity)
+			particle.velocity.X = m_Variables[VAR_VELOCITY_X]->Evaluate(emitter);
+			particle.velocity.Y = m_Variables[VAR_VELOCITY_Y]->Evaluate(emitter);
+			particle.velocity.Z = m_Variables[VAR_VELOCITY_Z]->Evaluate(emitter);
+
+			if (!m_UseLocalSpace)
 			{
-				float xVel = m_Variables[VAR_VELOCITY_X]->Evaluate(emitter);
-				float yVel = m_Variables[VAR_VELOCITY_Y]->Evaluate(emitter);
-				float zVel = m_Variables[VAR_VELOCITY_Z]->Evaluate(emitter);
-				CVector3D EmitterAngle = emitter.GetRotation().ToMatrix().Transform(CVector3D(xVel,yVel,zVel));
-				particle.velocity.X = EmitterAngle.X;
-				particle.velocity.Y = EmitterAngle.Y;
-				particle.velocity.Z = EmitterAngle.Z;
-			} else {
-				particle.velocity.X = m_Variables[VAR_VELOCITY_X]->Evaluate(emitter);
-				particle.velocity.Y = m_Variables[VAR_VELOCITY_Y]->Evaluate(emitter);
-				particle.velocity.Z = m_Variables[VAR_VELOCITY_Z]->Evaluate(emitter);
+				if (m_UseRelativeVelocity)
+					particle.velocity = rotationMatrix.Transform(particle.velocity);
+				if (m_UseRelativePosition)
+					particle.pos = rotationMatrix.Transform(particle.pos);
+				particle.pos += emitter.m_Pos;
 			}
+
 			particle.angle = m_Variables[VAR_ANGLE]->Evaluate(emitter);
 			particle.angleSpeed = m_Variables[VAR_VELOCITY_ANGLE]->Evaluate(emitter);
 
@@ -571,6 +617,16 @@ void CParticleEmitterType::UpdateEmitterStep(CParticleEmitter& emitter, float dt
 
 			particle.age = 0.f;
 			particle.maxAge = m_Variables[VAR_LIFETIME]->Evaluate(emitter);
+
+			particle.axisX = axisX;
+			particle.axisY = axisY;
+
+			if (m_UseVelocityAsAxisX)
+			{
+				const float velocityLength{particle.velocity.Length()};
+				if (velocityLength > 1e-3f)
+					particle.axisX = particle.velocity * (1.0f / velocityLength);
+			}
 
 			emitter.AddParticle(particle);
 		}
@@ -589,6 +645,13 @@ void CParticleEmitterType::UpdateEmitterStep(CParticleEmitter& emitter, float dt
 		p.angle += p.angleSpeed * dt;
 		p.age += dt;
 		p.size += p.sizeGrowthRate * dt;
+
+		if (m_UseVelocityAsAxisX)
+		{
+			const float velocityLength{p.velocity.Length()};
+			if (velocityLength > 1e-3f)
+				p.axisX = p.velocity * (1.0f / velocityLength);
+		}
 
 		// Make alpha fade in/out nicely
 		// TODO: this should probably be done as a variable or something,

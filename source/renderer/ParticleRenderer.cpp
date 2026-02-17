@@ -181,15 +181,33 @@ void ParticleRenderer::RenderParticles(
 			deviceCommandContext->BeginPass();
 
 			Renderer::Backend::IShaderProgram* shader = lastTech->GetShader();
-			const CMatrix3D transform =
-				g_Renderer.GetSceneRenderer().GetViewCamera().GetViewProjection();
-			const CMatrix3D modelViewMatrix =
-				g_Renderer.GetSceneRenderer().GetViewCamera().GetOrientation().GetInverse();
+			const CCamera& viewCamera{g_Renderer.GetSceneRenderer().GetViewCamera()};
+			const CMatrix3D transform{viewCamera.GetViewProjection()};
+			const CMatrix3D modelViewMatrix{viewCamera.GetOrientation().GetInverse()};
+
 			deviceCommandContext->SetUniform(
 				shader->GetBindingSlot(str_transform), transform.AsFloatArray());
 			deviceCommandContext->SetUniform(
 				shader->GetBindingSlot(str_modelViewMatrix), modelViewMatrix.AsFloatArray());
+			deviceCommandContext->SetUniform(
+				shader->GetBindingSlot(str_cameraPos),
+				viewCamera.GetOrientation().GetTranslation().AsFloatArray());
 		}
+
+
+		const CMatrix3D rotationMatrix{emitter->GetRotation().ToMatrix()};
+		CMatrix3D spaceTransform;
+		if (emitter->m_Type->m_UseLocalSpace)
+		{
+			spaceTransform = rotationMatrix;
+			spaceTransform.Translate(emitter->GetPosition());
+		}
+		else
+			spaceTransform.SetIdentity();
+
+		Renderer::Backend::IShaderProgram* shader = lastTech->GetShader();
+		deviceCommandContext->SetUniform(
+			shader->GetBindingSlot(str_spaceTransform), spaceTransform.AsFloatArray());
 		emitter->Bind(deviceCommandContext, lastTech->GetShader());
 		emitter->RenderArray(deviceCommandContext);
 	}

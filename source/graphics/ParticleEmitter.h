@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -52,6 +52,7 @@ struct SParticle
 	SColor4ub color;
 	float age;
 	float maxAge;
+	CVector3D axisX, axisY;
 };
 
 typedef std::shared_ptr<CParticleEmitter> CParticleEmitterPtr;
@@ -187,6 +188,7 @@ private:
 	VertexArray::Attribute m_AttributeAxis;
 	VertexArray::Attribute m_AttributeUV;
 	VertexArray::Attribute m_AttributeColor;
+	VertexArray::Attribute m_AttributeAxisX, m_AttributeAxisY;
 
 	Renderer::Backend::IVertexInputLayout* m_VertexInputLayout = nullptr;
 
