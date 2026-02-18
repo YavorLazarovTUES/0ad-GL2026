@@ -95,7 +95,7 @@ function getFullRepresentation(entityID)
 	if (cmpUnitAI)
 	{
 		// Updated by OnUnitIdleChanged
-		ret.idle = cmpUnitAI.IsIdle();
+		ret.idle = !!cmpUnitAI.isIdleConfirmed;
 		// Updated by OnUnitStanceChanged
 		ret.stance = cmpUnitAI.GetStanceName();
 		// Updated by OnUnitAIStateChanged
