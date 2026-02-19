@@ -189,7 +189,6 @@
 				"config": "rendererbackend",
 				"list": [
 					{ "value": "gl", "label": "OpenGL", "tooltip": "Default OpenGL backend with GLSL. REQUIRES GAME RESTART" },
-					{ "value": "glarb", "label": "OpenGL ARB (Deprecated)", "tooltip": "Legacy OpenGL backend with ARB shaders. It's deprecated and it's going to be removed in future versions of the game. REQUIRES GAME RESTART" },
 					{ "value": "vulkan", "label": "Vulkan", "tooltip": "Modern API, requires up-to-date drivers. REQUIRES GAME RESTART" }
 				]
 			},
@@ -197,16 +196,12 @@
 				"type": "boolean",
 				"label": "Fog",
 				"tooltip": "Enable fog.",
-				"dependencies": [{ "config": "rendererbackend", "op": "!=", "value": "glarb" }],
 				"config": "fog"
 			},
 			{
 				"type": "boolean",
 				"label": "GPU skinning",
 				"tooltip": "Use GPU to update geometry for animated models. It reduces a CPU load during rendering especially on a modern hardware.",
-				"dependencies": [
-					{ "config": "rendererbackend", "op": "!=", "value": "glarb" }
-				],
 				"config": "gpuskinning"
 			},
 			{
@@ -219,7 +214,7 @@
 				"type": "dropdown",
 				"label": "Antialiasing",
 				"tooltip": "Reduce aliasing effect on edges.",
-				"dependencies": ["postproc", { "config": "rendererbackend", "op": "!=", "value": "glarb" }],
+				"dependencies": ["postproc"],
 				"config": "antialiasing",
 				"list": [
 					{ "value": "disabled", "label": "Disabled", "tooltip": "Do not use antialiasing." },
@@ -234,7 +229,7 @@
 				"type": "dropdown",
 				"label": "Sharpening",
 				"tooltip": "Reduce blurry effects.",
-				"dependencies": ["postproc", { "config": "rendererbackend", "op": "!=", "value": "glarb" }],
+				"dependencies": ["postproc"],
 				"config": "sharpening",
 				"list": [
 					{ "value": "disabled", "label": "Disabled", "tooltip": "Do not use sharpening." },
@@ -247,7 +242,6 @@
 				"tooltip": "The sharpness of the chosen pass.",
 				"dependencies": [
 					"postproc",
-					{ "config": "rendererbackend", "op": "!=", "value": "glarb" },
 					{ "config": "sharpening", "op": "!=", "value": "disabled" }
 				],
 				"config": "sharpness",
