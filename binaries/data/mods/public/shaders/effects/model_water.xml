@@ -14,7 +14,4 @@
             <depth func="less" mask="true"/>
         </pass>
     </technique>
-    <technique>
-        <require shaders="arb"/>
-    </technique>
 </effect>

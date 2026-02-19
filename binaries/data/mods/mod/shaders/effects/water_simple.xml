@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <effect>
 	<technique>
-		<require shaders="arb"/>
 		<require shaders="glsl"/>
 		<require shaders="spirv"/>
 		<require context="MODE_WIREFRAME"/>
@@ -12,7 +11,6 @@
 	</technique>
 
 	<technique>
-		<require shaders="arb"/>
 		<require shaders="glsl"/>
 		<require shaders="spirv"/>
 		<pass shader="water_simple">

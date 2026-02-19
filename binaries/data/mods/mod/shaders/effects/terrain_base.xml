@@ -2,7 +2,6 @@
 <effect>
 	<technique>
 		<require context="PASS_REFLECTIONS"/>
-		<require shaders="arb"/>
 		<require shaders="glsl"/>
 		<require shaders="spirv"/>
 		<pass shader="terrain_base">
@@ -11,7 +10,6 @@
 	</technique>
 
 	<technique>
-		<require shaders="arb"/>
 		<require shaders="glsl"/>
 		<require shaders="spirv"/>
 		<require context="MODE_WIREFRAME"/>
@@ -21,7 +19,6 @@
 	</technique>
 
 	<technique>
-		<require shaders="arb"/>
 		<require shaders="glsl"/>
 		<require shaders="spirv"/>
 		<pass shader="terrain_base"/>

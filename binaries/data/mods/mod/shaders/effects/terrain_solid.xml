@@ -2,7 +2,6 @@
 <effect>
 	<technique>
 		<require context="PASS_SHADOWS || MODE_SILHOUETTEOCCLUDER"/>
-		<require shaders="arb"/>
 		<require shaders="glsl"/>
 		<require shaders="spirv"/>
 		<pass shader="dummy">
@@ -17,7 +16,6 @@
 	</technique>
 
 	<technique>
-		<require shaders="arb"/>
 		<require shaders="glsl"/>
 		<require shaders="spirv"/>
 		<require context="MODE_WIREFRAME"/>
@@ -27,7 +25,6 @@
 	</technique>
 
 	<technique>
-		<require shaders="arb"/>
 		<require shaders="glsl"/>
 		<require shaders="spirv"/>
 		<pass shader="dummy"/>

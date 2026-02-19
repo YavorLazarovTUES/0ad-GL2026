@@ -1,6 +1,0 @@
-!!ARBvp1.0
-
-MOV result.position, vertex.position;
-MOV result.texcoord, vertex.texcoord[0];
-
-END

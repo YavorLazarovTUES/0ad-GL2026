@@ -182,7 +182,6 @@ function RunDetection(settings)
 	var disable_shadowpcf;
 	var disable_allwater;
 	var disable_fancywater;
-	var enable_glsl;
 	var enable_postproc;
 	var enable_smoothlos;
 	var override_renderpath;
@@ -214,16 +213,6 @@ function RunDetection(settings)
 	var GL_VERSION = settings.renderer_backend.GL_VERSION;
 	var GL_EXTENSIONS = settings.renderer_backend.GL_EXTENSIONS.split(" ");
 
-	// Enable GLSL on OpenGL 3+, which should be able to properly
-	// manage GLSL shaders, needed for effects like windy trees
-	if (GL_VERSION.match(/^[3-9]/))
-		enable_glsl = true;
-
-	// Enable GLSL on OpenGL ES 2.0+, which doesn’t support the fixed
-	// function fallbacks
-	if (GL_VERSION.match(/^OpenGL ES /))
-		enable_glsl = true;
-
 	// Enable most graphics options on OpenGL 4+, which should be
 	// able to properly manage them
 	if (GL_VERSION.match(/^[4-9]/))
@@ -239,7 +228,6 @@ function RunDetection(settings)
 	{
 		warnings.push("You are using '" + GL_RENDERER + "' graphics driver, expect very poor performance!");
 		warnings.push("If possible install a proper graphics driver for your hardware.");
-		enable_glsl = false;
 		enable_postproc = false;
 		enable_smoothlos = false;
 		// s3tc on software renderers halves fps and makes textures weird
@@ -315,8 +303,6 @@ function RunDetection(settings)
 
 	// https://gitea.wildfiregames.com/0ad/0ad/issues/964
 	// SiS Mirage 3 drivers apparently crash with shaders, so fall back to non-shader
-	// (The other known SiS cards don't advertise GL_ARB_fragment_program so we
-	// don't need to do anything special for them)
 	if (os_win && GL_RENDERER.match(/^Mirage Graphics3$/))
 	{
 		override_renderpath = "fixed";
@@ -331,7 +317,6 @@ function RunDetection(settings)
 		"disable_shadowpcf": disable_shadowpcf,
 		"disable_allwater": disable_allwater,
 		"disable_fancywater": disable_fancywater,
-		"enable_glsl": enable_glsl,
 		"enable_postproc": enable_postproc,
 		"enable_smoothlos": enable_smoothlos,
 		"override_renderpath": override_renderpath,
@@ -340,8 +325,8 @@ function RunDetection(settings)
 
 global.RunHardwareDetection = function(settings)
 {
-	// Currently we don't have limitations for other backends than GL and GL ARB.
-	if (settings.renderer_backend.name != 'gl' && settings.renderer_backend.name != 'glarb')
+	// Currently we don't have limitations for other backends than GL.
+	if (settings.renderer_backend.name != 'gl')
 		return;
 
 	// print(JSON.stringify(settings, null, 1)+"\n");
@@ -384,9 +369,6 @@ global.RunHardwareDetection = function(settings)
 		Engine.ConfigDB_CreateValue("hwdetect", "waterrealdepth", (!output.disable_fancywater).toString());
 		Engine.ConfigDB_CreateValue("hwdetect", "watershadows", (!output.disable_fancywater).toString());
 	}
-
-	if (output.enable_glsl !== undefined)
-		Engine.ConfigDB_CreateValue("hwdetect", "preferglsl", (output.enable_glsl).toString());
 
 	if (output.enable_postproc !== undefined)
 		Engine.ConfigDB_CreateValue("hwdetect", "postproc", (output.enable_postproc).toString());

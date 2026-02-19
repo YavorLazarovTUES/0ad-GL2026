@@ -2,7 +2,6 @@
 <effect>
 	<technique>
 		<define name="DEBUG_TEXTURED" value="1"/>
-		<require shaders="arb"/>
 		<require shaders="glsl"/>
 		<require shaders="spirv"/>
 		<pass shader="debug_overlay">

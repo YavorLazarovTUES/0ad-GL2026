@@ -2,7 +2,6 @@
 <effect>
 	<technique>
 		<require context="PASS_REFLECTIONS"/>
-		<require shaders="arb"/>
 		<require shaders="glsl"/>
 		<require shaders="spirv"/>
 		<pass shader="model_common">
@@ -12,7 +11,6 @@
 
 	<technique>
 		<require context="MODE_SHADOWCAST || MODE_SILHOUETTEOCCLUDER"/>
-		<require shaders="arb"/>
 		<require shaders="glsl"/>
 		<require shaders="spirv"/>
 		<pass shader="model_solid">
@@ -22,7 +20,6 @@
 
 	<technique>
 		<require context="MODE_WIREFRAME"/>
-		<require shaders="arb"/>
 		<require shaders="glsl"/>
 		<require shaders="spirv"/>
 		<pass shader="model_common">
@@ -32,7 +29,6 @@
 
 	<technique>
 		<require context="MODE_WIREFRAME_SOLID"/>
-		<require shaders="arb"/>
 		<require shaders="glsl"/>
 		<require shaders="spirv"/>
 		<pass shader="model_solid_player">
@@ -42,7 +38,6 @@
 
 	<technique>
 		<require context="MODE_SILHOUETTEDISPLAY"/>
-		<require shaders="arb"/>
 		<require shaders="glsl"/>
 		<require shaders="spirv"/>
 		<pass shader="model_solid_player">
@@ -53,7 +48,6 @@
 	</technique>
 
 	<technique>
-		<require shaders="arb"/>
 		<require shaders="glsl"/>
 		<require shaders="spirv"/>
 		<pass shader="model_common"/>
