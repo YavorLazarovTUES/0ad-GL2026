@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -225,7 +225,7 @@ void GLAD_API_PTR OnDebugMessage(
 } // anonymous namespace
 
 // static
-std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window, const bool arb)
+std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 {
 	std::unique_ptr<CDevice> device(new CDevice());
 
@@ -320,17 +320,8 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window, const bool arb)
 #endif
 	}
 
-	// If we don't have GL2.0 then we don't have GLSL in core.
-	if (!arb && !ogl_HaveVersion(2, 0))
-		return nullptr;
-
-	// We can't render without ARB shaders.
-	if (arb && ogl_HaveExtensions(0, "GL_ARB_vertex_program", "GL_ARB_fragment_program", nullptr))
-		return nullptr;
-
-	if ((ogl_HaveExtensions(0, "GL_ARB_vertex_program", "GL_ARB_fragment_program", nullptr) // ARB
-		&& !ogl_HaveVersion(2, 0)) // GLSL
-		|| !ogl_HaveExtension("GL_ARB_vertex_buffer_object") // VBO
+	if (!ogl_HaveVersion(2, 0)
+		|| !ogl_HaveExtension("GL_ARB_vertex_buffer_object")
 		|| ogl_HaveExtensions(0, "GL_ARB_multitexture", "GL_EXT_draw_range_elements", nullptr)
 		|| (!ogl_HaveExtension("GL_EXT_framebuffer_object") && !ogl_HaveExtension("GL_ARB_framebuffer_object")))
 	{
@@ -343,8 +334,6 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window, const bool arb)
 			L" For more information, please see http://www.wildfiregames.com/forum/index.php?showtopic=16734"
 		);
 	}
-
-	device->m_ARB = arb;
 
 	device->m_Name = GetNameImpl();
 	device->m_Version = GetVersionImpl();
@@ -360,26 +349,18 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window, const bool arb)
 	// still support pre 2.0 drivers pretending to support 2.0.
 	ogl_SquelchError(GL_INVALID_ENUM);
 
-	if (arb)
-	{
-#if !CONFIG2_GLES
-		glEnable(GL_VERTEX_PROGRAM_ARB);
-		glEnable(GL_FRAGMENT_PROGRAM_ARB);
-#endif
-	}
-
 	// Some drivers might invalidate an incorrect surface which leads to artifacts.
 	if (g_ConfigDB.Get("renderer.backend.gl.enableframebufferinvalidating", false))
 	{
 #if CONFIG2_GLES
 		device->m_UseFramebufferInvalidating = ogl_HaveExtension("GL_EXT_discard_framebuffer");
 #else
-		device->m_UseFramebufferInvalidating = !arb && ogl_HaveExtension("GL_ARB_invalidate_subdata");
+		device->m_UseFramebufferInvalidating = ogl_HaveExtension("GL_ARB_invalidate_subdata");
 #endif
 	}
 
 	Capabilities& capabilities = device->m_Capabilities;
-	capabilities.computeShaders = !device->m_ARB && ogl_HaveVersion(4, 3);
+	capabilities.computeShaders = ogl_HaveVersion(4, 3);
 #if CONFIG2_GLES
 	// Some GLES implementations have GL_EXT_texture_compression_dxt1
 	// but that only supports DXT1 so we can't use it.
@@ -459,7 +440,6 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window, const bool arb)
 	capabilities.timestamps = false;
 #else
 	capabilities.instancing =
-		!device->m_ARB &&
 		(ogl_HaveVersion(3, 3) ||
 		(ogl_HaveExtension("GL_ARB_draw_instanced") &&
 		ogl_HaveExtension("GL_ARB_instanced_arrays")));
@@ -480,7 +460,7 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window, const bool arb)
 		&& ogl_HaveExtension("GL_ARB_shader_storage_buffer_object")
 		&& ogl_HaveExtension("GL_ARB_half_float_vertex")
 		&& ogl_HaveExtension("GL_ARB_program_interface_query");
-	capabilities.timestamps = !device->m_ARB && ogl_HaveExtension("GL_ARB_timer_query");
+	capabilities.timestamps = ogl_HaveExtension("GL_ARB_timer_query");
 	if (capabilities.timestamps)
 		capabilities.timestampMultiplier = 1.0 / 1e9;
 #endif
@@ -509,7 +489,7 @@ void CDevice::Report(const ScriptRequest& rq, JS::HandleValue settings)
 {
 	const char* errstr = "(error)";
 
-	Script::SetProperty(rq, settings, "name", m_ARB ? "glarb" : "gl");
+	Script::SetProperty(rq, settings, "name", "gl");
 
 #define INTEGER(id) do { \
 	GLint i = -1; \
@@ -567,24 +547,6 @@ void CDevice::Report(const ScriptRequest& rq, JS::HandleValue settings)
 		Script::SetProperty(rq, settings, "GL_" #target ".GL_" #pname, errstr); \
 	else \
 		Script::SetProperty(rq, settings, "GL_" #target ".GL_" #pname, i); \
-	} while (false)
-
-#define VERTEXPROGRAM(id) do { \
-	GLint i = -1; \
-	glGetProgramivARB(GL_VERTEX_PROGRAM_ARB, GL_##id, &i); \
-	if (ogl_SquelchError(GL_INVALID_ENUM)) \
-		Script::SetProperty(rq, settings, "GL_VERTEX_PROGRAM_ARB.GL_" #id, errstr); \
-	else \
-		Script::SetProperty(rq, settings, "GL_VERTEX_PROGRAM_ARB.GL_" #id, i); \
-	} while (false)
-
-#define FRAGMENTPROGRAM(id) do { \
-	GLint i = -1; \
-	glGetProgramivARB(GL_FRAGMENT_PROGRAM_ARB, GL_##id, &i); \
-	if (ogl_SquelchError(GL_INVALID_ENUM)) \
-		Script::SetProperty(rq, settings, "GL_FRAGMENT_PROGRAM_ARB.GL_" #id, errstr); \
-	else \
-		Script::SetProperty(rq, settings, "GL_FRAGMENT_PROGRAM_ARB.GL_" #id, i); \
 	} while (false)
 
 #define BOOL(id) INTEGER(id)
@@ -726,75 +688,6 @@ void CDevice::Report(const ScriptRequest& rq, JS::HandleValue settings)
 	if (ogl_HaveExtension("GL_ARB_texture_rectangle"))
 	{
 		INTEGER(MAX_RECTANGLE_TEXTURE_SIZE_ARB);
-	}
-
-	if (m_ARB)
-	{
-		if (ogl_HaveExtension("GL_ARB_vertex_program") || ogl_HaveExtension("GL_ARB_fragment_program"))
-		{
-			INTEGER(MAX_PROGRAM_MATRICES_ARB);
-			INTEGER(MAX_PROGRAM_MATRIX_STACK_DEPTH_ARB);
-		}
-
-		if (ogl_HaveExtension("GL_ARB_vertex_program"))
-		{
-			VERTEXPROGRAM(MAX_PROGRAM_ENV_PARAMETERS_ARB);
-			VERTEXPROGRAM(MAX_PROGRAM_LOCAL_PARAMETERS_ARB);
-			VERTEXPROGRAM(MAX_PROGRAM_INSTRUCTIONS_ARB);
-			VERTEXPROGRAM(MAX_PROGRAM_TEMPORARIES_ARB);
-			VERTEXPROGRAM(MAX_PROGRAM_PARAMETERS_ARB);
-			VERTEXPROGRAM(MAX_PROGRAM_ATTRIBS_ARB);
-			VERTEXPROGRAM(MAX_PROGRAM_ADDRESS_REGISTERS_ARB);
-			VERTEXPROGRAM(MAX_PROGRAM_NATIVE_INSTRUCTIONS_ARB);
-			VERTEXPROGRAM(MAX_PROGRAM_NATIVE_TEMPORARIES_ARB);
-			VERTEXPROGRAM(MAX_PROGRAM_NATIVE_PARAMETERS_ARB);
-			VERTEXPROGRAM(MAX_PROGRAM_NATIVE_ATTRIBS_ARB);
-			VERTEXPROGRAM(MAX_PROGRAM_NATIVE_ADDRESS_REGISTERS_ARB);
-
-			if (ogl_HaveExtension("GL_ARB_fragment_program"))
-			{
-				// The spec seems to say these should be supported, but
-				// Mesa complains about them so let's not bother
-				/*
-				VERTEXPROGRAM(MAX_PROGRAM_ALU_INSTRUCTIONS_ARB);
-				VERTEXPROGRAM(MAX_PROGRAM_TEX_INSTRUCTIONS_ARB);
-				VERTEXPROGRAM(MAX_PROGRAM_TEX_INDIRECTIONS_ARB);
-				VERTEXPROGRAM(MAX_PROGRAM_NATIVE_ALU_INSTRUCTIONS_ARB);
-				VERTEXPROGRAM(MAX_PROGRAM_NATIVE_TEX_INSTRUCTIONS_ARB);
-				VERTEXPROGRAM(MAX_PROGRAM_NATIVE_TEX_INDIRECTIONS_ARB);
-				*/
-			}
-		}
-
-		if (ogl_HaveExtension("GL_ARB_fragment_program"))
-		{
-			FRAGMENTPROGRAM(MAX_PROGRAM_ENV_PARAMETERS_ARB);
-			FRAGMENTPROGRAM(MAX_PROGRAM_LOCAL_PARAMETERS_ARB);
-			FRAGMENTPROGRAM(MAX_PROGRAM_INSTRUCTIONS_ARB);
-			FRAGMENTPROGRAM(MAX_PROGRAM_ALU_INSTRUCTIONS_ARB);
-			FRAGMENTPROGRAM(MAX_PROGRAM_TEX_INSTRUCTIONS_ARB);
-			FRAGMENTPROGRAM(MAX_PROGRAM_TEX_INDIRECTIONS_ARB);
-			FRAGMENTPROGRAM(MAX_PROGRAM_TEMPORARIES_ARB);
-			FRAGMENTPROGRAM(MAX_PROGRAM_PARAMETERS_ARB);
-			FRAGMENTPROGRAM(MAX_PROGRAM_ATTRIBS_ARB);
-			FRAGMENTPROGRAM(MAX_PROGRAM_NATIVE_INSTRUCTIONS_ARB);
-			FRAGMENTPROGRAM(MAX_PROGRAM_NATIVE_ALU_INSTRUCTIONS_ARB);
-			FRAGMENTPROGRAM(MAX_PROGRAM_NATIVE_TEX_INSTRUCTIONS_ARB);
-			FRAGMENTPROGRAM(MAX_PROGRAM_NATIVE_TEX_INDIRECTIONS_ARB);
-			FRAGMENTPROGRAM(MAX_PROGRAM_NATIVE_TEMPORARIES_ARB);
-			FRAGMENTPROGRAM(MAX_PROGRAM_NATIVE_PARAMETERS_ARB);
-			FRAGMENTPROGRAM(MAX_PROGRAM_NATIVE_ATTRIBS_ARB);
-
-			if (ogl_HaveExtension("GL_ARB_vertex_program"))
-			{
-				// The spec seems to say these should be supported, but
-				// Intel drivers on Windows complain about them so let's not bother
-				/*
-				FRAGMENTPROGRAM(MAX_PROGRAM_ADDRESS_REGISTERS_ARB);
-				FRAGMENTPROGRAM(MAX_PROGRAM_NATIVE_ADDRESS_REGISTERS_ARB);
-				*/
-			}
-		}
 	}
 
 	if (ogl_HaveExtension("GL_ARB_geometry_shader4"))
@@ -1178,9 +1071,9 @@ void CDevice::InsertTimestampQuery(const uint32_t handle)
 #endif
 }
 
-std::unique_ptr<IDevice> CreateDevice(SDL_Window* window, const bool arb)
+std::unique_ptr<IDevice> CreateDevice(SDL_Window* window)
 {
-	return GL::CDevice::Create(window, arb);
+	return GL::CDevice::Create(window);
 }
 
 } // namespace GL

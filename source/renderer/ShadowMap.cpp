@@ -139,7 +139,7 @@ void ShadowMapInternals::UpdateCascadesParameters()
 {
 	CascadeCount = g_ConfigDB.Get("shadowscascadecount", 1);
 
-	if (CascadeCount < 1 || CascadeCount > MAX_CASCADE_COUNT || Device->GetBackend() == Renderer::Backend::Backend::GL_ARB)
+	if (CascadeCount < 1 || CascadeCount > MAX_CASCADE_COUNT)
 		CascadeCount = 1;
 
 	ShadowsCoverMap = g_ConfigDB.Get("shadowscovermap", false);

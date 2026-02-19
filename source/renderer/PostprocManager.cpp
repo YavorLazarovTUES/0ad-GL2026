@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -115,9 +115,7 @@ bool CPostprocManager::IsEnabled() const
 			Renderer::Backend::ITexture::Usage::DEPTH_STENCIL_ATTACHMENT, true, true)
 				!= Renderer::Backend::Format::UNDEFINED;
 	return
-		g_RenderingOptions.GetPostProc() &&
-		m_Device->GetBackend() != Renderer::Backend::Backend::GL_ARB &&
-		isDepthStencilFormatPresent;
+		g_RenderingOptions.GetPostProc() && isDepthStencilFormatPresent;
 }
 
 void CPostprocManager::Cleanup()
@@ -701,10 +699,9 @@ void CPostprocManager::ApplyPostproc(
 	ENSURE(m_IsInitialized);
 
 	// Don't do anything if we are using the default effect and no AA.
-	const bool hasEffects = m_PostProcEffect != L"default";
-	const bool hasARB = m_Device->GetBackend() == Renderer::Backend::Backend::GL_ARB;
-	const bool hasAA = m_AATech && !hasARB;
-	const bool hasSharp = m_SharpTech && !hasARB;
+	const bool hasEffects{m_PostProcEffect != L"default"};
+	const bool hasAA{m_AATech};
+	const bool hasSharp{m_SharpTech};
 	if (!hasEffects && !hasAA && !hasSharp)
 		return;
 
@@ -773,7 +770,7 @@ void CPostprocManager::SetPostEffect(const CStrW& name)
 
 void CPostprocManager::UpdateAntiAliasingTechnique()
 {
-	if (m_Device->GetBackend() == Renderer::Backend::Backend::GL_ARB || !m_IsInitialized)
+	if (!m_IsInitialized)
 		return;
 
 	const std::string newAAName{g_ConfigDB.Get("antialiasing", std::string{})};
@@ -822,7 +819,7 @@ void CPostprocManager::UpdateAntiAliasingTechnique()
 
 void CPostprocManager::UpdateSharpeningTechnique()
 {
-	if (m_Device->GetBackend() == Renderer::Backend::Backend::GL_ARB || !m_IsInitialized)
+	if (!m_IsInitialized)
 		return;
 
 	const std::string newSharpName{g_ConfigDB.Get("sharpening", std::string{})};
@@ -943,11 +940,6 @@ void CPostprocManager::ResolveMultisampleFramebuffer(
 
 void CPostprocManager::RecalculateSize(const uint32_t width, const uint32_t height)
 {
-	if (m_Device->GetBackend() == Renderer::Backend::Backend::GL_ARB)
-	{
-		m_Scale = 1.0f;
-		return;
-	}
 	m_Scale = g_ConfigDB.Get("renderer.scale", m_Scale);
 	if (m_Scale < 0.25f || m_Scale > 2.0f)
 	{

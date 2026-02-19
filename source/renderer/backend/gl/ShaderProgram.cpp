@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -26,26 +26,19 @@
 #include "lib/types.h"
 #include "lib/utf8.h"
 #include "ps/CLogger.h"
-#include "ps/CStrIntern.h"
 #include "ps/Errors.h"
 #include "ps/Filesystem.h"
 #include "ps/Profiler2.h"
 #include "ps/XMB/XMBData.h"
 #include "ps/XMB/XMBStorage.h"
 #include "ps/XML/Xeromyces.h"
-#include "ps/containers/StaticVector.h"
-#include "renderer/backend/IBuffer.h"
 #include "renderer/backend/PipelineState.h"
 #include "renderer/backend/gl/Buffer.h"
-#include "renderer/backend/gl/Device.h"
 #include "renderer/backend/gl/DeviceCommandContext.h"
 
 #include <algorithm>
 #include <cstddef>
-#include <map>
 #include <string>
-#include <tuple>
-#include <unordered_map>
 #include <utility>
 
 #define USE_SHADER_XML_VALIDATION 1
@@ -198,7 +191,7 @@ int GetAttributeLocationFromStream(
 }
 
 bool PreprocessShaderFile(
-	bool arb, const CShaderDefines& defines, const VfsPath& path, const char* stage,
+	const CShaderDefines& defines, const VfsPath& path, const char* stage,
 	CStr& source, std::vector<VfsPath>& fileDependencies)
 {
 	CVFSFile file;
@@ -209,10 +202,9 @@ bool PreprocessShaderFile(
 	}
 
 	CPreprocessorWrapper preprocessor(
-		[arb, &fileDependencies](const CStr& includePath, CStr& out) -> bool
+		[&fileDependencies](const CStr& includePath, CStr& out) -> bool
 		{
-			const VfsPath includeFilePath(
-				(arb ? L"shaders/arb/" : L"shaders/glsl/") + wstring_from_utf8(includePath));
+			const VfsPath includeFilePath{L"shaders/glsl/" + wstring_from_utf8(includePath)};
 			// Add dependencies anyway to reload the shader when the file is
 			// appeared.
 			fileDependencies.push_back(includeFilePath);
@@ -226,68 +218,19 @@ bool PreprocessShaderFile(
 			return true;
 		});
 	preprocessor.AddDefines(defines);
-	if (!arb)
-		preprocessor.AddDefine(stage, "1");
+	preprocessor.AddDefine(stage, "1");
 
 #if CONFIG2_GLES
-	if (!arb)
-	{
-		// GLES defines the macro "GL_ES" in its GLSL preprocessor,
-		// but since we run our own preprocessor first, we need to explicitly
-		// define it here
-		preprocessor.AddDefine("GL_ES", "1");
-	}
+	// GLES defines the macro "GL_ES" in its GLSL preprocessor,
+	// but since we run our own preprocessor first, we need to explicitly
+	// define it here
+	preprocessor.AddDefine("GL_ES", "1");
 #endif
 
 	source = preprocessor.Preprocess(file.GetAsString());
 
 	return true;
 }
-
-#if !CONFIG2_GLES
-std::tuple<GLenum, GLenum, GLint> GetElementTypeAndCountFromString(const CStr& str)
-{
-#define CASE(MATCH_STRING, TYPE, ELEMENT_TYPE, ELEMENT_COUNT) \
-	if (str == MATCH_STRING) return {GL_ ## TYPE, GL_ ## ELEMENT_TYPE, ELEMENT_COUNT}
-
-	CASE("float", FLOAT, FLOAT, 1);
-	CASE("vec2", FLOAT_VEC2, FLOAT, 2);
-	CASE("vec3", FLOAT_VEC3, FLOAT, 3);
-	CASE("vec4", FLOAT_VEC4, FLOAT, 4);
-	CASE("mat2", FLOAT_MAT2, FLOAT, 4);
-	CASE("mat3", FLOAT_MAT3, FLOAT, 9);
-	CASE("mat4", FLOAT_MAT4, FLOAT, 16);
-#if !CONFIG2_GLES // GL ES 2.0 doesn't support non-square matrices.
-	CASE("mat2x3", FLOAT_MAT2x3, FLOAT, 6);
-	CASE("mat2x4", FLOAT_MAT2x4, FLOAT, 8);
-	CASE("mat3x2", FLOAT_MAT3x2, FLOAT, 6);
-	CASE("mat3x4", FLOAT_MAT3x4, FLOAT, 12);
-	CASE("mat4x2", FLOAT_MAT4x2, FLOAT, 8);
-	CASE("mat4x3", FLOAT_MAT4x3, FLOAT, 12);
-#endif
-
-	// A somewhat incomplete listing, missing "shadow" and "rect" versions
-	// which are interpreted as 2D (NB: our shadowmaps may change
-	// type based on user config).
-#if CONFIG2_GLES
-	if (str == "sampler1D") debug_warn(L"sampler1D not implemented on GLES");
-#else
-	CASE("sampler1D", SAMPLER_1D, TEXTURE_1D, 1);
-#endif
-	CASE("sampler2D", SAMPLER_2D, TEXTURE_2D, 1);
-#if CONFIG2_GLES
-	if (str == "sampler2DShadow") debug_warn(L"sampler2DShadow not implemented on GLES");
-	if (str == "sampler3D") debug_warn(L"sampler3D not implemented on GLES");
-#else
-	CASE("sampler2DShadow", SAMPLER_2D_SHADOW, TEXTURE_2D, 1);
-	CASE("sampler3D", SAMPLER_3D, TEXTURE_3D, 1);
-#endif
-	CASE("samplerCube", SAMPLER_CUBE, TEXTURE_CUBE_MAP, 1);
-
-#undef CASE
-	return {0, 0, 0};
-}
-#endif // !CONFIG2_GLES
 
 bool CompileGLSL(GLuint shader, const VfsPath& file, const CStr& code)
 {
@@ -333,566 +276,202 @@ IDevice* CVertexInputLayout::GetDevice()
 	return m_Device;
 }
 
-#if !CONFIG2_GLES
-
-class CShaderProgramARB final : public CShaderProgram
+CShaderProgram::CShaderProgram(
+	CDevice* device, const CStr& name,
+	const VfsPath& programPath, std::span<const std::tuple<VfsPath, GLenum>> shaderStages,
+	const CShaderDefines& defines,
+	const std::map<CStrIntern, int>& vertexAttribs,
+	int streamflags) :
+	m_StreamFlags(streamflags), m_ValidStreams(0),
+	m_Device(device), m_Name(name),
+	m_VertexAttribs(vertexAttribs)
 {
-public:
-	CShaderProgramARB(
-		CDevice* device,
-		const VfsPath& path, const VfsPath& vertexFilePath, const VfsPath& fragmentFilePath,
-		const CShaderDefines& defines,
-		const std::map<CStrIntern, std::pair<CStr, int>>& vertexIndices,
-		const std::map<CStrIntern, std::pair<CStr, int>>& fragmentIndices,
-		int streamflags)
-		: CShaderProgram(streamflags), m_Device(device)
+	for (std::map<CStrIntern, int>::iterator it = m_VertexAttribs.begin(); it != m_VertexAttribs.end(); ++it)
+		m_ActiveVertexAttributes.emplace_back(it->second);
+	std::sort(m_ActiveVertexAttributes.begin(), m_ActiveVertexAttributes.end());
+
+	m_Program = 0;
+	m_FileDependencies = {programPath};
+	for (const auto& shaderStage : shaderStages)
+		m_FileDependencies.emplace_back(std::get<0>(shaderStage));
+
+	// TODO: replace by scoped bind.
+	m_Device->GetActiveCommandContext()->SetGraphicsPipelineState(
+		MakeDefaultGraphicsPipelineStateDesc());
+
+	std::vector<VfsPath> newFileDependencies = {programPath};
+	for (const auto& [path, type] : shaderStages)
 	{
-		glGenProgramsARB(1, &m_VertexProgram);
-		glGenProgramsARB(1, &m_FragmentProgram);
-
-		std::vector<VfsPath> newFileDependencies = {path, vertexFilePath, fragmentFilePath};
-
-		CStr vertexCode;
-		if (!PreprocessShaderFile(true, defines, vertexFilePath, "STAGE_VERTEX", vertexCode, newFileDependencies))
-			return;
-		CStr fragmentCode;
-		if (!PreprocessShaderFile(true, defines, fragmentFilePath, "STAGE_FRAGMENT", fragmentCode, newFileDependencies))
-			return;
-
-		m_FileDependencies = std::move(newFileDependencies);
-
-		// TODO: replace by scoped bind.
-		m_Device->GetActiveCommandContext()->SetGraphicsPipelineState(
-			MakeDefaultGraphicsPipelineStateDesc());
-
-		if (!Compile(GL_VERTEX_PROGRAM_ARB, "vertex", m_VertexProgram, vertexFilePath, vertexCode))
-			return;
-
-		if (!Compile(GL_FRAGMENT_PROGRAM_ARB, "fragment", m_FragmentProgram, fragmentFilePath, fragmentCode))
-			return;
-
-		for (const auto& index : vertexIndices)
-		{
-			BindingSlot& bindingSlot = GetOrCreateBindingSlot(index.first);
-			bindingSlot.vertexProgramLocation = index.second.second;
-			const auto [type, elementType, elementCount] = GetElementTypeAndCountFromString(index.second.first);
-			bindingSlot.type = type;
-			bindingSlot.elementType = elementType;
-			bindingSlot.elementCount = elementCount;
-		}
-
-		for (const auto& index : fragmentIndices)
-		{
-			BindingSlot& bindingSlot = GetOrCreateBindingSlot(index.first);
-			bindingSlot.fragmentProgramLocation = index.second.second;
-			const auto [type, elementType, elementCount] = GetElementTypeAndCountFromString(index.second.first);
-			if (bindingSlot.type && type != bindingSlot.type)
-			{
-				LOGERROR("CShaderProgramARB: vertex and fragment program uniforms with the same name should have the same type.");
-			}
-			bindingSlot.type = type;
-			bindingSlot.elementType = elementType;
-			bindingSlot.elementCount = elementCount;
-		}
-	}
-
-	~CShaderProgramARB() override
-	{
-		glDeleteProgramsARB(1, &m_VertexProgram);
-		glDeleteProgramsARB(1, &m_FragmentProgram);
-	}
-
-	bool Compile(GLuint target, const char* targetName, GLuint program, const VfsPath& file, const CStr& code)
-	{
-		ogl_WarnIfError();
-
-		glBindProgramARB(target, program);
-
-		ogl_WarnIfError();
-
-		glProgramStringARB(target, GL_PROGRAM_FORMAT_ASCII_ARB, (GLsizei)code.length(), code.c_str());
-
-		if (ogl_SquelchError(GL_INVALID_OPERATION))
-		{
-			GLint errPos = 0;
-			glGetIntegerv(GL_PROGRAM_ERROR_POSITION_ARB, &errPos);
-			int errLine = std::count(code.begin(), code.begin() + std::min((int)code.length(), errPos + 1), '\n') + 1;
-			char* errStr = (char*)glGetString(GL_PROGRAM_ERROR_STRING_ARB);
-			LOGERROR("Failed to compile %s program '%s' (line %d):\n%s", targetName, file.string8(), errLine, errStr);
-			return false;
-		}
-
-		glBindProgramARB(target, 0);
-
-		ogl_WarnIfError();
-
-		return true;
-	}
-
-	void Bind(CShaderProgram* previousShaderProgram) override
-	{
-		if (previousShaderProgram)
-			previousShaderProgram->Unbind();
-
-		glBindProgramARB(GL_VERTEX_PROGRAM_ARB, m_VertexProgram);
-		glBindProgramARB(GL_FRAGMENT_PROGRAM_ARB, m_FragmentProgram);
-
-		BindClientStates();
-	}
-
-	void Unbind() override
-	{
-		glBindProgramARB(GL_VERTEX_PROGRAM_ARB, 0);
-		glBindProgramARB(GL_FRAGMENT_PROGRAM_ARB, 0);
-
-		UnbindClientStates();
-	}
-
-	IDevice* GetDevice() override { return m_Device; }
-
-	int32_t GetBindingSlot(const CStrIntern name) const override
-	{
-		auto it = m_BindingSlotsMapping.find(name);
-		return it == m_BindingSlotsMapping.end() ? -1 : it->second;
-	}
-
-	TextureUnit GetTextureUnit(const int32_t bindingSlot) override
-	{
-		if (bindingSlot < 0 || bindingSlot >= static_cast<int32_t>(m_BindingSlots.size()))
-			return { 0, 0, 0 };
-		TextureUnit textureUnit;
-		textureUnit.type = m_BindingSlots[bindingSlot].type;
-		textureUnit.target = m_BindingSlots[bindingSlot].elementType;
-		textureUnit.unit = m_BindingSlots[bindingSlot].fragmentProgramLocation;
-		return textureUnit;
-	}
-
-	GLuint GetStorageBuffer(const int32_t /*bindingSlot*/) override
-	{
-		debug_warn("ARB shaders don't support storage buffers.");
-		return 0;
-	}
-
-	void SetUniform(
-		const int32_t bindingSlot,
-		const float value) override
-	{
-		if (bindingSlot < 0 || bindingSlot >= static_cast<int32_t>(m_BindingSlots.size()))
-			return;
-		if (m_BindingSlots[bindingSlot].type != GL_FLOAT)
-		{
-			LOGERROR("CShaderProgramARB::SetUniform(): Invalid uniform type (expected float)");
-			return;
-		}
-		SetUniform(m_BindingSlots[bindingSlot], value, 0.0f, 0.0f, 0.0f);
-	}
-
-	void SetUniform(
-		const int32_t bindingSlot,
-		const float valueX, const float valueY) override
-	{
-		if (bindingSlot < 0 || bindingSlot >= static_cast<int32_t>(m_BindingSlots.size()))
-			return;
-		if (m_BindingSlots[bindingSlot].type != GL_FLOAT_VEC2)
-		{
-			LOGERROR("CShaderProgramARB::SetUniform(): Invalid uniform type (expected vec2)");
-			return;
-		}
-		SetUniform(m_BindingSlots[bindingSlot], valueX, valueY, 0.0f, 0.0f);
-	}
-
-	void SetUniform(
-		const int32_t bindingSlot,
-		const float valueX, const float valueY, const float valueZ) override
-	{
-		if (bindingSlot < 0 || bindingSlot >= static_cast<int32_t>(m_BindingSlots.size()))
-			return;
-		if (m_BindingSlots[bindingSlot].type != GL_FLOAT_VEC3)
-		{
-			LOGERROR("CShaderProgramARB::SetUniform(): Invalid uniform type (expected vec3)");
-			return;
-		}
-		SetUniform(m_BindingSlots[bindingSlot], valueX, valueY, valueZ, 0.0f);
-	}
-
-	void SetUniform(
-		const int32_t bindingSlot,
-		const float valueX, const float valueY,
-		const float valueZ, const float valueW) override
-	{
-		if (bindingSlot < 0 || bindingSlot >= static_cast<int32_t>(m_BindingSlots.size()))
-			return;
-		if (m_BindingSlots[bindingSlot].type != GL_FLOAT_VEC4)
-		{
-			LOGERROR("CShaderProgramARB::SetUniform(): Invalid uniform type (expected vec4)");
-			return;
-		}
-		SetUniform(m_BindingSlots[bindingSlot], valueX, valueY, valueZ, valueW);
-	}
-
-	void SetUniform(
-		const int32_t bindingSlot, std::span<const float> values) override
-	{
-		if (bindingSlot < 0 || bindingSlot >= static_cast<int32_t>(m_BindingSlots.size()))
-			return;
-		if (m_BindingSlots[bindingSlot].elementType != GL_FLOAT)
-		{
-			LOGERROR("CShaderProgramARB::SetUniform(): Invalid uniform element type (expected float)");
-			return;
-		}
-		if (m_BindingSlots[bindingSlot].elementCount > static_cast<GLint>(values.size()))
-		{
-			LOGERROR(
-				"CShaderProgramARB::SetUniform(): Invalid uniform element count (expected: %zu passed: %zu)",
-				m_BindingSlots[bindingSlot].elementCount, values.size());
-			return;
-		}
-		const GLenum type = m_BindingSlots[bindingSlot].type;
-
-		if (type == GL_FLOAT)
-			SetUniform(m_BindingSlots[bindingSlot], values[0], 0.0f, 0.0f, 0.0f);
-		else if (type == GL_FLOAT_VEC2)
-			SetUniform(m_BindingSlots[bindingSlot], values[0], values[1], 0.0f, 0.0f);
-		else if (type == GL_FLOAT_VEC3)
-			SetUniform(m_BindingSlots[bindingSlot], values[0], values[1], values[2], 0.0f);
-		else if (type == GL_FLOAT_VEC4)
-			SetUniform(m_BindingSlots[bindingSlot], values[0], values[1], values[2], values[3]);
-		else if (type == GL_FLOAT_MAT4)
-			SetUniformMatrix(m_BindingSlots[bindingSlot], values);
-		else
-			LOGERROR("CShaderProgramARB::SetUniform(): Invalid uniform type (expected float, vec2, vec3, vec4, mat4)");
-		ogl_WarnIfError();
-	}
-
-	std::vector<VfsPath> GetFileDependencies() const override
-	{
-		return m_FileDependencies;
-	}
-
-private:
-	struct BindingSlot
-	{
-		CStrIntern name;
-		int vertexProgramLocation;
-		int fragmentProgramLocation;
-		GLenum type;
-		GLenum elementType;
-		GLint elementCount;
-	};
-
-	BindingSlot& GetOrCreateBindingSlot(const CStrIntern name)
-	{
-		auto it = m_BindingSlotsMapping.find(name);
-		if (it == m_BindingSlotsMapping.end())
-		{
-			m_BindingSlotsMapping[name] = m_BindingSlots.size();
-			BindingSlot bindingSlot{};
-			bindingSlot.name = name;
-			bindingSlot.vertexProgramLocation = -1;
-			bindingSlot.fragmentProgramLocation = -1;
-			bindingSlot.elementType = 0;
-			bindingSlot.elementCount = 0;
-			m_BindingSlots.emplace_back(std::move(bindingSlot));
-			return m_BindingSlots.back();
-		}
-		else
-			return m_BindingSlots[it->second];
-	}
-
-	void SetUniform(
-		const BindingSlot& bindingSlot,
-		const float v0, const float v1, const float v2, const float v3)
-	{
-		SetUniform(GL_VERTEX_PROGRAM_ARB, bindingSlot.vertexProgramLocation, v0, v1, v2, v3);
-		SetUniform(GL_FRAGMENT_PROGRAM_ARB, bindingSlot.fragmentProgramLocation, v0, v1, v2, v3);
-	}
-
-	void SetUniform(
-		const GLenum target, const int location,
-		const float v0, const float v1, const float v2, const float v3)
-	{
-		if (location >= 0)
-		{
-			glProgramLocalParameter4fARB(
-				target, static_cast<GLuint>(location), v0, v1, v2, v3);
-		}
-	}
-
-	void SetUniformMatrix(
-		const BindingSlot& bindingSlot, std::span<const float> values)
-	{
-		const size_t mat4ElementCount = 16;
-		ENSURE(values.size() == mat4ElementCount);
-		SetUniformMatrix(GL_VERTEX_PROGRAM_ARB, bindingSlot.vertexProgramLocation, values);
-		SetUniformMatrix(GL_FRAGMENT_PROGRAM_ARB, bindingSlot.fragmentProgramLocation, values);
-	}
-
-	void SetUniformMatrix(
-		const GLenum target, const int location, std::span<const float> values)
-	{
-		if (location >= 0)
-		{
-			glProgramLocalParameter4fARB(
-				target, static_cast<GLuint>(location + 0), values[0], values[4], values[8], values[12]);
-			glProgramLocalParameter4fARB(
-				target, static_cast<GLuint>(location + 1), values[1], values[5], values[9], values[13]);
-			glProgramLocalParameter4fARB(
-				target, static_cast<GLuint>(location + 2), values[2], values[6], values[10], values[14]);
-			glProgramLocalParameter4fARB(
-				target, static_cast<GLuint>(location + 3), values[3], values[7], values[11], values[15]);
-		}
-	}
-
-	CDevice* m_Device = nullptr;
-
-	std::vector<VfsPath> m_FileDependencies;
-
-	GLuint m_VertexProgram;
-	GLuint m_FragmentProgram;
-
-	std::vector<BindingSlot> m_BindingSlots;
-	std::unordered_map<CStrIntern, int32_t> m_BindingSlotsMapping;
-};
-
-#endif // !CONFIG2_GLES
-
-class CShaderProgramGLSL final : public CShaderProgram
-{
-public:
-	CShaderProgramGLSL(
-		CDevice* device, const CStr& name,
-		const VfsPath& programPath, std::span<const std::tuple<VfsPath, GLenum>> shaderStages,
-		const CShaderDefines& defines,
-		const std::map<CStrIntern, int>& vertexAttribs,
-		int streamflags) :
-	CShaderProgram(streamflags),
-		m_Device(device), m_Name(name),
-		m_VertexAttribs(vertexAttribs)
-	{
-		for (std::map<CStrIntern, int>::iterator it = m_VertexAttribs.begin(); it != m_VertexAttribs.end(); ++it)
-			m_ActiveVertexAttributes.emplace_back(it->second);
-		std::sort(m_ActiveVertexAttributes.begin(), m_ActiveVertexAttributes.end());
-
-		m_Program = 0;
-		m_FileDependencies = {programPath};
-		for (const auto& shaderStage : shaderStages)
-			m_FileDependencies.emplace_back(std::get<0>(shaderStage));
-
-		// TODO: replace by scoped bind.
-		m_Device->GetActiveCommandContext()->SetGraphicsPipelineState(
-			MakeDefaultGraphicsPipelineStateDesc());
-
-		std::vector<VfsPath> newFileDependencies = {programPath};
-		for (const auto& [path, type] : shaderStages)
-		{
-			GLuint shader = glCreateShader(type);
-			newFileDependencies.emplace_back(path);
-#if !CONFIG2_GLES
-			if (m_Device->GetCapabilities().debugLabels)
-				glObjectLabel(GL_SHADER, shader, -1, path.string8().c_str());
-#endif
-			m_ShaderStages.emplace_back(type, shader);
-			const char* stageDefine = "STAGE_UNDEFINED";
-			switch (type)
-			{
-			case GL_VERTEX_SHADER:
-				stageDefine = "STAGE_VERTEX";
-				break;
-			case GL_FRAGMENT_SHADER:
-				stageDefine = "STAGE_FRAGMENT";
-				break;
-#if !CONFIG2_GLES
-			case GL_COMPUTE_SHADER:
-				stageDefine = "STAGE_COMPUTE";
-				break;
-#endif
-			default:
-				break;
-			}
-			CStr source;
-			if (!PreprocessShaderFile(false, defines, path, stageDefine, source, newFileDependencies))
-				return;
-			if (source.empty())
-			{
-				LOGERROR("Failed to preprocess shader: '%s'", path.string8());
-				return;
-			}
-#if CONFIG2_GLES
-			// Ugly hack to replace desktop GLSL 1.10/1.20 with GLSL ES 1.00,
-			// and also to set default float precision for fragment shaders
-			source.Replace("#version 110\n", "#version 100\nprecision highp float;\n");
-			source.Replace("#version 110\r\n", "#version 100\nprecision highp float;\n");
-			source.Replace("#version 120\n", "#version 100\nprecision highp float;\n");
-			source.Replace("#version 120\r\n", "#version 100\nprecision highp float;\n");
-#endif
-			if (!CompileGLSL(shader, path, source))
-				return;
-		}
-
-		m_FileDependencies = std::move(newFileDependencies);
-
-		if (!Link(programPath))
-			return;
-	}
-
-	~CShaderProgramGLSL() override
-	{
-		if (m_Program)
-			glDeleteProgram(m_Program);
-
-		for (ShaderStage& stage : m_ShaderStages)
-			glDeleteShader(stage.shader);
-	}
-
-	bool Link(const VfsPath& path)
-	{
-		ENSURE(!m_Program);
-		m_Program = glCreateProgram();
-
+		GLuint shader = glCreateShader(type);
+		newFileDependencies.emplace_back(path);
 #if !CONFIG2_GLES
 		if (m_Device->GetCapabilities().debugLabels)
-		{
-			glObjectLabel(GL_PROGRAM, m_Program, -1, m_Name.c_str());
-		}
+			glObjectLabel(GL_SHADER, shader, -1, path.string8().c_str());
 #endif
-
-		for (ShaderStage& stage : m_ShaderStages)
+		m_ShaderStages.emplace_back(type, shader);
+		const char* stageDefine = "STAGE_UNDEFINED";
+		switch (type)
 		{
-			glAttachShader(m_Program, stage.shader);
-			ogl_WarnIfError();
+		case GL_VERTEX_SHADER:
+			stageDefine = "STAGE_VERTEX";
+			break;
+		case GL_FRAGMENT_SHADER:
+			stageDefine = "STAGE_FRAGMENT";
+			break;
+#if !CONFIG2_GLES
+		case GL_COMPUTE_SHADER:
+			stageDefine = "STAGE_COMPUTE";
+			break;
+#endif
+		default:
+			break;
 		}
-
-		// Set up the attribute bindings explicitly, since apparently drivers
-		// don't always pick the most efficient bindings automatically,
-		// and also this lets us hardcode indexes into VertexPointer etc
-		for (std::map<CStrIntern, int>::iterator it = m_VertexAttribs.begin(); it != m_VertexAttribs.end(); ++it)
-			glBindAttribLocation(m_Program, it->second, it->first.c_str());
-
-		glLinkProgram(m_Program);
-
-		GLint ok = 0;
-		glGetProgramiv(m_Program, GL_LINK_STATUS, &ok);
-
-		GLint length = 0;
-		glGetProgramiv(m_Program, GL_INFO_LOG_LENGTH, &length);
-
-		if (!ok && length == 0)
-			length = 4096;
-
-		if (length > 1)
+		CStr source;
+		if (!PreprocessShaderFile(defines, path, stageDefine, source, newFileDependencies))
+			return;
+		if (source.empty())
 		{
-			char* infolog = new char[length];
-			glGetProgramInfoLog(m_Program, length, NULL, infolog);
-
-			if (ok)
-				LOGMESSAGE("Info when linking program '%s':\n%s", path.string8(), infolog);
-			else
-				LOGERROR("Failed to link program '%s':\n%s", path.string8(), infolog);
-
-			delete[] infolog;
+			LOGERROR("Failed to preprocess shader: '%s'", path.string8());
+			return;
 		}
+#if CONFIG2_GLES
+		// Ugly hack to replace desktop GLSL 1.10/1.20 with GLSL ES 1.00,
+		// and also to set default float precision for fragment shaders
+		source.Replace("#version 110\n", "#version 100\nprecision highp float;\n");
+		source.Replace("#version 110\r\n", "#version 100\nprecision highp float;\n");
+		source.Replace("#version 120\n", "#version 100\nprecision highp float;\n");
+		source.Replace("#version 120\r\n", "#version 100\nprecision highp float;\n");
+#endif
+		if (!CompileGLSL(shader, path, source))
+			return;
+	}
 
-		ogl_WarnIfError();
+	m_FileDependencies = std::move(newFileDependencies);
 
-		if (!ok)
-			return false;
+	if (!Link(programPath))
+		return;
+}
 
-		Bind(nullptr);
+CShaderProgram::~CShaderProgram()
+{
+	if (m_Program)
+		glDeleteProgram(m_Program);
 
-		ogl_WarnIfError();
+	for (ShaderStage& stage : m_ShaderStages)
+		glDeleteShader(stage.shader);
+}
 
-		// Reorder sampler units to decrease redundant texture unit changes when
-		// samplers bound in a different order.
-		const std::unordered_map<CStrIntern, int> requiredUnits =
-		{
-			{CStrIntern("baseTex"), 0},
-			{CStrIntern("normTex"), 1},
-			{CStrIntern("specTex"), 2},
-			{CStrIntern("aoTex"), 3},
-			{CStrIntern("shadowTex"), 4},
-			{CStrIntern("losTex"), 5},
-		};
-
-		std::vector<uint8_t> occupiedUnits;
+bool CShaderProgram::Link(const VfsPath& path)
+{
+	ENSURE(!m_Program);
+	m_Program = glCreateProgram();
 
 #if !CONFIG2_GLES
-		const bool isStorageSupported{m_Device->GetCapabilities().storage};
-		if (isStorageSupported)
-		{
-			constexpr GLint maxBlockNameLength{128};
-			char name[maxBlockNameLength];
-
-			GLint maxUniformBlockNameLength{0};
-			glGetProgramInterfaceiv(m_Program, GL_UNIFORM_BLOCK, GL_MAX_NAME_LENGTH, &maxUniformBlockNameLength);
-			ogl_WarnIfError();
-
-			GLint numberOfActiveUniformBlocks{0};
-			glGetProgramInterfaceiv(m_Program, GL_UNIFORM_BLOCK, GL_ACTIVE_RESOURCES, &numberOfActiveUniformBlocks);
-			ogl_WarnIfError();
-			// Currently we support the only one uniform buffer per shader.
-			if (numberOfActiveUniformBlocks == 1)
-			{
-				GLsizei length{0};
-				glGetProgramResourceName(m_Program, GL_UNIFORM_BLOCK, 0, maxBlockNameLength, &length, name);
-
-				const GLuint location{glGetProgramResourceIndex(m_Program, GL_UNIFORM_BLOCK, name)};
-				glUniformBlockBinding(m_Program, location, location);
-
-				m_UniformBufferLocation = location;
-			}
-
-			GLint maxStorageNameLength{0};
-			glGetProgramInterfaceiv(m_Program, GL_SHADER_STORAGE_BLOCK, GL_MAX_NAME_LENGTH, &maxStorageNameLength);
-			ogl_WarnIfError();
-			ENSURE(maxStorageNameLength <= maxBlockNameLength);
-			GLint numberOfActiveStorages{0};
-			glGetProgramInterfaceiv(m_Program, GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &numberOfActiveStorages);
-			ogl_WarnIfError();
-			for (GLint index{0}; index < numberOfActiveStorages; ++index)
-			{
-				GLsizei length{0};
-				glGetProgramResourceName(m_Program, GL_SHADER_STORAGE_BLOCK, index, maxBlockNameLength, &length, name);
-
-				const GLuint location{glGetProgramResourceIndex(m_Program, GL_SHADER_STORAGE_BLOCK, name)};
-				glShaderStorageBlockBinding(m_Program, location, location);
-
-				const CStrIntern nameIntern(name);
-
-				m_BindingSlotsMapping[nameIntern] = m_BindingSlots.size();
-				BindingSlot bindingSlot{};
-				bindingSlot.name = nameIntern;
-				bindingSlot.location = location;
-				bindingSlot.isStorageBuffer = true;
-				m_BindingSlots.emplace_back(std::move(bindingSlot));
-			}
-		}
+	if (m_Device->GetCapabilities().debugLabels)
+	{
+		glObjectLabel(GL_PROGRAM, m_Program, -1, m_Name.c_str());
+	}
 #endif
 
-		GLint numUniforms = 0;
-		glGetProgramiv(m_Program, GL_ACTIVE_UNIFORMS, &numUniforms);
+	for (ShaderStage& stage : m_ShaderStages)
+	{
+		glAttachShader(m_Program, stage.shader);
 		ogl_WarnIfError();
-		for (GLint i = 0; i < numUniforms; ++i)
+	}
+
+	// Set up the attribute bindings explicitly, since apparently drivers
+	// don't always pick the most efficient bindings automatically,
+	// and also this lets us hardcode indexes into VertexPointer etc
+	for (std::map<CStrIntern, int>::iterator it = m_VertexAttribs.begin(); it != m_VertexAttribs.end(); ++it)
+		glBindAttribLocation(m_Program, it->second, it->first.c_str());
+
+	glLinkProgram(m_Program);
+
+	GLint ok = 0;
+	glGetProgramiv(m_Program, GL_LINK_STATUS, &ok);
+
+	GLint length = 0;
+	glGetProgramiv(m_Program, GL_INFO_LOG_LENGTH, &length);
+
+	if (!ok && length == 0)
+		length = 4096;
+
+	if (length > 1)
+	{
+		char* infolog = new char[length];
+		glGetProgramInfoLog(m_Program, length, NULL, infolog);
+
+		if (ok)
+			LOGMESSAGE("Info when linking program '%s':\n%s", path.string8(), infolog);
+		else
+			LOGERROR("Failed to link program '%s':\n%s", path.string8(), infolog);
+
+		delete[] infolog;
+	}
+
+	ogl_WarnIfError();
+
+	if (!ok)
+		return false;
+
+	Bind(nullptr);
+
+	ogl_WarnIfError();
+
+	// Reorder sampler units to decrease redundant texture unit changes when
+	// samplers bound in a different order.
+	const std::unordered_map<CStrIntern, int> requiredUnits =
+	{
+		{CStrIntern("baseTex"), 0},
+		{CStrIntern("normTex"), 1},
+		{CStrIntern("specTex"), 2},
+		{CStrIntern("aoTex"), 3},
+		{CStrIntern("shadowTex"), 4},
+		{CStrIntern("losTex"), 5},
+	};
+
+	std::vector<uint8_t> occupiedUnits;
+
+#if !CONFIG2_GLES
+	const bool isStorageSupported{m_Device->GetCapabilities().storage};
+	if (isStorageSupported)
+	{
+		constexpr GLint maxBlockNameLength{128};
+		char name[maxBlockNameLength];
+
+		GLint maxUniformBlockNameLength{0};
+		glGetProgramInterfaceiv(m_Program, GL_UNIFORM_BLOCK, GL_MAX_NAME_LENGTH, &maxUniformBlockNameLength);
+		ogl_WarnIfError();
+
+		GLint numberOfActiveUniformBlocks{0};
+		glGetProgramInterfaceiv(m_Program, GL_UNIFORM_BLOCK, GL_ACTIVE_RESOURCES, &numberOfActiveUniformBlocks);
+		ogl_WarnIfError();
+		// Currently we support the only one uniform buffer per shader.
+		if (numberOfActiveUniformBlocks == 1)
 		{
-			// TODO: use GL_ACTIVE_UNIFORM_MAX_LENGTH for the size.
-			char name[256] = {0};
-			GLsizei nameLength = 0;
-			GLint size = 0;
-			GLenum type = 0;
-			glGetActiveUniform(m_Program, i, ARRAY_SIZE(name), &nameLength, &size, &type, name);
-			ogl_WarnIfError();
+			GLsizei length{0};
+			glGetProgramResourceName(m_Program, GL_UNIFORM_BLOCK, 0, maxBlockNameLength, &length, name);
 
-			const GLint location = glGetUniformLocation(m_Program, name);
+			const GLuint location{glGetProgramResourceIndex(m_Program, GL_UNIFORM_BLOCK, name)};
+			glUniformBlockBinding(m_Program, location, location);
 
-			// OpenGL specification is a bit vague about a name returned by glGetActiveUniform.
-			// NVIDIA drivers return uniform name with "[0]", Intel Windows drivers without;
-			while (nameLength > 3 &&
-				name[nameLength - 3] == '[' &&
-				name[nameLength - 2] == '0' &&
-				name[nameLength - 1] == ']')
-			{
-				nameLength -= 3;
-			}
-			name[nameLength] = 0;
+			m_UniformBufferLocation = location;
+		}
+
+		GLint maxStorageNameLength{0};
+		glGetProgramInterfaceiv(m_Program, GL_SHADER_STORAGE_BLOCK, GL_MAX_NAME_LENGTH, &maxStorageNameLength);
+		ogl_WarnIfError();
+		ENSURE(maxStorageNameLength <= maxBlockNameLength);
+		GLint numberOfActiveStorages{0};
+		glGetProgramInterfaceiv(m_Program, GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &numberOfActiveStorages);
+		ogl_WarnIfError();
+		for (GLint index{0}; index < numberOfActiveStorages; ++index)
+		{
+			GLsizei length{0};
+			glGetProgramResourceName(m_Program, GL_SHADER_STORAGE_BLOCK, index, maxBlockNameLength, &length, name);
+
+			const GLuint location{glGetProgramResourceIndex(m_Program, GL_SHADER_STORAGE_BLOCK, name)};
+			glShaderStorageBlockBinding(m_Program, location, location);
 
 			const CStrIntern nameIntern(name);
 
@@ -900,10 +479,48 @@ public:
 			BindingSlot bindingSlot{};
 			bindingSlot.name = nameIntern;
 			bindingSlot.location = location;
-			bindingSlot.size = size;
-			bindingSlot.type = type;
-			bindingSlot.isTexture = false;
-			bindingSlot.isStorageBuffer = false;
+			bindingSlot.isStorageBuffer = true;
+			m_BindingSlots.emplace_back(std::move(bindingSlot));
+		}
+	}
+#endif
+
+	GLint numUniforms = 0;
+	glGetProgramiv(m_Program, GL_ACTIVE_UNIFORMS, &numUniforms);
+	ogl_WarnIfError();
+	for (GLint i = 0; i < numUniforms; ++i)
+	{
+		// TODO: use GL_ACTIVE_UNIFORM_MAX_LENGTH for the size.
+		char name[256] = {0};
+		GLsizei nameLength = 0;
+		GLint size = 0;
+		GLenum type = 0;
+		glGetActiveUniform(m_Program, i, ARRAY_SIZE(name), &nameLength, &size, &type, name);
+		ogl_WarnIfError();
+
+		const GLint location = glGetUniformLocation(m_Program, name);
+
+		// OpenGL specification is a bit vague about a name returned by glGetActiveUniform.
+		// NVIDIA drivers return uniform name with "[0]", Intel Windows drivers without;
+		while (nameLength > 3 &&
+			name[nameLength - 3] == '[' &&
+			name[nameLength - 2] == '0' &&
+			name[nameLength - 1] == ']')
+		{
+			nameLength -= 3;
+		}
+		name[nameLength] = 0;
+
+		const CStrIntern nameIntern(name);
+
+		m_BindingSlotsMapping[nameIntern] = m_BindingSlots.size();
+		BindingSlot bindingSlot{};
+		bindingSlot.name = nameIntern;
+		bindingSlot.location = location;
+		bindingSlot.size = size;
+		bindingSlot.type = type;
+		bindingSlot.isTexture = false;
+		bindingSlot.isStorageBuffer = false;
 
 #define CASE(TYPE, ELEMENT_TYPE, ELEMENT_COUNT) \
 			case GL_ ## TYPE: \
@@ -911,8 +528,8 @@ public:
 				bindingSlot.elementCount = ELEMENT_COUNT; \
 				break;
 
-			switch (type)
-			{
+		switch (type)
+		{
 			CASE(FLOAT, FLOAT, 1);
 			CASE(FLOAT_VEC2, FLOAT, 2);
 			CASE(FLOAT_VEC3, FLOAT, 3);
@@ -929,407 +546,353 @@ public:
 			CASE(FLOAT_MAT4x2, FLOAT, 8);
 			CASE(FLOAT_MAT4x3, FLOAT, 12);
 #endif
-			}
+		}
 #undef CASE
 
-			// Assign sampler uniforms to sequential texture units.
-			switch (type)
-			{
-			case GL_SAMPLER_2D:
-				bindingSlot.elementType = GL_TEXTURE_2D;
-				bindingSlot.isTexture = true;
-				break;
-			case GL_SAMPLER_CUBE:
-				bindingSlot.elementType = GL_TEXTURE_CUBE_MAP;
-				bindingSlot.isTexture = true;
-				break;
+		// Assign sampler uniforms to sequential texture units.
+		switch (type)
+		{
+		case GL_SAMPLER_2D:
+			bindingSlot.elementType = GL_TEXTURE_2D;
+			bindingSlot.isTexture = true;
+			break;
+		case GL_SAMPLER_CUBE:
+			bindingSlot.elementType = GL_TEXTURE_CUBE_MAP;
+			bindingSlot.isTexture = true;
+			break;
 #if !CONFIG2_GLES
-			case GL_SAMPLER_2D_SHADOW:
-				bindingSlot.elementType = GL_TEXTURE_2D;
-				bindingSlot.isTexture = true;
-				break;
-			case GL_IMAGE_2D:
-				bindingSlot.elementType = GL_IMAGE_2D;
-				bindingSlot.isTexture = true;
-				m_HasImageUniforms = true;
-				break;
+		case GL_SAMPLER_2D_SHADOW:
+			bindingSlot.elementType = GL_TEXTURE_2D;
+			bindingSlot.isTexture = true;
+			break;
+		case GL_IMAGE_2D:
+			bindingSlot.elementType = GL_IMAGE_2D;
+			bindingSlot.isTexture = true;
+			m_HasImageUniforms = true;
+			break;
 #endif
-			default:
-				break;
-			}
-
-			if (bindingSlot.isTexture)
-			{
-				const auto it = requiredUnits.find(nameIntern);
-				const int unit = it == requiredUnits.end() ? -1 : it->second;
-				bindingSlot.elementCount = unit;
-				if (unit != -1)
-				{
-					if (unit >= static_cast<int>(occupiedUnits.size()))
-						occupiedUnits.resize(unit + 1);
-					occupiedUnits[unit] = true;
-				}
-			}
-
-			if (bindingSlot.elementType == 0)
-			{
-				LOGERROR("CShaderProgramGLSL::Link: unsupported uniform type: 0x%04x", static_cast<int>(type));
-			}
-
-#if !CONFIG2_GLES
-			if (isStorageSupported)
-			{
-				GLuint uniformIndex{0};
-				const GLchar* nameToQuery{name};
-				glGetUniformIndices(m_Program, 1, &nameToQuery, &uniformIndex);
-				ogl_WarnIfError();
-
-				GLint uniformOffset{0};
-				glGetActiveUniformsiv(m_Program, 1, &uniformIndex, GL_UNIFORM_OFFSET, &uniformOffset);
-				ogl_WarnIfError();
-
-				// According to the OpenGL spec:
-				//  https://registry.khronos.org/OpenGL-Refpages/es3/html/glGetActiveUniformsiv.xhtml
-				//  For uniforms in the default uniform block, -1 will be returned.
-				if (uniformOffset >= 0)
-				{
-					const uint32_t sizeInBytes{static_cast<uint32_t>(bindingSlot.size * bindingSlot.elementCount * sizeof(float))};
-					m_UniformBufferSize = std::max(m_UniformBufferSize, uniformOffset + sizeInBytes);
-					bindingSlot.location = -1;
-					bindingSlot.offset = uniformOffset;
-				}
-			}
-#endif
-
-			m_BindingSlots.emplace_back(std::move(bindingSlot));
+		default:
+			break;
 		}
 
-		for (BindingSlot& bindingSlot : m_BindingSlots)
+		if (bindingSlot.isTexture)
 		{
-			if (!bindingSlot.isTexture)
-				continue;
-			if (bindingSlot.elementCount == -1)
+			const auto it = requiredUnits.find(nameIntern);
+			const int unit = it == requiredUnits.end() ? -1 : it->second;
+			bindingSlot.elementCount = unit;
+			if (unit != -1)
 			{
-				// We need to find a minimal available unit.
-				int unit = 0;
-				while (unit < static_cast<int>(occupiedUnits.size()) && occupiedUnits[unit])
-					++unit;
 				if (unit >= static_cast<int>(occupiedUnits.size()))
 					occupiedUnits.resize(unit + 1);
 				occupiedUnits[unit] = true;
-				bindingSlot.elementCount = unit;
 			}
-			// Link uniform to unit.
-			glUniform1i(bindingSlot.location, bindingSlot.elementCount);
-			ogl_WarnIfError();
 		}
 
-		if (m_UniformBufferSize > 0 && m_UniformBufferLocation != -1)
+		if (bindingSlot.elementType == 0)
 		{
-			m_UniformBuffer = m_Device->CreateBuffer(
-				"ShaderProgramUniformBuffer", IBuffer::Type::UNIFORM, m_UniformBufferSize,
-				IBuffer::Usage::DYNAMIC | IBuffer::Usage::TRANSFER_DST);
+			LOGERROR("CShaderProgram::Link: unsupported uniform type: 0x%04x", static_cast<int>(type));
 		}
 
-		// TODO: verify that we're not using more samplers than is supported
-
-		Unbind();
-
-		return true;
-	}
-
-	void Bind(CShaderProgram* previousShaderProgram) override
-	{
-		CShaderProgramGLSL* previousShaderProgramGLSL = nullptr;
-		if (previousShaderProgram)
-			previousShaderProgramGLSL = static_cast<CShaderProgramGLSL*>(previousShaderProgram);
-		ENSURE(this != previousShaderProgramGLSL);
-
-		glUseProgram(m_Program);
 #if !CONFIG2_GLES
-		if (m_UniformBuffer)
-			glBindBufferBase(GL_UNIFORM_BUFFER, m_UniformBufferLocation, m_UniformBuffer->As<CBuffer>()->GetHandle());
+		if (isStorageSupported)
+		{
+			GLuint uniformIndex{0};
+			const GLchar* nameToQuery{name};
+			glGetUniformIndices(m_Program, 1, &nameToQuery, &uniformIndex);
+			ogl_WarnIfError();
+
+			GLint uniformOffset{0};
+			glGetActiveUniformsiv(m_Program, 1, &uniformIndex, GL_UNIFORM_OFFSET, &uniformOffset);
+			ogl_WarnIfError();
+
+			// According to the OpenGL spec:
+			//  https://registry.khronos.org/OpenGL-Refpages/es3/html/glGetActiveUniformsiv.xhtml
+			//  For uniforms in the default uniform block, -1 will be returned.
+			if (uniformOffset >= 0)
+			{
+				const uint32_t sizeInBytes{static_cast<uint32_t>(bindingSlot.size * bindingSlot.elementCount * sizeof(float))};
+				m_UniformBufferSize = std::max(m_UniformBufferSize, uniformOffset + sizeInBytes);
+				bindingSlot.location = -1;
+				bindingSlot.offset = uniformOffset;
+			}
+		}
 #endif
 
-		if (previousShaderProgramGLSL)
+		m_BindingSlots.emplace_back(std::move(bindingSlot));
+	}
+
+	for (BindingSlot& bindingSlot : m_BindingSlots)
+	{
+		if (!bindingSlot.isTexture)
+			continue;
+		if (bindingSlot.elementCount == -1)
 		{
-			std::vector<int>::iterator itPrevious = previousShaderProgramGLSL->m_ActiveVertexAttributes.begin();
-			std::vector<int>::iterator itNext = m_ActiveVertexAttributes.begin();
-			while (
-				itPrevious != previousShaderProgramGLSL->m_ActiveVertexAttributes.end() ||
+			// We need to find a minimal available unit.
+			int unit = 0;
+			while (unit < static_cast<int>(occupiedUnits.size()) && occupiedUnits[unit])
+				++unit;
+			if (unit >= static_cast<int>(occupiedUnits.size()))
+				occupiedUnits.resize(unit + 1);
+			occupiedUnits[unit] = true;
+			bindingSlot.elementCount = unit;
+		}
+		// Link uniform to unit.
+		glUniform1i(bindingSlot.location, bindingSlot.elementCount);
+		ogl_WarnIfError();
+	}
+
+	if (m_UniformBufferSize > 0 && m_UniformBufferLocation != -1)
+	{
+		m_UniformBuffer = m_Device->CreateBuffer(
+			"ShaderProgramUniformBuffer", IBuffer::Type::UNIFORM, m_UniformBufferSize,
+			IBuffer::Usage::DYNAMIC | IBuffer::Usage::TRANSFER_DST);
+	}
+
+	// TODO: verify that we're not using more samplers than is supported
+
+	Unbind();
+
+	return true;
+}
+
+void CShaderProgram::Bind(CShaderProgram* previousShaderProgram)
+{
+	ENSURE(this != previousShaderProgram);
+
+	glUseProgram(m_Program);
+#if !CONFIG2_GLES
+	if (m_UniformBuffer)
+		glBindBufferBase(GL_UNIFORM_BUFFER, m_UniformBufferLocation, m_UniformBuffer->As<CBuffer>()->GetHandle());
+#endif
+
+	if (previousShaderProgram)
+	{
+		std::vector<int>::iterator itPrevious = previousShaderProgram->m_ActiveVertexAttributes.begin();
+		std::vector<int>::iterator itNext = m_ActiveVertexAttributes.begin();
+		while (
+			itPrevious != previousShaderProgram->m_ActiveVertexAttributes.end() ||
+			itNext != m_ActiveVertexAttributes.end())
+		{
+			if (itPrevious != previousShaderProgram->m_ActiveVertexAttributes.end() &&
 				itNext != m_ActiveVertexAttributes.end())
 			{
-				if (itPrevious != previousShaderProgramGLSL->m_ActiveVertexAttributes.end() &&
-					itNext != m_ActiveVertexAttributes.end())
+				if (*itPrevious == *itNext)
 				{
-					if (*itPrevious == *itNext)
-					{
-						++itPrevious;
-						++itNext;
-					}
-					else if (*itPrevious < *itNext)
-					{
-						glDisableVertexAttribArray(*itPrevious);
-						++itPrevious;
-					}
-					else if (*itPrevious > *itNext)
-					{
-						glEnableVertexAttribArray(*itNext);
-						++itNext;
-					}
+					++itPrevious;
+					++itNext;
 				}
-				else if (itPrevious != previousShaderProgramGLSL->m_ActiveVertexAttributes.end())
+				else if (*itPrevious < *itNext)
 				{
 					glDisableVertexAttribArray(*itPrevious);
 					++itPrevious;
 				}
-				else if (itNext != m_ActiveVertexAttributes.end())
+				else if (*itPrevious > *itNext)
 				{
 					glEnableVertexAttribArray(*itNext);
 					++itNext;
 				}
 			}
+			else if (itPrevious != previousShaderProgram->m_ActiveVertexAttributes.end())
+			{
+				glDisableVertexAttribArray(*itPrevious);
+				++itPrevious;
+			}
+			else if (itNext != m_ActiveVertexAttributes.end())
+			{
+				glEnableVertexAttribArray(*itNext);
+				++itNext;
+			}
 		}
-		else
-		{
-			for (const int index : m_ActiveVertexAttributes)
-				glEnableVertexAttribArray(index);
-		}
-
-		m_ValidStreams = 0;
 	}
-
-	void Unbind() override
+	else
 	{
-		glUseProgram(0);
-
 		for (const int index : m_ActiveVertexAttributes)
-			glDisableVertexAttribArray(index);
+			glEnableVertexAttribArray(index);
 	}
 
-	IDevice* GetDevice() override { return m_Device; }
-
-	int32_t GetBindingSlot(const CStrIntern name) const override
-	{
-		auto it = m_BindingSlotsMapping.find(name);
-		return it == m_BindingSlotsMapping.end() ? -1 : it->second;
-	}
-
-	TextureUnit GetTextureUnit(const int32_t bindingSlot) override
-	{
-		if (bindingSlot < 0 || bindingSlot >= static_cast<int32_t>(m_BindingSlots.size()))
-			return { 0, 0, 0 };
-		TextureUnit textureUnit;
-		textureUnit.type = m_BindingSlots[bindingSlot].type;
-		textureUnit.target = m_BindingSlots[bindingSlot].elementType;
-		textureUnit.unit = m_BindingSlots[bindingSlot].elementCount;
-		return textureUnit;
-	}
-
-	GLuint GetStorageBuffer(const int32_t bindingSlot) override
-	{
-		if (bindingSlot < 0 || bindingSlot >= static_cast<int32_t>(m_BindingSlots.size()))
-			return 0;
-		if (!m_BindingSlots[bindingSlot].isStorageBuffer)
-			LOGERROR("CShaderProgramGLSL::GetStorageBuffer(): Invalid slot (expected storage buffer): '%s'", m_BindingSlots[bindingSlot].name.c_str());
-		return m_BindingSlots[bindingSlot].location;
-	}
-
-	void SetUniform(
-		const int32_t bindingSlot,
-		const float value) override
-	{
-		if (bindingSlot < 0 || bindingSlot >= static_cast<int32_t>(m_BindingSlots.size()))
-			return;
-		if (m_BindingSlots[bindingSlot].type != GL_FLOAT ||
-			m_BindingSlots[bindingSlot].size != 1)
-		{
-			LOGERROR("CShaderProgramGLSL::SetUniform(): Invalid uniform type (expected float) '%s'", m_BindingSlots[bindingSlot].name.c_str());
-			return;
-		}
-		glUniform1f(m_BindingSlots[bindingSlot].location, value);
-		ogl_WarnIfError();
-	}
-
-	void SetUniform(
-		const int32_t bindingSlot,
-		const float valueX, const float valueY) override
-	{
-		if (bindingSlot < 0 || bindingSlot >= static_cast<int32_t>(m_BindingSlots.size()))
-			return;
-		if (m_BindingSlots[bindingSlot].type != GL_FLOAT_VEC2 ||
-			m_BindingSlots[bindingSlot].size != 1)
-		{
-			LOGERROR("CShaderProgramGLSL::SetUniform(): Invalid uniform type (expected vec2) '%s'", m_BindingSlots[bindingSlot].name.c_str());
-			return;
-		}
-		glUniform2f(m_BindingSlots[bindingSlot].location, valueX, valueY);
-		ogl_WarnIfError();
-	}
-
-	void SetUniform(
-		const int32_t bindingSlot,
-		const float valueX, const float valueY, const float valueZ) override
-	{
-		if (bindingSlot < 0 || bindingSlot >= static_cast<int32_t>(m_BindingSlots.size()))
-			return;
-		if (m_BindingSlots[bindingSlot].type != GL_FLOAT_VEC3 ||
-			m_BindingSlots[bindingSlot].size != 1)
-		{
-			LOGERROR("CShaderProgramGLSL::SetUniform(): Invalid uniform type (expected vec3) '%s'", m_BindingSlots[bindingSlot].name.c_str());
-			return;
-		}
-		glUniform3f(m_BindingSlots[bindingSlot].location, valueX, valueY, valueZ);
-		ogl_WarnIfError();
-	}
-
-	void SetUniform(
-		const int32_t bindingSlot,
-		const float valueX, const float valueY,
-		const float valueZ, const float valueW) override
-	{
-		if (bindingSlot < 0 || bindingSlot >= static_cast<int32_t>(m_BindingSlots.size()))
-			return;
-		if (m_BindingSlots[bindingSlot].type != GL_FLOAT_VEC4 ||
-			m_BindingSlots[bindingSlot].size != 1)
-		{
-			LOGERROR("CShaderProgramGLSL::SetUniform(): Invalid uniform type (expected vec4) '%s'", m_BindingSlots[bindingSlot].name.c_str());
-			return;
-		}
-		glUniform4f(m_BindingSlots[bindingSlot].location, valueX, valueY, valueZ, valueW);
-		ogl_WarnIfError();
-	}
-
-	void SetUniform(
-		const int32_t bindingSlot, std::span<const float> values) override
-	{
-		if (bindingSlot < 0 || bindingSlot >= static_cast<int32_t>(m_BindingSlots.size()))
-			return;
-		if (m_BindingSlots[bindingSlot].elementType != GL_FLOAT)
-		{
-			LOGERROR("CShaderProgramGLSL::SetUniform(): Invalid uniform element type (expected float) '%s'", m_BindingSlots[bindingSlot].name.c_str());
-			return;
-		}
-		if (m_BindingSlots[bindingSlot].size == 1 && m_BindingSlots[bindingSlot].elementCount > static_cast<GLint>(values.size()))
-		{
-			LOGERROR(
-				"CShaderProgramGLSL::SetUniform(): Invalid uniform element count (expected: %zu passed: %zu) '%s'",
-				m_BindingSlots[bindingSlot].elementCount, values.size(), m_BindingSlots[bindingSlot].name.c_str());
-			return;
-		}
-		const GLint location = m_BindingSlots[bindingSlot].location;
-		const GLenum type = m_BindingSlots[bindingSlot].type;
-
-		if (location == -1)
-		{
-			const uint32_t sizeInBytes{
-				static_cast<uint32_t>(m_BindingSlots[bindingSlot].size * m_BindingSlots[bindingSlot].elementCount * sizeof(float))};
-			const uint32_t dataSizeToUpload{std::min(
-				static_cast<uint32_t>(values.size() * sizeof(float)), sizeInBytes)};
-			m_Device->GetActiveCommandContext()->UploadBufferRegion(
-				m_UniformBuffer.get(), values.data(), m_BindingSlots[bindingSlot].offset, dataSizeToUpload);
-			return;
-		}
-
-		if (type == GL_FLOAT)
-			glUniform1fv(location, 1, values.data());
-		else if (type == GL_FLOAT_VEC2)
-			glUniform2fv(location, 1, values.data());
-		else if (type == GL_FLOAT_VEC3)
-			glUniform3fv(location, 1, values.data());
-		else if (type == GL_FLOAT_VEC4)
-			glUniform4fv(location, 1, values.data());
-		else if (type == GL_FLOAT_MAT4)
-		{
-			// For case of array of matrices we might pass less number of matrices.
-			const GLint size = std::min(
-				m_BindingSlots[bindingSlot].size, static_cast<GLint>(values.size() / 16));
-			glUniformMatrix4fv(location, size, GL_FALSE, values.data());
-		}
-		else
-			LOGERROR("CShaderProgramGLSL::SetUniform(): Invalid uniform type (expected float, vec2, vec3, vec4, mat4) '%s'", m_BindingSlots[bindingSlot].name.c_str());
-		ogl_WarnIfError();
-	}
-
-	void VertexAttribPointer(
-		const VertexAttributeStream stream, const Format format,
-		const uint32_t offset, const uint32_t stride,
-		[[maybe_unused]] const VertexAttributeRate rate, const void* data) override
-	{
-		const int attributeLocation = GetAttributeLocationFromStream(m_Device, stream);
-		std::vector<int>::const_iterator it =
-			std::lower_bound(m_ActiveVertexAttributes.begin(), m_ActiveVertexAttributes.end(), attributeLocation);
-		if (it == m_ActiveVertexAttributes.end() || *it != attributeLocation)
-			return;
-		const GLint size = GLSizeFromFormat(format);
-		const GLenum type = GLTypeFromFormat(format);
-		const GLboolean normalized = NormalizedFromFormat(format);
-		glVertexAttribPointer(
-			attributeLocation, size, type, normalized, stride, static_cast<const u8*>(data) + offset);
-#if CONFIG2_GLES
-		ENSURE(!m_Device->GetCapabilities().instancing);
-#else
-		if (rate == VertexAttributeRate::PER_INSTANCE)
-			ENSURE(m_Device->GetCapabilities().instancing);
-		if (m_Device->GetCapabilities().instancing)
-		{
-			glVertexAttribDivisorARB(attributeLocation, rate == VertexAttributeRate::PER_INSTANCE ? 1 : 0);
-		}
-#endif
-		m_ValidStreams |= GetStreamMask(stream);
-	}
-
-	std::vector<VfsPath> GetFileDependencies() const override
-	{
-		return m_FileDependencies;
-	}
-
-private:
-	struct ShaderStage
-	{
-		GLenum type;
-		GLuint shader;
-	};
-
-	CDevice* m_Device = nullptr;
-
-	CStr m_Name;
-	std::vector<VfsPath> m_FileDependencies;
-
-	std::map<CStrIntern, int> m_VertexAttribs;
-	// Sorted list of active vertex attributes.
-	std::vector<int> m_ActiveVertexAttributes;
-
-	GLuint m_Program;
-	// 5 = max(compute, vertex + tesselation (control + evaluation) + geometry + fragment).
-	PS::StaticVector<ShaderStage, 5> m_ShaderStages;
-
-	struct BindingSlot
-	{
-		CStrIntern name;
-		GLint location;
-		GLint offset;
-		GLint size;
-		GLenum type;
-		GLenum elementType;
-		GLint elementCount;
-		bool isTexture;
-		bool isStorageBuffer;
-	};
-	std::vector<BindingSlot> m_BindingSlots;
-	std::unordered_map<CStrIntern, int32_t> m_BindingSlotsMapping;
-
-	GLint m_UniformBufferLocation{-1};
-	uint32_t m_UniformBufferSize{0};
-	std::unique_ptr<IBuffer> m_UniformBuffer;
-};
-
-CShaderProgram::CShaderProgram(int streamflags)
-	: m_StreamFlags(streamflags), m_ValidStreams(0)
-{
+	m_ValidStreams = 0;
 }
 
-CShaderProgram::~CShaderProgram() = default;
+void CShaderProgram::Unbind()
+{
+	glUseProgram(0);
+
+	for (const int index : m_ActiveVertexAttributes)
+		glDisableVertexAttribArray(index);
+}
+
+int32_t CShaderProgram::GetBindingSlot(const CStrIntern name) const
+{
+	auto it = m_BindingSlotsMapping.find(name);
+	return it == m_BindingSlotsMapping.end() ? -1 : it->second;
+}
+
+CShaderProgram::TextureUnit CShaderProgram::GetTextureUnit(const int32_t bindingSlot)
+{
+	if (bindingSlot < 0 || bindingSlot >= static_cast<int32_t>(m_BindingSlots.size()))
+		return { 0, 0, 0 };
+	TextureUnit textureUnit;
+	textureUnit.type = m_BindingSlots[bindingSlot].type;
+	textureUnit.target = m_BindingSlots[bindingSlot].elementType;
+	textureUnit.unit = m_BindingSlots[bindingSlot].elementCount;
+	return textureUnit;
+}
+
+GLuint CShaderProgram::GetStorageBuffer(const int32_t bindingSlot)
+{
+	if (bindingSlot < 0 || bindingSlot >= static_cast<int32_t>(m_BindingSlots.size()))
+		return 0;
+	if (!m_BindingSlots[bindingSlot].isStorageBuffer)
+		LOGERROR("CShaderProgramGLSL::GetStorageBuffer(): Invalid slot (expected storage buffer): '%s'", m_BindingSlots[bindingSlot].name.c_str());
+	return m_BindingSlots[bindingSlot].location;
+}
+
+void CShaderProgram::SetUniform(const int32_t bindingSlot, const float value)
+{
+	if (bindingSlot < 0 || bindingSlot >= static_cast<int32_t>(m_BindingSlots.size()))
+		return;
+	if (m_BindingSlots[bindingSlot].type != GL_FLOAT ||
+		m_BindingSlots[bindingSlot].size != 1)
+	{
+		LOGERROR("CShaderProgramGLSL::SetUniform(): Invalid uniform type (expected float) '%s'", m_BindingSlots[bindingSlot].name.c_str());
+		return;
+	}
+	glUniform1f(m_BindingSlots[bindingSlot].location, value);
+	ogl_WarnIfError();
+}
+
+void CShaderProgram::SetUniform(
+	const int32_t bindingSlot,
+	const float valueX, const float valueY)
+{
+	if (bindingSlot < 0 || bindingSlot >= static_cast<int32_t>(m_BindingSlots.size()))
+		return;
+	if (m_BindingSlots[bindingSlot].type != GL_FLOAT_VEC2 ||
+		m_BindingSlots[bindingSlot].size != 1)
+	{
+		LOGERROR("CShaderProgramGLSL::SetUniform(): Invalid uniform type (expected vec2) '%s'", m_BindingSlots[bindingSlot].name.c_str());
+		return;
+	}
+	glUniform2f(m_BindingSlots[bindingSlot].location, valueX, valueY);
+	ogl_WarnIfError();
+}
+
+void CShaderProgram::SetUniform(
+	const int32_t bindingSlot,
+	const float valueX, const float valueY, const float valueZ)
+{
+	if (bindingSlot < 0 || bindingSlot >= static_cast<int32_t>(m_BindingSlots.size()))
+		return;
+	if (m_BindingSlots[bindingSlot].type != GL_FLOAT_VEC3 ||
+		m_BindingSlots[bindingSlot].size != 1)
+	{
+		LOGERROR("CShaderProgramGLSL::SetUniform(): Invalid uniform type (expected vec3) '%s'", m_BindingSlots[bindingSlot].name.c_str());
+		return;
+	}
+	glUniform3f(m_BindingSlots[bindingSlot].location, valueX, valueY, valueZ);
+	ogl_WarnIfError();
+}
+
+void CShaderProgram::SetUniform(
+	const int32_t bindingSlot,
+	const float valueX, const float valueY,
+	const float valueZ, const float valueW)
+{
+	if (bindingSlot < 0 || bindingSlot >= static_cast<int32_t>(m_BindingSlots.size()))
+		return;
+	if (m_BindingSlots[bindingSlot].type != GL_FLOAT_VEC4 ||
+		m_BindingSlots[bindingSlot].size != 1)
+	{
+		LOGERROR("CShaderProgram::SetUniform(): Invalid uniform type (expected vec4) '%s'", m_BindingSlots[bindingSlot].name.c_str());
+		return;
+	}
+	glUniform4f(m_BindingSlots[bindingSlot].location, valueX, valueY, valueZ, valueW);
+	ogl_WarnIfError();
+}
+
+void CShaderProgram::SetUniform(
+	const int32_t bindingSlot, std::span<const float> values)
+{
+	if (bindingSlot < 0 || bindingSlot >= static_cast<int32_t>(m_BindingSlots.size()))
+		return;
+	if (m_BindingSlots[bindingSlot].elementType != GL_FLOAT)
+	{
+		LOGERROR("CShaderProgram::SetUniform(): Invalid uniform element type (expected float) '%s'", m_BindingSlots[bindingSlot].name.c_str());
+		return;
+	}
+	if (m_BindingSlots[bindingSlot].size == 1 && m_BindingSlots[bindingSlot].elementCount > static_cast<GLint>(values.size()))
+	{
+		LOGERROR(
+			"CShaderProgram::SetUniform(): Invalid uniform element count (expected: %zu passed: %zu) '%s'",
+			m_BindingSlots[bindingSlot].elementCount, values.size(), m_BindingSlots[bindingSlot].name.c_str());
+		return;
+	}
+	const GLint location = m_BindingSlots[bindingSlot].location;
+	const GLenum type = m_BindingSlots[bindingSlot].type;
+
+	if (location == -1)
+	{
+		const uint32_t sizeInBytes{
+			static_cast<uint32_t>(m_BindingSlots[bindingSlot].size * m_BindingSlots[bindingSlot].elementCount * sizeof(float))};
+		const uint32_t dataSizeToUpload{std::min(
+			static_cast<uint32_t>(values.size() * sizeof(float)), sizeInBytes)};
+		m_Device->GetActiveCommandContext()->UploadBufferRegion(
+			m_UniformBuffer.get(), values.data(), m_BindingSlots[bindingSlot].offset, dataSizeToUpload);
+		return;
+	}
+
+	if (type == GL_FLOAT)
+		glUniform1fv(location, 1, values.data());
+	else if (type == GL_FLOAT_VEC2)
+		glUniform2fv(location, 1, values.data());
+	else if (type == GL_FLOAT_VEC3)
+		glUniform3fv(location, 1, values.data());
+	else if (type == GL_FLOAT_VEC4)
+		glUniform4fv(location, 1, values.data());
+	else if (type == GL_FLOAT_MAT4)
+	{
+		// For case of array of matrices we might pass less number of matrices.
+		const GLint size = std::min(
+			m_BindingSlots[bindingSlot].size, static_cast<GLint>(values.size() / 16));
+		glUniformMatrix4fv(location, size, GL_FALSE, values.data());
+	}
+	else
+		LOGERROR("CShaderProgram::SetUniform(): Invalid uniform type (expected float, vec2, vec3, vec4, mat4) '%s'", m_BindingSlots[bindingSlot].name.c_str());
+	ogl_WarnIfError();
+}
+
+void CShaderProgram::VertexAttribPointer(
+	const VertexAttributeStream stream, const Format format,
+	const uint32_t offset, const uint32_t stride,
+	[[maybe_unused]] const VertexAttributeRate rate, const void* data)
+{
+	const int attributeLocation = GetAttributeLocationFromStream(m_Device, stream);
+	std::vector<int>::const_iterator it =
+		std::lower_bound(m_ActiveVertexAttributes.begin(), m_ActiveVertexAttributes.end(), attributeLocation);
+	if (it == m_ActiveVertexAttributes.end() || *it != attributeLocation)
+		return;
+	const GLint size = GLSizeFromFormat(format);
+	const GLenum type = GLTypeFromFormat(format);
+	const GLboolean normalized = NormalizedFromFormat(format);
+	glVertexAttribPointer(
+		attributeLocation, size, type, normalized, stride, static_cast<const u8*>(data) + offset);
+#if CONFIG2_GLES
+	ENSURE(!m_Device->GetCapabilities().instancing);
+#else
+	if (rate == VertexAttributeRate::PER_INSTANCE)
+		ENSURE(m_Device->GetCapabilities().instancing);
+	if (m_Device->GetCapabilities().instancing)
+	{
+		glVertexAttribDivisorARB(attributeLocation, rate == VertexAttributeRate::PER_INSTANCE ? 1 : 0);
+	}
+#endif
+	m_ValidStreams |= GetStreamMask(stream);
+}
+
+std::vector<VfsPath> CShaderProgram::GetFileDependencies() const
+{
+	return m_FileDependencies;
+}
 
 // static
 std::unique_ptr<CShaderProgram> CShaderProgram::Create(CDevice* device, const CStr& name, const CShaderDefines& baseDefines)
@@ -1379,8 +942,6 @@ std::unique_ptr<CShaderProgram> CShaderProgram::Create(CDevice* device, const CS
 
 	XMBElement root = XeroFile.GetRoot();
 
-	const bool isGLSL = root.GetAttributes().GetNamedItem(at_type) == "glsl";
-
 	VfsPath vertexFile;
 	VfsPath fragmentFile;
 	CShaderDefines defines = baseDefines;
@@ -1418,7 +979,7 @@ std::unique_ptr<CShaderProgram> CShaderProgram::Create(CDevice* device, const CS
 				{
 					const CStr streamName = attributes.GetNamedItem(at_name);
 					const CStr attributeName = attributes.GetNamedItem(at_attribute);
-					if (attributeName.empty() && isGLSL)
+					if (attributeName.empty())
 						LOGERROR("Empty attribute name in vertex shader description '%s'", vertexFile.string8().c_str());
 
 					VertexAttributeStream stream =
@@ -1448,11 +1009,8 @@ std::unique_ptr<CShaderProgram> CShaderProgram::Create(CDevice* device, const CS
 					else
 						LOGERROR("Unknown stream '%s' in vertex shader description '%s'", streamName.c_str(), vertexFile.string8().c_str());
 
-					if (isGLSL)
-					{
-						const int attributeLocation = GetAttributeLocationFromStream(device, stream);
-						vertexAttribs[CStrIntern(attributeName)] = attributeLocation;
-					}
+					const int attributeLocation = GetAttributeLocationFromStream(device, stream);
+					vertexAttribs[CStrIntern(attributeName)] = attributeLocation;
 					streamFlags |= GetStreamMask(stream);
 				}
 			}
@@ -1482,210 +1040,27 @@ std::unique_ptr<CShaderProgram> CShaderProgram::Create(CDevice* device, const CS
 		}
 	}
 
-	if (isGLSL)
-	{
 #if !CONFIG2_GLES
-		if (!computeFile.empty())
-		{
-			ENSURE(streamFlags == 0);
-			ENSURE(vertexAttribs.empty());
-		}
-		const PS::StaticVector<std::tuple<VfsPath, GLenum>, 2> shaderStages{computeFile.empty()
-			? PS::StaticVector<std::tuple<VfsPath, GLenum>, 2>{{vertexFile, GL_VERTEX_SHADER}, {fragmentFile, GL_FRAGMENT_SHADER}}
-			: PS::StaticVector<std::tuple<VfsPath, GLenum>, 2>{{computeFile, GL_COMPUTE_SHADER}}};
+	if (!computeFile.empty())
+	{
+		ENSURE(streamFlags == 0);
+		ENSURE(vertexAttribs.empty());
+	}
+	const PS::StaticVector<std::tuple<VfsPath, GLenum>, 2> shaderStages{computeFile.empty()
+		? PS::StaticVector<std::tuple<VfsPath, GLenum>, 2>{{vertexFile, GL_VERTEX_SHADER}, {fragmentFile, GL_FRAGMENT_SHADER}}
+		: PS::StaticVector<std::tuple<VfsPath, GLenum>, 2>{{computeFile, GL_COMPUTE_SHADER}}};
 #else
-		const PS::StaticVector<std::tuple<VfsPath, GLenum>, 2> shaderStages{{{vertexFile, GL_VERTEX_SHADER}, {fragmentFile, GL_FRAGMENT_SHADER}}};
+	const PS::StaticVector<std::tuple<VfsPath, GLenum>, 2> shaderStages{{{vertexFile, GL_VERTEX_SHADER}, {fragmentFile, GL_FRAGMENT_SHADER}}};
 #endif
 
-		return std::make_unique<CShaderProgramGLSL>(
-			device, name, xmlFilename, shaderStages, defines,
-			vertexAttribs, streamFlags);
-	}
-	else
-	{
-#if CONFIG2_GLES
-		LOGERROR("CShaderProgram::Create: '%s'+'%s': ARB shaders not supported on this device",
-			vertexFile.string8(), fragmentFile.string8());
-		return nullptr;
-#else
-		return std::make_unique<CShaderProgramARB>(
-			device, xmlFilename, vertexFile, fragmentFile, defines,
-			vertexUniforms, fragmentUniforms, streamFlags);
-#endif
-	}
+	return std::unique_ptr<CShaderProgram>(new CShaderProgram(
+		device, name, xmlFilename, shaderStages, defines,
+		vertexAttribs, streamFlags));
 }
-
-// These should all be overridden by CShaderProgramGLSL, and not used
-// if a non-GLSL shader was loaded instead:
-
-#if CONFIG2_GLES
-
-// These should all be overridden by CShaderProgramGLSL
-// (GLES doesn't support any other types of shader program):
-
-void CShaderProgram::VertexPointer(const Renderer::Backend::Format, GLsizei /*stride*/,
-	const void* /*pointer*/)
-{
-	debug_warn("CShaderProgram::VertexPointer should be overridden");
-}
-void CShaderProgram::NormalPointer(const Renderer::Backend::Format, GLsizei /*stride*/,
-	const void* /*pointer*/)
-{
-	debug_warn("CShaderProgram::NormalPointer should be overridden");
-}
-void CShaderProgram::ColorPointer(const Renderer::Backend::Format, GLsizei /*stride*/,
-	const void* /*pointer*/)
-{
-	debug_warn("CShaderProgram::ColorPointer should be overridden");
-}
-void CShaderProgram::TexCoordPointer(GLenum /*texture*/, const Renderer::Backend::Format,
-	GLsizei /*stride*/, const void* /*pointer*/)
-{
-	debug_warn("CShaderProgram::TexCoordPointer should be overridden");
-}
-
-#else
-
-// These are overridden by CShaderProgramGLSL, but fixed-function and ARB shaders
-// both use the fixed-function vertex attribute pointers so we'll share their
-// definitions here:
-
-void CShaderProgram::VertexPointer(const Renderer::Backend::Format format, GLsizei stride, const void* pointer)
-{
-	const GLint size = GLSizeFromFormat(format);
-	ENSURE(2 <= size && size <= 4);
-	const GLenum type = GLTypeFromFormat(format);
-	glVertexPointer(size, type, stride, pointer);
-	m_ValidStreams |= GetStreamMask(VertexAttributeStream::POSITION);
-}
-
-void CShaderProgram::NormalPointer(const Renderer::Backend::Format format, GLsizei stride, const void* pointer)
-{
-	ENSURE(format == Renderer::Backend::Format::R32G32B32_SFLOAT);
-	glNormalPointer(GL_FLOAT, stride, pointer);
-	m_ValidStreams |= GetStreamMask(VertexAttributeStream::NORMAL);
-}
-
-void CShaderProgram::ColorPointer(const Renderer::Backend::Format format, GLsizei stride, const void* pointer)
-{
-	const GLint size = GLSizeFromFormat(format);
-	ENSURE(3 <= size && size <= 4);
-	const GLenum type = GLTypeFromFormat(format);
-	glColorPointer(size, type, stride, pointer);
-	m_ValidStreams |= GetStreamMask(VertexAttributeStream::COLOR);
-}
-
-void CShaderProgram::TexCoordPointer(GLenum texture, const Renderer::Backend::Format format, GLsizei stride, const void* pointer)
-{
-	glClientActiveTextureARB(texture);
-	const GLint size = GLSizeFromFormat(format);
-	ENSURE(1 <= size && size <= 4);
-	const GLenum type = GLTypeFromFormat(format);
-	glTexCoordPointer(size, type, stride, pointer);
-	glClientActiveTextureARB(GL_TEXTURE0);
-	m_ValidStreams |= GetStreamMask(VertexAttributeStream::UV0) << (texture - GL_TEXTURE0);
-}
-
-void CShaderProgram::BindClientStates()
-{
-	ENSURE(m_StreamFlags == (m_StreamFlags & (
-		GetStreamMask(VertexAttributeStream::POSITION) |
-		GetStreamMask(VertexAttributeStream::NORMAL) |
-		GetStreamMask(VertexAttributeStream::COLOR) |
-		GetStreamMask(VertexAttributeStream::UV0) |
-		GetStreamMask(VertexAttributeStream::UV1))));
-
-	// Enable all the desired client states for non-GLSL rendering
-
-	if (m_StreamFlags & GetStreamMask(VertexAttributeStream::POSITION))
-		glEnableClientState(GL_VERTEX_ARRAY);
-	if (m_StreamFlags & GetStreamMask(VertexAttributeStream::NORMAL))
-		glEnableClientState(GL_NORMAL_ARRAY);
-	if (m_StreamFlags & GetStreamMask(VertexAttributeStream::COLOR))
-		glEnableClientState(GL_COLOR_ARRAY);
-
-	if (m_StreamFlags & GetStreamMask(VertexAttributeStream::UV0))
-	{
-		glClientActiveTextureARB(GL_TEXTURE0);
-		glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-	}
-
-	if (m_StreamFlags & GetStreamMask(VertexAttributeStream::UV1))
-	{
-		glClientActiveTextureARB(GL_TEXTURE1);
-		glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-		glClientActiveTextureARB(GL_TEXTURE0);
-	}
-
-	// Rendering code must subsequently call VertexPointer etc for all of the streams
-	// that were activated in this function, else AssertPointersBound will complain
-	// that some arrays were unspecified
-	m_ValidStreams = 0;
-}
-
-void CShaderProgram::UnbindClientStates()
-{
-	if (m_StreamFlags & GetStreamMask(VertexAttributeStream::POSITION))
-		glDisableClientState(GL_VERTEX_ARRAY);
-	if (m_StreamFlags & GetStreamMask(VertexAttributeStream::NORMAL))
-		glDisableClientState(GL_NORMAL_ARRAY);
-	if (m_StreamFlags & GetStreamMask(VertexAttributeStream::COLOR))
-		glDisableClientState(GL_COLOR_ARRAY);
-
-	if (m_StreamFlags & GetStreamMask(VertexAttributeStream::UV0))
-	{
-		glClientActiveTextureARB(GL_TEXTURE0);
-		glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	}
-
-	if (m_StreamFlags & GetStreamMask(VertexAttributeStream::UV1))
-	{
-		glClientActiveTextureARB(GL_TEXTURE1);
-		glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-		glClientActiveTextureARB(GL_TEXTURE0);
-	}
-}
-
-#endif // !CONFIG2_GLES
 
 bool CShaderProgram::IsStreamActive(const VertexAttributeStream stream) const
 {
 	return (m_StreamFlags & GetStreamMask(stream)) != 0;
-}
-
-void CShaderProgram::VertexAttribPointer(
-	const VertexAttributeStream stream, const Format format,
-	const uint32_t offset, const uint32_t stride,
-	const VertexAttributeRate rate, const void* data)
-{
-	ENSURE(rate == VertexAttributeRate::PER_VERTEX);
-	switch (stream)
-	{
-	case VertexAttributeStream::POSITION:
-		VertexPointer(format, stride, static_cast<const u8*>(data) + offset);
-		break;
-	case VertexAttributeStream::NORMAL:
-		NormalPointer(format, stride, static_cast<const u8*>(data) + offset);
-		break;
-	case VertexAttributeStream::COLOR:
-		ColorPointer(format, stride, static_cast<const u8*>(data) + offset);
-		break;
-	case VertexAttributeStream::UV0:
-	case VertexAttributeStream::UV1:
-	case VertexAttributeStream::UV2:
-	case VertexAttributeStream::UV3:
-	case VertexAttributeStream::UV4:
-	case VertexAttributeStream::UV5:
-	case VertexAttributeStream::UV6:
-	case VertexAttributeStream::UV7:
-	{
-		const int indexOffset = static_cast<int>(stream) - static_cast<int>(VertexAttributeStream::UV0);
-		TexCoordPointer(GL_TEXTURE0 + indexOffset, format, stride, static_cast<const u8*>(data) + offset);
-		break;
-	}
-	default:
-		debug_warn("Unsupported stream");
-	};
 }
 
 void CShaderProgram::AssertPointersBound()

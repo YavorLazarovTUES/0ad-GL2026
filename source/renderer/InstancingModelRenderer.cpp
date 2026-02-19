@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -59,11 +59,11 @@ struct IModelDef : public CModelDefRPrivate
 	/// Indices are the same for all models, so share them
 	VertexIndexArray m_IndexArray;
 
-	IModelDef(const CModelDefPtr& mdef, bool calculateTangents);
+	IModelDef(const CModelDefPtr& mdef);
 };
 
 
-IModelDef::IModelDef(const CModelDefPtr& mdef, bool calculateTangents)
+IModelDef::IModelDef(const CModelDefPtr& mdef)
 	: m_IndexArray(Renderer::Backend::IBuffer::Usage::TRANSFER_DST),
 	m_Array(Renderer::Backend::IBuffer::Type::VERTEX, Renderer::Backend::IBuffer::Usage::TRANSFER_DST)
 {
@@ -82,115 +82,85 @@ IModelDef::IModelDef(const CModelDefPtr& mdef, bool calculateTangents)
 		m_Array.AddAttribute(&m_UVs[i]);
 	}
 
-	if (calculateTangents)
+	// Generate tangents for the geometry:-
+
+	m_Tangent.format = Renderer::Backend::Format::R32G32B32A32_SFLOAT;
+	m_Array.AddAttribute(&m_Tangent);
+
+	// floats per vertex; position + normal + tangent + UV*sets
+	int numVertexAttrs = 3 + 3 + 4 + 2 * mdef->GetNumUVsPerVertex();
+
+	// the tangent generation can increase the number of vertices temporarily
+	// so reserve a bit more memory to avoid reallocations in GenTangents (in most cases)
+	std::vector<float> newVertices;
+	newVertices.reserve(numVertexAttrs * numVertices * 2);
+
+	// Generate the tangents
+	ModelRenderer::GenTangents(mdef, newVertices, false);
+
+	// how many vertices do we have after generating tangents?
+	int newNumVert = newVertices.size() / numVertexAttrs;
+
+	std::vector<int> remapTable(newNumVert);
+	std::vector<float> vertexDataOut(newNumVert * numVertexAttrs);
+
+	// re-weld the mesh to remove duplicated vertices
+	int numVertices2 = WeldMesh(&remapTable[0], &vertexDataOut[0],
+				&newVertices[0], newNumVert, numVertexAttrs);
+
+	// Copy the model data to graphics memory:-
+
+	m_Array.SetNumberOfVertices(numVertices2);
+	m_Array.Layout();
+
+	VertexArrayIterator<CVector3D> Position = m_Position.GetIterator<CVector3D>();
+	VertexArrayIterator<CVector3D> Normal = m_Normal.GetIterator<CVector3D>();
+	VertexArrayIterator<CVector4D> Tangent = m_Tangent.GetIterator<CVector4D>();
+
+	// copy everything into the vertex array
+	for (int i = 0; i < numVertices2; i++)
 	{
-		// Generate tangents for the geometry:-
+		int q = numVertexAttrs * i;
 
-		m_Tangent.format = Renderer::Backend::Format::R32G32B32A32_SFLOAT;
-		m_Array.AddAttribute(&m_Tangent);
+		Position[i] = CVector3D(vertexDataOut[q + 0], vertexDataOut[q + 1], vertexDataOut[q + 2]);
+		q += 3;
 
-		// floats per vertex; position + normal + tangent + UV*sets
-		int numVertexAttrs = 3 + 3 + 4 + 2 * mdef->GetNumUVsPerVertex();
+		Normal[i] = CVector3D(vertexDataOut[q + 0], vertexDataOut[q + 1], vertexDataOut[q + 2]);
+		q += 3;
 
-		// the tangent generation can increase the number of vertices temporarily
-		// so reserve a bit more memory to avoid reallocations in GenTangents (in most cases)
-		std::vector<float> newVertices;
-		newVertices.reserve(numVertexAttrs * numVertices * 2);
+		Tangent[i] = CVector4D(vertexDataOut[q + 0], vertexDataOut[q + 1], vertexDataOut[q + 2],
+				vertexDataOut[q + 3]);
+		q += 4;
 
-		// Generate the tangents
-		ModelRenderer::GenTangents(mdef, newVertices, false);
-
-		// how many vertices do we have after generating tangents?
-		int newNumVert = newVertices.size() / numVertexAttrs;
-
-		std::vector<int> remapTable(newNumVert);
-		std::vector<float> vertexDataOut(newNumVert * numVertexAttrs);
-
-		// re-weld the mesh to remove duplicated vertices
-		int numVertices2 = WeldMesh(&remapTable[0], &vertexDataOut[0],
-					&newVertices[0], newNumVert, numVertexAttrs);
-
-		// Copy the model data to graphics memory:-
-
-		m_Array.SetNumberOfVertices(numVertices2);
-		m_Array.Layout();
-
-		VertexArrayIterator<CVector3D> Position = m_Position.GetIterator<CVector3D>();
-		VertexArrayIterator<CVector3D> Normal = m_Normal.GetIterator<CVector3D>();
-		VertexArrayIterator<CVector4D> Tangent = m_Tangent.GetIterator<CVector4D>();
-
-		// copy everything into the vertex array
-		for (int i = 0; i < numVertices2; i++)
+		for (size_t j = 0; j < mdef->GetNumUVsPerVertex(); j++)
 		{
-			int q = numVertexAttrs * i;
-
-			Position[i] = CVector3D(vertexDataOut[q + 0], vertexDataOut[q + 1], vertexDataOut[q + 2]);
-			q += 3;
-
-			Normal[i] = CVector3D(vertexDataOut[q + 0], vertexDataOut[q + 1], vertexDataOut[q + 2]);
-			q += 3;
-
-			Tangent[i] = CVector4D(vertexDataOut[q + 0], vertexDataOut[q + 1], vertexDataOut[q + 2],
-					vertexDataOut[q + 3]);
-			q += 4;
-
-			for (size_t j = 0; j < mdef->GetNumUVsPerVertex(); j++)
-			{
-				VertexArrayIterator<float[2]> UVit = m_UVs[j].GetIterator<float[2]>();
-				UVit[i][0] = vertexDataOut[q + 0 + 2 * j];
-				UVit[i][1] = vertexDataOut[q + 1 + 2 * j];
-			}
+			VertexArrayIterator<float[2]> UVit = m_UVs[j].GetIterator<float[2]>();
+			UVit[i][0] = vertexDataOut[q + 0 + 2 * j];
+			UVit[i][1] = vertexDataOut[q + 1 + 2 * j];
 		}
-
-		// upload vertex data
-		m_Array.Upload();
-		m_Array.FreeBackingStore();
-
-		m_IndexArray.SetNumberOfVertices(mdef->GetNumFaces() * 3);
-		m_IndexArray.Layout();
-
-		VertexArrayIterator<u16> Indices = m_IndexArray.GetIterator();
-
-		size_t idxidx = 0;
-
-		// reindex geometry and upload index
-		for (size_t j = 0; j < mdef->GetNumFaces(); ++j)
-		{
-			Indices[idxidx++] = remapTable[j * 3 + 0];
-			Indices[idxidx++] = remapTable[j * 3 + 1];
-			Indices[idxidx++] = remapTable[j * 3 + 2];
-		}
-
-		m_IndexArray.Upload();
-		m_IndexArray.FreeBackingStore();
 	}
-	else
+
+	// upload vertex data
+	m_Array.Upload();
+	m_Array.FreeBackingStore();
+
+	m_IndexArray.SetNumberOfVertices(mdef->GetNumFaces() * 3);
+	m_IndexArray.Layout();
+
+	VertexArrayIterator<u16> Indices = m_IndexArray.GetIterator();
+
+	size_t idxidx = 0;
+
+	// reindex geometry and upload index
+	for (size_t j = 0; j < mdef->GetNumFaces(); ++j)
 	{
-		// Upload model without calculating tangents:-
-
-		m_Array.SetNumberOfVertices(numVertices);
-		m_Array.Layout();
-
-		VertexArrayIterator<CVector3D> Position = m_Position.GetIterator<CVector3D>();
-		VertexArrayIterator<CVector3D> Normal = m_Normal.GetIterator<CVector3D>();
-
-		ModelRenderer::CopyPositionAndNormals(mdef, Position, Normal);
-
-		for (size_t i = 0; i < mdef->GetNumUVsPerVertex(); i++)
-		{
-			VertexArrayIterator<float[2]> UVit = m_UVs[i].GetIterator<float[2]>();
-			ModelRenderer::BuildUV(mdef, UVit, i);
-		}
-
-		m_Array.Upload();
-		m_Array.FreeBackingStore();
-
-		m_IndexArray.SetNumberOfVertices(mdef->GetNumFaces()*3);
-		m_IndexArray.Layout();
-		ModelRenderer::BuildIndices(mdef, m_IndexArray.GetIterator());
-		m_IndexArray.Upload();
-		m_IndexArray.FreeBackingStore();
+		Indices[idxidx++] = remapTable[j * 3 + 0];
+		Indices[idxidx++] = remapTable[j * 3 + 1];
+		Indices[idxidx++] = remapTable[j * 3 + 2];
 	}
+
+	m_IndexArray.Upload();
+	m_IndexArray.FreeBackingStore();
 
 	const uint32_t stride = m_Array.GetStride();
 	constexpr size_t MAX_UV = 2;
@@ -214,31 +184,25 @@ IModelDef::IModelDef(const CModelDefPtr& mdef, bool calculateTangents)
 			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0});
 	}
 
-	if (calculateTangents)
-	{
-		attributes.push_back({
-			Renderer::Backend::VertexAttributeStream::UV2,
-			m_Tangent.format, m_Tangent.offset, stride,
-			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0});
-	}
+	attributes.push_back({
+		Renderer::Backend::VertexAttributeStream::UV2,
+		m_Tangent.format, m_Tangent.offset, stride,
+		Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0});
 
 	m_VertexInputLayout = g_Renderer.GetVertexInputLayout({attributes.begin(), attributes.end()});
 }
 
 struct InstancingModelRendererInternals
 {
-	bool calculateTangents;
-
 	/// Previously prepared modeldef
 	IModelDef* imodeldef;
 };
 
 
 // Construction and Destruction
-InstancingModelRenderer::InstancingModelRenderer(bool calculateTangents)
+InstancingModelRenderer::InstancingModelRenderer()
 {
 	m = new InstancingModelRendererInternals;
-	m->calculateTangents = calculateTangents;
 	m->imodeldef = 0;
 }
 
@@ -258,7 +222,7 @@ CModelRData* InstancingModelRenderer::CreateModelData(const void* key, CModel* m
 
 	if (!imodeldef)
 	{
-		imodeldef = new IModelDef(mdef, m->calculateTangents);
+		imodeldef = new IModelDef(mdef);
 		mdef->SetRenderData(m, imodeldef);
 	}
 

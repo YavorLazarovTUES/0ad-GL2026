@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -65,7 +65,6 @@ X(RENDER_DEBUG_MODE_NONE)
 X(SHADOWS_CASCADE_COUNT)
 X(USE_DESCRIPTOR_INDEXING)
 X(USE_FANCY_EFFECTS)
-X(USE_FP_SHADOW)
 X(USE_GPU_INSTANCING)
 X(USE_INSTANCING)
 X(USE_NORMALS)

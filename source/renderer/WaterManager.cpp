@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -1165,9 +1165,7 @@ void WaterManager::UpdateQuality()
 
 bool WaterManager::WillRenderFancyWater() const
 {
-	return
-		m_RenderWater && m_Device->GetBackend() != Renderer::Backend::Backend::GL_ARB &&
-		g_RenderingOptions.GetWaterEffects();
+	return m_RenderWater && g_RenderingOptions.GetWaterEffects();
 }
 
 size_t WaterManager::GetCurrentTextureIndex(const double& period) const

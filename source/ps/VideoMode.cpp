@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -89,9 +89,6 @@ Renderer::Backend::Backend GetFallbackBackend(const Renderer::Backend::Backend b
 	switch (backend)
 	{
 	case Renderer::Backend::Backend::GL:
-		fallback = Renderer::Backend::Backend::GL_ARB;
-		break;
-	case Renderer::Backend::Backend::GL_ARB:
 		fallback = Renderer::Backend::Backend::DUMMY;
 		break;
 	case Renderer::Backend::Backend::DUMMY:
@@ -110,9 +107,6 @@ std::string_view GetBackendName(const Renderer::Backend::Backend backend)
 	{
 	case Renderer::Backend::Backend::GL:
 		name = "GL";
-		break;
-	case Renderer::Backend::Backend::GL_ARB:
-		name = "GL ARB";
 		break;
 	case Renderer::Backend::Backend::DUMMY:
 		name = "Dummy";
@@ -306,9 +300,7 @@ void CVideoMode::ReadConfig()
 	m_ConfigVSync = g_ConfigDB.Get("vsync", m_ConfigVSync);
 
 	const std::string rendererBackend{g_ConfigDB.Get("rendererbackend", std::string{})};
-	if (rendererBackend == "glarb")
-		m_Backend = Renderer::Backend::Backend::GL_ARB;
-	else if (rendererBackend == "dummy")
+	if (rendererBackend == "dummy")
 		m_Backend = Renderer::Backend::Backend::DUMMY;
 	else if (rendererBackend == "vulkan")
 		m_Backend = Renderer::Backend::Backend::VULKAN;
@@ -334,9 +326,7 @@ bool CVideoMode::SetVideoMode(int w, int h, int bpp, bool fullscreen)
 
 	if (!m_Window)
 	{
-		const bool isGLBackend =
-			m_Backend == Renderer::Backend::Backend::GL ||
-			m_Backend == Renderer::Backend::Backend::GL_ARB;
+		const bool isGLBackend{m_Backend == Renderer::Backend::Backend::GL};
 		if (isGLBackend)
 		{
 			SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
@@ -595,7 +585,7 @@ bool CVideoMode::InitSDL()
 	// Calling SDL_Quit twice appears to be harmless, though, and avoids the problem
 	// by destroying the context *before* the driver's atexit hook is called.
 	// (Note that atexit hooks are guaranteed to be called in reverse order of their registration.)
-	if (m_Backend == Renderer::Backend::Backend::GL || m_Backend == Renderer::Backend::Backend::GL_ARB)
+	if (m_Backend == Renderer::Backend::Backend::GL)
 		atexit(SDL_Quit);
 	// End work around.
 
@@ -660,10 +650,7 @@ bool CVideoMode::TryCreateBackendDevice(SDL_Window* window)
 	switch (m_Backend)
 	{
 	case Renderer::Backend::Backend::GL:
-		m_BackendDevice = Renderer::Backend::GL::CreateDevice(window, false);
-		break;
-	case Renderer::Backend::Backend::GL_ARB:
-		m_BackendDevice = Renderer::Backend::GL::CreateDevice(window, true);
+		m_BackendDevice = Renderer::Backend::GL::CreateDevice(window);
 		break;
 	case Renderer::Backend::Backend::DUMMY:
 		m_BackendDevice = Renderer::Backend::Dummy::CreateDevice(window);

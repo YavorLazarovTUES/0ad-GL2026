@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -222,8 +222,6 @@ bool CShaderManager::LoadTechnique(CShaderTechniquePtr& tech)
 	XMBElement root = XeroFile.GetRoot();
 
 	PS::StaticVector<std::string_view, 3> supportedShaders;
-	if (m_Device->GetBackend() == Renderer::Backend::Backend::GL_ARB)
-		supportedShaders.emplace_back("arb");
 	if (m_Device->GetBackend() == Renderer::Backend::Backend::GL)
 		supportedShaders.emplace_back("glsl");
 	if (m_Device->GetBackend() == Renderer::Backend::Backend::VULKAN)

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -60,9 +60,9 @@ public:
 	/**
 	 * Creates the GL device and the GL context for the window if it presents.
 	 */
-	static std::unique_ptr<IDevice> Create(SDL_Window* window, const bool arb);
+	static std::unique_ptr<IDevice> Create(SDL_Window* window);
 
-	Backend GetBackend() const override { return m_ARB ? Backend::GL_ARB : Backend::GL; }
+	Backend GetBackend() const override { return Backend::GL; }
 
 	const std::string& GetName() const override { return m_Name; }
 	const std::string& GetVersion() const override { return m_Version; }
@@ -143,8 +143,6 @@ private:
 	SDL_Window* m_Window = nullptr;
 	SDL_GLContext m_Context = nullptr;
 	int m_SurfaceDrawableWidth = 0, m_SurfaceDrawableHeight = 0;
-
-	bool m_ARB = false;
 
 	std::string m_Name;
 	std::string m_Version;

@@ -214,15 +214,13 @@ CSceneRenderer::~CSceneRenderer()
 	m.reset();
 }
 
-void CSceneRenderer::ReloadShaders(Renderer::Backend::IDevice* device)
+void CSceneRenderer::ReloadShaders([[maybe_unused]] Renderer::Backend::IDevice* device)
 {
 	m->globalContext = CShaderDefines();
 
 	if (g_RenderingOptions.GetShadows())
 	{
 		m->globalContext.Add(str_USE_SHADOW, str_1);
-		if (device->GetBackend() == Renderer::Backend::Backend::GL_ARB)
-			m->globalContext.Add(str_USE_FP_SHADOW, str_1);
 		if (g_RenderingOptions.GetShadowPCF())
 			m->globalContext.Add(str_USE_SHADOW_PCF, str_1);
 		const int cascadeCount = m->shadow.GetCascadeCount();
@@ -245,7 +243,7 @@ void CSceneRenderer::ReloadShaders(Renderer::Backend::IDevice* device)
 
 	ENSURE(g_RenderingOptions.GetRenderPath() != RenderPath::FIXED);
 	m->Model.VertexRendererShader = ModelVertexRendererPtr(new CPUSkinnedModelVertexRenderer());
-	m->Model.VertexInstancingShader = ModelVertexRendererPtr(new InstancingModelRenderer(device->GetBackend() != Renderer::Backend::Backend::GL_ARB));
+	m->Model.VertexInstancingShader = ModelVertexRendererPtr(new InstancingModelRenderer());
 
 	if (g_RenderingOptions.GetGPUSkinning())
 	{
