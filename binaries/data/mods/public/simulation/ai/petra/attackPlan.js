@@ -1251,7 +1251,7 @@ AttackPlan.prototype.getPathToTarget = function(gameState, fixedRallyPoint = fal
 	this.path.push(clone(this.targetPos));
 	for (const p in path)
 		this.path.push([path[p].x, path[p].y]);
-	this.path.push(this.rallyPoint);
+	this.path.push(clone(this.rallyPoint));
 	this.path.reverse();
 	// Change the rally point to something useful
 	if (!fixedRallyPoint)
@@ -1837,7 +1837,7 @@ AttackPlan.prototype.update = function(gameState, events)
 		if (this.target && this.target.owner() === 0 && this.targetPlayer !== 0)
 			this.target = undefined;
 	}
-	this.lastPosition = this.position;
+	this.lastPosition = clone(this.position);
 	Engine.ProfileStop();
 
 	return this.unitCollection.length;
@@ -1935,7 +1935,7 @@ AttackPlan.prototype.UpdateWalking = function(gameState, events)
 			farthestEnt.destroy();
 	}
 	if (gameState.ai.playedTurn % 5 === 0)
-		this.position5TurnsAgo = this.position;
+		this.position5TurnsAgo = clone(this.position);
 
 	if (this.lastPosition && SquareVectorDistance(this.position, this.lastPosition) < 16 &&
 		this.path.length > 0)
@@ -2271,7 +2271,7 @@ AttackPlan.prototype.Serialize = function()
 		"type": this.type,
 		"state": this.state,
 		"forced": this.forced,
-		"rallyPoint": this.rallyPoint,
+		"rallyPoint": clone(this.rallyPoint),
 		"overseas": this.overseas,
 		"paused": this.paused,
 		"maxCompletingTime": this.maxCompletingTime,
@@ -2280,7 +2280,7 @@ AttackPlan.prototype.Serialize = function()
 		"siegeState": this.siegeState,
 		"position5TurnsAgo": this.position5TurnsAgo,
 		"lastPosition": this.lastPosition,
-		"position": this.position,
+		"position": clone(this.position),
 		"isBlocked": this.isBlocked,
 		"targetPlayer": this.targetPlayer,
 		"target": this.target !== undefined ? this.target.id() : undefined,
