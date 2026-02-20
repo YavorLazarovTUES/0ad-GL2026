@@ -25,6 +25,21 @@ import { Worker } from "simulation/ai/petra/worker.js";
  * This system should be improved. It's probably not flexible enough.
  */
 
+function sortQueues(queueArrays, priorities)
+{
+	queueArrays.sort((a, b) =>
+	{
+		const priorityDifference = priorities[b[0]] - priorities[a[0]];
+		if (priorityDifference !== 0)
+			return priorityDifference;
+		if (b[0] < a[0])
+			return 1;
+		if (b[0] > a[0])
+			return -1;
+		return 0;
+	});
+}
+
 export function QueueManager(Config, queues)
 {
 	this.Config = Config;
@@ -41,8 +56,7 @@ export function QueueManager(Config, queues)
 		this.accounts[q] = new ResourcesManager();
 		this.queueArrays.push([q, this.queues[q]]);
 	}
-	const priorities = this.priorities;
-	this.queueArrays.sort((a, b) => priorities[b[0]] - priorities[a[0]]);
+	sortQueues(this.queueArrays, this.priorities);
 }
 
 QueueManager.prototype.getAvailableResources = function(gameState)
@@ -545,8 +559,7 @@ QueueManager.prototype.addQueue = function(queueName, priority)
 	this.queueArrays = [];
 	for (const q in this.queues)
 		this.queueArrays.push([q, this.queues[q]]);
-	const priorities = this.priorities;
-	this.queueArrays.sort((a, b) => priorities[b[0]] - priorities[a[0]]);
+	sortQueues(this.queueArrays, this.priorities);
 };
 
 QueueManager.prototype.removeQueue = function(queueName)
@@ -561,8 +574,7 @@ QueueManager.prototype.removeQueue = function(queueName)
 	this.queueArrays = [];
 	for (const q in this.queues)
 		this.queueArrays.push([q, this.queues[q]]);
-	const priorities = this.priorities;
-	this.queueArrays.sort((a, b) => priorities[b[0]] - priorities[a[0]]);
+	sortQueues(this.queueArrays, this.priorities);
 };
 
 QueueManager.prototype.getPriority = function(queueName)
@@ -579,8 +591,7 @@ QueueManager.prototype.changePriority = function(queueName, newPriority)
 	}
 	if (this.queues[queueName] !== undefined)
 		this.priorities[queueName] = newPriority;
-	const priorities = this.priorities;
-	this.queueArrays.sort((a, b) => priorities[b[0]] - priorities[a[0]]);
+	sortQueues(this.queueArrays, this.priorities);
 };
 
 QueueManager.prototype.Serialize = function()
@@ -621,5 +632,5 @@ QueueManager.prototype.Deserialize = function(gameState, data)
 		this.accounts[q].Deserialize(data.accounts[q]);
 		this.queueArrays.push([q, this.queues[q]]);
 	}
-	this.queueArrays.sort((a, b) => data.priorities[b[0]] - data.priorities[a[0]]);
+	sortQueues(this.queueArrays, data.priorities);
 };
