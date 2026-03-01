@@ -869,7 +869,6 @@ function setup_all_libs ()
 		"zlib",
 		"boost",
 		"enet",
-		"gloox",
 		"libcurl",
 		"tinygettext",
 		"icu",
@@ -881,6 +880,9 @@ function setup_all_libs ()
 		"cpp_httplib",
 	}
 
+	if not _OPTIONS["without-lobby"] then
+		table.insert(extern_libs, "gloox")
+	end
 
 	if not _OPTIONS["without-miniupnpc"] then
 		table.insert(extern_libs, "miniupnpc")

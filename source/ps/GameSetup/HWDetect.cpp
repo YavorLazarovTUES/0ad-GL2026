@@ -23,7 +23,6 @@
 #include "lib/debug.h"
 #include "lib/external_libraries/curl.h"
 #include "lib/external_libraries/enet.h"
-#include "lib/external_libraries/gloox.h"
 #include "lib/external_libraries/png.h"
 #include "lib/external_libraries/libsdl.h"
 #include "lib/path.h"
@@ -92,6 +91,10 @@
 
 #if OS_LINUX
 #include <fstream>
+#endif
+
+#if CONFIG2_LOBBY
+#include "lib/external_libraries/gloox.h"
 #endif
 
 #if CONFIG2_NVTT
@@ -208,7 +211,9 @@ void ReportLibraries(const ScriptRequest& rq, JS::HandleValue settings)
 	appendLibrary(LibraryReporter{rq, "boost"}.Add("version", BOOST_VERSION).MakeReport());
 	appendLibrary(LibraryReporter{rq, "enet"}.Add("version", std::to_string(ENET_VERSION)).MakeReport());
 	appendLibrary(LibraryReporter{rq, "fmt"}.Add("version", FMT_VERSION).MakeReport());
+#if CONFIG2_LOBBY
 	appendLibrary(LibraryReporter{rq, "gloox"}.Add("version", gloox_version()).MakeReport());
+#endif
 	appendLibrary(LibraryReporter{rq, "libicu"}.Add("version", U_ICU_VERSION).MakeReport());
 	appendLibrary(LibraryReporter{rq, "libcurl"}.Add("version", std::string(curl_version())).MakeReport());
 #if CONFIG2_AUDIO
