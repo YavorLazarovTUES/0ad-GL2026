@@ -105,7 +105,8 @@ void StartNetworkHost(const CStrW& playerName, const u16 serverPort, const CStr&
 	std::string hashedPassword = hasLobby ?
 		HashCryptographically(password, hostJID + password + PS_SERIALIZATION_VERSION) : "";
 
-	g_NetServer = new CNetServer(continueSavedGame, hasLobby, hashedPassword);
+	const std::string secret = ps_generate_guid();
+	g_NetServer = new CNetServer(continueSavedGame, hasLobby, hashedPassword, secret);
 
 	if (!g_NetServer->SetupConnection(serverPort))
 	{
@@ -122,13 +123,10 @@ void StartNetworkHost(const CStrW& playerName, const u16 serverPort, const CStr&
 	}
 
 	// Generate a secret to identify the host client.
-	std::string secret = ps_generate_guid();
-	g_NetServer->SetControllerSecret(secret);
 
 	g_Game = new CGame(storeReplay);
-	g_NetClient = new CNetClient(g_Game, playerName, hostJID, hashedPassword);
+	g_NetClient = new CNetClient(g_Game, playerName, hostJID, hashedPassword, secret);
 	g_NetClient->SetupServerData("127.0.0.1", serverPort);
-	g_NetClient->SetControllerSecret(secret);
 
 	if (!g_NetClient->SetupConnection(nullptr))
 	{

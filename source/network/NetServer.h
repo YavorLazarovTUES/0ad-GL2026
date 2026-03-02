@@ -112,7 +112,8 @@ class CNetServer
 {
 	NONCOPYABLE(CNetServer);
 public:
-	CNetServer(const bool isSavedGame, const bool useLobbyAuth = false, std::string password = {});
+	CNetServer(const bool isSavedGame, const bool useLobbyAuth = false, std::string password = {},
+		std::string controllerSecret = {});
 	~CNetServer();
 
 	/**
@@ -179,8 +180,6 @@ public:
 	 */
 	bool IsBanned(const std::string& username) const;
 
-	void SetControllerSecret(const std::string& secret);
-
 private:
 	CNetServerWorker* m_Worker;
 	const bool m_LobbyAuth;
@@ -228,12 +227,11 @@ public:
 private:
 	friend class CNetServer;
 
-	CNetServerWorker(const bool continuesSavedGame, const bool useLobbyAuth, std::string password);
+	CNetServerWorker(const bool continuesSavedGame, const bool useLobbyAuth, std::string password,
+		std::string controllerSecret);
 	~CNetServerWorker();
 
 	bool CheckPassword(const std::string& password, const std::string& salt) const;
-
-	void SetControllerSecret(const std::string& secret);
 
 	/**
 	 * Begin listening for network connections.

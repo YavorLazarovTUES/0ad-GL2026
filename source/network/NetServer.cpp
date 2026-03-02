@@ -112,9 +112,10 @@ static CStr DebugName(CNetServerSession* session)
  */
 
 CNetServerWorker::CNetServerWorker(const bool continueSavedGame, const bool useLobbyAuth,
-	std::string password) :
+	std::string password, std::string controllerSecret) :
 	m_ContinuesSavedGame{continueSavedGame},
 	m_LobbyAuth{useLobbyAuth},
+	m_ControllerSecret{std::move(controllerSecret)},
 	m_Password{std::move(password)}
 {
 }
@@ -152,12 +153,6 @@ CNetServerWorker::~CNetServerWorker()
 		enet_host_destroy(m_Host);
 
 	delete m_ServerTurnManager;
-}
-
-
-void CNetServerWorker::SetControllerSecret(const std::string& secret)
-{
-	m_ControllerSecret = secret;
 }
 
 
@@ -1689,8 +1684,10 @@ void CNetServerWorker::SendHolePunchingMessage(const CStr& ipStr, u16 port)
 
 
 
-CNetServer::CNetServer(const bool continueSavedGame, const bool useLobbyAuth, std::string password) :
-	m_Worker{new CNetServerWorker{continueSavedGame, useLobbyAuth, password}},
+CNetServer::CNetServer(const bool continueSavedGame, const bool useLobbyAuth, std::string password,
+	std::string controllerSecret) :
+	m_Worker{new CNetServerWorker{continueSavedGame, useLobbyAuth, password,
+		std::move(controllerSecret)}},
 	m_LobbyAuth{useLobbyAuth},
 	m_Password{std::move(password)}
 {
@@ -1757,12 +1754,6 @@ bool CNetServer::IsBanned(const std::string& username) const
 {
 	std::unordered_map<std::string, int>::const_iterator it = m_FailedAttempts.find(username);
 	return it != m_FailedAttempts.end() && it->second >= FAILED_PASSWORD_TRIES_BEFORE_BAN;
-}
-
-void CNetServer::SetControllerSecret(const std::string& secret)
-{
-	std::lock_guard<std::mutex> lock(m_Worker->m_WorkerMutex);
-	m_Worker->SetControllerSecret(secret);
 }
 
 void CNetServer::StartGame()

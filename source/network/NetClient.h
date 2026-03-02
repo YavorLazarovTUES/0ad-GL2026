@@ -79,11 +79,9 @@ public:
 	 * The JID of the host is needed for the secure lobby authentication.
 	 */
 	CNetClient(CGame* game, const CStrW& username = L"anonymous", const CStr& hostJID = {},
-		std::string hashedPassword = {});
+		std::string hashedPassword = {}, std::string controllerSecret = {});
 
 	virtual ~CNetClient();
-
-	void SetControllerSecret(const std::string& secret);
 
 	bool IsController() const { return m_IsController; }
 
