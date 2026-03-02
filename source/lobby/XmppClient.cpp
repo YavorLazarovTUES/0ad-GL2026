@@ -862,8 +862,7 @@ bool XmppClient::handleIq(const gloox::IQ& iq)
 				return true;
 			}
 
-			g_NetClient->SetupServerData(cd->m_Ip, stoi(cd->m_Port));
-			g_NetClient->TryToConnectWithSTUN(iq.from().full(), !cd->m_IsLocalIP.empty());
+			g_NetClient->TryToConnectWithSTUN(cd->m_Ip, stoi(cd->m_Port), iq.from().full(), !cd->m_IsLocalIP.empty());
 		}
 		if (gq)
 		{

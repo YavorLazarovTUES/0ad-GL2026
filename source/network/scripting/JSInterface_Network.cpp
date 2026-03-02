@@ -125,8 +125,8 @@ void StartNetworkHost(const CStrW& playerName, const u16 serverPort, const CStr&
 	// Generate a secret to identify the host client.
 
 	g_Game = new CGame(storeReplay);
-	g_NetClient = new CNetClient(g_Game, playerName, hostJID, hashedPassword, secret);
-	g_NetClient->SetupServerData("127.0.0.1", serverPort);
+	g_NetClient = new CNetClient(g_Game, "127.0.0.1", serverPort, playerName, hostJID, hashedPassword,
+		secret);
 
 	if (!g_NetClient->SetupConnection(nullptr))
 	{
@@ -143,8 +143,7 @@ void StartNetworkJoin(const CStrW& playerName, const CStr& serverAddress, u16 se
 	ENSURE(!g_Game);
 
 	g_Game = new CGame(storeReplay);
-	g_NetClient = new CNetClient(g_Game, playerName);
-	g_NetClient->SetupServerData(serverAddress, serverPort);
+	g_NetClient = new CNetClient(g_Game, serverAddress, serverPort, playerName);
 
 	if (!g_NetClient->SetupConnection(nullptr))
 	{

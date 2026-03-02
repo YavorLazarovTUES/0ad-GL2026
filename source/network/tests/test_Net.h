@@ -92,7 +92,6 @@ public:
 		TS_ASSERT(server.SetupConnection(PS_DEFAULT_PORT));
 		for (CNetClient* client: clients)
 		{
-			client->SetupServerData("127.0.0.1", PS_DEFAULT_PORT);
 			TS_ASSERT(client->SetupConnection(nullptr));
 		}
 
@@ -182,9 +181,9 @@ public:
 
 		server.UpdateInitAttributes(&attrs, scriptInterface);
 
-		CNetClient client1(&client1Game);
-		CNetClient client2(&client2Game);
-		CNetClient client3(&client3Game);
+		CNetClient client1(&client1Game, "127.0.0.1", PS_DEFAULT_PORT);
+		CNetClient client2(&client2Game, "127.0.0.1", PS_DEFAULT_PORT);
+		CNetClient client3(&client3Game, "127.0.0.1", PS_DEFAULT_PORT);
 
 		clients.push_back(&client1);
 		clients.push_back(&client2);
@@ -261,9 +260,9 @@ public:
 
 		server.UpdateInitAttributes(&attrs, scriptInterface);
 
-		CNetClient client1(&client1Game, L"alice");
-		CNetClient client2(&client2Game, L"bob");
-		CNetClient client3(&client3Game, L"charlie");
+		CNetClient client1(&client1Game, "127.0.0.1", PS_DEFAULT_PORT, L"alice");
+		CNetClient client2(&client2Game, "127.0.0.1", PS_DEFAULT_PORT, L"bob");
+		CNetClient client3(&client3Game, "127.0.0.1", PS_DEFAULT_PORT, L"charlie");
 
 		clients.push_back(&client1);
 		clients.push_back(&client2);
@@ -318,10 +317,9 @@ public:
 		debug_printf("==== Connecting client 2B\n");
 
 		CGame client2BGame(false);
-		CNetClient client2B(&client2BGame, L"bob");
+		CNetClient client2B(&client2BGame, "127.0.0.1", PS_DEFAULT_PORT, L"bob");
 		clients.push_back(&client2B);
 
-		client2B.SetupServerData("127.0.0.1", PS_DEFAULT_PORT);
 		TS_ASSERT(client2B.SetupConnection(nullptr));
 
 		for (size_t i = 0; ; ++i)

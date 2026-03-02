@@ -66,11 +66,14 @@ constexpr u32 NETWORK_BAD_PING = DEFAULT_TURN_LENGTH * COMMAND_DELAY_MP / 2;
 
 CNetClient *g_NetClient = NULL;
 
-CNetClient::CNetClient(CGame* game, const CStrW& username, const CStr& hostJID,
-	std::string hashedPassword, std::string controllerSecret) :
+CNetClient::CNetClient(CGame* game, std::string serverAddressOrHostname, std::uint16_t serverPort,
+	const CStrW& username, const CStr& hostJID, std::string hashedPassword,
+	std::string controllerSecret) :
 	m_UserName{username},
 	m_HostJID{hostJID},
 	m_Game{game},
+	m_ServerAddressOrHostname{std::move(serverAddressOrHostname)},
+	m_ServerPort{serverPort},
 	// Hash on top with the user's name, to make sure not all
 	// hashing data is in control of the host.
 	m_Password{HashCryptographically(std::move(hashedPassword), m_UserName.ToUTF8())},
@@ -140,7 +143,7 @@ CNetClient::CNetClient(CGame* game, const CStrW& username, const CStr& hostJID,
 
 CNetClient::CNetClient(CGame* game, const CStrW& username, const CStr& hostJID,
 	std::string hashedPassword, IXmppClient& xmppClient) :
-	CNetClient{game, username, hostJID, std::move(hashedPassword)}
+	CNetClient{game, {}, 0, username, hostJID, std::move(hashedPassword)}
 {
 	xmppClient.SendIqGetConnectionData(m_HostJID, m_Password, m_UserName.ToUTF8(), false);
 }
@@ -158,19 +161,11 @@ CNetClient::~CNetClient()
 bool CNetClient::SetupConnection(ENetHost* enetClient)
 {
 	CNetClientSession* session = new CNetClientSession(*this);
-	bool ok = session->Connect(m_ServerAddress, m_ServerPort, enetClient);
+	bool ok = session->Connect(m_ServerAddressOrHostname, m_ServerPort, enetClient);
 	SetAndOwnSession(session);
 	if (ok)
 		m_PollingThread = std::thread(Threading::HandleExceptions<CNetClientSession::RunNetLoop>::Wrapper, m_Session);
 	return ok;
-}
-
-void CNetClient::SetupServerData(CStr address, u16 port)
-{
-	ENSURE(!m_Session);
-
-	m_ServerAddress = address;
-	m_ServerPort = port;
 }
 
 void CNetClient::HandleGetServerDataFailed(const CStr& error)
@@ -185,14 +180,18 @@ void CNetClient::HandleGetServerDataFailed(const CStr& error)
 	);
 }
 
-bool CNetClient::TryToConnectWithSTUN(const CStr& hostJID, bool localNetwork)
+bool CNetClient::TryToConnectWithSTUN(std::string serverAddressOrHostname, std::uint16_t serverPort,
+	const CStr& hostJID, bool localNetwork)
 {
 	ENSURE(g_XmppClient);
+
+	m_ServerAddressOrHostname = std::move(serverAddressOrHostname);
+	m_ServerPort = serverPort;
 
 	if (m_Session)
 		return false;
 
-	if (m_ServerAddress.empty())
+	if (m_ServerAddressOrHostname.empty())
 	{
 		PushGuiMessage(
 			"type", "netstatus",
@@ -229,7 +228,7 @@ bool CNetClient::TryToConnectWithSTUN(const CStr& hostJID, bool localNetwork)
 		// If the host is on the same network, we risk failing to connect
 		// on routers that don't support NAT hairpinning/NAT loopback.
 		// To work around that, send again a connection data request, but for internal IP this time.
-		if (ip == m_ServerAddress)
+		if (ip == m_ServerAddressOrHostname)
 		{
 			g_XmppClient->SendIqGetConnectionData(m_HostJID, m_Password, m_UserName.ToUTF8(), true);
 			// Return true anyways - we're on a success path here.
@@ -246,15 +245,15 @@ bool CNetClient::TryToConnectWithSTUN(const CStr& hostJID, bool localNetwork)
 		// Check if we're hosting on localhost, and if so, explicitly use that
 		// (this circumvents, at least, the 'block all incoming connections' setting
 		// on the MacOS firewall).
-		if (ip == m_ServerAddress)
+		if (ip == m_ServerAddressOrHostname)
 		{
-			m_ServerAddress = "127.0.0.1";
+			m_ServerAddressOrHostname = "127.0.0.1";
 			ip = "";
 		}
 		port = enetClient->address.port;
 	}
 
-	LOGMESSAGE("NetClient: connecting to server at %s:%i", m_ServerAddress, m_ServerPort);
+	LOGMESSAGE("NetClient: connecting to server at %s:%i", m_ServerAddressOrHostname, m_ServerPort);
 
 	if (!ip.empty())
 	{
@@ -268,7 +267,7 @@ bool CNetClient::TryToConnectWithSTUN(const CStr& hostJID, bool localNetwork)
 
 		// Step 2: Send a message ourselves to the server so that the NAT, if any, routes incoming trafic correctly.
 		// TODO: verify if this step is necessary, since we'll try and connect anyways below.
-		StunClient::SendHolePunchingMessages(*enetClient, m_ServerAddress, m_ServerPort);
+		StunClient::SendHolePunchingMessages(*enetClient, m_ServerAddressOrHostname, m_ServerPort);
 	}
 
 	if (!g_NetClient->SetupConnection(enetClient))

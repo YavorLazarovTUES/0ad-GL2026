@@ -79,7 +79,8 @@ public:
 	 * The user's name will be displayed to all players.
 	 * The JID of the host is needed for the secure lobby authentication.
 	 */
-	CNetClient(CGame* game, const CStrW& username = L"anonymous", const CStr& hostJID = {},
+	CNetClient(CGame* game, std::string serverAddressOrHostname, std::uint16_t serverPont,
+		const CStrW& username = L"anonymous", const CStr& hostJID = {},
 		std::string hashedPassword = {}, std::string controllerSecret = {});
 
 	/**
@@ -100,14 +101,7 @@ public:
 	CStr GetGUID() const { return m_GUID; }
 
 	/**
-	 * Set connection data to the remote networked server.
-	 * @param address IP address or host name to connect to
-	 */
-	void SetupServerData(CStr address, u16 port);
-
-	/**
 	 * Set up a connection to the remote networked server.
-	 * Must call SetupServerData first.
 	 * @return true on success, false on connection failure
 	 */
 	bool SetupConnection(ENetHost* enetClient);
@@ -118,7 +112,8 @@ public:
 	 * @param localNetwork - if true, assume we are trying to connect on the local network.
 	 * @return true on success, false on connection failure
 	 */
-	bool TryToConnectWithSTUN(const CStr& hostJID, bool localNetwork);
+	bool TryToConnectWithSTUN(std::string serverAddressOrHostname, std::uint16_t serverPort,
+		const CStr& hostJID, bool localNetwork);
 
 	/**
 	 * Destroy the connection to the server.
@@ -313,7 +308,7 @@ private:
 	CStrW m_UserName;
 
 	CStr m_HostJID;
-	CStr m_ServerAddress;
+	CStr m_ServerAddressOrHostname;
 	u16 m_ServerPort{0};
 
 	/**
