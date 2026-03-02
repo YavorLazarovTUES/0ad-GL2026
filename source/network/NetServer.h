@@ -112,7 +112,7 @@ class CNetServer
 {
 	NONCOPYABLE(CNetServer);
 public:
-	CNetServer(const bool isSavedGame, const bool useLobbyAuth = false);
+	CNetServer(const bool isSavedGame, const bool useLobbyAuth = false, std::string password = {});
 	~CNetServer();
 
 	/**
@@ -179,8 +179,6 @@ public:
 	 */
 	bool IsBanned(const std::string& username) const;
 
-	void SetPassword(const CStr& password);
-
 	void SetControllerSecret(const std::string& secret);
 
 private:
@@ -230,12 +228,10 @@ public:
 private:
 	friend class CNetServer;
 
-	CNetServerWorker(const bool continuesSavedGame, const bool useLobbyAuth);
+	CNetServerWorker(const bool continuesSavedGame, const bool useLobbyAuth, std::string password);
 	~CNetServerWorker();
 
 	bool CheckPassword(const std::string& password, const std::string& salt) const;
-
-	void SetPassword(const CStr& hashedPassword);
 
 	void SetControllerSecret(const std::string& secret);
 

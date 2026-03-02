@@ -111,9 +111,11 @@ static CStr DebugName(CNetServerSession* session)
  * See https://gitea.wildfiregames.com/0ad/0ad/issues/654
  */
 
-CNetServerWorker::CNetServerWorker(const bool continueSavedGame, const bool useLobbyAuth) :
+CNetServerWorker::CNetServerWorker(const bool continueSavedGame, const bool useLobbyAuth,
+	std::string password) :
 	m_ContinuesSavedGame{continueSavedGame},
-	m_LobbyAuth{useLobbyAuth}
+	m_LobbyAuth{useLobbyAuth},
+	m_Password{std::move(password)}
 {
 }
 
@@ -150,11 +152,6 @@ CNetServerWorker::~CNetServerWorker()
 		enet_host_destroy(m_Host);
 
 	delete m_ServerTurnManager;
-}
-
-void CNetServerWorker::SetPassword(const CStr& hashedPassword)
-{
-	m_Password = hashedPassword;
 }
 
 
@@ -1692,9 +1689,10 @@ void CNetServerWorker::SendHolePunchingMessage(const CStr& ipStr, u16 port)
 
 
 
-CNetServer::CNetServer(const bool continueSavedGame, const bool useLobbyAuth) :
-	m_Worker{new CNetServerWorker{continueSavedGame, useLobbyAuth}},
-	m_LobbyAuth{useLobbyAuth}
+CNetServer::CNetServer(const bool continueSavedGame, const bool useLobbyAuth, std::string password) :
+	m_Worker{new CNetServerWorker{continueSavedGame, useLobbyAuth, password}},
+	m_LobbyAuth{useLobbyAuth},
+	m_Password{std::move(password)}
 {
 }
 
@@ -1759,13 +1757,6 @@ bool CNetServer::IsBanned(const std::string& username) const
 {
 	std::unordered_map<std::string, int>::const_iterator it = m_FailedAttempts.find(username);
 	return it != m_FailedAttempts.end() && it->second >= FAILED_PASSWORD_TRIES_BEFORE_BAN;
-}
-
-void CNetServer::SetPassword(const CStr& password)
-{
-	m_Password = password;
-	std::lock_guard<std::mutex> lock(m_Worker->m_WorkerMutex);
-	m_Worker->SetPassword(password);
 }
 
 void CNetServer::SetControllerSecret(const std::string& secret)

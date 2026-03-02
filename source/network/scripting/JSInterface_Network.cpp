@@ -83,8 +83,29 @@ void StartNetworkHost(const CStrW& playerName, const u16 serverPort, const CStr&
 	ENSURE(!g_Game);
 
 	// Always use lobby authentication for lobby matches to prevent impersonation and smurfing, in particular through mods that implemented an UI for arbitrary or other players nicknames.
-	bool hasLobby = !!g_XmppClient;
-	g_NetServer = new CNetServer(continueSavedGame, hasLobby);
+	const bool hasLobby = !!g_XmppClient;
+	const std::string hostJID{hasLobby ? g_XmppClient->GetJID() : ""};
+
+	/**
+	 * Password security - we want 0 A.D. to protect players from malicious hosts. We assume that clients
+	 * might mistakenly send a personal password instead of the game password (e.g. enter their mail account's password on autopilot).
+	 * Malicious dedicated servers might be set up to farm these failed logins and possibly obtain user credentials.
+	 * Therefore, we hash the passwords on the client side before sending them to the server.
+	 * This still makes the passwords potentially recoverable, but makes it much harder at scale.
+	 * To prevent the creation of rainbow tables, hash with:
+	 * - the host name
+	 * - the client name (this makes rainbow tables completely unworkable unless a specific user is targeted,
+	 *   but that would require both computing the matching rainbow table _and_ for that specific user to mistype a personal password,
+	 *   at which point we assume the attacker would/could probably just rather use another means of obtaining the password).
+	 * - the password itself
+	 * - the engine version (so that the hashes change periodically)
+	 * TODO: it should be possible to implement SRP or something along those lines to completely protect from this,
+	 * but the cost/benefit ratio is probably not worth it.
+	 */
+	std::string hashedPassword = hasLobby ?
+		HashCryptographically(password, hostJID + password + PS_SERIALIZATION_VERSION) : "";
+
+	g_NetServer = new CNetServer(continueSavedGame, hasLobby, hashedPassword);
 
 	if (!g_NetServer->SetupConnection(serverPort))
 	{
@@ -105,32 +126,7 @@ void StartNetworkHost(const CStrW& playerName, const u16 serverPort, const CStr&
 	g_NetServer->SetControllerSecret(secret);
 
 	g_Game = new CGame(storeReplay);
-	const std::string hostJID{hasLobby ? g_XmppClient->GetJID() : ""};
-	g_NetClient = new CNetClient(g_Game, playerName, hostJID);
-
-	if (hasLobby)
-	{
-		/**
-		 * Password security - we want 0 A.D. to protect players from malicious hosts. We assume that clients
-		 * might mistakenly send a personal password instead of the game password (e.g. enter their mail account's password on autopilot).
-		 * Malicious dedicated servers might be set up to farm these failed logins and possibly obtain user credentials.
-		 * Therefore, we hash the passwords on the client side before sending them to the server.
-		 * This still makes the passwords potentially recoverable, but makes it much harder at scale.
-		 * To prevent the creation of rainbow tables, hash with:
-		 * - the host name
-		 * - the client name (this makes rainbow tables completely unworkable unless a specific user is targeted,
-		 *   but that would require both computing the matching rainbow table _and_ for that specific user to mistype a personal password,
-		 *   at which point we assume the attacker would/could probably just rather use another means of obtaining the password).
-		 * - the password itself
-		 * - the engine version (so that the hashes change periodically)
-		 * TODO: it should be possible to implement SRP or something along those lines to completely protect from this,
-		 * but the cost/benefit ratio is probably not worth it.
-		 */
-		CStr hashedPass = HashCryptographically(password, hostJID + password + PS_SERIALIZATION_VERSION);
-		g_NetServer->SetPassword(hashedPass);
-		g_NetClient->SetGamePassword(hashedPass);
-	}
-
+	g_NetClient = new CNetClient(g_Game, playerName, hostJID, hashedPassword);
 	g_NetClient->SetupServerData("127.0.0.1", serverPort);
 	g_NetClient->SetControllerSecret(secret);
 
@@ -174,8 +170,7 @@ void StartNetworkJoinLobby(const CStrW& playerName, const CStr& hostJID, const C
 
 	CStr hashedPass = HashCryptographically(password, hostJID + password + PS_SERIALIZATION_VERSION);
 	g_Game = new CGame(true);
-	g_NetClient = new CNetClient(g_Game, playerName, hostJID);
-	g_NetClient->SetGamePassword(hashedPass);
+	g_NetClient = new CNetClient(g_Game, playerName, hostJID, hashedPass);
 	g_NetClient->SetupConnectionViaLobby();
 }
 

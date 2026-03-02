@@ -66,10 +66,14 @@ constexpr u32 NETWORK_BAD_PING = DEFAULT_TURN_LENGTH * COMMAND_DELAY_MP / 2;
 
 CNetClient *g_NetClient = NULL;
 
-CNetClient::CNetClient(CGame* game, const CStrW& username, const CStr& hostJID) :
+CNetClient::CNetClient(CGame* game, const CStrW& username, const CStr& hostJID,
+	std::string hashedPassword) :
 	m_UserName{username},
 	m_HostJID{hostJID},
-	m_Game{game}
+	m_Game{game},
+	// Hash on top with the user's name, to make sure not all
+	// hashing data is in control of the host.
+	m_Password{HashCryptographically(std::move(hashedPassword), m_UserName.ToUTF8())}
 {
 	m_Game->SetTurnManager(NULL); // delete the old local turn manager so we don't accidentally use it
 
@@ -140,13 +144,6 @@ CNetClient::~CNetClient()
 		m_ClientTurnManager->OnDestroyConnection();
 
 	DestroyConnection();
-}
-
-void CNetClient::SetGamePassword(const CStr& hashedPassword)
-{
-	// Hash on top with the user's name, to make sure not all
-	// hashing data is in control of the host.
-	m_Password = HashCryptographically(hashedPassword, m_UserName.ToUTF8());
 }
 
 void CNetClient::SetControllerSecret(const std::string& secret)

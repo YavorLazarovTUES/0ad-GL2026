@@ -78,19 +78,14 @@ public:
 	 * The user's name will be displayed to all players.
 	 * The JID of the host is needed for the secure lobby authentication.
 	 */
-	CNetClient(CGame* game, const CStrW& username = L"anonymous", const CStr& hostJID = {});
+	CNetClient(CGame* game, const CStrW& username = L"anonymous", const CStr& hostJID = {},
+		std::string hashedPassword = {});
 
 	virtual ~CNetClient();
 
 	void SetControllerSecret(const std::string& secret);
 
 	bool IsController() const { return m_IsController; }
-
-	/**
-	 * Set the game password.
-	 * Must be called after SetUserName, as that is used to hash further.
-	 */
-	void SetGamePassword(const CStr& hashedPassword);
 
 	/**
 	 * Returns the GUID of the local client.
