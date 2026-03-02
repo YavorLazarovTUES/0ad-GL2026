@@ -44,6 +44,7 @@ class CNetClientSession;
 class CNetClientTurnManager;
 class JSTracer;
 class ScriptInterface;
+class IXmppClient;
 
 typedef struct _ENetHost ENetHost;
 
@@ -81,6 +82,13 @@ public:
 	CNetClient(CGame* game, const CStrW& username = L"anonymous", const CStr& hostJID = {},
 		std::string hashedPassword = {}, std::string controllerSecret = {});
 
+	/**
+	 * This constructor additionally requests connection information over the
+	 * lobby.
+	 */
+	CNetClient(CGame* game, const CStrW& username, const CStr& hostJID,
+		std::string hashedPassword, IXmppClient& xmppClient);
+
 	virtual ~CNetClient();
 
 	bool IsController() const { return m_IsController; }
@@ -103,11 +111,6 @@ public:
 	 * @return true on success, false on connection failure
 	 */
 	bool SetupConnection(ENetHost* enetClient);
-
-	/**
-	 * Request connection information over the lobby.
-	 */
-	void SetupConnectionViaLobby();
 
 	/**
 	 * Connect to the remote networked server using lobby.

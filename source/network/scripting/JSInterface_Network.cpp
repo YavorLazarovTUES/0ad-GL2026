@@ -168,8 +168,7 @@ void StartNetworkJoinLobby(const CStrW& playerName, const CStr& hostJID, const C
 
 	CStr hashedPass = HashCryptographically(password, hostJID + password + PS_SERIALIZATION_VERSION);
 	g_Game = new CGame(true);
-	g_NetClient = new CNetClient(g_Game, playerName, hostJID, hashedPass);
-	g_NetClient->SetupConnectionViaLobby();
+	g_NetClient = new CNetClient(g_Game, playerName, hostJID, hashedPass, *g_XmppClient);
 }
 
 void DisconnectNetworkGame()

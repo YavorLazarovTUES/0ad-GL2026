@@ -138,6 +138,13 @@ CNetClient::CNetClient(CGame* game, const CStrW& username, const CStr& hostJID,
 	SetFirstState(NCS_UNCONNECTED);
 }
 
+CNetClient::CNetClient(CGame* game, const CStrW& username, const CStr& hostJID,
+	std::string hashedPassword, IXmppClient& xmppClient) :
+	CNetClient{game, username, hostJID, std::move(hashedPassword)}
+{
+	xmppClient.SendIqGetConnectionData(m_HostJID, m_Password, m_UserName.ToUTF8(), false);
+}
+
 CNetClient::~CNetClient()
 {
 	// Try to flush messages before dying (probably fails).
@@ -156,11 +163,6 @@ bool CNetClient::SetupConnection(ENetHost* enetClient)
 	if (ok)
 		m_PollingThread = std::thread(Threading::HandleExceptions<CNetClientSession::RunNetLoop>::Wrapper, m_Session);
 	return ok;
-}
-
-void CNetClient::SetupConnectionViaLobby()
-{
-	g_XmppClient->SendIqGetConnectionData(m_HostJID, m_Password, m_UserName.ToUTF8(), false);
 }
 
 void CNetClient::SetupServerData(CStr address, u16 port)
