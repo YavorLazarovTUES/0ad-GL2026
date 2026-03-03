@@ -318,7 +318,7 @@ private:
 
 	CStr m_HostJID;
 	CStr m_ServerAddress;
-	u16 m_ServerPort;
+	u16 m_ServerPort{0};
 
 	/**
 	 * Password to join the game.
@@ -331,19 +331,19 @@ private:
 	/// Note that this is just a "gui hint" with no actual impact on being controller.
 	bool m_IsController = false;
 
-	/// Current network session (or NULL if not connected)
-	CNetClientSession* m_Session;
+	/// Current network session (or nullptr if not connected)
+	CNetClientSession* m_Session{nullptr};
 
 	std::thread m_PollingThread;
 
-	/// Turn manager associated with the current game (or NULL if we haven't started the game yet)
-	CNetClientTurnManager* m_ClientTurnManager;
+	/// Turn manager associated with the current game (or nullptr if we haven't started the game yet)
+	CNetClientTurnManager* m_ClientTurnManager{nullptr};
 
 	/// Unique-per-game identifier of this client, used to identify the sender of simulation commands
-	u32 m_HostID;
+	u32 m_HostID{static_cast<u32>(-1)};
 
 	/// True if the player is currently rejoining or has already rejoined the game.
-	bool m_Rejoin;
+	bool m_Rejoin{false};
 
 	/// Latest copy of player assignments heard from the server
 	PlayerAssignmentMap m_PlayerAssignments;
@@ -372,7 +372,7 @@ private:
 	std::string m_SavedState;
 
 	/// Time when the server was last checked for timeouts and bad latency
-	std::time_t m_LastConnectionCheck;
+	std::time_t m_LastConnectionCheck{0};
 
 	/// Record of the server engine version and loaded mods
 	CSrvHandshakeMessage m_ServerHandshake;

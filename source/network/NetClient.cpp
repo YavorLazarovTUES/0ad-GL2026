@@ -67,14 +67,9 @@ constexpr u32 NETWORK_BAD_PING = DEFAULT_TURN_LENGTH * COMMAND_DELAY_MP / 2;
 CNetClient *g_NetClient = NULL;
 
 CNetClient::CNetClient(CGame* game, const CStrW& username, const CStr& hostJID) :
-	m_Session(NULL),
 	m_UserName{username},
 	m_HostJID{hostJID},
-	m_HostID((u32)-1), m_ClientTurnManager(NULL), m_Game(game),
-	m_LastConnectionCheck(0),
-	m_ServerAddress(),
-	m_ServerPort(0),
-	m_Rejoin(false)
+	m_Game{game}
 {
 	m_Game->SetTurnManager(NULL); // delete the old local turn manager so we don't accidentally use it
 

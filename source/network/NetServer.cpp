@@ -77,8 +77,6 @@
  */
 #define MAX_CLIENTS 41
 
-#define	DEFAULT_SERVER_NAME			L"Unnamed Server"
-
 constexpr int CHANNEL_COUNT = 1;
 constexpr int FAILED_PASSWORD_TRIES_BEFORE_BAN = 3;
 
@@ -115,17 +113,8 @@ static CStr DebugName(CNetServerSession* session)
 
 CNetServerWorker::CNetServerWorker(const bool continueSavedGame, const bool useLobbyAuth) :
 	m_ContinuesSavedGame{continueSavedGame},
-	m_LobbyAuth(useLobbyAuth),
-	m_Shutdown(false),
-	m_ScriptInterface(NULL),
-	m_NextHostID(1), m_Host(NULL), m_ControllerGUID(), m_Stats(NULL),
-	m_LastConnectionCheck(0)
+	m_LobbyAuth{useLobbyAuth}
 {
-	m_State = SERVER_STATE_UNCONNECTED;
-
-	m_ServerTurnManager = NULL;
-
-	m_ServerName = DEFAULT_SERVER_NAME;
 }
 
 CNetServerWorker::~CNetServerWorker()
@@ -1705,7 +1694,7 @@ void CNetServerWorker::SendHolePunchingMessage(const CStr& ipStr, u16 port)
 
 CNetServer::CNetServer(const bool continueSavedGame, const bool useLobbyAuth) :
 	m_Worker{new CNetServerWorker{continueSavedGame, useLobbyAuth}},
-	m_LobbyAuth(useLobbyAuth), m_PublicIp(""), m_PublicPort(20595), m_Password()
+	m_LobbyAuth{useLobbyAuth}
 {
 }
 

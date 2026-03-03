@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -186,7 +186,7 @@ public:
 private:
 	CNetServerWorker* m_Worker;
 	const bool m_LobbyAuth;
-	u16 m_PublicPort;
+	u16 m_PublicPort{20595};
 	CStr m_PublicIp;
 	CStr m_Password;
 	std::unordered_map<std::string, int> m_FailedAttempts;
@@ -346,7 +346,7 @@ private:
 	 * (TODO: we shouldn't bother deserializing (except for debug printing of messages),
 	 * we should just forward messages blindly and efficiently.)
 	 */
-	ScriptInterface* m_ScriptInterface;
+	ScriptInterface* m_ScriptInterface{nullptr};
 
 	PlayerAssignmentMap m_PlayerAssignments;
 
@@ -367,14 +367,14 @@ private:
 	 */
 	const bool m_LobbyAuth;
 
-	ENetHost* m_Host;
+	ENetHost* m_Host{nullptr};
 	std::vector<CNetServerSession*> m_Sessions;
 
-	CNetStatsTable* m_Stats;
+	CNetStatsTable* m_Stats{nullptr};
 
-	NetServerState m_State;
+	NetServerState m_State{SERVER_STATE_UNCONNECTED};
 
-	CStrW m_ServerName;
+	CStrW m_ServerName{L"Unnamed Server"};
 
 	std::vector<u32> m_BannedIPs;
 	std::vector<CStrW> m_BannedPlayers;
@@ -386,9 +386,9 @@ private:
 	 */
 	std::vector<CStr> m_PausingPlayers;
 
-	u32 m_NextHostID;
+	u32 m_NextHostID{1};
 
-	CNetServerTurnManager* m_ServerTurnManager;
+	CNetServerTurnManager* m_ServerTurnManager{nullptr};
 
 	/**
 	 * The GUID of the client in control of the game (the 'host' from the players' perspective).
@@ -421,7 +421,7 @@ private:
 	/**
 	 *  Time when the clients connections were last checked for timeouts and latency.
 	 */
-	std::time_t m_LastConnectionCheck;
+	std::time_t m_LastConnectionCheck{0};
 
 private:
 	// Thread-related stuff:
@@ -442,7 +442,7 @@ private:
 	std::mutex m_WorkerMutex;
 
 	// protected by m_WorkerMutex
-	bool m_Shutdown;
+	bool m_Shutdown{false};
 
 	// Queues for messages sent by the game thread (protected by m_WorkerMutex):
 	std::vector<bool> m_StartGameQueue;
