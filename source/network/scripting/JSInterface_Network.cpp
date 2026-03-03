@@ -106,13 +106,7 @@ void StartNetworkHost(const CStrW& playerName, const u16 serverPort, const CStr&
 		HashCryptographically(password, hostJID + password + PS_SERIALIZATION_VERSION) : "";
 
 	const std::string secret = ps_generate_guid();
-	g_NetServer = new CNetServer(continueSavedGame, hasLobby, hashedPassword, secret);
-
-	if (!g_NetServer->SetupConnection(serverPort))
-	{
-		SAFE_DELETE(g_NetServer);
-		throw std::runtime_error{"Failed to start server"};
-	}
+	g_NetServer = new CNetServer(continueSavedGame, serverPort, hasLobby, hashedPassword, secret);
 
 	// In lobby, we send our public ip and port on request to the players who want to connect.
 	// Thus we need to know our public IP and use STUN to get it.
@@ -127,13 +121,6 @@ void StartNetworkHost(const CStrW& playerName, const u16 serverPort, const CStr&
 	g_Game = new CGame(storeReplay);
 	g_NetClient = new CNetClient(g_Game, "127.0.0.1", serverPort, playerName, hostJID, hashedPassword,
 		secret);
-
-	if (!g_NetClient->SetupConnection(nullptr))
-	{
-		SAFE_DELETE(g_NetClient);
-		SAFE_DELETE(g_Game);
-		throw std::runtime_error{"Failed to connect to server"};
-	}
 }
 
 void StartNetworkJoin(const CStrW& playerName, const CStr& serverAddress, u16 serverPort, bool storeReplay)
@@ -144,13 +131,6 @@ void StartNetworkJoin(const CStrW& playerName, const CStr& serverAddress, u16 se
 
 	g_Game = new CGame(storeReplay);
 	g_NetClient = new CNetClient(g_Game, serverAddress, serverPort, playerName);
-
-	if (!g_NetClient->SetupConnection(nullptr))
-	{
-		SAFE_DELETE(g_NetClient);
-		SAFE_DELETE(g_Game);
-		throw std::runtime_error{"Failed to connect to server"};
-	}
 }
 
 /**

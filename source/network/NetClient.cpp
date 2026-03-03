@@ -69,6 +69,15 @@ CNetClient *g_NetClient = NULL;
 CNetClient::CNetClient(CGame* game, std::string serverAddressOrHostname, std::uint16_t serverPort,
 	const CStrW& username, const CStr& hostJID, std::string hashedPassword,
 	std::string controllerSecret) :
+	CNetClient{PrivateTag{}, game, std::move(serverAddressOrHostname), serverPort, username, hostJID,
+		std::move(hashedPassword), std::move(controllerSecret)}
+{
+	SetupConnection(nullptr);
+}
+
+CNetClient::CNetClient(PrivateTag, CGame* game, std::string serverAddressOrHostname,
+	std::uint16_t serverPort, const CStrW& username, const CStr& hostJID, std::string hashedPassword,
+	std::string controllerSecret) :
 	m_UserName{username},
 	m_HostJID{hostJID},
 	m_Game{game},
@@ -143,7 +152,7 @@ CNetClient::CNetClient(CGame* game, std::string serverAddressOrHostname, std::ui
 
 CNetClient::CNetClient(CGame* game, const CStrW& username, const CStr& hostJID,
 	std::string hashedPassword, IXmppClient& xmppClient) :
-	CNetClient{game, {}, 0, username, hostJID, std::move(hashedPassword)}
+	CNetClient{PrivateTag{}, game, {}, 0, username, hostJID, std::move(hashedPassword)}
 {
 	xmppClient.SendIqGetConnectionData(m_HostJID, m_Password, m_UserName.ToUTF8(), false);
 }
@@ -158,14 +167,15 @@ CNetClient::~CNetClient()
 }
 
 
-bool CNetClient::SetupConnection(ENetHost* enetClient)
+void CNetClient::SetupConnection(ENetHost* enetClient)
 {
 	CNetClientSession* session = new CNetClientSession(*this);
 	bool ok = session->Connect(m_ServerAddressOrHostname, m_ServerPort, enetClient);
 	SetAndOwnSession(session);
 	if (ok)
 		m_PollingThread = std::thread(Threading::HandleExceptions<CNetClientSession::RunNetLoop>::Wrapper, m_Session);
-	return ok;
+	else
+		throw std::runtime_error{"Failed to connect to server"};
 }
 
 void CNetClient::HandleGetServerDataFailed(const CStr& error)
@@ -270,7 +280,11 @@ bool CNetClient::TryToConnectWithSTUN(std::string serverAddressOrHostname, std::
 		StunClient::SendHolePunchingMessages(*enetClient, m_ServerAddressOrHostname, m_ServerPort);
 	}
 
-	if (!g_NetClient->SetupConnection(enetClient))
+	try
+	{
+		g_NetClient->SetupConnection(enetClient);
+	}
+	catch (...)
 	{
 		PushGuiMessage(
 			"type", "netstatus",

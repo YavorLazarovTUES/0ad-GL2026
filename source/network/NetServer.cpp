@@ -111,28 +111,54 @@ static CStr DebugName(CNetServerSession* session)
  * See https://gitea.wildfiregames.com/0ad/0ad/issues/654
  */
 
-CNetServerWorker::CNetServerWorker(const bool continueSavedGame, const bool useLobbyAuth,
-	std::string password, std::string controllerSecret) :
+CNetServerWorker::CNetServerWorker(const bool continueSavedGame, std::uint16_t port,
+	const bool useLobbyAuth, std::string password, std::string controllerSecret,
+	std::string initAttributes) :
 	m_ContinuesSavedGame{continueSavedGame},
 	m_LobbyAuth{useLobbyAuth},
 	m_ControllerSecret{std::move(controllerSecret)},
 	m_Password{std::move(password)}
 {
+	// Bind to default host
+	ENetAddress addr;
+	addr.host = ENET_HOST_ANY;
+	addr.port = port;
+
+	// Create ENet server
+	m_Host = PS::Enet::CreateHost(&addr, MAX_CLIENTS, CHANNEL_COUNT);
+	if (!m_Host)
+	{
+		enet_host_destroy(m_Host);
+		LOGERROR("Net server: enet_host_create failed");
+		throw std::runtime_error{"Failed to start server"};
+	}
+
+	m_Stats = new CNetStatsTable();
+	if (CProfileViewer::IsInitialised())
+		g_ProfileViewer.AddRootTable(m_Stats);
+
+	m_State = SERVER_STATE_PREGAME;
+
+	// Launch the worker thread
+	m_WorkerThread = std::thread(Threading::HandleExceptions<RunThread>::Wrapper, this,
+		std::move(initAttributes));
+
+#if CONFIG2_MINIUPNPC
+	// Launch the UPnP thread
+	m_UPnPThread = std::thread(Threading::HandleExceptions<SetupUPnP>::Wrapper, port);
+#endif
 }
 
 CNetServerWorker::~CNetServerWorker()
 {
-	if (m_State != SERVER_STATE_UNCONNECTED)
+	// Tell the thread to shut down
 	{
-		// Tell the thread to shut down
-		{
-			std::lock_guard<std::mutex> lock(m_WorkerMutex);
-			m_Shutdown = true;
-		}
-
-		// Wait for it to shut down cleanly
-		m_WorkerThread.join();
+		std::lock_guard<std::mutex> lock(m_WorkerMutex);
+		m_Shutdown = true;
 	}
+
+	// Wait for it to shut down cleanly
+	m_WorkerThread.join();
 
 #if CONFIG2_MINIUPNPC
 	if (m_UPnPThread.joinable())
@@ -159,43 +185,6 @@ CNetServerWorker::~CNetServerWorker()
 bool CNetServerWorker::CheckPassword(const std::string& password, const std::string& salt) const
 {
 	return HashCryptographically(m_Password, salt) == password;
-}
-
-
-bool CNetServerWorker::SetupConnection(const u16 port, std::string initAttributes)
-{
-	ENSURE(m_State == SERVER_STATE_UNCONNECTED);
-	ENSURE(!m_Host);
-
-	// Bind to default host
-	ENetAddress addr;
-	addr.host = ENET_HOST_ANY;
-	addr.port = port;
-
-	// Create ENet server
-	m_Host = PS::Enet::CreateHost(&addr, MAX_CLIENTS, CHANNEL_COUNT);
-	if (!m_Host)
-	{
-		LOGERROR("Net server: enet_host_create failed");
-		return false;
-	}
-
-	m_Stats = new CNetStatsTable();
-	if (CProfileViewer::IsInitialised())
-		g_ProfileViewer.AddRootTable(m_Stats);
-
-	m_State = SERVER_STATE_PREGAME;
-
-	// Launch the worker thread
-	m_WorkerThread = std::thread{Threading::HandleExceptions<RunThread>::Wrapper, this,
-		std::move(initAttributes)};
-
-#if CONFIG2_MINIUPNPC
-	// Launch the UPnP thread
-	m_UPnPThread = std::thread(Threading::HandleExceptions<SetupUPnP>::Wrapper, port);
-#endif
-
-	return true;
 }
 
 #if CONFIG2_MINIUPNPC
@@ -742,7 +731,7 @@ void CNetServerWorker::AddPlayer(const CStr& guid, const CStrW& name)
 
 	i32 playerID = -1;
 
-	if (m_State != SERVER_STATE_UNCONNECTED && m_State != SERVER_STATE_PREGAME)
+	if (m_State != SERVER_STATE_PREGAME)
 	{
 		// Try to match GUID first
 		for (PlayerAssignmentMap::iterator it = m_PlayerAssignments.begin(); it != m_PlayerAssignments.end(); ++it)
@@ -1124,7 +1113,7 @@ bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent<CNet
 	if (!isRejoining)
 		return true;
 
-	ENSURE(server.m_State != SERVER_STATE_UNCONNECTED && server.m_State != SERVER_STATE_PREGAME);
+	ENSURE(server.m_State != SERVER_STATE_PREGAME);
 
 	// Request a copy of the current game state from an existing player, so we can send it on to the new
 	// player.
@@ -1679,10 +1668,10 @@ void CNetServerWorker::SendHolePunchingMessage(const CStr& ipStr, u16 port)
 
 
 
-CNetServer::CNetServer(const bool continueSavedGame, const bool useLobbyAuth, std::string password,
-	std::string controllerSecret) :
-	m_Worker{new CNetServerWorker{continueSavedGame, useLobbyAuth, password,
-		std::move(controllerSecret)}},
+CNetServer::CNetServer(const bool continueSavedGame, std::uint16_t port, const bool useLobbyAuth,
+	std::string password, std::string controllerSecret, std::string initAttributes) :
+	m_Worker{new CNetServerWorker{continueSavedGame, port, useLobbyAuth, password,
+		std::move(controllerSecret), std::move(initAttributes)}},
 	m_LobbyAuth{useLobbyAuth},
 	m_Password{std::move(password)}
 {
@@ -1696,11 +1685,6 @@ CNetServer::~CNetServer()
 bool CNetServer::UseLobbyAuth() const
 {
 	return m_LobbyAuth;
-}
-
-bool CNetServer::SetupConnection(const u16 port, std::string initAttributes)
-{
-	return m_Worker->SetupConnection(port, std::move(initAttributes));
 }
 
 CStr CNetServer::GetPublicIp() const

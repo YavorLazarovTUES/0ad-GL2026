@@ -49,10 +49,6 @@ template <typename MessageType> class CFsmEvent;
 
 enum NetServerState
 {
-	// We haven't opened the port yet, we're just setting some stuff up.
-	// The worker thread has not been started.
-	SERVER_STATE_UNCONNECTED,
-
 	// The server is open and accepting connections. This is the screen where
 	// rules are set up by the operator and where players join and select civs
 	// and stuff.
@@ -112,16 +108,9 @@ class CNetServer
 {
 	NONCOPYABLE(CNetServer);
 public:
-	CNetServer(const bool isSavedGame, const bool useLobbyAuth = false, std::string password = {},
-		std::string controllerSecret = {});
+	CNetServer(const bool isSavedGame, std::uint16_t port, const bool useLobbyAuth = false,
+		std::string password = {}, std::string controllerSecret = {}, std::string initAttributes = {});
 	~CNetServer();
-
-	/**
-	 * Begin listening for network connections.
-	 * This function is synchronous (it won't return until the connection is established).
-	 * @return true on success, false on error (e.g. port already in use)
-	 */
-	bool SetupConnection(const u16 port, std::string initAttributes = {});
 
 	/**
 	 * Call from the GUI to asynchronously notify all clients that they should start loading the game.
@@ -188,7 +177,7 @@ private:
  * by the host player's framerate - the only delay should be the network latency.)
  *
  * Thread-safety:
- * - SetupConnection and constructor/destructor must be called from the main thread.
+ * - Constructor/destructor must be called from the main thread.
  * - The main thread may push commands onto the Queue members,
  *   while holding the m_WorkerMutex lock.
  * - Public functions (SendMessage, Broadcast) must be called from the network
@@ -220,17 +209,11 @@ public:
 private:
 	friend class CNetServer;
 
-	CNetServerWorker(const bool continuesSavedGame, const bool useLobbyAuth, std::string password,
-		std::string controllerSecret);
+	CNetServerWorker(const bool continuesSavedGame, std::uint16_t port, const bool useLobbyAuth,
+		std::string password, std::string controllerSecret, std::string initAttributes);
 	~CNetServerWorker();
 
 	bool CheckPassword(const std::string& password, const std::string& salt) const;
-
-	/**
-	 * Begin listening for network connections.
-	 * @return true on success, false on error (e.g. port already in use)
-	 */
-	bool SetupConnection(const u16 port, std::string initAttributes);
 
 	/**
 	 * The given GUID will be (re)assigned to the given player ID.
@@ -359,7 +342,7 @@ private:
 
 	CNetStatsTable* m_Stats{nullptr};
 
-	NetServerState m_State{SERVER_STATE_UNCONNECTED};
+	NetServerState m_State{SERVER_STATE_PREGAME};
 
 	CStrW m_ServerName{L"Unnamed Server"};
 

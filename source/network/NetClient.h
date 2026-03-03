@@ -101,12 +101,6 @@ public:
 	CStr GetGUID() const { return m_GUID; }
 
 	/**
-	 * Set up a connection to the remote networked server.
-	 * @return true on success, false on connection failure
-	 */
-	bool SetupConnection(ENetHost* enetClient);
-
-	/**
 	 * Connect to the remote networked server using lobby.
 	 * Push netstatus messages on failure.
 	 * @param localNetwork - if true, assume we are trying to connect on the local network.
@@ -259,6 +253,10 @@ public:
 	 */
 	void HandleGetServerDataFailed(const CStr& error);
 private:
+	struct PrivateTag {};
+	CNetClient(PrivateTag, CGame* game, std::string serverAddressOrHostname,
+		std::uint16_t serverPont, const CStrW& username = L"anonymous", const CStr& hostJID = {},
+		std::string hashedPassword = {}, std::string controllerSecret = {});
 
 	void SendAuthenticateMessage();
 
@@ -285,6 +283,12 @@ private:
 	static bool OnClientsLoading(CNetClient* client, CFsmEvent<CNetMessage*>* event);
 	static bool OnClientPaused(CNetClient* client, CFsmEvent<CNetMessage*>* event);
 	static bool OnLoadedGame(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+
+	/**
+	 * Set up a connection to the remote networked server.
+	 * @return true on success, false on connection failure
+	 */
+	void SetupConnection(ENetHost* enetClient);
 
 	/**
 	 * Take ownership of a session object, and use it for all network communication.

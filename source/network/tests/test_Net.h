@@ -88,14 +88,8 @@ public:
 		return true;
 	}
 
-	void connect(CNetServer& server, const std::vector<CNetClient*>& clients, std::string initAttributes)
+	void connect(const std::vector<CNetClient*>& clients)
 	{
-		TS_ASSERT(server.SetupConnection(PS_DEFAULT_PORT, std::move(initAttributes)));
-		for (CNetClient* client: clients)
-		{
-			TS_ASSERT(client->SetupConnection(nullptr));
-		}
-
 		for (size_t i = 0; ; ++i)
 		{
 //			debug_printf(".");
@@ -125,7 +119,7 @@ public:
 			for (size_t j = 0; j < clients.size(); ++j)
 				clients[j]->Poll();
 
-			if (server.GetState() == SERVER_STATE_UNCONNECTED && clients_are_all(clients, NCS_UNCONNECTED))
+			if (clients_are_all(clients, NCS_UNCONNECTED))
 				break;
 
 			if (i > 20)
@@ -169,8 +163,6 @@ public:
 		CGame client2Game(false);
 		CGame client3Game(false);
 
-		CNetServer server{false};
-
 		JS::RootedValue attrs(rq.cx);
 		Script::CreateObject(
 			rq,
@@ -180,6 +172,8 @@ public:
 			"mapPath", "maps/scenarios/",
 			"thing", "example");
 
+		CNetServer server{false, PS_DEFAULT_PORT, false, {}, {}, Script::StringifyJSON(rq, &attrs, false)};
+
 		CNetClient client1(&client1Game, "127.0.0.1", PS_DEFAULT_PORT);
 		CNetClient client2(&client2Game, "127.0.0.1", PS_DEFAULT_PORT);
 		CNetClient client3(&client3Game, "127.0.0.1", PS_DEFAULT_PORT);
@@ -188,7 +182,7 @@ public:
 		clients.push_back(&client2);
 		clients.push_back(&client3);
 
-		connect(server, clients, Script::StringifyJSON(rq, &attrs, false));
+		connect(clients);
 		debug_printf("%s", client1.TestReadGuiMessages().c_str());
 
 		server.StartGame();
@@ -246,8 +240,6 @@ public:
 		CGame client2Game(false);
 		CGame client3Game(false);
 
-		CNetServer server{false};
-
 		JS::RootedValue attrs(rq.cx);
 		Script::CreateObject(
 			rq,
@@ -257,6 +249,8 @@ public:
 			"mapPath", "maps/scenarios/",
 			"thing", "example");
 
+		CNetServer server{false, PS_DEFAULT_PORT, false, {}, {}, Script::StringifyJSON(rq, &attrs, false)};
+
 		CNetClient client1(&client1Game, "127.0.0.1", PS_DEFAULT_PORT, L"alice");
 		CNetClient client2(&client2Game, "127.0.0.1", PS_DEFAULT_PORT, L"bob");
 		CNetClient client3(&client3Game, "127.0.0.1", PS_DEFAULT_PORT, L"charlie");
@@ -265,7 +259,7 @@ public:
 		clients.push_back(&client2);
 		clients.push_back(&client3);
 
-		connect(server, clients, Script::StringifyJSON(rq, &attrs, false));
+		connect(clients);
 		debug_printf("%s", client1.TestReadGuiMessages().c_str());
 
 		server.StartGame();
@@ -316,8 +310,6 @@ public:
 		CGame client2BGame(false);
 		CNetClient client2B(&client2BGame, "127.0.0.1", PS_DEFAULT_PORT, L"bob");
 		clients.push_back(&client2B);
-
-		TS_ASSERT(client2B.SetupConnection(nullptr));
 
 		for (size_t i = 0; ; ++i)
 		{
