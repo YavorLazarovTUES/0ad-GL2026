@@ -225,7 +225,7 @@ Trigger.prototype.tutorialGoals = [
 				"hotkey": "selection.queue"
 			},
 			{
-				"text": markForTranslation("Reminder: to select only two Civilians, click on the first one and then hold %(hotkey) and click on the second one."),
+				"text": markForTranslation("Reminder: to select only two Civilians, click on the first one and then hold %(hotkey)s and click on the second one."),
 				"hotkey": "selection.add"
 			}
 		],
