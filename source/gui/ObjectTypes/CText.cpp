@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -71,9 +71,6 @@ void CText::SetupText()
 
 	m_GeneratedTexts[0] = CGUIText(m_pGUI, m_Caption, m_Font, width, m_BufferZone, m_TextAlign, this);
 
-	if (!m_ScrollBar)
-		CalculateTextPosition(m_CachedActualSize, m_TextPos, m_GeneratedTexts[0]);
-
 	// Setup scrollbar
 	if (m_ScrollBar)
 	{
@@ -99,6 +96,9 @@ void CText::SetupText()
 		if (m_ScrollTop)
 			GetScrollBar(0).SetPos(0.0f);
 	}
+
+	if (!m_ScrollBar || !std::ranges::any_of(m_ScrollBars, &IGUIScrollBar::IsVisible))
+		CalculateTextPosition(m_CachedActualSize, m_TextPos, m_GeneratedTexts[0]);
 }
 
 void CText::ResetStates()
@@ -204,14 +204,14 @@ void CText::Draw(CCanvas2D& canvas)
 
 	const CGUIColor& color = m_Enabled ? m_TextColor : m_TextColorDisabled;
 
-	if (m_ScrollBar)
+	if (m_ScrollBar && std::ranges::any_of(m_ScrollBars, &IGUIScrollBar::IsVisible))
+	{
 		DrawText(canvas, 0, color, m_CachedActualSize.TopLeft() - CVector2D(0.f, scroll), cliparea);
+		// Draw scrollbars on top of the content
+		IGUIScrollBarOwner::Draw(canvas);
+	}
 	else
 		DrawText(canvas, 0, color, m_TextPos, cliparea);
-
-	// Draw scrollbars on top of the content
-	if (m_ScrollBar)
-		IGUIScrollBarOwner::Draw(canvas);
 
 	// Draw the overlays last
 	m_pGUI.DrawSprite(m_SpriteOverlay, canvas, m_CachedActualSize, m_VisibleArea);

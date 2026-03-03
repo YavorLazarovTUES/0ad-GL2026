@@ -9,6 +9,6 @@
 		scroll_bottom="true"
 		textcolor="white"
 		text_align="left"
-		text_valign="center"
+		text_valign="top"
 	/>
 </styles>

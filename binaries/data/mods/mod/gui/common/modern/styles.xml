@@ -131,7 +131,7 @@
 		scrollbar_style="ModernScrollBar"
 		textcolor="white"
 		text_align="left"
-		text_valign="center"
+		text_valign="top"
 		sprite="ModernDarkBox"
 		sprite_overlay="ModernDarkBoxGoldBorder"
 	/>
