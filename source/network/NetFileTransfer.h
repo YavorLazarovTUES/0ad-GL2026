@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -32,7 +32,6 @@ class CFileTransferAckMessage;
 class CFileTransferDataMessage;
 class CFileTransferResponseMessage;
 class CNetMessage;
-class INetSession;
 
 // Assume this is sufficiently less than MTU that packets won't get
 // fragmented or dropped.
@@ -59,8 +58,9 @@ public:
 		REJOIN
 	};
 
-	CNetFileTransferer(INetSession* session)
-		: m_Session(session), m_NextRequestID(1), m_LastProgressReportTime(0)
+	template<typename Session>
+	CNetFileTransferer(Session& session) :
+		m_SendMessage{std::bind_front(&Session::SendMessage, std::ref(session))}
 	{
 	}
 
@@ -107,9 +107,9 @@ private:
 		size_t packetsInFlight;
 	};
 
-	INetSession* m_Session;
+	std::function<bool(const CNetMessage* message)> m_SendMessage;
 
-	u32 m_NextRequestID;
+	u32 m_NextRequestID{1};
 
 
 	struct AsyncFileReceiveTask
@@ -132,7 +132,7 @@ private:
 	using FileSendTasksMap = std::map<u32, CNetFileSendTask>;
 	FileSendTasksMap m_FileSendTasks;
 
-	double m_LastProgressReportTime;
+	double m_LastProgressReportTime{0};
 };
 
 #endif // NETFILETRANSFER_H

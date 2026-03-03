@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -97,7 +97,7 @@ Status CNetFileTransferer::OnFileTransferData(const CFileTransferDataMessage& me
 	CFileTransferAckMessage ackMessage;
 	ackMessage.m_RequestID = message.m_RequestID;
 	ackMessage.m_NumPackets = 1; // TODO: would be nice to send a single ack for multiple packets at once
-	m_Session->SendMessage(&ackMessage);
+	m_SendMessage(&ackMessage);
 
 	if (task.buffer.size() == task.length)
 	{
@@ -155,7 +155,7 @@ void CNetFileTransferer::StartTask(RequestType requestType, std::function<void(s
 	CFileTransferRequestMessage request;
 	request.m_RequestType = static_cast<i8>(requestType);
 	request.m_RequestID = requestID;
-	m_Session->SendMessage(&request);
+	m_SendMessage(&request);
 }
 
 void CNetFileTransferer::StartResponse(u32 requestID, const std::string& data)
@@ -171,7 +171,7 @@ void CNetFileTransferer::StartResponse(u32 requestID, const std::string& data)
 	CFileTransferResponseMessage respMessage;
 	respMessage.m_RequestID = requestID;
 	respMessage.m_Length = task.buffer.size();
-	m_Session->SendMessage(&respMessage);
+	m_SendMessage(&respMessage);
 }
 
 void CNetFileTransferer::Poll()
@@ -190,7 +190,7 @@ void CNetFileTransferer::Poll()
 			dataMessage.m_Data = task.buffer.substr(task.offset, packetSize);
 			task.offset += packetSize;
 			++task.packetsInFlight;
-			m_Session->SendMessage(&dataMessage);
+			m_SendMessage(&dataMessage);
 		}
 	}
 

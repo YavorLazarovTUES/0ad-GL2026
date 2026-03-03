@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -32,11 +32,10 @@ namespace
 {
 constexpr const char* MESSAGECONTENT{"Some example message content"};
 
-class MessageQueues final : public INetSession
+class MessageQueues
 {
 public:
-	~MessageQueues() final = default;
-	bool SendMessage(const CNetMessage* message) final
+	bool SendMessage(const CNetMessage* message)
 	{
 		switch (message->GetType())
 		{
@@ -77,7 +76,7 @@ void CheckSizes(MessageQueues& queues, size_t requestSize, size_t responseSize, 
 struct Participant
 {
 	MessageQueues queues;
-	CNetFileTransferer transferer{&queues};
+	CNetFileTransferer transferer{queues};
 };
 }
 

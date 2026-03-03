@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -51,21 +51,11 @@ typedef struct _ENetHost ENetHost;
  */
 
 /**
- * Interface for sessions to which messages can be sent.
- */
-class INetSession
-{
-public:
-	virtual ~INetSession() {}
-	virtual bool SendMessage(const CNetMessage* message) = 0;
-};
-
-/**
  * The client end of a network session.
  * Provides an abstraction of the network interface, allowing communication with the server.
  * The NetClientSession is threaded, so all calls to the public interface must be thread-safe.
  */
-class CNetClientSession : public INetSession
+class CNetClientSession
 {
 	NONCOPYABLE(CNetClientSession);
 
@@ -94,7 +84,7 @@ public:
 	/**
 	 * Queue up a message to send to the server on the next Loop() call.
 	 */
-	virtual bool SendMessage(const CNetMessage* message) override;
+	bool SendMessage(const CNetMessage* message);
 
 	/**
 	 * Number of milliseconds since the most recent packet of the server was received.
@@ -155,7 +145,7 @@ private:
  * Thread-safety:
  * - This is constructed and used by CNetServerWorker in the network server thread.
  */
-class CNetServerSession : public CFsm<CNetServerSession, CNetMessage*>, public INetSession
+class CNetServerSession : public CFsm<CNetServerSession, CNetMessage*>
 {
 	NONCOPYABLE(CNetServerSession);
 
@@ -203,7 +193,7 @@ public:
 	/**
 	 * Send a message to the client.
 	 */
-	virtual bool SendMessage(const CNetMessage* message);
+	bool SendMessage(const CNetMessage* message);
 
 	CNetFileTransferer& GetFileTransferer() { return m_FileTransferer; }
 
