@@ -130,8 +130,6 @@ public:
 
 	void SendHolePunchingMessage(const CStr& ip, u16 port);
 
-	bool SetConnectionData();
-
 	/**
 	 * Return the externally accessible IP.
 	 */

@@ -108,14 +108,6 @@ void StartNetworkHost(const CStrW& playerName, const u16 serverPort, const CStr&
 	const std::string secret = ps_generate_guid();
 	g_NetServer = new CNetServer(continueSavedGame, serverPort, hasLobby, hashedPassword, secret);
 
-	// In lobby, we send our public ip and port on request to the players who want to connect.
-	// Thus we need to know our public IP and use STUN to get it.
-	if (hasLobby && !g_NetServer->SetConnectionData())
-	{
-		SAFE_DELETE(g_NetServer);
-		throw std::runtime_error{"Failed to resolve public IP-address."};
-	}
-
 	// Generate a secret to identify the host client.
 
 	g_Game = new CGame(storeReplay);

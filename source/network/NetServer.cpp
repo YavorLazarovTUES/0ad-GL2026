@@ -1675,6 +1675,14 @@ CNetServer::CNetServer(const bool continueSavedGame, std::uint16_t port, const b
 	m_LobbyAuth{useLobbyAuth},
 	m_Password{std::move(password)}
 {
+	if (!useLobbyAuth)
+		return;
+
+	// In lobby, we send our public ip and port on request to the players who want to connect.
+	// Thus we need to know our public IP and use STUN to get it.
+	std::lock_guard<std::mutex> lock(m_Worker->m_WorkerMutex);
+	if (!m_Worker->m_Host || !StunClient::FindPublicIP(*m_Worker->m_Host, m_PublicIp, m_PublicPort))
+		throw std::runtime_error{"Failed to resolve public IP-address."};
 }
 
 CNetServer::~CNetServer()
@@ -1703,14 +1711,6 @@ u16 CNetServer::GetLocalPort() const
 	if (!m_Worker->m_Host)
 		return 0;
 	return m_Worker->m_Host->address.port;
-}
-
-bool CNetServer::SetConnectionData()
-{
-	std::lock_guard<std::mutex> lock(m_Worker->m_WorkerMutex);
-	if (!m_Worker->m_Host)
-		return false;
-	return StunClient::FindPublicIP(*m_Worker->m_Host, m_PublicIp, m_PublicPort);
 }
 
 bool CNetServer::CheckPasswordAndIncrement(const std::string& username, const std::string& password, const std::string& salt)
