@@ -162,7 +162,7 @@ bool CNetServerWorker::CheckPassword(const std::string& password, const std::str
 }
 
 
-bool CNetServerWorker::SetupConnection(const u16 port)
+bool CNetServerWorker::SetupConnection(const u16 port, std::string initAttributes)
 {
 	ENSURE(m_State == SERVER_STATE_UNCONNECTED);
 	ENSURE(!m_Host);
@@ -187,7 +187,8 @@ bool CNetServerWorker::SetupConnection(const u16 port)
 	m_State = SERVER_STATE_PREGAME;
 
 	// Launch the worker thread
-	m_WorkerThread = std::thread(Threading::HandleExceptions<RunThread>::Wrapper, this);
+	m_WorkerThread = std::thread{Threading::HandleExceptions<RunThread>::Wrapper, this,
+		std::move(initAttributes)};
 
 #if CONFIG2_MINIUPNPC
 	// Launch the UPnP thread
@@ -383,14 +384,14 @@ bool CNetServerWorker::Multicast(const CNetMessage* message,
 	return ok;
 }
 
-void CNetServerWorker::RunThread(CNetServerWorker* data)
+void CNetServerWorker::RunThread(CNetServerWorker* data, const std::string& initAttributes)
 {
 	debug_SetThreadName("NetServer");
 
-	data->Run();
+	data->Run(initAttributes);
 }
 
-void CNetServerWorker::Run()
+void CNetServerWorker::Run(const std::string& initAttributes)
 {
 	// The script context uses the profiler and therefore the thread must be registered before the context is created
 	g_Profiler2.RegisterCurrentThread("Net server");
@@ -399,6 +400,14 @@ void CNetServerWorker::Run()
 	ScriptContext netServerContext;
 	m_ScriptInterface = new ScriptInterface("Engine", "Net server", netServerContext);
 	m_InitAttributes.init(m_ScriptInterface->GetGeneralJSContext(), JS::UndefinedValue());
+
+	if (!initAttributes.empty())
+	{
+		ScriptRequest rq(m_ScriptInterface);
+		JS::RootedValue gameAttributesVal(rq.cx);
+		Script::ParseJSON(rq, std::move(initAttributes), &gameAttributesVal);
+		m_InitAttributes = gameAttributesVal;
+	}
 
 	while (true)
 	{
@@ -426,7 +435,6 @@ bool CNetServerWorker::RunStep()
 	ScriptRequest rq(m_ScriptInterface);
 
 	std::vector<bool> newStartGame;
-	std::vector<std::string> newGameAttributes;
 	std::vector<std::pair<CStr, CStr>> newLobbyAuths;
 	std::vector<u32> newTurnLength;
 
@@ -437,21 +445,8 @@ bool CNetServerWorker::RunStep()
 			return false;
 
 		newStartGame.swap(m_StartGameQueue);
-		newGameAttributes.swap(m_InitAttributesQueue);
 		newLobbyAuths.swap(m_LobbyAuthQueue);
 		newTurnLength.swap(m_TurnLengthQueue);
-	}
-
-	if (!newGameAttributes.empty())
-	{
-		if (m_State != SERVER_STATE_UNCONNECTED && m_State != SERVER_STATE_PREGAME)
-			LOGERROR("NetServer: Init Attributes cannot be changed after the server starts loading.");
-		else
-		{
-			JS::RootedValue gameAttributesVal(rq.cx);
-			Script::ParseJSON(rq, newGameAttributes.back(), &gameAttributesVal);
-			m_InitAttributes = gameAttributesVal;
-		}
 	}
 
 	if (!newTurnLength.empty())
@@ -1703,9 +1698,9 @@ bool CNetServer::UseLobbyAuth() const
 	return m_LobbyAuth;
 }
 
-bool CNetServer::SetupConnection(const u16 port)
+bool CNetServer::SetupConnection(const u16 port, std::string initAttributes)
 {
-	return m_Worker->SetupConnection(port);
+	return m_Worker->SetupConnection(port, std::move(initAttributes));
 }
 
 CStr CNetServer::GetPublicIp() const
@@ -1760,16 +1755,6 @@ void CNetServer::StartGame()
 {
 	std::lock_guard<std::mutex> lock(m_Worker->m_WorkerMutex);
 	m_Worker->m_StartGameQueue.push_back(true);
-}
-
-void CNetServer::UpdateInitAttributes(JS::MutableHandleValue attrs, const ScriptRequest& rq)
-{
-	// Pass the attributes as JSON, since that's the easiest safe
-	// cross-thread way of passing script data
-	std::string attrsJSON = Script::StringifyJSON(rq, attrs, false);
-
-	std::lock_guard<std::mutex> lock(m_Worker->m_WorkerMutex);
-	m_Worker->m_InitAttributesQueue.push_back(attrsJSON);
 }
 
 void CNetServer::OnLobbyAuth(const CStr& name, const CStr& token)

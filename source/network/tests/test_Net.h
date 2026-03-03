@@ -33,6 +33,7 @@
 #include "ps/Game.h"
 #include "ps/Loader.h"
 #include "ps/XML/Xeromyces.h"
+#include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
@@ -87,9 +88,9 @@ public:
 		return true;
 	}
 
-	void connect(CNetServer& server, const std::vector<CNetClient*>& clients)
+	void connect(CNetServer& server, const std::vector<CNetClient*>& clients, std::string initAttributes)
 	{
-		TS_ASSERT(server.SetupConnection(PS_DEFAULT_PORT));
+		TS_ASSERT(server.SetupConnection(PS_DEFAULT_PORT, std::move(initAttributes)));
 		for (CNetClient* client: clients)
 		{
 			TS_ASSERT(client->SetupConnection(nullptr));
@@ -179,8 +180,6 @@ public:
 			"mapPath", "maps/scenarios/",
 			"thing", "example");
 
-		server.UpdateInitAttributes(&attrs, scriptInterface);
-
 		CNetClient client1(&client1Game, "127.0.0.1", PS_DEFAULT_PORT);
 		CNetClient client2(&client2Game, "127.0.0.1", PS_DEFAULT_PORT);
 		CNetClient client3(&client3Game, "127.0.0.1", PS_DEFAULT_PORT);
@@ -189,7 +188,7 @@ public:
 		clients.push_back(&client2);
 		clients.push_back(&client3);
 
-		connect(server, clients);
+		connect(server, clients, Script::StringifyJSON(rq, &attrs, false));
 		debug_printf("%s", client1.TestReadGuiMessages().c_str());
 
 		server.StartGame();
@@ -258,8 +257,6 @@ public:
 			"mapPath", "maps/scenarios/",
 			"thing", "example");
 
-		server.UpdateInitAttributes(&attrs, scriptInterface);
-
 		CNetClient client1(&client1Game, "127.0.0.1", PS_DEFAULT_PORT, L"alice");
 		CNetClient client2(&client2Game, "127.0.0.1", PS_DEFAULT_PORT, L"bob");
 		CNetClient client3(&client3Game, "127.0.0.1", PS_DEFAULT_PORT, L"charlie");
@@ -268,7 +265,7 @@ public:
 		clients.push_back(&client2);
 		clients.push_back(&client3);
 
-		connect(server, clients);
+		connect(server, clients, Script::StringifyJSON(rq, &attrs, false));
 		debug_printf("%s", client1.TestReadGuiMessages().c_str());
 
 		server.StartGame();

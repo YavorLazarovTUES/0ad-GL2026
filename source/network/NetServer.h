@@ -121,20 +121,13 @@ public:
 	 * This function is synchronous (it won't return until the connection is established).
 	 * @return true on success, false on error (e.g. port already in use)
 	 */
-	bool SetupConnection(const u16 port);
+	bool SetupConnection(const u16 port, std::string initAttributes = {});
 
 	/**
 	 * Call from the GUI to asynchronously notify all clients that they should start loading the game.
-	 * UpdateInitAttributes must be called at least once.
+	 * SetupConnection must be called at least once.
 	 */
 	void StartGame();
-
-	/**
-	 * Call from the GUI to update the game setup attributes.
-	 * The changes won't be propagated to clients until game start.
-	 * @param attrs init attributes, in the script context of rq
-	 */
-	void UpdateInitAttributes(JS::MutableHandleValue attrs, const ScriptRequest& rq);
 
 	/**
 	 * Set the turn length to a fixed value.
@@ -237,7 +230,7 @@ private:
 	 * Begin listening for network connections.
 	 * @return true on success, false on error (e.g. port already in use)
 	 */
-	bool SetupConnection(const u16 port);
+	bool SetupConnection(const u16 port, std::string initAttributes);
 
 	/**
 	 * The given GUID will be (re)assigned to the given player ID.
@@ -428,8 +421,8 @@ private:
 	std::thread m_UPnPThread;
 #endif
 
-	static void RunThread(CNetServerWorker* data);
-	void Run();
+	static void RunThread(CNetServerWorker* data, const std::string& initAttributes);
+	void Run(const std::string& initAttributes);
 	bool RunStep();
 
 	std::thread m_WorkerThread;
@@ -440,7 +433,6 @@ private:
 
 	// Queues for messages sent by the game thread (protected by m_WorkerMutex):
 	std::vector<bool> m_StartGameQueue;
-	std::vector<std::string> m_InitAttributesQueue;
 	std::vector<std::pair<CStr, CStr>> m_LobbyAuthQueue;
 	std::vector<u32> m_TurnLengthQueue;
 };
