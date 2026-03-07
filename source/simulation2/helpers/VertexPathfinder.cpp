@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -367,7 +367,8 @@ static void AddTerrainEdges(std::vector<Edge>& edges, std::vector<Vertex>& verte
 				{
 					CFixedVector2D v0 = CFixedVector2D(fixed::FromInt(ia), fixed::FromInt(j+1)).Multiply(Pathfinding::NAVCELL_SIZE);
 					CFixedVector2D v1 = CFixedVector2D(fixed::FromInt(ib), fixed::FromInt(j+1)).Multiply(Pathfinding::NAVCELL_SIZE);
-					edges.emplace_back(Edge{ v0, v1 });
+
+					edges.emplace_back(v0, v1);
 
 					ia = segmentsR[n];
 					ib = ia + 1;
@@ -388,7 +389,8 @@ static void AddTerrainEdges(std::vector<Edge>& edges, std::vector<Vertex>& verte
 				{
 					CFixedVector2D v0 = CFixedVector2D(fixed::FromInt(ib), fixed::FromInt(j+1)).Multiply(Pathfinding::NAVCELL_SIZE);
 					CFixedVector2D v1 = CFixedVector2D(fixed::FromInt(ia), fixed::FromInt(j+1)).Multiply(Pathfinding::NAVCELL_SIZE);
-					edges.emplace_back(Edge{ v0, v1 });
+
+					edges.emplace_back(v0, v1);
 
 					ia = segmentsL[n];
 					ib = ia + 1;
@@ -425,7 +427,8 @@ static void AddTerrainEdges(std::vector<Edge>& edges, std::vector<Vertex>& verte
 				{
 					CFixedVector2D v0 = CFixedVector2D(fixed::FromInt(i+1), fixed::FromInt(ja)).Multiply(Pathfinding::NAVCELL_SIZE);
 					CFixedVector2D v1 = CFixedVector2D(fixed::FromInt(i+1), fixed::FromInt(jb)).Multiply(Pathfinding::NAVCELL_SIZE);
-					edges.emplace_back(Edge{ v0, v1 });
+
+					edges.emplace_back(v0, v1);
 
 					ja = segmentsU[n];
 					jb = ja + 1;
@@ -446,7 +449,8 @@ static void AddTerrainEdges(std::vector<Edge>& edges, std::vector<Vertex>& verte
 				{
 					CFixedVector2D v0 = CFixedVector2D(fixed::FromInt(i+1), fixed::FromInt(jb)).Multiply(Pathfinding::NAVCELL_SIZE);
 					CFixedVector2D v1 = CFixedVector2D(fixed::FromInt(i+1), fixed::FromInt(ja)).Multiply(Pathfinding::NAVCELL_SIZE);
-					edges.emplace_back(Edge{ v0, v1 });
+
+					edges.emplace_back(v0, v1);
 
 					ja = segmentsD[n];
 					jb = ja + 1;
@@ -463,17 +467,16 @@ static void SplitAAEdges(const CFixedVector2D& a,
 		std::vector<EdgeAA>& edgesLeft, std::vector<EdgeAA>& edgesRight,
 		std::vector<EdgeAA>& edgesBottom, std::vector<EdgeAA>& edgesTop)
 {
-
 	for (const Square& square : squares)
 	{
 		if (a.X <= square.p0.X)
-			edgesLeft.emplace_back(EdgeAA{ square.p0, square.p1.Y });
+			edgesLeft.emplace_back(square.p0, square.p1.Y);
 		if (a.X >= square.p1.X)
-			edgesRight.emplace_back(EdgeAA{ square.p1, square.p0.Y });
+			edgesRight.emplace_back(square.p1, square.p0.Y);
 		if (a.Y <= square.p0.Y)
-			edgesBottom.emplace_back(EdgeAA{ square.p0, square.p1.X });
+			edgesBottom.emplace_back(square.p0, square.p1.X);
 		if (a.Y >= square.p1.Y)
-			edgesTop.emplace_back(EdgeAA{ square.p1, square.p0.X });
+			edgesTop.emplace_back(square.p1, square.p0.X);
 	}
 
 	for (const Edge& edge : edges)
@@ -484,13 +487,13 @@ static void SplitAAEdges(const CFixedVector2D& a,
 			{
 				if (!(a.X <= edge.p0.X))
 					continue;
-				edgesLeft.emplace_back(EdgeAA{ edge.p1, edge.p0.Y });
+				edgesLeft.emplace_back(edge.p1, edge.p0.Y);
 			}
 			else
 			{
 				if (!(a.X >= edge.p0.X))
 					continue;
-				edgesRight.emplace_back(EdgeAA{ edge.p1, edge.p0.Y });
+				edgesRight.emplace_back(edge.p1, edge.p0.Y);
 			}
 		}
 		else if (edge.p0.Y == edge.p1.Y)
@@ -499,13 +502,13 @@ static void SplitAAEdges(const CFixedVector2D& a,
 			{
 				if (!(a.Y <= edge.p0.Y))
 					continue;
-				edgesBottom.emplace_back(EdgeAA{ edge.p0, edge.p1.X });
+				edgesBottom.emplace_back(edge.p0, edge.p1.X);
 			}
 			else
 			{
 				if (!(a.Y >= edge.p0.Y))
 					continue;
-				edgesTop.emplace_back(EdgeAA{ edge.p0, edge.p1.X });
+				edgesTop.emplace_back(edge.p0, edge.p1.X);
 			}
 		}
 		else
@@ -573,10 +576,10 @@ WaypointPath VertexPathfinder::ComputeShortPath(const ShortPathRequest& request,
 
 	// Add domain edges
 	// (Inside-out square, so edges are in reverse from the usual direction.)
-	m_Edges.emplace_back(Edge{ CFixedVector2D(rangeXMin, rangeZMin), CFixedVector2D(rangeXMin, rangeZMax) });
-	m_Edges.emplace_back(Edge{ CFixedVector2D(rangeXMin, rangeZMax), CFixedVector2D(rangeXMax, rangeZMax) });
-	m_Edges.emplace_back(Edge{ CFixedVector2D(rangeXMax, rangeZMax), CFixedVector2D(rangeXMax, rangeZMin) });
-	m_Edges.emplace_back(Edge{ CFixedVector2D(rangeXMax, rangeZMin), CFixedVector2D(rangeXMin, rangeZMin) });
+	m_Edges.emplace_back(CFixedVector2D(rangeXMin, rangeZMin), CFixedVector2D(rangeXMin, rangeZMax));
+	m_Edges.emplace_back(CFixedVector2D(rangeXMin, rangeZMax), CFixedVector2D(rangeXMax, rangeZMax));
+	m_Edges.emplace_back(CFixedVector2D(rangeXMax, rangeZMax), CFixedVector2D(rangeXMax, rangeZMin));
+	m_Edges.emplace_back(CFixedVector2D(rangeXMax, rangeZMin), CFixedVector2D(rangeXMin, rangeZMin));
 
 
 	// Add the start point to the graph
@@ -681,13 +684,13 @@ WaypointPath VertexPathfinder::ComputeShortPath(const ShortPathRequest& request,
 		CFixedVector2D ev2(center.X + h0.Dot(u), center.Y - h0.Dot(v));
 		CFixedVector2D ev3(center.X + h1.Dot(u), center.Y - h1.Dot(v));
 		if (aa)
-			m_EdgeSquares.emplace_back(Square{ ev1, ev3 });
+			m_EdgeSquares.emplace_back(ev1, ev3);
 		else
 		{
-			m_Edges.emplace_back(Edge{ ev0, ev1 });
-			m_Edges.emplace_back(Edge{ ev1, ev2 });
-			m_Edges.emplace_back(Edge{ ev2, ev3 });
-			m_Edges.emplace_back(Edge{ ev3, ev0 });
+			m_Edges.emplace_back(ev0, ev1);
+			m_Edges.emplace_back(ev1, ev2);
+			m_Edges.emplace_back(ev2, ev3);
+			m_Edges.emplace_back(ev3, ev0);
 		}
 
 	}

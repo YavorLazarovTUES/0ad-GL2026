@@ -57,6 +57,9 @@ struct Vertex
 struct Edge
 {
 	CFixedVector2D p0, p1;
+
+	Edge() = default;
+	Edge(const CFixedVector2D& p0, const CFixedVector2D& p1) : p0(p0), p1(p1) {}
 };
 
 // Axis-aligned obstruction squares (paths will not cross any of these).
@@ -65,6 +68,9 @@ struct Edge
 struct Square
 {
 	CFixedVector2D p0, p1;
+
+	Square() = default;
+	Square(const CFixedVector2D& p0, const CFixedVector2D& p1) : p0(p0), p1(p1) {}
 };
 
 // Axis-aligned obstruction edges.
@@ -74,6 +80,9 @@ struct EdgeAA
 {
 	CFixedVector2D p0;
 	fixed c1;
+
+	EdgeAA() = default;
+	EdgeAA(const CFixedVector2D& p0, const fixed& c1) : p0(p0), c1(c1) {}
 };
 
 class VertexPathfinder
