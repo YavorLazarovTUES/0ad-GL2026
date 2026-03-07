@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -46,7 +46,7 @@ struct Vertex
 
 	CFixedVector2D p;
 	fixed g, h;
-	u16 pred;
+	u16 pred = 0;
 	u8 status;
 	u8 quadInward : 4; // the quadrant which is inside the shape (or NONE)
 	u8 quadOutward : 4; // the quadrants of the next point on the path which this vertex must be in, given 'pred'
@@ -110,7 +110,6 @@ private:
 	// These vectors are expensive to recreate on every call, so we cache them here.
 	// They are made mutable to allow using them in the otherwise const ComputeShortPath.
 
-	mutable std::vector<Edge> m_EdgesUnaligned;
 	mutable std::vector<EdgeAA> m_EdgesLeft;
 	mutable std::vector<EdgeAA> m_EdgesRight;
 	mutable std::vector<EdgeAA> m_EdgesBottom;
@@ -121,7 +120,8 @@ private:
 	mutable std::vector<Vertex> m_Vertexes;
 	// List of collision edges - paths must never cross these.
 	// (Edges are one-sided so intersections are fine in one direction, but not the other direction.)
-	mutable std::vector<Edge> m_Edges;
+	mutable std::vector<Edge> m_EdgesAligned;
+	mutable std::vector<Edge> m_EdgesUnaligned;
 	mutable std::vector<Square> m_EdgeSquares; // Axis-aligned squares; equivalent to 4 edges.
 };
 

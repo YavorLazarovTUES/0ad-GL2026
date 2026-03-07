@@ -273,7 +273,7 @@ typedef PriorityQueueHeap<u16, fixed, fixed> VertexPriorityQueue;
  * navcells (for impassable terrain).
  * Navcells i0 <= i <= i1, j0 <= j <= j1 will be considered.
  */
-static void AddTerrainEdges(std::vector<Edge>& edges, std::vector<Vertex>& vertexes,
+static void AddTerrainEdges(std::vector<Edge>& edgesAligned, std::vector<Edge>& edgesUnaligned, std::vector<Vertex>& vertexes,
 	int i0, int j0, int i1, int j1,
 	pass_class_t passClass, const Grid<NavcellData>& grid)
 {
@@ -368,7 +368,10 @@ static void AddTerrainEdges(std::vector<Edge>& edges, std::vector<Vertex>& verte
 					CFixedVector2D v0 = CFixedVector2D(fixed::FromInt(ia), fixed::FromInt(j+1)).Multiply(Pathfinding::NAVCELL_SIZE);
 					CFixedVector2D v1 = CFixedVector2D(fixed::FromInt(ib), fixed::FromInt(j+1)).Multiply(Pathfinding::NAVCELL_SIZE);
 
-					edges.emplace_back(v0, v1);
+					if (v0.X == v1.X || v0.Y == v1.Y)
+						edgesAligned.emplace_back(v0, v1);
+					else
+						edgesUnaligned.emplace_back(v0, v1);
 
 					ia = segmentsR[n];
 					ib = ia + 1;
@@ -390,7 +393,10 @@ static void AddTerrainEdges(std::vector<Edge>& edges, std::vector<Vertex>& verte
 					CFixedVector2D v0 = CFixedVector2D(fixed::FromInt(ib), fixed::FromInt(j+1)).Multiply(Pathfinding::NAVCELL_SIZE);
 					CFixedVector2D v1 = CFixedVector2D(fixed::FromInt(ia), fixed::FromInt(j+1)).Multiply(Pathfinding::NAVCELL_SIZE);
 
-					edges.emplace_back(v0, v1);
+					if (v0.X == v1.X || v0.Y == v1.Y)
+						edgesAligned.emplace_back(v0, v1);
+					else
+						edgesUnaligned.emplace_back(v0, v1);
 
 					ia = segmentsL[n];
 					ib = ia + 1;
@@ -428,7 +434,10 @@ static void AddTerrainEdges(std::vector<Edge>& edges, std::vector<Vertex>& verte
 					CFixedVector2D v0 = CFixedVector2D(fixed::FromInt(i+1), fixed::FromInt(ja)).Multiply(Pathfinding::NAVCELL_SIZE);
 					CFixedVector2D v1 = CFixedVector2D(fixed::FromInt(i+1), fixed::FromInt(jb)).Multiply(Pathfinding::NAVCELL_SIZE);
 
-					edges.emplace_back(v0, v1);
+					if (v0.X == v1.X || v0.Y == v1.Y)
+						edgesAligned.emplace_back(v0, v1);
+					else
+						edgesUnaligned.emplace_back(v0, v1);
 
 					ja = segmentsU[n];
 					jb = ja + 1;
@@ -450,7 +459,10 @@ static void AddTerrainEdges(std::vector<Edge>& edges, std::vector<Vertex>& verte
 					CFixedVector2D v0 = CFixedVector2D(fixed::FromInt(i+1), fixed::FromInt(jb)).Multiply(Pathfinding::NAVCELL_SIZE);
 					CFixedVector2D v1 = CFixedVector2D(fixed::FromInt(i+1), fixed::FromInt(ja)).Multiply(Pathfinding::NAVCELL_SIZE);
 
-					edges.emplace_back(v0, v1);
+					if (v0.X == v1.X || v0.Y == v1.Y)
+						edgesAligned.emplace_back(v0, v1);
+					else
+						edgesUnaligned.emplace_back(v0, v1);
 
 					ja = segmentsD[n];
 					jb = ja + 1;
@@ -461,9 +473,8 @@ static void AddTerrainEdges(std::vector<Edge>& edges, std::vector<Vertex>& verte
 }
 
 static void SplitAAEdges(const CFixedVector2D& a,
-		const std::vector<Edge>& edges,
+		const std::vector<Edge>& edgesAligned,
 		const std::vector<Square>& squares,
-		std::vector<Edge>& edgesUnaligned,
 		std::vector<EdgeAA>& edgesLeft, std::vector<EdgeAA>& edgesRight,
 		std::vector<EdgeAA>& edgesBottom, std::vector<EdgeAA>& edgesTop)
 {
@@ -479,7 +490,8 @@ static void SplitAAEdges(const CFixedVector2D& a,
 			edgesTop.emplace_back(square.p1, square.p0.X);
 	}
 
-	for (const Edge& edge : edges)
+	// Process aligned edges
+	for (const Edge& edge : edgesAligned)
 	{
 		if (edge.p0.X == edge.p1.X)
 		{
@@ -511,8 +523,6 @@ static void SplitAAEdges(const CFixedVector2D& a,
 				edgesTop.emplace_back(edge.p0, edge.p1.X);
 			}
 		}
-		else
-			edgesUnaligned.push_back(edge);
 	}
 }
 
@@ -576,10 +586,10 @@ WaypointPath VertexPathfinder::ComputeShortPath(const ShortPathRequest& request,
 
 	// Add domain edges
 	// (Inside-out square, so edges are in reverse from the usual direction.)
-	m_Edges.emplace_back(CFixedVector2D(rangeXMin, rangeZMin), CFixedVector2D(rangeXMin, rangeZMax));
-	m_Edges.emplace_back(CFixedVector2D(rangeXMin, rangeZMax), CFixedVector2D(rangeXMax, rangeZMax));
-	m_Edges.emplace_back(CFixedVector2D(rangeXMax, rangeZMax), CFixedVector2D(rangeXMax, rangeZMin));
-	m_Edges.emplace_back(CFixedVector2D(rangeXMax, rangeZMin), CFixedVector2D(rangeXMin, rangeZMin));
+	m_EdgesAligned.emplace_back(CFixedVector2D(rangeXMin, rangeZMin), CFixedVector2D(rangeXMin, rangeZMax));
+	m_EdgesAligned.emplace_back(CFixedVector2D(rangeXMin, rangeZMax), CFixedVector2D(rangeXMax, rangeZMax));
+	m_EdgesAligned.emplace_back(CFixedVector2D(rangeXMax, rangeZMax), CFixedVector2D(rangeXMax, rangeZMin));
+	m_EdgesAligned.emplace_back(CFixedVector2D(rangeXMax, rangeZMin), CFixedVector2D(rangeXMin, rangeZMin));
 
 
 	// Add the start point to the graph
@@ -687,10 +697,11 @@ WaypointPath VertexPathfinder::ComputeShortPath(const ShortPathRequest& request,
 			m_EdgeSquares.emplace_back(ev1, ev3);
 		else
 		{
-			m_Edges.emplace_back(ev0, ev1);
-			m_Edges.emplace_back(ev1, ev2);
-			m_Edges.emplace_back(ev2, ev3);
-			m_Edges.emplace_back(ev3, ev0);
+			// For non-axis-aligned edges, add them to unaligned collection
+			m_EdgesUnaligned.emplace_back(ev0, ev1);
+			m_EdgesUnaligned.emplace_back(ev1, ev2);
+			m_EdgesUnaligned.emplace_back(ev2, ev3);
+			m_EdgesUnaligned.emplace_back(ev3, ev0);
 		}
 
 	}
@@ -700,7 +711,7 @@ WaypointPath VertexPathfinder::ComputeShortPath(const ShortPathRequest& request,
 		u16 i0, j0, i1, j1;
 		Pathfinding::NearestNavcell(rangeXMin, rangeZMin, i0, j0, m_GridSize, m_GridSize);
 		Pathfinding::NearestNavcell(rangeXMax, rangeZMax, i1, j1, m_GridSize, m_GridSize);
-		AddTerrainEdges(m_Edges, m_Vertexes, i0, j0, i1, j1, request.passClass, *m_TerrainOnlyGrid);
+		AddTerrainEdges(m_EdgesAligned, m_EdgesUnaligned, m_Vertexes, i0, j0, i1, j1, request.passClass, *m_TerrainOnlyGrid);
 	}
 
 	// Clip out vertices that are inside an edgeSquare (i.e. trivially unreachable)
@@ -725,7 +736,7 @@ WaypointPath VertexPathfinder::ComputeShortPath(const ShortPathRequest& request,
 
 	ENSURE(m_Vertexes.size() < 65536); // We store array indexes as u16.
 
-	g_VertexPathfinderDebugOverlay.DebugRenderGraph(cmpObstructionManager->GetSimContext(), m_Vertexes, m_Edges, m_EdgeSquares);
+	g_VertexPathfinderDebugOverlay.DebugRenderGraph(cmpObstructionManager->GetSimContext(), m_Vertexes, m_EdgesAligned, m_EdgeSquares);
 
 	// Do an A* search over the vertex/visibility graph:
 
@@ -738,7 +749,7 @@ WaypointPath VertexPathfinder::ComputeShortPath(const ShortPathRequest& request,
 	// The path found will be at most this many times worse than the optimal path, which is likely OK.
 	fixed heuristicWeight = fixed::FromInt(1);
 	// If we have a lot of edges to check, relax the constraint more.
-	if (m_Edges.size() > 100 || m_EdgeSquares.size() > 100)
+	if (m_EdgesAligned.size() + m_EdgesUnaligned.size() > 100 || m_EdgeSquares.size() > 100)
 		heuristicWeight = heuristicWeight.MulDiv(fixed::FromInt(5), fixed::FromInt(3));
 	else
 		heuristicWeight = heuristicWeight.MulDiv(fixed::FromInt(4), fixed::FromInt(3));
@@ -776,12 +787,11 @@ WaypointPath VertexPathfinder::ComputeShortPath(const ShortPathRequest& request,
 		if (m_EdgeSquares.size() > 8)
 			std::partial_sort(m_EdgeSquares.begin(), m_EdgeSquares.begin() + 8, m_EdgeSquares.end(), SquareSort(m_Vertexes[curr.id].p));
 
-		m_EdgesUnaligned.clear();
 		m_EdgesLeft.clear();
 		m_EdgesRight.clear();
 		m_EdgesBottom.clear();
 		m_EdgesTop.clear();
-		SplitAAEdges(m_Vertexes[curr.id].p, m_Edges, m_EdgeSquares, m_EdgesUnaligned, m_EdgesLeft, m_EdgesRight, m_EdgesBottom, m_EdgesTop);
+		SplitAAEdges(m_Vertexes[curr.id].p, m_EdgesAligned, m_EdgeSquares, m_EdgesLeft, m_EdgesRight, m_EdgesBottom, m_EdgesTop);
 
 		// Do the same partial sort for unaligned edges, which helps in e.g. forests.
 		// (Higher values because here we need ot account for all 4 edges,
@@ -888,12 +898,11 @@ WaypointPath VertexPathfinder::ComputeShortPath(const ShortPathRequest& request,
 	for (u16 id = idBest; id != START_VERTEX_ID; id = m_Vertexes[id].pred)
 		path.m_Waypoints.emplace_back(Waypoint{ m_Vertexes[id].p.X, m_Vertexes[id].p.Y });
 
-
-	m_Edges.clear();
+	m_EdgesAligned.clear();
+	m_EdgesUnaligned.clear();
 	m_EdgeSquares.clear();
 	m_Vertexes.clear();
 
-	m_EdgesUnaligned.clear();
 	m_EdgesLeft.clear();
 	m_EdgesRight.clear();
 	m_EdgesBottom.clear();
