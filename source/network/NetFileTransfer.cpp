@@ -23,7 +23,6 @@
 #include "lib/posix/posix_types.h"
 #include "lib/timer.h"
 #include "network/NetMessage.h"
-#include "network/NetSession.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
 

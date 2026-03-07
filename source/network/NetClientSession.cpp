@@ -17,14 +17,13 @@
 
 #include "precompiled.h"
 
-#include "NetSession.h"
+#include "NetClientSession.h"
 
 #include "lib/code_generation.h"
 #include "lib/debug.h"
 #include "network/NetClient.h"
 #include "network/NetEnet.h"
 #include "network/NetMessage.h"
-#include "network/NetServer.h"
 #include "network/NetStats.h"
 #include "ps/CLogger.h"
 #include "ps/ProfileViewer.h"
@@ -236,51 +235,3 @@ u32 CNetClientSession::GetMeanRTT() const
 	return m_MeanRTT;
 }
 
-CNetServerSession::CNetServerSession(CNetServerWorker& server, ENetPeer* peer) :
-	m_Server(server), m_FileTransferer(*this), m_Peer(peer)
-{
-}
-
-u32 CNetServerSession::GetIPAddress() const
-{
-	return m_Peer->address.host;
-}
-
-u32 CNetServerSession::GetLastReceivedTime() const
-{
-	if (!m_Peer)
-		return 0;
-
-	return enet_time_get() - m_Peer->lastReceiveTime;
-}
-
-u32 CNetServerSession::GetMeanRTT() const
-{
-	if (!m_Peer)
-		return 0;
-
-	return m_Peer->roundTripTime;
-}
-
-void CNetServerSession::Disconnect(NetDisconnectReason reason)
-{
-	if (reason == NDR_UNKNOWN)
-		LOGWARNING("Disconnecting client without communicating the disconnect reason!");
-
-	Update((uint)NMT_CONNECTION_LOST, NULL);
-
-	enet_peer_disconnect(m_Peer, static_cast<enet_uint32>(reason));
-}
-
-void CNetServerSession::DisconnectNow(NetDisconnectReason reason)
-{
-	if (reason == NDR_UNKNOWN)
-		LOGWARNING("Disconnecting client without communicating the disconnect reason!");
-
-	enet_peer_disconnect_now(m_Peer, static_cast<enet_uint32>(reason));
-}
-
-bool CNetServerSession::SendMessage(const CNetMessage* message)
-{
-	return m_Server.SendMessage(m_Peer, message);
-}

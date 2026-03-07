@@ -21,23 +21,16 @@
 #include "lib/code_annotation.h"
 #include "lib/external_libraries/enet.h"
 #include "lib/types.h"
-#include "network/FSM.h"
 #include "network/NetFileTransfer.h"
 #include "network/NetHost.h"
-#include "ps/CStr.h"
 
 #include <atomic>
 #include <boost/lockfree/queue.hpp>
 
 class CNetClient;
 class CNetMessage;
-class CNetServerWorker;
 class CNetStatsTable;
-
-/**
- * Report the peer if we didn't receive a packet after this time (milliseconds).
- */
-inline constexpr u32 NETWORK_WARNING_TIMEOUT = 2000;
+class CStr;
 
 typedef struct _ENetHost ENetHost;
 
@@ -118,10 +111,10 @@ private:
 	boost::lockfree::queue<ENetPacket*> m_OutgoingMessages{16};
 
 	// Last known state. If false, flushing errors are silenced.
-	bool m_Connected = false;
+	bool m_Connected{false};
 
 	// Whether this session was ever connected to the server.
-	bool m_WasConnected = false;
+	bool m_WasConnected{false};
 
 	// Wrapper around enet stats - those are atomic as the code is lock-free.
 	std::atomic<u32> m_LastReceivedTime{0};
@@ -134,80 +127,6 @@ private:
 	ENetHost* m_Host{nullptr};
 	ENetPeer* m_Server{nullptr};
 	CNetStatsTable* m_Stats{nullptr};
-};
-
-
-/**
- * The server's end of a network session.
- * Represents an abstraction of the state of the client, storing all the per-client data
- * needed by the server.
- *
- * Thread-safety:
- * - This is constructed and used by CNetServerWorker in the network server thread.
- */
-class CNetServerSession : public CFsm<CNetServerSession, CNetMessage*>
-{
-	NONCOPYABLE(CNetServerSession);
-
-public:
-	CNetServerSession(CNetServerWorker& server, ENetPeer* peer);
-
-	CNetServerWorker& GetServer() { return m_Server; }
-
-	const CStr& GetGUID() const { return m_GUID; }
-	void SetGUID(const CStr& guid) { m_GUID = guid; }
-
-	const CStrW& GetUserName() const { return m_UserName; }
-	void SetUserName(const CStrW& name) { m_UserName = name; }
-
-	u32 GetHostID() const { return m_HostID; }
-	void SetHostID(u32 id) { m_HostID = id; }
-
-	u32 GetIPAddress() const;
-
-	/**
-	 * Number of milliseconds since the latest packet of that client was received.
-	 */
-	u32 GetLastReceivedTime() const;
-
-	/**
-	 * Average round trip time to the client.
-	 */
-	u32 GetMeanRTT() const;
-
-	/**
-	 * Sends a disconnection notification to the client,
-	 * and sends a NMT_CONNECTION_LOST message to the session FSM.
-	 * The server will receive a disconnection notification after a while.
-	 * The server will not receive any further messages sent via this session.
-	 */
-	void Disconnect(NetDisconnectReason reason);
-
-	/**
-	 * Sends an unreliable disconnection notification to the client.
-	 * The server will not receive any disconnection notification.
-	 * The server will not receive any further messages sent via this session.
-	 */
-	void DisconnectNow(NetDisconnectReason reason);
-
-	/**
-	 * Send a message to the client.
-	 */
-	bool SendMessage(const CNetMessage* message);
-
-	CNetFileTransferer& GetFileTransferer() { return m_FileTransferer; }
-
-private:
-	CNetServerWorker& m_Server;
-
-	CNetFileTransferer m_FileTransferer;
-
-	ENetPeer* m_Peer;
-
-	CStr m_GUID;
-	CStrW m_UserName;
-	u32 m_HostID{0};
-	CStr m_Password;
 };
 
 #endif	// NETSESSION_H

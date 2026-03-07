@@ -19,7 +19,6 @@
 
 #include "network/NetFileTransfer.h"
 #include "network/NetMessage.h"
-#include "network/NetSession.h"
 
 #include <cstddef>
 #include <functional>

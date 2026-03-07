@@ -33,7 +33,7 @@
 #include "network/NetMessage.h"
 #include "network/NetProtocol.h"
 #include "network/NetServerTurnManager.h"
-#include "network/NetSession.h"
+#include "network/NetServerSession.h"
 #include "network/NetStats.h"
 #include "network/StunClient.h"
 #include "ps/CLogger.h"

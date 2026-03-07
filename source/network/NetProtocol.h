@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -26,6 +26,11 @@
 #include <string>
 #include <type_traits>
 #include <vector>
+
+/**
+ * Report the peer if we didn't receive a packet after this time (milliseconds).
+ */
+inline constexpr u32 NETWORK_WARNING_TIMEOUT{2000};
 
 struct HandshakeError
 {

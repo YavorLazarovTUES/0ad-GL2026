@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,12 +25,12 @@
 #include "lib/status.h"
 #include "lib/utf8.h"
 #include "lobby/IXmppClient.h"
+#include "network/NetClientSession.h"
 #include "network/NetClientTurnManager.h"
 #include "network/NetEnet.h"
 #include "network/NetFileTransfer.h"
 #include "network/NetMessage.h"
 #include "network/NetProtocol.h"
-#include "network/NetSession.h"
 #include "network/StunClient.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
