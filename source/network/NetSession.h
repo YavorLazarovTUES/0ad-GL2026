@@ -113,9 +113,9 @@ private:
 	CNetFileTransferer m_FileTransferer;
 
 	// Net messages received and waiting for fetching.
-	boost::lockfree::queue<ENetEvent> m_IncomingMessages;
+	boost::lockfree::queue<ENetEvent> m_IncomingMessages{16};
 	// Net messages to send on the next flush() call.
-	boost::lockfree::queue<ENetPacket*> m_OutgoingMessages;
+	boost::lockfree::queue<ENetPacket*> m_OutgoingMessages{16};
 
 	// Last known state. If false, flushing errors are silenced.
 	bool m_Connected = false;
@@ -124,16 +124,16 @@ private:
 	bool m_WasConnected = false;
 
 	// Wrapper around enet stats - those are atomic as the code is lock-free.
-	std::atomic<u32> m_LastReceivedTime;
-	std::atomic<u32> m_MeanRTT;
+	std::atomic<u32> m_LastReceivedTime{0};
+	std::atomic<u32> m_MeanRTT{0};
 
 	// If this is true, calling Connect() or deleting the session is an error.
-	std::atomic<bool> m_LoopRunning;
-	std::atomic<bool> m_ShouldShutdown;
+	std::atomic<bool> m_LoopRunning{false};
+	std::atomic<bool> m_ShouldShutdown{false};
 
-	ENetHost* m_Host;
-	ENetPeer* m_Server;
-	CNetStatsTable* m_Stats;
+	ENetHost* m_Host{nullptr};
+	ENetPeer* m_Server{nullptr};
+	CNetStatsTable* m_Stats{nullptr};
 };
 
 
@@ -206,7 +206,7 @@ private:
 
 	CStr m_GUID;
 	CStrW m_UserName;
-	u32 m_HostID;
+	u32 m_HostID{0};
 	CStr m_Password;
 };
 

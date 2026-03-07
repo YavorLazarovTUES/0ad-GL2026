@@ -36,9 +36,7 @@ constexpr int NETCLIENT_POLL_TIMEOUT = 50;
 constexpr int CHANNEL_COUNT = 1;
 
 CNetClientSession::CNetClientSession(CNetClient& client) :
-	m_Client(client), m_FileTransferer(*this), m_Host(nullptr), m_Server(nullptr),
-	m_Stats(nullptr), m_IncomingMessages(16), m_OutgoingMessages(16),
-	m_LoopRunning(false), m_ShouldShutdown(false), m_MeanRTT(0), m_LastReceivedTime(0)
+	m_Client(client), m_FileTransferer(*this)
 {
 }
 
@@ -239,7 +237,7 @@ u32 CNetClientSession::GetMeanRTT() const
 }
 
 CNetServerSession::CNetServerSession(CNetServerWorker& server, ENetPeer* peer) :
-	m_Server(server), m_FileTransferer(*this), m_Peer(peer), m_HostID(0), m_GUID(), m_UserName()
+	m_Server(server), m_FileTransferer(*this), m_Peer(peer)
 {
 }
 
