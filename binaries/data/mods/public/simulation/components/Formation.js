@@ -713,7 +713,7 @@ Formation.prototype.GetMemberClassCombinations = function(ent)
 	const classes = Engine.QueryInterface(ent, IID_Identity).GetClassesList();
 
 	const matchedClassCombination = Array.from(this.allMatchingClassCombinations).find(classCombination =>
-		MatchesClassList(classCombination)
+		MatchesClassList(classes, classCombination)
 	) || this.UNSORTED_CLASS_COMBINATION;
 
 	this.memberClassCombinationCache.set(ent, matchedClassCombination);
