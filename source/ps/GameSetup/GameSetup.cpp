@@ -109,6 +109,7 @@
 #include <fmt/format.h>
 #include <fstream>
 #include <js/CallArgs.h>
+#include <js/Promise.h>
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
 #include <js/Value.h>
@@ -841,38 +842,46 @@ bool Autostart(const CmdLineArgs& args)
 	JS::RootedValue cmdLineArgs(rq.cx);
 	Script::ToJSVal(rq, &cmdLineArgs, args);
 
-	if (args.Has("autostart-client") || args.Has("autostart-host"))
-	{
-		// Pass the default port if undefined, to avoid duplicating it in JS.
-		if (!Script::HasProperty(rq, cmdLineArgs, "autostart-port"))
-			Script::SetProperty(rq, cmdLineArgs, "autostart-port", PS_DEFAULT_PORT);
+	// Pass the default port if undefined, to avoid duplicating it in JS.
+	if (!Script::HasProperty(rq, cmdLineArgs, "autostart-port"))
+		Script::SetProperty(rq, cmdLineArgs, "autostart-port", PS_DEFAULT_PORT);
 
-		JS::RootedValue global(rq.cx, rq.globalValue());
-		if (!ScriptFunction::CallVoid(rq, global, args.Has("autostart-client") ? "autostartClient" : "autostartHost", cmdLineArgs, true))
-			return false;
-
-		bool shouldQuit = false;
-		while (!shouldQuit)
-		{
-			g_NetClient->Poll();
-			g_ScriptContext->RunJobs();
-			if (!ScriptFunction::Call(rq, global, "onTick", shouldQuit))
-				return false;
-			std::this_thread::sleep_for(std::chrono::microseconds(200));
-		}
-	}
-	else
+	JS::RootedValue resultValue{rq.cx};
+	JS::RootedValue global(rq.cx, rq.globalValue());
+	if (!ScriptFunction::Call(rq, global,
+		args.Has("autostart-client") ? "autostartClient" : "autostartHost", &resultValue,
+		cmdLineArgs, args.Has("autostart-host")) && !resultValue.isObject())
 	{
-		JS::RootedValue global(rq.cx, rq.globalValue());
-		if (!ScriptFunction::CallVoid(rq, global, "autostartHost", cmdLineArgs, false))
-			return false;
+		return false;
 	}
+
+	JS::RootedObject result{rq.cx, &resultValue.toObject()};
+	while (JS::IsPromiseObject(result) && JS::GetPromiseState(result) == JS::PromiseState::Pending)
+	{
+		g_ScriptContext->RunJobs();
+		g_NetClient->Poll();
+		std::this_thread::sleep_for(std::chrono::microseconds(200));
+	}
+	if (JS::IsPromiseObject(result) && JS::GetPromiseState(result) == JS::PromiseState::Rejected)
+		return false;
+
+	JS::RootedValue pageData{rq.cx, JS::IsPromiseObject(result) ? JS::GetPromiseResult(result) :
+		resultValue};
 
 	if (args.Has("autostart-nonvisual"))
 	{
 		PS::Loader::NonprogressiveLoad();
 		g_Game->ReallyStartGame();
+		return true;
 	}
+
+	std::wstring pageName;
+	Script::GetPropertyInt(rq, pageData, 0, pageName);
+	JS::RootedValue pageArgs{rq.cx};
+	Script::GetPropertyInt(rq, pageData, 1, &pageArgs);
+	Script::StructuredClone clonedpageArgs{Script::WriteStructuredClone(rq, pageArgs)};
+
+	g_GUI->OpenChildPage(pageName, std::move(clonedpageArgs));
 
 	return true;
 }

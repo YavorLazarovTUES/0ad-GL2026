@@ -1,36 +1,22 @@
-class AutoStart
+async function autoStart(cmdLineArgs)
 {
-	constructor(cmdLineArgs)
-	{
-		this.playerAssignments = {
-			"local": {
-				"player": +(cmdLineArgs?.['autostart-player'] ?? 1),
-				"name": "anonymous",
-			},
-		};
-		this.settings = new GameSettings().init();
+	const playerAssignments = {
+		"local": {
+			"player": +(cmdLineArgs?.['autostart-player'] ?? 1),
+			"name": "anonymous",
+		},
+	};
+	const settings = new GameSettings().init();
 
-		// Enable cheats in SP
-		this.settings.cheats.setEnabled(true);
+	// Enable cheats in SP
+	settings.cheats.setEnabled(true);
 
-		parseCmdLineArgs(this.settings, cmdLineArgs);
+	parseCmdLineArgs(settings, cmdLineArgs);
 
-		this.settings.launchGame(this.playerAssignments, !('autostart-disable-replay' in cmdLineArgs));
-		this.onLaunch();
-	}
+	settings.launchGame(playerAssignments, !('autostart-disable-replay' in cmdLineArgs));
 
-	onTick()
-	{
-	}
-
-	/**
-	 * In the visual autostart path, we need to show the loading screen.
-	 */
-	onLaunch()
-	{
-		Engine.SwitchGuiPage("page_loading.xml", {
-			"attribs": this.settings.finalizedAttributes,
-			"playerAssignments": this.playerAssignments
-		});
-	}
+	return ["page_loading.xml", {
+		"attribs": settings.finalizedAttributes,
+		"playerAssignments": playerAssignments
+	}];
 }

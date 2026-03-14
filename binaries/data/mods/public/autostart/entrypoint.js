@@ -7,8 +7,6 @@
 Engine.HasXmppClient = () => false;
 Engine.SetRankedGame = () => {};
 Engine.TextureExists = () => false;
-Engine.OpenChildPage = () => {};
-Engine.SwitchGuiPage = () => {};
 
 var translateObjectKeys = () => {};
 var translate = x => x;
@@ -20,11 +18,9 @@ Engine.LoadScript("globalscripts/");
 // TODO: clean this up and show errors better in the non-visual path.
 Engine.LoadScript("gui/common/functions_msgbox.js");
 
-var autostartInstance;
-
 function autostartClient(cmdLineArgs)
 {
-	autostartInstance = new AutoStartClient(cmdLineArgs);
+	return autoStartClient(cmdLineArgs);
 }
 
 /**
@@ -44,15 +40,6 @@ function autostartHost(cmdLineArgs, networked = false)
 	Engine.LoadScript("gamesettings/attributes/");
 
 	if (networked)
-		autostartInstance = new AutoStartHost(cmdLineArgs);
-	else
-		autostartInstance = new AutoStart(cmdLineArgs);
-}
-
-/**
- * @returns false if the loop should carry on.
- */
-function onTick()
-{
-	return autostartInstance.onTick();
+		return autoStartHost(cmdLineArgs);
+	return autoStart(cmdLineArgs);
 }
