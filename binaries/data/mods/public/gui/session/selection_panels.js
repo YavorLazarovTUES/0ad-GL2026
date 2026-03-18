@@ -1035,8 +1035,7 @@ g_SelectionPanels.Training = {
 
 		data.button.onPress = function()
 		{
-			if (!neededResources)
-				addTrainingToQueue(unitIds, data.item, data.playerState);
+			addTrainingToQueue(unitIds, data.item, data.playerState);
 		};
 
 		const showTemplateFunc = () => { showTemplateDetails(data.item, data.playerState.civ); };

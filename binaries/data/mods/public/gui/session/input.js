@@ -1597,6 +1597,34 @@ function updateDefaultBatchSize()
 }
 
 /**
+ * Calculates the total remaining production queue time of a building.
+ */
+function getTotalQueueTime(queue)
+{
+	return queue.reduce((sum, item) => sum + (item.timeRemaining ?? item.timeTotal ?? 0), 0);
+}
+
+/**
+ * Returns the given production building selection sorted by their current
+ * queued training time, from lowest to highest.
+ * Invalid entities or entities without a valid production queue are filtered out.
+ */
+function getBuildingsSortedByQueueTime(entities)
+{
+	return entities.map(entity =>
+	{
+		const state = GetEntityState(entity);
+		const queue = state?.production?.queue;
+		if (!Array.isArray(queue))
+			return null;
+		return {
+			"entity": entity,
+			"totalQueueTime": getTotalQueueTime(queue)
+		};
+	}).filter(data => data !== null).sort((a, b) => a.totalQueueTime - b.totalQueueTime).map(building => building.entity);
+}
+
+/**
  * Add the unit shown at position to the training queue for all entities in the selection.
  * @param {number} position - The position of the template to train.
  */
@@ -1627,6 +1655,7 @@ function addTrainingToQueue(selection, trainEntType, playerState)
 	let template;
 	if (!decrement)
 		template = GetTemplateData(trainEntType);
+
 
 	// Batch training only possible if we can train at least 2 units.
 	if (Engine.HotkeyIsPressed("session.batchtrain") && (canBeAddedCount == undefined || canBeAddedCount > 1))
@@ -1678,14 +1707,14 @@ function addTrainingToQueue(selection, trainEntType, playerState)
 	}
 	else
 	{
-		let buildingsForTraining = appropriateBuildings;
+		let sortedBuildingsForTraining = getBuildingsSortedByQueueTime(appropriateBuildings);
 		if (canBeAddedCount !== undefined)
-			buildingsForTraining = buildingsForTraining.slice(0, canBeAddedCount);
+			sortedBuildingsForTraining = sortedBuildingsForTraining.slice(0, canBeAddedCount);
 		Engine.PostNetworkCommand({
 			"type": "train",
 			"template": trainEntType,
 			"count": 1,
-			"entities": buildingsForTraining,
+			"entities": sortedBuildingsForTraining,
 			"pushFront": Engine.HotkeyIsPressed("session.pushorderfront")
 		});
 	}
@@ -1734,6 +1763,12 @@ function flushTrainingBatch()
 {
 	const batchedSize = g_NumberOfBatches * getBatchTrainingSize();
 	const appropriateBuildings = getBuildingsWhichCanTrainEntity(g_BatchTrainingEntities, g_BatchTrainingType);
+
+	// Sort buildings by queued training time so that, if some training
+	// commands fail due to resource or entity limits, units are assigned
+	// to the least busy buildings first.
+	const sortedBuildings = getBuildingsSortedByQueueTime(appropriateBuildings);
+
 	// If training limits don't allow us to train batchedSize in each appropriate structure.
 	if (g_BatchTrainingEntityAllowedCount !== undefined &&
 		g_BatchTrainingEntityAllowedCount < batchedSize * appropriateBuildings.length)
@@ -1742,7 +1777,7 @@ function flushTrainingBatch()
 		const buildingsCountToTrainFullBatch = Math.floor(g_BatchTrainingEntityAllowedCount / batchedSize);
 		Engine.PostNetworkCommand({
 			"type": "train",
-			"entities": appropriateBuildings.slice(0, buildingsCountToTrainFullBatch),
+			"entities": sortedBuildings.slice(0, buildingsCountToTrainFullBatch),
 			"template": g_BatchTrainingType,
 			"count": batchedSize,
 			"pushFront": Engine.HotkeyIsPressed("session.pushorderfront")
@@ -1753,7 +1788,7 @@ function flushTrainingBatch()
 		if (remainer)
 			Engine.PostNetworkCommand({
 				"type": "train",
-				"entities": [appropriateBuildings[buildingsCountToTrainFullBatch]],
+				"entities": [sortedBuildings[buildingsCountToTrainFullBatch]],
 				"template": g_BatchTrainingType,
 				"count": remainer,
 				"pushFront": Engine.HotkeyIsPressed("session.pushorderfront")
@@ -1762,7 +1797,7 @@ function flushTrainingBatch()
 	else
 		Engine.PostNetworkCommand({
 			"type": "train",
-			"entities": appropriateBuildings,
+			"entities": sortedBuildings,
 			"template": g_BatchTrainingType,
 			"count": batchedSize,
 			"pushFront": Engine.HotkeyIsPressed("session.pushorderfront")
