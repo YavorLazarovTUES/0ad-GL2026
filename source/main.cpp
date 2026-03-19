@@ -50,7 +50,7 @@ that of Atlas depending on commandline parameters.
 #include "lib/sysdep/os.h"
 #include "lib/timer.h"
 #include "lib/types.h"
-#include "lobby/IXmppClient.h"
+#include "lobby/XmppClient.h"
 #include "network/NetClient.h"
 #include "ps/ArchiveBuilder.h"
 #include "ps/CConsole.h"

@@ -40,7 +40,7 @@
 #include "lib/status.h"
 #include "lib/sysdep/os.h"
 #include "lib/timer.h"
-#include "lobby/IXmppClient.h"
+#include "lobby/XmppClient.h"
 #include "network/NetClient.h"
 #include "network/NetHost.h"
 #include "network/NetMessage.h"

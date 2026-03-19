@@ -44,7 +44,7 @@ class CNetClientSession;
 class CNetClientTurnManager;
 class JSTracer;
 class ScriptInterface;
-class IXmppClient;
+class XmppClient;
 
 typedef struct _ENetHost ENetHost;
 
@@ -88,7 +88,7 @@ public:
 	 * lobby.
 	 */
 	CNetClient(CGame* game, const CStrW& username, const CStr& hostJID,
-		std::string hashedPassword, IXmppClient& xmppClient);
+		std::string hashedPassword, XmppClient& xmppClient);
 
 	virtual ~CNetClient();
 
@@ -377,3 +377,4 @@ private:
 extern CNetClient *g_NetClient;
 
 #endif	// NETCLIENT_H
+

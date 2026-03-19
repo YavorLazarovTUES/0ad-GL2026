@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,7 +25,7 @@
 #include "lib/config2.h"
 #include "lib/debug.h"
 #include "lib/utf8.h"
-#include "lobby/IXmppClient.h"
+#include "lobby/XmppClient.h"
 #include "network/NetServer.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
@@ -65,13 +65,13 @@ void StartXmppClient(const std::wstring& username, const std::wstring& password,
 		throw std::logic_error{"Cannot call StartXmppClient with an already initialized XmppClient!"};
 
 	g_XmppClient =
-		IXmppClient::create(
+		new XmppClient{
 			&g_GUI->GetScriptInterface(),
 			utf8_from_wstring(username),
 			utf8_from_wstring(password),
 			utf8_from_wstring(room),
 			utf8_from_wstring(nick),
-			historyRequestSize);
+			historyRequestSize};
 
 	g_rankedGame = true;
 }
@@ -85,14 +85,14 @@ void StartRegisterXmppClient(const std::wstring& username, const std::wstring& p
 	}
 
 	g_XmppClient =
-		IXmppClient::create(
+		new XmppClient{
 			&g_GUI->GetScriptInterface(),
 			utf8_from_wstring(username),
 			utf8_from_wstring(password),
 			std::string(),
 			std::string(),
 			0,
-			true);
+			true};
 }
 
 void StopXmppClient()
@@ -107,7 +107,7 @@ void StopXmppClient()
 ////////////////////////////////////////////////
 ////////////////////////////////////////////////
 
-IXmppClient* XmppGetter(const ScriptRequest&, JS::CallArgs&)
+XmppClient* XmppGetter(const ScriptRequest&, JS::CallArgs&)
 {
 	if (!g_XmppClient)
 	{
@@ -197,7 +197,7 @@ void RegisterScriptFunctions(const ScriptRequest& rq)
 	ScriptFunction::Register<&StopXmppClient>(rq, "StopXmppClient");
 
 #define REGISTER_XMPP(func, name) \
-	ScriptFunction::Register<&IXmppClient::func, &XmppGetter>(rq, name)
+	ScriptFunction::Register<&XmppClient::func, &XmppGetter>(rq, name)
 
 	REGISTER_XMPP(connect, "ConnectXmppClient");
 	REGISTER_XMPP(disconnect, "DisconnectXmppClient");

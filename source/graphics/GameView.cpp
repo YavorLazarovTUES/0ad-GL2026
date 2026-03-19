@@ -36,7 +36,7 @@
 #include "lib/external_libraries/libsdl.h"
 #include "lib/input.h"
 #include "lib/posix/posix_types.h"
-#include "lobby/IXmppClient.h"
+#include "lobby/XmppClient.h"
 #include "maths/BoundingBoxAligned.h"
 #include "maths/Frustum.h"
 #include "maths/Vector3D.h"

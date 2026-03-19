@@ -24,7 +24,7 @@
 #include "lib/external_libraries/enet.h"
 #include "lib/status.h"
 #include "lib/utf8.h"
-#include "lobby/IXmppClient.h"
+#include "lobby/XmppClient.h"
 #include "network/NetClientSession.h"
 #include "network/NetClientTurnManager.h"
 #include "network/NetEnet.h"
@@ -151,7 +151,7 @@ CNetClient::CNetClient(PrivateTag, CGame* game, std::string serverAddressOrHostn
 }
 
 CNetClient::CNetClient(CGame* game, const CStrW& username, const CStr& hostJID,
-	std::string hashedPassword, IXmppClient& xmppClient) :
+	std::string hashedPassword, XmppClient& xmppClient) :
 	CNetClient{PrivateTag{}, game, {}, 0, username, hostJID, std::move(hashedPassword)}
 {
 	xmppClient.SendIqGetConnectionData(m_HostJID, m_Password, m_UserName.ToUTF8(), false);

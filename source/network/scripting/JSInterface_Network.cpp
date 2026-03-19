@@ -23,7 +23,7 @@
 #include "lib/debug.h"
 #include "lib/types.h"
 #include "lib/utf8.h"
-#include "lobby/IXmppClient.h"
+#include "lobby/XmppClient.h"
 #include "network/NetClient.h"
 #include "network/NetMessage.h"
 #include "network/NetServer.h"
