@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -43,11 +43,6 @@ JS::Value OpenChildPage(const ScriptRequest& rq, const std::wstring& name, JS::H
 	return g_GUI->OpenChildPage(name, Script::WriteStructuredClone(rq, initData));
 }
 
-void SwitchGuiPage(const ScriptInterface& scriptInterface, const std::wstring& name, JS::HandleValue initData)
-{
-	g_GUI->SwitchPage(name, &scriptInterface, initData);
-}
-
 void SetCursor(const std::wstring& name)
 {
 	g_VideoMode.SetCursor(name);
@@ -72,7 +67,6 @@ CParamNode GetTemplate(const std::string& templateName)
 void RegisterScriptFunctions(const ScriptRequest& rq)
 {
 	ScriptFunction::Register<&OpenChildPage>(rq, "OpenChildPage");
-	ScriptFunction::Register<&SwitchGuiPage>(rq, "SwitchGuiPage");
 	ScriptFunction::Register<&SetCursor>(rq, "SetCursor");
 	ScriptFunction::Register<&ResetCursor>(rq, "ResetCursor");
 	ScriptFunction::Register<&TemplateExists>(rq, "TemplateExists");
