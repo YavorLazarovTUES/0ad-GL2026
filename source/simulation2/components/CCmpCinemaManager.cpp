@@ -269,12 +269,12 @@ public:
 		}
 	}
 
-	const CStrW GetActivePath() const override
+	CStrW GetActivePath() const override
 	{
 		return m_IsPlayingPathQueue ? m_PathQueue.front().GetName() : CStrW();
 	}
 
-	const fixed GetActivePathElapsedTime() const override
+	fixed GetActivePathElapsedTime() const override
 	{
 		return m_ActivePathElapsedTime;
 	}

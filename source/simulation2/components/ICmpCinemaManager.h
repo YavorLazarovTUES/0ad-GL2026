@@ -102,12 +102,12 @@ public:
 	/**
 	 * Get the name of the path currently playing, if any.
 	 */
-	virtual const CStrW GetActivePath() const = 0;
+	virtual CStrW GetActivePath() const = 0;
 
 	/**
 	 * Get the time elapsed since the currently active path started playing.
 	 */
-	virtual const fixed GetActivePathElapsedTime() const = 0;
+	virtual fixed GetActivePathElapsedTime() const = 0;
 
 	DECLARE_INTERFACE_TYPE(CinemaManager)
 };
