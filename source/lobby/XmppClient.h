@@ -112,14 +112,8 @@ public:
 	void SendStunEndpointToHost(const std::string& ip, u16 port, const std::string& hostJID) override;
 
 	/**
-	 * Convert gloox values to string or time.
+	 * Convert gloox values to time.
 	 */
-	static const char* GetPresenceString(const gloox::Presence::PresenceType presenceType);
-	static const char* GetRoleString(const gloox::MUCRoomRole role);
-	static std::string StanzaErrorToString(gloox::StanzaError err);
-	static std::string RegistrationResultToString(gloox::RegistrationResult res);
-	static std::string ConnectionErrorToString(gloox::ConnectionError err);
-	static std::string CertificateErrorToString(gloox::CertStatus status);
 	static std::time_t ComputeTimestamp(const gloox::Message& msg);
 
 protected:

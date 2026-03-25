@@ -21,7 +21,7 @@
 #if CONFIG2_LOBBY
 #include "lib/external_libraries/gloox.h"
 #include "lib/utf8.h"
-#include "lobby/XmppClient.h"
+#include "lobby/GlooxConversion.h"
 #include "scriptinterface/ScriptConversions.h"
 
 #include <js/RootingAPI.h>
@@ -32,32 +32,32 @@ class ScriptRequest;
 
 template<> void Script::ToJSVal<gloox::Presence::PresenceType>(const ScriptRequest& rq, JS::MutableHandleValue ret, const gloox::Presence::PresenceType& val)
 {
-	ToJSVal(rq, ret, XmppClient::GetPresenceString(val));
+	ToJSVal(rq, ret, GetPresenceString(val));
 }
 
 template<> void Script::ToJSVal<gloox::MUCRoomRole>(const ScriptRequest& rq, JS::MutableHandleValue ret, const gloox::MUCRoomRole& val)
 {
-	ToJSVal(rq, ret, XmppClient::GetRoleString(val));
+	ToJSVal(rq, ret, GetRoleString(val));
 }
 
 template<> void Script::ToJSVal<gloox::StanzaError>(const ScriptRequest& rq, JS::MutableHandleValue ret, const gloox::StanzaError& val)
 {
-	ToJSVal(rq, ret, wstring_from_utf8(XmppClient::StanzaErrorToString(val)));
+	ToJSVal(rq, ret, wstring_from_utf8(StanzaErrorToString(val)));
 }
 
 template<> void Script::ToJSVal<gloox::ConnectionError>(const ScriptRequest& rq, JS::MutableHandleValue ret, const gloox::ConnectionError& val)
 {
-	ToJSVal(rq, ret, wstring_from_utf8(XmppClient::ConnectionErrorToString(val)));
+	ToJSVal(rq, ret, wstring_from_utf8(ConnectionErrorToString(val)));
 }
 
 template<> void Script::ToJSVal<gloox::RegistrationResult>(const ScriptRequest& rq, JS::MutableHandleValue ret, const gloox::RegistrationResult& val)
 {
-	ToJSVal(rq, ret, wstring_from_utf8(XmppClient::RegistrationResultToString(val)));
+	ToJSVal(rq, ret, wstring_from_utf8(RegistrationResultToString(val)));
 }
 
 template<> void Script::ToJSVal<gloox::CertStatus>(const ScriptRequest& rq, JS::MutableHandleValue ret, const gloox::CertStatus& val)
 {
-	ToJSVal(rq, ret, wstring_from_utf8(XmppClient::CertificateErrorToString(val)));
+	ToJSVal(rq, ret, wstring_from_utf8(CertificateErrorToString(val)));
 }
 
 #endif // CONFIG2_LOBBY
