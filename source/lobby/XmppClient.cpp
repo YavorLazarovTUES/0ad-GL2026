@@ -40,10 +40,8 @@
 #include "scriptinterface/StructuredClone.h"
 
 #include <iostream>
-#include <js/GCAPI.h>
 #include <js/PropertyAndElement.h>
 #include <js/PropertyDescriptor.h>
-#include <js/TracingAPI.h>
 #include <memory>
 #include <tuple>
 #include <unicode/locid.h>
@@ -129,11 +127,10 @@ XmppClient::XmppClient(const ScriptInterface* scriptInterface, const std::string
 	  m_certStatus(gloox::CertStatus::CertOk),
 	  m_PlayerMapUpdate(false),
 	  m_connectionDataJid(),
-	  m_connectionDataIqId()
+	  m_connectionDataIqId(),
+	  m_GuiMessageQueue{m_ScriptInterface->GetGeneralJSContext()},
+	  m_HistoricGuiMessages{m_ScriptInterface->GetGeneralJSContext()}
 {
-	if (m_ScriptInterface)
-		JS_AddExtraGCRootsTracer(m_ScriptInterface->GetGeneralJSContext(), XmppClient::Trace, this);
-
 	// Generate a unique, unpredictable resource to allow multiple 0 A.D. instances to connect to the lobby.
 	gloox::JID clientJid(sUsername + "@" + m_server + "/0ad-" + ps_generate_guid());
 	gloox::JID roomJid(m_room + "@conference." + m_server + "/" + sNick);
@@ -221,18 +218,6 @@ XmppClient::~XmppClient()
 		delete t;
 	for (const gloox::Tag* const& t : m_Profile)
 		delete t;
-
-	if (m_ScriptInterface)
-		JS_RemoveExtraGCRootsTracer(m_ScriptInterface->GetGeneralJSContext(), XmppClient::Trace, this);
-}
-
-void XmppClient::TraceMember(JSTracer* trc)
-{
-	for (JS::Heap<JS::Value>& guiMessage : m_GuiMessageQueue)
-		JS::TraceEdge(trc, &guiMessage, "m_GuiMessageQueue");
-
-	for (JS::Heap<JS::Value>& guiMessage : m_HistoricGuiMessages)
-		JS::TraceEdge(trc, &guiMessage, "m_HistoricGuiMessages");
 }
 
 /// Network
@@ -737,7 +722,8 @@ void XmppClient::CreateGUIMessage(
 	JS::RootedObject messageObj(rq.cx, message.toObjectOrNull());
 	SetGUIMessageProperty(rq, messageObj, args...);
 	Script::DeepFreezeObject(rq, message);
-	m_GuiMessageQueue.push_back(JS::Heap<JS::Value>(message));
+	if (!m_GuiMessageQueue.append(message))
+		throw std::runtime_error{"Append failed"};
 }
 
 bool XmppClient::GuiPollHasPlayerListUpdate()
@@ -761,7 +747,7 @@ JS::Value XmppClient::GuiPollNewMessages(const ScriptInterface& guiInterface)
 	// performance demanding than processing a lone message.
 	JS::RootedValueVector messages{rq.cx};
 
-	for (const JS::Heap<JS::Value>& message : m_GuiMessageQueue)
+	for (const JS::Value& message : m_GuiMessageQueue)
 	{
 		if (!messages.append(message))
 			throw std::runtime_error{"Append failed"};
@@ -784,7 +770,8 @@ JS::Value XmppClient::GuiPollNewMessages(const ScriptInterface& guiInterface)
 		{
 			Script::SetProperty(rq, historicMessage, "historic", true);
 			Script::DeepFreezeObject(rq, historicMessage);
-			m_HistoricGuiMessages.push_back(JS::Heap<JS::Value>(historicMessage));
+			if (!m_HistoricGuiMessages.append(historicMessage))
+				throw std::runtime_error{"Append failed"};
 		}
 		else
 			LOGERROR("Could not clone historic lobby GUI message!");
@@ -805,7 +792,7 @@ JS::Value XmppClient::GuiPollHistoricMessages(const ScriptInterface& guiInterfac
 
 	JS::RootedValueVector messages{rq.cx};
 
-	for (const JS::Heap<JS::Value>& message : m_HistoricGuiMessages)
+	for (const JS::Value& message : m_HistoricGuiMessages)
 	{
 		if (!messages.append(message))
 			throw std::runtime_error{"Append failed"};

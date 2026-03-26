@@ -29,11 +29,12 @@
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
 #include <js/Value.h>
+#include <js/Vector.h>
+#include <js/GCVector.h>
 #include <map>
 #include <string>
 #include <vector>
 
-class JSTracer;
 class ScriptInterface;
 
 class XmppClient : public IXmppClient, public gloox::ConnectionListener, public gloox::MUCRoomHandler, public gloox::IqHandler, public gloox::RegistrationHandler, public gloox::MessageHandler, public gloox::Jingle::SessionHandler, public gloox::LogHandler
@@ -69,14 +70,6 @@ public:
 	// Basic
 	XmppClient(const ScriptInterface* scriptInterface, const std::string& sUsername, const std::string& sPassword, const std::string& sRoom, const std::string& sNick, const int historyRequestSize = 0, const bool regOpt = false);
 	virtual ~XmppClient();
-
-	// JS::Heap is better for GC performance than JS::PersistentRooted
-	static void Trace(JSTracer *trc, void *data)
-	{
-		static_cast<XmppClient*>(data)->TraceMember(trc);
-	}
-
-	void TraceMember(JSTracer *trc);
 
 	// Network
 	void connect() override;
@@ -196,9 +189,9 @@ private:
 	/// ScriptInterface to root the values
 	const ScriptInterface* m_ScriptInterface;
 	/// Queue of messages for the GUI
-	std::deque<JS::Heap<JS::Value> > m_GuiMessageQueue;
+	JS::PersistentRootedVector<JS::Value> m_GuiMessageQueue;
 	/// Cache of all GUI messages received since the login
-	std::vector<JS::Heap<JS::Value> > m_HistoricGuiMessages;
+	JS::PersistentRootedVector<JS::Value> m_HistoricGuiMessages;
 	/// Current room subject/topic.
 	std::wstring m_Subject;
 };
