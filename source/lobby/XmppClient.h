@@ -111,11 +111,6 @@ public:
 
 	void SendStunEndpointToHost(const std::string& ip, u16 port, const std::string& hostJID) override;
 
-	/**
-	 * Convert gloox values to time.
-	 */
-	static std::time_t ComputeTimestamp(const gloox::Message& msg);
-
 protected:
 	/* Xmpp handlers */
 	/* MUC handlers */

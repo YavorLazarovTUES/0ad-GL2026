@@ -50,22 +50,49 @@
 #include <unicode/utypes.h>
 #include <utility>
 
+namespace
+{
 //debug
 #if 1
 #define DbgXMPP(x)
 #else
 #define DbgXMPP(x) std::cout << "XMPP DEBUG: " << x << std::endl;
 
-static std::string tag_xml(const gloox::IQ& iq)
+std::string tag_xml(const gloox::IQ& iq)
 {
 	return iq.tag()->xml();
 }
 #endif
 
-static std::string tag_name(const gloox::IQ& iq)
+std::string tag_name(const gloox::IQ& iq)
 {
 	return iq.tag()->name();
 }
+
+/**
+ * Parse and return the timestamp of a historic chat message and return the current time for new chat messages.
+ * Historic chat messages are implement as DelayedDelivers as specified in XEP-0203.
+ * Hence, their timestamp MUST be in UTC and conform to the DateTime format XEP-0082.
+ *
+ * @returns Seconds since the epoch.
+ */
+std::time_t ComputeTimestamp(const gloox::Message& msg)
+{
+	// Only historic messages contain a timestamp!
+	if (!msg.when())
+		return std::time(nullptr);
+
+	// The locale is irrelevant, because the XMPP date format doesn't contain written month names
+	for (const std::string& format : std::vector<std::string>{ "Y-M-d'T'H:m:sZ", "Y-M-d'T'H:m:s.SZ" })
+	{
+		UDate dateTime = g_L10n.ParseDateTime(msg.when()->stamp(), format, icu::Locale::getUS());
+		if (dateTime)
+			return dateTime / 1000.0;
+	}
+
+	return std::time(nullptr);
+}
+} // anonymous namespace
 
 IXmppClient* IXmppClient::create(const ScriptInterface* scriptInterface, const std::string& sUsername, const std::string& sPassword, const std::string& sRoom, const std::string& sNick, const int historyRequestSize,bool regOpt)
 {
@@ -1299,30 +1326,6 @@ std::wstring XmppClient::GetRating(const std::string& nick)
 /*****************************************************
  * Utilities                                         *
  *****************************************************/
-
-/**
- * Parse and return the timestamp of a historic chat message and return the current time for new chat messages.
- * Historic chat messages are implement as DelayedDelivers as specified in XEP-0203.
- * Hence, their timestamp MUST be in UTC and conform to the DateTime format XEP-0082.
- *
- * @returns Seconds since the epoch.
- */
-std::time_t XmppClient::ComputeTimestamp(const gloox::Message& msg)
-{
-	// Only historic messages contain a timestamp!
-	if (!msg.when())
-		return std::time(nullptr);
-
-	// The locale is irrelevant, because the XMPP date format doesn't contain written month names
-	for (const std::string& format : std::vector<std::string>{ "Y-M-d'T'H:m:sZ", "Y-M-d'T'H:m:s.SZ" })
-	{
-		UDate dateTime = g_L10n.ParseDateTime(msg.when()->stamp(), format, icu::Locale::getUS());
-		if (dateTime)
-			return dateTime / 1000.0;
-	}
-
-	return std::time(nullptr);
-}
 
 void XmppClient::SendStunEndpointToHost(const std::string& ip, u16 port, const std::string& hostJIDStr)
 {
