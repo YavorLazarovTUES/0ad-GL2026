@@ -129,6 +129,7 @@ XmppClient::XmppClient(const ScriptInterface* scriptInterface, const std::string
 	  m_client{CreateClient(regOpt, sUsername, m_server, sPassword)},
 	  m_mucRoom(nullptr),
 	  m_registration(nullptr),
+	  m_sessionManager{&m_client, this},
 	  m_regOpt(regOpt),
 	  m_username(sUsername),
 	  m_password(sPassword),
@@ -137,7 +138,6 @@ XmppClient::XmppClient(const ScriptInterface* scriptInterface, const std::string
 	  m_xpartamuppId{g_ConfigDB.Get("lobby.xpartamupp", std::string{}) + "@" + m_server + "/CC"},
 	  m_echelonId{g_ConfigDB.Get("lobby.echelon", std::string{}) + "@" + m_server + "/CC"},
 	  m_initialLoadComplete(false),
-	  m_sessionManager(nullptr),
 	  m_certStatus(gloox::CertStatus::CertOk),
 	  m_PlayerMapUpdate(false),
 	  m_connectionDataJid(),
@@ -197,10 +197,9 @@ XmppClient::XmppClient(const ScriptInterface* scriptInterface, const std::string
 		m_mucRoom->setRequestHistory(historyRequestSize, gloox::MUCRoom::HistoryMaxStanzas);
 	}
 
-	m_sessionManager = new gloox::Jingle::SessionManager(&m_client, this);
 	// Register plugins to allow gloox parse them in incoming sessions
-	m_sessionManager->registerPlugin(new gloox::Jingle::Content());
-	m_sessionManager->registerPlugin(new gloox::Jingle::ICEUDP());
+	m_sessionManager.registerPlugin(new gloox::Jingle::Content());
+	m_sessionManager.registerPlugin(new gloox::Jingle::ICEUDP());
 }
 
 /**
@@ -213,7 +212,6 @@ XmppClient::~XmppClient()
 	DbgXMPP("XmppClient destroyed");
 	delete m_registration;
 	delete m_mucRoom;
-	delete m_sessionManager;
 
 	// Workaround for memory leak in gloox 1.0/1.0.1
 	m_client.removePresenceExtension(gloox::ExtCaps);
@@ -1306,7 +1304,7 @@ void XmppClient::SendStunEndpointToHost(const std::string& ip, u16 port, const s
 	DbgXMPP("SendStunEndpointToHost " << hostJIDStr);
 
 	gloox::JID hostJID(hostJIDStr);
-	gloox::Jingle::Session* session = m_sessionManager->createSession(hostJID,  this);
+	gloox::Jingle::Session* session = m_sessionManager.createSession(hostJID,  this);
 
 	gloox::Jingle::ICEUDP::CandidateList candidateList;
 

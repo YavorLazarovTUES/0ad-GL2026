@@ -49,7 +49,7 @@ private:
 	gloox::Client m_client;
 	gloox::MUCRoom* m_mucRoom;
 	gloox::Registration* m_registration;
-	gloox::Jingle::SessionManager* m_sessionManager;
+	gloox::Jingle::SessionManager m_sessionManager;
 
 	// Account infos
 	std::string m_username;
