@@ -45,7 +45,7 @@ public:
 	virtual void SendIqLobbyAuth(const std::string& to, const std::string& token) = 0;
 	virtual void SetNick(const std::string& nick) = 0;
 	virtual std::string GetNick() const = 0;
-	virtual std::string GetJID() const = 0;
+	virtual std::string GetJID() = 0;
 	virtual std::string GetUsername() const = 0;
 	virtual void ChangePassword(const std::string& newPassword) = 0;
 	virtual void kick(const std::string& nick, const std::string& reason) = 0;

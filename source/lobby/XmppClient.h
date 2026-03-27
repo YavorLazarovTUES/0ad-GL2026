@@ -43,8 +43,10 @@ class XmppClient : public IXmppClient, public gloox::ConnectionListener, public 
 	NONCOPYABLE(XmppClient);
 
 private:
+	std::string m_server;
+
 	// Components
-	gloox::Client* m_client;
+	gloox::Client m_client;
 	gloox::MUCRoom* m_mucRoom;
 	gloox::Registration* m_registration;
 	gloox::Jingle::SessionManager* m_sessionManager;
@@ -52,7 +54,6 @@ private:
 	// Account infos
 	std::string m_username;
 	std::string m_password;
-	std::string m_server;
 	std::string m_room;
 	std::string m_nick;
 	std::string m_xpartamuppId;
@@ -87,7 +88,7 @@ public:
 	void SendIqLobbyAuth(const std::string& to, const std::string& token) override;
 	void SetNick(const std::string& nick) override;
 	std::string GetNick() const override;
-	std::string GetJID() const override;
+	std::string GetJID() override;
 	std::string GetUsername() const override;
 	void ChangePassword(const std::string& newPassword) override;
 	void kick(const std::string& nick, const std::string& reason) override;
