@@ -211,13 +211,6 @@ XmppClient::~XmppClient()
 	m_client->removePresenceExtension(gloox::ExtCaps);
 
 	delete m_client;
-
-	for (const gloox::Tag* const& t : m_GameList)
-		delete t;
-	for (const gloox::Tag* const& t : m_BoardList)
-		delete t;
-	for (const gloox::Tag* const& t : m_Profile)
-		delete t;
 }
 
 /// Network
@@ -280,18 +273,12 @@ void XmppClient::onDisconnect(gloox::ConnectionError error)
 		m_mucRoom->leave();
 
 	// Clear game, board and player lists.
-	for (const gloox::Tag* const& t : m_GameList)
-		delete t;
-	for (const gloox::Tag* const& t : m_BoardList)
-		delete t;
-	for (const gloox::Tag* const& t : m_Profile)
-		delete t;
-
-	m_BoardList.clear();
 	m_GameList.clear();
+	m_BoardList.clear();
+	m_Profile.clear();
+
 	m_PlayerMap.clear();
 	m_PlayerMapUpdate = true;
-	m_Profile.clear();
 	m_HistoricGuiMessages.clear();
 	m_initialLoadComplete = false;
 
@@ -619,7 +606,7 @@ JS::Value XmppClient::GUIGetGameList(const ScriptRequest& rq)
 		"nbp", "maxnbp", "players", "mapName", "niceMapName", "mapSize", "mapType",
 		"victoryConditions", "startTime", "mods" };
 
-	for(const gloox::Tag* const& t : m_GameList)
+	for(const std::unique_ptr<const gloox::Tag>& t : m_GameList)
 	{
 		JS::RootedValue game(rq.cx);
 		Script::CreateObject(rq, &game);
@@ -644,7 +631,7 @@ JS::Value XmppClient::GUIGetBoardList(const ScriptRequest& rq)
 
 	const char* attributes[] = { "name", "rank", "rating" };
 
-	for(const gloox::Tag* const& t : m_BoardList)
+	for(const std::unique_ptr<const gloox::Tag>& t : m_BoardList)
 	{
 		JS::RootedValue board(rq.cx);
 		Script::CreateObject(rq, &board);
@@ -669,7 +656,7 @@ JS::Value XmppClient::GUIGetProfile(const ScriptRequest& rq)
 
 	const char* stats[] = { "player", "rating", "totalGamesPlayed", "highestRating", "wins", "losses", "rank" };
 
-	for (const gloox::Tag* const& t : m_Profile)
+	for (const std::unique_ptr<const gloox::Tag>& t : m_Profile)
 	{
 		JS::RootedValue profile(rq.cx);
 		Script::CreateObject(rq, &profile);
@@ -887,8 +874,6 @@ bool XmppClient::handleIq(const gloox::IQ& iq)
 				return true;
 			}
 
-			for (const gloox::Tag* const& t : m_GameList)
-				delete t;
 			m_GameList.clear();
 
 			for (const gloox::Tag* const& t : gq->m_GameList)
@@ -906,8 +891,6 @@ bool XmppClient::handleIq(const gloox::IQ& iq)
 
 			if (bq->m_Command == "boardlist")
 			{
-				for (const gloox::Tag* const& t : m_BoardList)
-					delete t;
 				m_BoardList.clear();
 
 				for (const gloox::Tag* const& t : bq->m_StanzaBoardList)
@@ -937,8 +920,6 @@ bool XmppClient::handleIq(const gloox::IQ& iq)
 				return true;
 			}
 
-			for (const gloox::Tag* const& t : m_Profile)
-				delete t;
 			m_Profile.clear();
 
 			for (const gloox::Tag* const& t : pq->m_StanzaProfile)

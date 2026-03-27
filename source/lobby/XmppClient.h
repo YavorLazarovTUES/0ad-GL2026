@@ -32,6 +32,7 @@
 #include <js/Vector.h>
 #include <js/GCVector.h>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -181,11 +182,11 @@ private:
 	/// Whether or not the playermap has changed since the last time the GUI checked.
 	bool m_PlayerMapUpdate;
 	/// List of games
-	std::vector<const gloox::Tag*> m_GameList;
+	std::vector<std::unique_ptr<const gloox::Tag>> m_GameList;
 	/// List of rankings
-	std::vector<const gloox::Tag*> m_BoardList;
+	std::vector<std::unique_ptr<const gloox::Tag>> m_BoardList;
 	/// Profile data
-	std::vector<const gloox::Tag*> m_Profile;
+	std::vector<std::unique_ptr<const gloox::Tag>> m_Profile;
 	/// ScriptInterface to root the values
 	const ScriptInterface* m_ScriptInterface;
 	/// Queue of messages for the GUI
