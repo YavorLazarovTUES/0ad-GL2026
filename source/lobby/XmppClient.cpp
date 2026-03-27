@@ -103,6 +103,17 @@ gloox::Client CreateClient(const bool regOpt, const std::string& username, const
 	gloox::JID clientJid(username + "@" + servername + "/0ad-" + ps_generate_guid());
 	return gloox::Client{clientJid, password};
 }
+
+std::optional<gloox::MUCRoom> CreateMucRoom(gloox::MUCRoomHandler* handler, const bool regOpt, gloox::Client& client,
+	const std::string& room, const std::string& servername, const std::string& nick)
+{
+	if (regOpt)
+		return std::nullopt;
+
+	// Generate a unique, unpredictable resource to allow multiple 0 A.D. instances to connect to the lobby.
+	gloox::JID roomJid(room + "@conference." + servername + "/" + nick);
+	return std::make_optional<gloox::MUCRoom>(&client, roomJid, handler);
+}
 } // anonymous namespace
 
 IXmppClient* IXmppClient::create(const ScriptInterface* scriptInterface, const std::string& sUsername, const std::string& sPassword, const std::string& sRoom, const std::string& sNick, const int historyRequestSize,bool regOpt)
@@ -127,7 +138,7 @@ XmppClient::XmppClient(const ScriptInterface* scriptInterface, const std::string
 	// If we are connecting, use the full jid and a password
 	// If we are registering, only use the server name
 	  m_client{CreateClient(regOpt, sUsername, m_server, sPassword)},
-	  m_mucRoom(nullptr),
+	  m_mucRoom{CreateMucRoom(this, regOpt, m_client, sRoom, m_server, sNick)},
 	  m_registration(nullptr),
 	  m_sessionManager{&m_client, this},
 	  m_regOpt(regOpt),
@@ -146,10 +157,6 @@ XmppClient::XmppClient(const ScriptInterface* scriptInterface, const std::string
 	  m_GuiMessageQueue{m_ScriptInterface->GetGeneralJSContext()},
 	  m_HistoricGuiMessages{m_ScriptInterface->GetGeneralJSContext()}
 {
-	// Generate a unique, unpredictable resource to allow multiple 0 A.D. instances to connect to the lobby.
-	gloox::JID roomJid(m_room + "@conference." + m_server + "/" + sNick);
-
-
 	// Optionally join without a TLS certificate, so a local server can be tested  quickly.
 	// Security risks from malicious JS mods can be mitigated if this option and also the hostname and login are shielded from JS access.
 	m_client.setTls(g_ConfigDB.Get("lobby.tls", true) ? gloox::TLSRequired : gloox::TLSDisabled);
@@ -190,12 +197,7 @@ XmppClient::XmppClient(const ScriptInterface* scriptInterface, const std::string
 	// m_client.logInstance().registerLogHandler(gloox::LogLevelDebug, gloox::LogAreaAll, this);
 
 	if (!regOpt)
-	{
-		// Create a Multi User Chat Room
-		m_mucRoom = new gloox::MUCRoom(&m_client, roomJid, this, 0);
-		// Get room history.
 		m_mucRoom->setRequestHistory(historyRequestSize, gloox::MUCRoom::HistoryMaxStanzas);
-	}
 
 	// Register plugins to allow gloox parse them in incoming sessions
 	m_sessionManager.registerPlugin(new gloox::Jingle::Content());
@@ -211,7 +213,6 @@ XmppClient::~XmppClient()
 
 	DbgXMPP("XmppClient destroyed");
 	delete m_registration;
-	delete m_mucRoom;
 
 	// Workaround for memory leak in gloox 1.0/1.0.1
 	m_client.removePresenceExtension(gloox::ExtCaps);

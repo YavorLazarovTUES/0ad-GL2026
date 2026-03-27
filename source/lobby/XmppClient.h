@@ -33,6 +33,7 @@
 #include <js/GCVector.h>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -47,7 +48,7 @@ private:
 
 	// Components
 	gloox::Client m_client;
-	gloox::MUCRoom* m_mucRoom;
+	std::optional<gloox::MUCRoom> m_mucRoom;
 	gloox::Registration* m_registration;
 	gloox::Jingle::SessionManager m_sessionManager;
 
