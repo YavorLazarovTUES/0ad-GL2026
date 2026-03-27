@@ -49,7 +49,7 @@ private:
 	// Components
 	gloox::Client m_client;
 	std::optional<gloox::MUCRoom> m_mucRoom;
-	gloox::Registration* m_registration;
+	gloox::Registration m_registration;
 	gloox::Jingle::SessionManager m_sessionManager;
 
 	// Account infos

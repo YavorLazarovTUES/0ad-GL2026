@@ -139,7 +139,7 @@ XmppClient::XmppClient(const ScriptInterface* scriptInterface, const std::string
 	// If we are registering, only use the server name
 	  m_client{CreateClient(regOpt, sUsername, m_server, sPassword)},
 	  m_mucRoom{CreateMucRoom(this, regOpt, m_client, sRoom, m_server, sNick)},
-	  m_registration(nullptr),
+	  m_registration{&m_client},
 	  m_sessionManager{&m_client, this},
 	  m_regOpt(regOpt),
 	  m_username(sUsername),
@@ -190,8 +190,7 @@ XmppClient::XmppClient(const ScriptInterface* scriptInterface, const std::string
 
 	m_client.registerMessageHandler(this);
 
-	m_registration = new gloox::Registration(&m_client);
-	m_registration->registerRegistrationHandler(this);
+	m_registration.registerRegistrationHandler(this);
 
 	// Uncomment to see the raw stanzas
 	// m_client.logInstance().registerLogHandler(gloox::LogLevelDebug, gloox::LogAreaAll, this);
@@ -212,7 +211,6 @@ XmppClient::~XmppClient()
 	this->disconnect();
 
 	DbgXMPP("XmppClient destroyed");
-	delete m_registration;
 
 	// Workaround for memory leak in gloox 1.0/1.0.1
 	m_client.removePresenceExtension(gloox::ExtCaps);
@@ -264,7 +262,7 @@ void XmppClient::onConnect()
 	}
 
 	if (m_regOpt)
-		m_registration->fetchRegistrationFields();
+		m_registration.fetchRegistrationFields();
 }
 
 /**
@@ -537,7 +535,7 @@ void XmppClient::handleRegistrationFields(const gloox::JID&, int fields, std::st
 	gloox::RegistrationFields vals;
 	vals.username = m_username;
 	vals.password = m_password;
-	m_registration->createAccount(fields, vals);
+	m_registration.createAccount(fields, vals);
 }
 
 #if GLOOXVERSION >= 0x010100
@@ -1213,7 +1211,7 @@ std::string XmppClient::GetUsername() const
  */
 void XmppClient::ChangePassword(const std::string& newPassword)
 {
-	m_registration->changePassword(m_client.jid().username(), newPassword);
+	m_registration.changePassword(m_client.jid().username(), newPassword);
 }
 
 /**
