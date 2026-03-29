@@ -3,6 +3,10 @@
 	"Culture":[ "germ" ],
 	"Region":[ "europe" ],
 	"Music": [
+        {
+            "File": "A_Brothers_Revenge.ogg",
+            "Type": "peace"
+        },
 		{
 			"File": "Northern_Frontier.ogg",
 			"Type": "peace"
