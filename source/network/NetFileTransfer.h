@@ -21,6 +21,7 @@
 #include "lib/alignment.h"
 #include "lib/status.h"
 #include "lib/types.h"
+#include "ps/Future.h"
 
 #include <cstddef>
 #include <functional>
@@ -105,6 +106,7 @@ private:
 		size_t offset;
 		size_t maxWindowSize;
 		size_t packetsInFlight;
+		Future<std::string> task;
 	};
 
 	std::function<bool(const CNetMessage* message)> m_SendMessage;

@@ -25,6 +25,8 @@
 #include "network/NetMessage.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
+#include "ps/Compress.h"
+#include "ps/TaskManager.h"
 
 #include <algorithm>
 #include <utility>
@@ -102,7 +104,9 @@ Status CNetFileTransferer::OnFileTransferData(const CFileTransferDataMessage& me
 	{
 		LOGMESSAGERENDER("Download completed");
 
-		task.onComplete(std::move(task.buffer));
+		std::string uncompressed;
+		DecompressZLib(task.buffer, uncompressed, true);
+		task.onComplete(std::move(uncompressed));
 		m_FileReceiveTasks.erase(it);
 		return INFO::OK;
 	}
@@ -161,16 +165,18 @@ void CNetFileTransferer::StartResponse(u32 requestID, const std::string& data)
 {
 	CNetFileSendTask task;
 	task.requestID = requestID;
-	task.buffer = data;
 	task.offset = 0;
 	task.packetsInFlight = 0;
 	task.maxWindowSize = DEFAULT_FILE_TRANSFER_WINDOW_SIZE;
+	task.task = {g_TaskManager, [data]
+	{
+		// Compress the content with zlib to save bandwidth
+		std::string compressedGameState;
+		CompressZLib(std::move(data), compressedGameState, true);
+		return compressedGameState;
+	}, Threading::TaskPriority::LOW};
 
-	m_FileSendTasks[task.requestID] = task;
-	CFileTransferResponseMessage respMessage;
-	respMessage.m_RequestID = requestID;
-	respMessage.m_Length = task.buffer.size();
-	m_SendMessage(&respMessage);
+	m_FileSendTasks.insert({task.requestID, std::move(task)});
 }
 
 void CNetFileTransferer::Poll()
@@ -180,6 +186,19 @@ void CNetFileTransferer::Poll()
 	for (std::pair<const u32, CNetFileSendTask>& p : m_FileSendTasks)
 	{
 		CNetFileSendTask& task = p.second;
+
+		if (task.task.Valid())
+		{
+			if (!task.task.IsDone())
+				continue;
+
+			task.buffer = std::exchange(task.task, {}).Get();
+
+			CFileTransferResponseMessage respMessage;
+			respMessage.m_RequestID = task.requestID;
+			respMessage.m_Length = task.buffer.size();
+			m_SendMessage(&respMessage);
+		}
 
 		while (task.packetsInFlight < task.maxWindowSize && task.offset < task.buffer.size())
 		{

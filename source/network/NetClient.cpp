@@ -34,7 +34,6 @@
 #include "network/StunClient.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
-#include "ps/Compress.h"
 #include "ps/Game.h"
 #include "ps/Hashing.h"
 #include "ps/Profile.h"
@@ -581,7 +580,7 @@ bool CNetClient::HandleMessage(CNetMessage* message)
 	{
 		CFileTransferRequestMessage* reqMessage = static_cast<CFileTransferRequestMessage*>(message);
 
-		std::string uncompressedGameState{[&]
+		std::string gameState{[&]
 			{
 				if (static_cast<CNetFileTransferer::RequestType>(reqMessage->m_RequestType) ==
 					CNetFileTransferer::RequestType::LOADGAME)
@@ -600,13 +599,8 @@ bool CNetClient::HandleMessage(CNetMessage* message)
 				return stream.str();
 			}()};
 
-		// Compress the content with zlib to save bandwidth
-		// (TODO: if this is still too large, compressing with e.g. LZMA works much better)
-		std::string compressedGameState;
-		CompressZLib(std::move(uncompressedGameState), compressedGameState, true);
-
 		m_Session->GetFileTransferer().StartResponse(reqMessage->m_RequestID,
-			std::move(compressedGameState));
+			std::move(gameState));
 
 		return true;
 	}
@@ -625,10 +619,7 @@ void CNetClient::LoadFinished()
 		// We're rejoining a game, and just finished loading the initial map,
 		// so deserialize the saved game state now
 
-		std::string state;
-		DecompressZLib(m_JoinSyncBuffer, state, true);
-
-		std::stringstream stream(state);
+		std::stringstream stream(m_JoinSyncBuffer);
 
 		u32 turn;
 		stream.read((char*)&turn, sizeof(turn));
@@ -857,10 +848,7 @@ bool CNetClient::OnSavedGameStart(CNetClient* client, CFsmEvent<CNetMessage*>* e
 	client->m_Session->GetFileTransferer().StartTask(CNetFileTransferer::RequestType::LOADGAME,
 		[client, initAttribs](std::string buffer)
 		{
-			std::string state;
-			DecompressZLib(buffer, state, true);
-
-			client->StartGame(&*initAttribs, state);
+			client->StartGame(&*initAttribs, std::move(buffer));
 		});
 	return true;
 }

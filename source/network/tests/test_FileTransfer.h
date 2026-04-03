@@ -20,12 +20,16 @@
 #include "network/NetFileTransfer.h"
 #include "network/NetMessage.h"
 
+#include <chrono>
 #include <cstddef>
 #include <functional>
 #include <initializer_list>
 #include <string>
 #include <utility>
+#include <thread>
 #include <vector>
+
+using namespace std::literals;
 
 namespace
 {
@@ -102,13 +106,17 @@ public:
 		CheckSizes(client.queues, 1, 0, 0, 0);
 
 		server.transferer.StartResponse(client.queues.requests.at(0).m_RequestID, MESSAGECONTENT);
-		CheckSizes(server.queues, 0, 1, 0, 0);
+		CheckSizes(server.queues, 0, 0, 0, 0);
+
+		while (server.queues.responses.size() == 0)
+		{
+			std::this_thread::sleep_for(10ms);
+			server.transferer.Poll();
+		}
+		CheckSizes(server.queues, 0, 1, 1, 0);
 
 		client.transferer.HandleMessageReceive(server.queues.responses.at(0));
 		CheckSizes(client.queues, 1, 0, 0, 0);
-
-		server.transferer.Poll();
-		CheckSizes(server.queues, 0, 1, 1, 0);
 
 		server.transferer.Poll();
 		// If `MESSAGECONTENT` would be longer another message would be sent.
