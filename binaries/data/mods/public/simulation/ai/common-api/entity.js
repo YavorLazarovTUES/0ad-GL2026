@@ -649,7 +649,7 @@ export const Entity = Class({
 
 	"getStance": function() { return this._entity.stance; },
 	"unitAIState": function() { return this._entity.unitAIState; },
-	"unitAIOrderData": function() { return this._entity.unitAIOrderData; },
+	"unitAIOrderData": function() { return SimEngine.QueryInterface(this.id(), Sim.IID_UnitAI).GetOrders(); },
 
 	"hitpoints": function() { return this._entity.hitpoints; },
 	"isHurt": function() { return this.hitpoints() < this.maxHitpoints(); },
