@@ -24,21 +24,16 @@ class OutOfSyncNetwork extends SessionMessageBox
 				translateWithContext("Out-Of-Sync", "Your game state is identical to the hosts game state.") :
 				translateWithContext("Out-Of-Sync", "Your game state differs from the hosts game state."),
 
-			""
+			"",
+			translateWithContext("Out-Of-Sync", "Ensure all players use the same mods."),
+			translateWithContext("Out-Of-Sync", 'Click on "Report a Bug" in the main menu to help fix this.'),
+			sprintf(translateWithContext("Out-Of-Sync", "Replay saved to %(filepath)s"), {
+				"filepath": escapeText(msg.path_replay)
+			}),
+			sprintf(translateWithContext("Out-Of-Sync", "Dumping current state to %(filepath)s"), {
+				"filepath": escapeText(msg.path_oos_dump)
+			})
 		];
-
-		if (msg.turn > 1 && g_InitAttributes.settings.PlayerData.some(pData => pData && pData.AI))
-			txt.push(translateWithContext("Out-Of-Sync", "Rejoining Multiplayer games with AIs is not supported yet!"));
-		else
-			txt.push(
-				translateWithContext("Out-Of-Sync", "Ensure all players use the same mods."),
-				translateWithContext("Out-Of-Sync", 'Click on "Report a Bug" in the main menu to help fix this.'),
-				sprintf(translateWithContext("Out-Of-Sync", "Replay saved to %(filepath)s"), {
-					"filepath": escapeText(msg.path_replay)
-				}),
-				sprintf(translateWithContext("Out-Of-Sync", "Dumping current state to %(filepath)s"), {
-					"filepath": escapeText(msg.path_oos_dump)
-				}));
 
 		this.Caption = txt.join("\n");
 		this.display();
