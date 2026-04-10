@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -31,6 +31,7 @@ class CConfigDBHook;
 class CFont;
 struct FT_LibraryRec_;
 
+namespace Renderer::Backend { class IDevice; }
 namespace Renderer::Backend { class IDeviceCommandContext; }
 
 /**
@@ -39,7 +40,7 @@ namespace Renderer::Backend { class IDeviceCommandContext; }
 class CFontManager
 {
 public:
-	CFontManager();
+	CFontManager(Renderer::Backend::IDevice* device);
 	~CFontManager();
 	NONCOPYABLE(CFontManager);
 
@@ -62,6 +63,8 @@ private:
 
 	float m_GUIScale{1.0f};
 	std::unique_ptr<CConfigDBHook> m_GUIScaleHook;
+
+	Renderer::Backend::IDevice* m_Device;
 
 	/*
 	* Most monitors today use 2.2 as the standard gamma.

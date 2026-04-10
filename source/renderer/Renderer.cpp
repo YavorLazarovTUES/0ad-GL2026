@@ -322,7 +322,7 @@ public:
 		deviceCommandContext(device->CreateCommandContext()),
 		IsOpen(false), ShadersDirty(true), profileTable(g_Renderer.m_Stats, linearAllocator),
 		shaderManager(device), textureManager(g_VFS, false, device), vertexBufferManager(device),
-		postprocManager(device), sceneRenderer(device)
+		postprocManager(device), sceneRenderer(device), fontManager(device)
 	{
 	}
 };

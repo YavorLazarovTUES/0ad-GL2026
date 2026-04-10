@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -159,7 +159,9 @@ void CFont::CalculateStringSize(const wchar_t* string, float& width, float& heig
 		height += GetHeight();
 }
 
-bool CFont::SetFontParams(const std::string& fontName, float size, float strokeWidth, float scale)
+bool CFont::SetFontParams(
+	Renderer::Backend::IDevice* device, const std::string& fontName,
+	float size, float strokeWidth, float scale)
 {
 	ENSURE(m_FontSize == 0 && size > 0);
 
@@ -181,7 +183,7 @@ bool CFont::SetFontParams(const std::string& fontName, float size, float strokeW
 		FT_Stroker_Set(m_Stroker.get(), FloatToF26Dot6(m_StrokeWidth), FT_STROKER_LINECAP_ROUND, FT_STROKER_LINEJOIN_ROUND, 0);
 	}
 
-	if (!ConstructAtlasTexture())
+	if (!ConstructAtlasTexture(device))
 	{
 		LOGERROR("Failed to create font texture atlas %s", fontName);
 		return false;
@@ -263,10 +265,8 @@ Renderer::Backend::Sampler::Desc CFont::ChooseTextureFormatAndSampler()
 	return defaultSamplerDesc;
 }
 
-bool CFont::ConstructAtlasTexture()
+bool CFont::ConstructAtlasTexture(Renderer::Backend::IDevice* device)
 {
-	Renderer::Backend::IDevice* backendDevice = g_Renderer.GetDeviceCommandContext()->GetDevice();
-
 	// Make backend texture ahead of time.
 	// TODO: calculate based on device support.
 	const int textureSize{1024};
@@ -289,7 +289,7 @@ bool CFont::ConstructAtlasTexture()
 	PS::StringBuilder fontTextureNameBuilder{{std::begin(buffer), std::end(buffer)}};
 	fontTextureNameBuilder.Append("Font Texture ");
 	fontTextureNameBuilder.Append(m_FontName);
-	m_Texture = g_Renderer.GetTextureManager().WrapBackendTexture(backendDevice->CreateTexture2D(
+	m_Texture = g_Renderer.GetTextureManager().WrapBackendTexture(device->CreateTexture2D(
 		fontTextureNameBuilder.Str().data(),
 		Renderer::Backend::ITexture::Usage::TRANSFER_DST |
 			Renderer::Backend::ITexture::Usage::SAMPLED,

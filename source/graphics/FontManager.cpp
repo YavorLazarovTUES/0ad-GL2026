@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -101,12 +101,13 @@ FontSpec ParseFontSpec(const std::string& spec)
 }
 } // namespace
 
-CFontManager::CFontManager()
+CFontManager::CFontManager(Renderer::Backend::IDevice* device)
 	: m_GUIScaleHook{std::make_unique<CConfigDBHook>(g_ConfigDB.RegisterHookAndCall(
 		"gui.scale", [this]()
 		{
 			m_GUIScale = g_ConfigDB.Get("gui.scale", 1.0f);
-		}))}
+		}))},
+	m_Device(device)
 {
 	FT_Library lib;
 	FT_Error error{FT_Init_FreeType(&lib)};
@@ -211,7 +212,7 @@ CFont* CFontManager::LoadFont(CStrIntern fontName, CStrIntern locale)
 
 	CFont font{this->m_FreeType.get(), *m_GammaCorrectionLUT};
 
-	if (!font.SetFontParams(localeFontName.string(), fontSpec.size, fontSpec.stroke ? 1.0f : 0.0f, m_GUIScale))
+	if (!font.SetFontParams(m_Device, localeFontName.string(), fontSpec.size, fontSpec.stroke ? 1.0f : 0.0f, m_GUIScale))
 	{
 		LOGERROR("Failed to set font params for %s", localeFontName.string().c_str());
 		return nullptr;

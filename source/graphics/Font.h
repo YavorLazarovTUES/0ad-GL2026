@@ -39,6 +39,7 @@
 #include <vector>
 
 class CVector2D;
+namespace Renderer::Backend { class IDevice; }
 namespace Renderer::Backend { class IDeviceCommandContext; }
 namespace Renderer::Backend::Sampler { struct Desc; }
 
@@ -137,7 +138,9 @@ private:
 	friend class CFontManager;
 
 	bool AddFontFromPath(const OsPath& fontPath);
-	bool SetFontParams(const std::string& fontName, float size, float strokeWidth, float scale);
+	bool SetFontParams(
+		Renderer::Backend::IDevice* device, const std::string& fontName,
+		float size, float strokeWidth, float scale);
 
 	void BlendGlyphBitmapToTexture(const FT_Bitmap& bitmap, int targetX, int targetY, u8 r, u8 g, u8 b);
 	void BlendGlyphBitmapToTextureRGBA(const FT_Bitmap& bitmap, int targetX, int targetY, u8 r, u8 g, u8 b);
@@ -147,7 +150,7 @@ private:
 	std::optional<CVector2D> GenerateGlyphBitmap(FT_Glyph& glyph, u16 codepoint, FT_Render_Mode renderMode, CVector2D offset, const float baselineInAtlas);
 
 	const GlyphData* ExtractAndGenerateGlyph(u16 codepoint);
-	bool ConstructAtlasTexture();
+	bool ConstructAtlasTexture(Renderer::Backend::IDevice* device);
 	Renderer::Backend::Sampler::Desc ChooseTextureFormatAndSampler();
 
 	CTexturePtr m_Texture;
