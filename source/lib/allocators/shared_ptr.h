@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -45,19 +45,6 @@ inline std::shared_ptr<T> DummySharedPtr(T* ptr)
 {
 	return std::shared_ptr<T>(ptr, DummyDeleter());
 }
-
-struct ArrayDeleter
-{
-	template<class T>
-	void operator()(T* p)
-	{
-		delete[] p;
-	}
-};
-
-// (note: uses CheckedArrayDeleter)
-std::shared_ptr<u8> Allocate(size_t size);
-
 
 struct AlignedDeleter
 {

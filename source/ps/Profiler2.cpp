@@ -24,7 +24,6 @@
 
 #include "Profiler2.h"
 
-#include "lib/allocators/shared_ptr.h"
 #include "lib/code_generation.h"
 #include "lib/os_path.h"
 #include "lib/path.h"
@@ -304,7 +303,7 @@ std::string CProfiler2::ThreadStorage::GetBuffer()
 	//
 	// See comments on m_BufferPos0 etc.
 
-	std::shared_ptr<u8> buffer(new u8[BUFFER_SIZE], ArrayDeleter());
+	std::unique_ptr<u8[]> buffer{std::make_unique<u8[]>(BUFFER_SIZE)};
 
 	u32 pos1 = m_BufferPos1;
 	COMPILER_FENCE; // must read m_BufferPos1 before m_Buffer

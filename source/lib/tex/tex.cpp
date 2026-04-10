@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -653,11 +653,11 @@ u32 Tex::get_average_color() const
 	// construct a new texture based on the current one,
 	// but only include the last mipmap level
 	// do this so that we can use the general conversion methods for the pixel data
-	Tex basetex = *this;
-	uint8_t *data = new uint8_t[last_level_size];
-	memcpy(data, m_Data.get() + m_Ofs + size - last_level_size, last_level_size);
-	std::shared_ptr<uint8_t> sdata(data, ArrayDeleter());
-	basetex.wrap(1, 1, m_Bpp, m_Flags, sdata, 0);
+	Tex basetex;
+	std::shared_ptr<uint8_t> data;
+	WARN_IF_ERR(AllocateAligned(data, last_level_size));
+	memcpy(data.get(), m_Data.get() + m_Ofs + size - last_level_size, last_level_size);
+	basetex.wrap(1, 1, m_Bpp, m_Flags, data, 0);
 
 	// convert to BGRA
 	WARN_IF_ERR(basetex.transform_to(TEX_BGR | TEX_ALPHA));
