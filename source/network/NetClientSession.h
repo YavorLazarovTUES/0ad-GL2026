@@ -126,7 +126,7 @@ private:
 
 	std::unique_ptr<ENetHost, DestroyHost> m_Host;
 	std::unique_ptr<ENetPeer, DestroyPeer> m_Server;
-	CNetStatsTable* m_Stats{nullptr};
+	std::unique_ptr<CNetStatsTable> m_Stats;
 };
 
 #endif	// NETSESSION_H

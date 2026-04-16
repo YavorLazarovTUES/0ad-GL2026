@@ -266,7 +266,7 @@ private:
 	std::unique_ptr<ENetHost, DestroyHost> m_Host;
 	std::vector<std::unique_ptr<CNetServerSession>> m_Sessions;
 
-	CNetStatsTable* m_Stats{nullptr};
+	std::unique_ptr<CNetStatsTable> m_Stats;
 
 	NetServerState m_State{SERVER_STATE_PREGAME};
 

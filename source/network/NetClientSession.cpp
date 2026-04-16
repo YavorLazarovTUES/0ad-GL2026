@@ -42,8 +42,6 @@ CNetClientSession::CNetClientSession(CNetClient& client) :
 CNetClientSession::~CNetClientSession()
 {
 	ENSURE(!m_LoopRunning);
-
-	delete m_Stats;
 }
 
 bool CNetClientSession::Connect(const CStr& server, const u16 port, ENetHost* enetClient)
@@ -70,9 +68,9 @@ bool CNetClientSession::Connect(const CStr& server, const u16 port, ENetHost* en
 		return false;
 
 
-	m_Stats = new CNetStatsTable(*m_Server);
+	m_Stats = std::make_unique<CNetStatsTable>(*m_Server);
 	if (CProfileViewer::IsInitialised())
-		g_ProfileViewer.AddRootTable(m_Stats);
+		g_ProfileViewer.AddRootTable(m_Stats.get());
 
 	return true;
 }

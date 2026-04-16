@@ -132,9 +132,9 @@ CNetServerWorker::CNetServerWorker(const bool continueSavedGame, std::uint16_t p
 		throw std::runtime_error{"Failed to start server"};
 	}
 
-	m_Stats = new CNetStatsTable();
+	m_Stats = std::make_unique<CNetStatsTable>();
 	if (CProfileViewer::IsInitialised())
-		g_ProfileViewer.AddRootTable(m_Stats);
+		g_ProfileViewer.AddRootTable(m_Stats.get());
 
 	m_State = SERVER_STATE_PREGAME;
 
@@ -165,9 +165,6 @@ CNetServerWorker::~CNetServerWorker()
 #endif
 
 	// Clean up resources
-
-	delete m_Stats;
-
 	for (const auto& session : m_Sessions)
 		session->DisconnectNow(NDR_SERVER_SHUTDOWN);
 }
