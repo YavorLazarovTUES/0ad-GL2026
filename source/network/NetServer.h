@@ -284,7 +284,7 @@ private:
 
 	u32 m_NextHostID{1};
 
-	CNetServerTurnManager* m_ServerTurnManager{nullptr};
+	std::unique_ptr<CNetServerTurnManager> m_ServerTurnManager;
 
 	/**
 	 * The GUID of the client in control of the game (the 'host' from the players' perspective).

@@ -177,8 +177,6 @@ CNetServerWorker::~CNetServerWorker()
 
 	if (m_Host)
 		enet_host_destroy(m_Host);
-
-	delete m_ServerTurnManager;
 }
 
 
@@ -1555,7 +1553,7 @@ void CNetServerWorker::PreStartGame(const CStr& initAttribs)
 			return;
 		}
 
-	m_ServerTurnManager = new CNetServerTurnManager(*this);
+	m_ServerTurnManager = std::make_unique<CNetServerTurnManager>(*this);
 
 	for (CNetServerSession* session : m_Sessions)
 	{
