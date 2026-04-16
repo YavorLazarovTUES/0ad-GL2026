@@ -124,7 +124,7 @@ private:
 	std::atomic<bool> m_LoopRunning{false};
 	std::atomic<bool> m_ShouldShutdown{false};
 
-	ENetHost* m_Host{nullptr};
+	std::unique_ptr<ENetHost, DestroyHost> m_Host;
 	ENetPeer* m_Server{nullptr};
 	CNetStatsTable* m_Stats{nullptr};
 };

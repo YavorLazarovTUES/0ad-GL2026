@@ -45,14 +45,10 @@ CNetClientSession::~CNetClientSession()
 
 	delete m_Stats;
 
-	if (m_Host && m_Server)
+	if (m_Server)
 	{
 		// Disconnect immediately (we can't wait for acks)
 		enet_peer_disconnect_now(m_Server, NDR_SERVER_SHUTDOWN);
-		enet_host_destroy(m_Host);
-
-		m_Host = NULL;
-		m_Server = NULL;
 	}
 }
 
@@ -63,9 +59,9 @@ bool CNetClientSession::Connect(const CStr& server, const u16 port, ENetHost* en
 	ENSURE(!m_Server);
 
 	// Create ENet host if necessary.
-	ENetHost* host = enetClient != nullptr ? enetClient : PS::Enet::CreateHost(nullptr, 1, CHANNEL_COUNT);
+	m_Host.reset(enetClient != nullptr ? enetClient : PS::Enet::CreateHost(nullptr, 1, CHANNEL_COUNT));
 
-	if (!host)
+	if (!m_Host)
 		return false;
 
 	// Bind to specified host
@@ -75,11 +71,10 @@ bool CNetClientSession::Connect(const CStr& server, const u16 port, ENetHost* en
 		return false;
 
 	// Initiate connection to server
-	ENetPeer* peer = enet_host_connect(host, &addr, CHANNEL_COUNT, 0);
+	ENetPeer* peer = enet_host_connect(m_Host.get(), &addr, CHANNEL_COUNT, 0);
 	if (!peer)
 		return false;
 
-	m_Host = host;
 	m_Server = peer;
 
 	m_Stats = new CNetStatsTable(m_Server);
@@ -124,7 +119,7 @@ void CNetClientSession::Poll()
 	ENetEvent event;
 
 	// Use the timeout to make the thread wait and save CPU time.
-	if (enet_host_service(m_Host, &event, NETCLIENT_POLL_TIMEOUT) <= 0)
+	if (enet_host_service(m_Host.get(), &event, NETCLIENT_POLL_TIMEOUT) <= 0)
 		return;
 
 	if (event.type == ENET_EVENT_TYPE_CONNECT)
@@ -167,7 +162,7 @@ void CNetClientSession::Flush()
 				LOGMESSAGE("NetClient: Failed to send packet to server");
 		}
 
-	enet_host_flush(m_Host);
+	enet_host_flush(m_Host.get());
 }
 
 void CNetClientSession::ProcessPolledMessages()

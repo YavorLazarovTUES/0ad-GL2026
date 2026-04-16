@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -82,6 +82,14 @@ enum NetDisconnectReason
 	NDR_STUN_PORT_FAILED,
 	NDR_STUN_ENDPOINT_FAILED,
 	NDR_INCORRECT_SOFTWARE_VERSION
+};
+
+struct DestroyHost
+{
+	void operator()(ENetHost* host) const noexcept
+	{
+		enet_host_destroy(host);
+	}
 };
 
 class CNetHost

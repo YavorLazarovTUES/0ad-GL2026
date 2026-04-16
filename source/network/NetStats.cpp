@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -124,17 +124,17 @@ AbstractProfileTable* CNetStatsTable::GetChild(size_t /*row*/)
 	return 0;
 }
 
-void CNetStatsTable::LatchHostState(const ENetHost* host)
+void CNetStatsTable::LatchHostState(const ENetHost& host)
 {
 	std::lock_guard<std::mutex> lock(m_Mutex);
 
 #define ROW(id, title, member) \
-	m_LatchedData[i].push_back(CStr::FromUInt(host->peers[i].member));
+	m_LatchedData[i].push_back(CStr::FromUInt(host.peers[i].member));
 
 	m_LatchedData.clear();
-	m_LatchedData.resize(host->peerCount);
+	m_LatchedData.resize(host.peerCount);
 
-	for (size_t i = 0; i < host->peerCount; ++i)
+	for (size_t i = 0; i < host.peerCount; ++i)
 	{
 		ROW(Row_InData, "incoming bytes", incomingDataTotal);
 		ROW(Row_OutData, "outgoing bytes", outgoingDataTotal);

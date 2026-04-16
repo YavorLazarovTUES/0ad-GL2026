@@ -263,7 +263,7 @@ private:
 	 */
 	const bool m_LobbyAuth;
 
-	ENetHost* m_Host{nullptr};
+	std::unique_ptr<ENetHost, DestroyHost> m_Host;
 	std::vector<CNetServerSession*> m_Sessions;
 
 	CNetStatsTable* m_Stats{nullptr};

@@ -125,10 +125,9 @@ CNetServerWorker::CNetServerWorker(const bool continueSavedGame, std::uint16_t p
 	addr.port = port;
 
 	// Create ENet server
-	m_Host = PS::Enet::CreateHost(&addr, MAX_CLIENTS, CHANNEL_COUNT);
+	m_Host.reset(PS::Enet::CreateHost(&addr, MAX_CLIENTS, CHANNEL_COUNT));
 	if (!m_Host)
 	{
-		enet_host_destroy(m_Host);
 		LOGERROR("Net server: enet_host_create failed");
 		throw std::runtime_error{"Failed to start server"};
 	}
@@ -174,9 +173,6 @@ CNetServerWorker::~CNetServerWorker()
 		session->DisconnectNow(NDR_SERVER_SHUTDOWN);
 		delete session;
 	}
-
-	if (m_Host)
-		enet_host_destroy(m_Host);
 }
 
 
@@ -402,7 +398,7 @@ void CNetServerWorker::Run(const std::string& initAttributes)
 			break;
 
 		// Update profiler stats
-		m_Stats->LatchHostState(m_Host);
+		m_Stats->LatchHostState(*m_Host);
 	}
 
 	// Clear roots before deleting their context
@@ -455,7 +451,7 @@ bool CNetServerWorker::RunStep()
 	// Process network events:
 
 	ENetEvent event;
-	int status = enet_host_service(m_Host, &event, HOST_SERVICE_TIMEOUT);
+	int status = enet_host_service(m_Host.get(), &event, HOST_SERVICE_TIMEOUT);
 	if (status < 0)
 	{
 		LOGERROR("CNetServerWorker: enet_host_service failed (%d)", status);

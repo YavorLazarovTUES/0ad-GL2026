@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -53,7 +53,7 @@ public:
 	CStr GetCellText(size_t row, size_t col) override;
 	AbstractProfileTable* GetChild(size_t row) override;
 
-	void LatchHostState(const ENetHost* host);
+	void LatchHostState(const ENetHost& host);
 
 private:
 	const ENetPeer* m_Peer;
