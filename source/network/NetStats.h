@@ -44,7 +44,7 @@ class CNetStatsTable : public AbstractProfileTable
 	NONCOPYABLE(CNetStatsTable);
 public:
 	CNetStatsTable();
-	CNetStatsTable(const ENetPeer* peer);
+	CNetStatsTable(const ENetPeer& peer);
 
 	CStr GetName() override;
 	CStr GetTitle() override;

@@ -92,6 +92,15 @@ struct DestroyHost
 	}
 };
 
+struct DestroyPeer
+{
+	void operator()(ENetPeer* peer) const noexcept
+	{
+		// Disconnect immediately (we can't wait for acks)
+		enet_peer_disconnect_now(peer, NDR_SERVER_SHUTDOWN);
+	}
+};
+
 class CNetHost
 {
 public:

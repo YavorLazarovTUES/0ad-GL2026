@@ -44,12 +44,6 @@ CNetClientSession::~CNetClientSession()
 	ENSURE(!m_LoopRunning);
 
 	delete m_Stats;
-
-	if (m_Server)
-	{
-		// Disconnect immediately (we can't wait for acks)
-		enet_peer_disconnect_now(m_Server, NDR_SERVER_SHUTDOWN);
-	}
 }
 
 bool CNetClientSession::Connect(const CStr& server, const u16 port, ENetHost* enetClient)
@@ -71,13 +65,12 @@ bool CNetClientSession::Connect(const CStr& server, const u16 port, ENetHost* en
 		return false;
 
 	// Initiate connection to server
-	ENetPeer* peer = enet_host_connect(m_Host.get(), &addr, CHANNEL_COUNT, 0);
-	if (!peer)
+	m_Server.reset(enet_host_connect(m_Host.get(), &addr, CHANNEL_COUNT, 0));
+	if (!m_Server)
 		return false;
 
-	m_Server = peer;
 
-	m_Stats = new CNetStatsTable(m_Server);
+	m_Stats = new CNetStatsTable(*m_Server);
 	if (CProfileViewer::IsInitialised())
 		g_ProfileViewer.AddRootTable(m_Stats);
 
@@ -124,7 +117,7 @@ void CNetClientSession::Poll()
 
 	if (event.type == ENET_EVENT_TYPE_CONNECT)
 	{
-		ENSURE(event.peer == m_Server);
+		ENSURE(event.peer == m_Server.get());
 
 		// Report the server address immediately.
 		char hostname[256] = "(error)";
@@ -137,7 +130,7 @@ void CNetClientSession::Poll()
 	}
 	else if (event.type == ENET_EVENT_TYPE_DISCONNECT)
 	{
-		ENSURE(event.peer == m_Server);
+		ENSURE(event.peer == m_Server.get());
 
 		// Report immediately.
 		LOGMESSAGE("Net client: Disconnected");
@@ -153,7 +146,7 @@ void CNetClientSession::Flush()
 {
 	ENetPacket* packet;
 	while (m_OutgoingMessages.pop(packet))
-		if (enet_peer_send(m_Server, CNetHost::DEFAULT_CHANNEL, packet) < 0)
+		if (enet_peer_send(m_Server.get(), CNetHost::DEFAULT_CHANNEL, packet) < 0)
 		{
 			// Report the error, but do so silently if we know we are disconnected.
 			if (m_Connected)

@@ -37,8 +37,8 @@ enum
 	NumberRows
 };
 
-CNetStatsTable::CNetStatsTable(const ENetPeer* peer)
-	: m_Peer(peer)
+CNetStatsTable::CNetStatsTable(const ENetPeer& peer)
+	: m_Peer(&peer)
 {
 }
 
