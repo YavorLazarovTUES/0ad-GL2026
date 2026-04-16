@@ -1670,8 +1670,8 @@ void CNetServerWorker::SendHolePunchingMessage(const CStr& ipStr, u16 port)
 
 CNetServer::CNetServer(const bool continueSavedGame, std::uint16_t port, const bool useLobbyAuth,
 	std::string password, std::string controllerSecret, std::string initAttributes) :
-	m_Worker{new CNetServerWorker{continueSavedGame, port, useLobbyAuth, password,
-		std::move(controllerSecret), std::move(initAttributes)}},
+	m_Worker{continueSavedGame, port, useLobbyAuth, password, std::move(controllerSecret),
+		std::move(initAttributes)},
 	m_LobbyAuth{useLobbyAuth},
 	m_Password{std::move(password)}
 {
@@ -1680,14 +1680,9 @@ CNetServer::CNetServer(const bool continueSavedGame, std::uint16_t port, const b
 
 	// In lobby, we send our public ip and port on request to the players who want to connect.
 	// Thus we need to know our public IP and use STUN to get it.
-	std::lock_guard<std::mutex> lock(m_Worker->m_WorkerMutex);
-	if (!m_Worker->m_Host || !StunClient::FindPublicIP(*m_Worker->m_Host, m_PublicIp, m_PublicPort))
+	std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
+	if (!m_Worker.m_Host || !StunClient::FindPublicIP(*m_Worker.m_Host, m_PublicIp, m_PublicPort))
 		throw std::runtime_error{"Failed to resolve public IP-address."};
-}
-
-CNetServer::~CNetServer()
-{
-	delete m_Worker;
 }
 
 bool CNetServer::UseLobbyAuth() const
@@ -1707,16 +1702,16 @@ u16 CNetServer::GetPublicPort() const
 
 u16 CNetServer::GetLocalPort() const
 {
-	std::lock_guard<std::mutex> lock(m_Worker->m_WorkerMutex);
-	if (!m_Worker->m_Host)
+	std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
+	if (!m_Worker.m_Host)
 		return 0;
-	return m_Worker->m_Host->address.port;
+	return m_Worker.m_Host->address.port;
 }
 
 bool CNetServer::CheckPasswordAndIncrement(const std::string& username, const std::string& password, const std::string& salt)
 {
 	std::unordered_map<std::string, int>::iterator it = m_FailedAttempts.find(username);
-	if (m_Worker->CheckPassword(password, salt))
+	if (m_Worker.CheckPassword(password, salt))
 	{
 		if (it != m_FailedAttempts.end())
 			it->second = 0;
@@ -1737,23 +1732,23 @@ bool CNetServer::IsBanned(const std::string& username) const
 
 void CNetServer::StartGame()
 {
-	std::lock_guard<std::mutex> lock(m_Worker->m_WorkerMutex);
-	m_Worker->m_StartGameQueue.push_back(true);
+	std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
+	m_Worker.m_StartGameQueue.push_back(true);
 }
 
 void CNetServer::OnLobbyAuth(const CStr& name, const CStr& token)
 {
-	std::lock_guard<std::mutex> lock(m_Worker->m_WorkerMutex);
-	m_Worker->m_LobbyAuthQueue.push_back(std::make_pair(name, token));
+	std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
+	m_Worker.m_LobbyAuthQueue.push_back(std::make_pair(name, token));
 }
 
 void CNetServer::SetTurnLength(u32 msecs)
 {
-	std::lock_guard<std::mutex> lock(m_Worker->m_WorkerMutex);
-	m_Worker->m_TurnLengthQueue.push_back(msecs);
+	std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
+	m_Worker.m_TurnLengthQueue.push_back(msecs);
 }
 
 void CNetServer::SendHolePunchingMessage(const CStr& ip, u16 port)
 {
-	m_Worker->SendHolePunchingMessage(ip, port);
+	m_Worker.SendHolePunchingMessage(ip, port);
 }

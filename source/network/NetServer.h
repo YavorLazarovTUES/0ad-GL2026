@@ -39,7 +39,6 @@
 class CNetMessage;
 class CNetServerSession;
 class CNetServerTurnManager;
-class CNetServerWorker;
 class CNetStatsTable;
 class CPlayerAssignmentMessage;
 class CSimulationMessage;
@@ -96,77 +95,6 @@ enum NetServerSessionState
 	// The client is running the game.
 	// Server must be in SERVER_STATE_LOADING or SERVER_STATE_INGAME.
 	NSS_INGAME
-};
-
-/**
- * Network server interface. Handles all the coordination between players.
- * One person runs this object, and every player (including the host) connects their CNetClient to it.
- *
- * The actual work is performed by CNetServerWorker in a separate thread.
- */
-class CNetServer
-{
-	NONCOPYABLE(CNetServer);
-public:
-	CNetServer(const bool isSavedGame, std::uint16_t port, const bool useLobbyAuth = false,
-		std::string password = {}, std::string controllerSecret = {}, std::string initAttributes = {});
-	~CNetServer();
-
-	/**
-	 * Call from the GUI to asynchronously notify all clients that they should start loading the game.
-	 * SetupConnection must be called at least once.
-	 */
-	void StartGame();
-
-	/**
-	 * Set the turn length to a fixed value.
-	 * TODO: we should replace this with some adapative lag-dependent computation.
-	 */
-	void SetTurnLength(u32 msecs);
-
-	bool UseLobbyAuth() const;
-
-	void OnLobbyAuth(const CStr& name, const CStr& token);
-
-	void SendHolePunchingMessage(const CStr& ip, u16 port);
-
-	/**
-	 * Return the externally accessible IP.
-	 */
-	CStr GetPublicIp() const;
-
-	/**
-	 * Return the externally accessible port.
-	 */
-	u16 GetPublicPort() const;
-
-	/**
-	 * Return the serving port on the local machine.
-	 */
-	u16 GetLocalPort() const;
-
-	/**
-	 * Check if password is valid. If is not, increase number of failed attempts of the lobby user.
-	 * This is used without established direct session with the client, to prevent brute force attacks
-	 * when guessing password trying to get connection data from the host.
-	 * @return true iff password is valid
-	 */
-	bool CheckPasswordAndIncrement(const std::string& username, const std::string& password, const std::string& salt);
-
-	/**
-	 * Check if user reached certain number of failed attempts.
-	 * @see m_BanAfterNumberOfTries
-	 * @see CheckPasswordAndBan
-	 */
-	bool IsBanned(const std::string& username) const;
-
-private:
-	CNetServerWorker* m_Worker;
-	const bool m_LobbyAuth;
-	u16 m_PublicPort{20595};
-	CStr m_PublicIp;
-	CStr m_Password;
-	std::unordered_map<std::string, int> m_FailedAttempts;
 };
 
 /**
@@ -407,7 +335,7 @@ private:
 	bool RunStep();
 
 	std::thread m_WorkerThread;
-	std::mutex m_WorkerMutex;
+	mutable std::mutex m_WorkerMutex;
 
 	// protected by m_WorkerMutex
 	bool m_Shutdown{false};
@@ -416,6 +344,76 @@ private:
 	std::vector<bool> m_StartGameQueue;
 	std::vector<std::pair<CStr, CStr>> m_LobbyAuthQueue;
 	std::vector<u32> m_TurnLengthQueue;
+};
+
+/**
+ * Network server interface. Handles all the coordination between players.
+ * One person runs this object, and every player (including the host) connects their CNetClient to it.
+ *
+ * The actual work is performed by CNetServerWorker in a separate thread.
+ */
+class CNetServer
+{
+	NONCOPYABLE(CNetServer);
+public:
+	CNetServer(const bool isSavedGame, std::uint16_t port, const bool useLobbyAuth = false,
+		std::string password = {}, std::string controllerSecret = {}, std::string initAttributes = {});
+
+	/**
+	 * Call from the GUI to asynchronously notify all clients that they should start loading the game.
+	 * SetupConnection must be called at least once.
+	 */
+	void StartGame();
+
+	/**
+	 * Set the turn length to a fixed value.
+	 * TODO: we should replace this with some adapative lag-dependent computation.
+	 */
+	void SetTurnLength(u32 msecs);
+
+	bool UseLobbyAuth() const;
+
+	void OnLobbyAuth(const CStr& name, const CStr& token);
+
+	void SendHolePunchingMessage(const CStr& ip, u16 port);
+
+	/**
+	 * Return the externally accessible IP.
+	 */
+	CStr GetPublicIp() const;
+
+	/**
+	 * Return the externally accessible port.
+	 */
+	u16 GetPublicPort() const;
+
+	/**
+	 * Return the serving port on the local machine.
+	 */
+	u16 GetLocalPort() const;
+
+	/**
+	 * Check if password is valid. If is not, increase number of failed attempts of the lobby user.
+	 * This is used without established direct session with the client, to prevent brute force attacks
+	 * when guessing password trying to get connection data from the host.
+	 * @return true iff password is valid
+	 */
+	bool CheckPasswordAndIncrement(const std::string& username, const std::string& password, const std::string& salt);
+
+	/**
+	 * Check if user reached certain number of failed attempts.
+	 * @see m_BanAfterNumberOfTries
+	 * @see CheckPasswordAndBan
+	 */
+	bool IsBanned(const std::string& username) const;
+
+private:
+	CNetServerWorker m_Worker;
+	const bool m_LobbyAuth;
+	u16 m_PublicPort{20595};
+	CStr m_PublicIp;
+	CStr m_Password;
+	std::unordered_map<std::string, int> m_FailedAttempts;
 };
 
 /// Global network server for the standard game
