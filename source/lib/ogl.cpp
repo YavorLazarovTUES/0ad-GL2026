@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -271,65 +271,6 @@ const char* ogl_HaveExtensions(int dummy, ...)
 	return ext;
 }
 
-
-// to help when running with no hardware acceleration and only OpenGL 1.1
-// (e.g. testing the game in virtual machines), we define dummy versions of
-// some extension functions which our graphics code assumes exist.
-// it will render incorrectly but at least it shouldn't crash.
-
-#if CONFIG2_GLES
-
-static void enableDummyFunctions()
-{
-}
-
-#else
-
-static void GLAD_API_PTR dummy_glDrawRangeElementsEXT(GLenum mode, GLuint, GLuint, GLsizei count, GLenum type, GLvoid* indices)
-{
-	glDrawElements(mode, count, type, indices);
-}
-
-static void GLAD_API_PTR dummy_glActiveTextureARB(GLenum /*texture*/)
-{
-}
-
-static void GLAD_API_PTR dummy_glClientActiveTextureARB(GLenum /*texture*/)
-{
-}
-
-static void GLAD_API_PTR dummy_glMultiTexCoord2fARB(GLenum /*target*/, GLfloat s, GLfloat t)
-{
-	glTexCoord2f(s, t);
-}
-
-static void GLAD_API_PTR dummy_glMultiTexCoord3fARB(GLenum /*target*/, GLfloat s, GLfloat t, GLfloat r)
-{
-	glTexCoord3f(s, t, r);
-}
-
-static void enableDummyFunctions()
-{
-	// fall back to the dummy functions when extensions (or equivalent core support) are missing
-
-	if(!ogl_HaveExtension("GL_EXT_draw_range_elements"))
-	{
-		glDrawRangeElementsEXT = reinterpret_cast<PFNGLDRAWRANGEELEMENTSEXTPROC>(&dummy_glDrawRangeElementsEXT);
-	}
-
-	if(!ogl_HaveExtension("GL_ARB_multitexture"))
-	{
-		glActiveTextureARB = reinterpret_cast<PFNGLACTIVETEXTUREARBPROC>(&dummy_glActiveTextureARB);
-		glClientActiveTextureARB = reinterpret_cast<PFNGLACTIVETEXTUREARBPROC>(&dummy_glClientActiveTextureARB);
-		glMultiTexCoord2fARB = reinterpret_cast<PFNGLMULTITEXCOORD2FARBPROC>(&dummy_glMultiTexCoord2fARB);
-		glMultiTexCoord3fARB = reinterpret_cast<PFNGLMULTITEXCOORD3FARBPROC>(&dummy_glMultiTexCoord3fARB);
-	}
-}
-
-#endif	// #if CONFIG2_GLES
-
-//----------------------------------------------------------------------------
-
 const char* ogl_GetErrorName(GLenum err)
 {
 #define E(e) case e: return #e;
@@ -505,8 +446,6 @@ bool ogl_Init(void* (load)(const char*))
 	have_20 = ogl_HaveVersion(2, 0);
 	have_21 = ogl_HaveVersion(2, 1);
 	have_30 = ogl_HaveVersion(3, 0);
-
-	enableDummyFunctions();
 
 	return true;
 }

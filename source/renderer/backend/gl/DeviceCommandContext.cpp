@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -1247,7 +1247,7 @@ void CDeviceCommandContext::DrawIndexedInRange(
 #if CONFIG2_GLES
 	glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_SHORT, indices);
 #else
-	glDrawRangeElementsEXT(GL_TRIANGLES, start, end, indexCount, GL_UNSIGNED_SHORT, indices);
+	glDrawRangeElements(GL_TRIANGLES, start, end, indexCount, GL_UNSIGNED_SHORT, indices);
 #endif
 	ogl_WarnIfError();
 }
