@@ -28,9 +28,9 @@ source/tools/spirv/.* @vladislavbelov
 
 ## == Scripts
 ## GUI
-binaries/data/mods/public/gui/.* @Phosit @wraitii
+binaries/data/mods/public/gui/.* @Vantha @wraitii
 ## AI
-#binaries/data/mods/public/simulation/ai/.*
+binaries/data/mods/public/simulation/ai/.* @Phosit
 ## Balancing
 binaries/data/mods/public/simulation/(data|templates)/.* @real_tabasco_sauce
 
