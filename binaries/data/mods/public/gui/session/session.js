@@ -331,20 +331,23 @@ async function init(initData, hotloadData)
 		resumeGame();
 	});
 
-	const promise = Promise.race([g_IsNetworked ? handleNetMessages() : new Promise(() => {}),
-		new Promise(closePageCallback =>
-		{
-			g_PlayerViewControl.registerViewedPlayerChangeHandler(resetTemplates.bind(undefined,
-				closePageCallback));
-			g_Menu = new Menu(g_PauseControl, g_PlayerViewControl, g_Chat, closePageCallback);
-			g_NetworkStatusOverlay = new NetworkStatusOverlay(closePageCallback);
-			g_QuitConfirmationDefeat = new QuitConfirmationDefeat(closePageCallback);
-			g_QuitConfirmationReplay = new QuitConfirmationReplay(closePageCallback);
-			// TODO: use event instead
-			onSimulationUpdate(closePageCallback);
-			Engine.GetGUIObjectByName("session").onSimulationUpdate =
-				onSimulationUpdate.bind(undefined, closePageCallback);
-		})]);
+	const promise = Promise.race([new Promise((_, reject) =>
+	{
+		if (g_IsNetworked)
+			handleNetMessages().catch(reject);
+	}), new Promise(closePageCallback =>
+	{
+		g_PlayerViewControl.registerViewedPlayerChangeHandler(resetTemplates.bind(undefined,
+			closePageCallback));
+		g_Menu = new Menu(g_PauseControl, g_PlayerViewControl, g_Chat, closePageCallback);
+		g_NetworkStatusOverlay = new NetworkStatusOverlay(closePageCallback);
+		g_QuitConfirmationDefeat = new QuitConfirmationDefeat(closePageCallback);
+		g_QuitConfirmationReplay = new QuitConfirmationReplay(closePageCallback);
+		// TODO: use event instead
+		onSimulationUpdate(closePageCallback);
+		Engine.GetGUIObjectByName("session").onSimulationUpdate =
+			onSimulationUpdate.bind(undefined, closePageCallback);
+	})]);
 
 	for (const handler of g_PlayersInitHandlers)
 		handler();

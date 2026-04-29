@@ -147,7 +147,7 @@ public:
 	 * Has to be called bevore the @c ScriptInterface gets destroied so that
 	 * no future messages are sent to it.
 	 */
-	void Unregister(const ScriptInterface& guiInterface);
+	void Unregister(const ScriptInterface* guiInterface);
 
 	/**
 	 * Add a message to the queue, to be read by GuiPoll.

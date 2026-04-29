@@ -108,7 +108,7 @@ CGUI::CGUI(ScriptContext& context)
 CGUI::~CGUI()
 {
 	if (g_NetClient)
-		g_NetClient->Unregister(*m_ScriptInterface);
+		g_NetClient->Unregister(m_ScriptInterface.get());
 }
 
 InReaction CGUI::HandleEvent(const SDL_Event_* ev)

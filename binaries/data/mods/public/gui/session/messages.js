@@ -425,6 +425,8 @@ async function handleNetMessages()
 	while (true)
 	{
 		const msg = await Engine.PollNetworkClient();
+		if (!msg)
+			return;
 
 		log("Net message: " + uneval(msg));
 

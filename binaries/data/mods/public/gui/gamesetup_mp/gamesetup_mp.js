@@ -72,7 +72,9 @@ async function waitOnEvent(loadSavedGame, joinFromLobby)
 			}));
 			if (tickResult === cancelTag)
 				break;
-			const result = await onTick(loadSavedGame);
+			const result = await cancelOr(onTick(loadSavedGame));
+			if (result === cancelTag)
+				break;
 			if (typeof result === "object")
 				return result;
 			if (result)
@@ -240,7 +242,7 @@ function getConnectionFailReason(reason)
 
 function reportConnectionFail(reason)
 {
-	messageBox(
+	return messageBox(
 		400, 200,
 		(translate("Failed to connect to the server.")
 		) + "\n\n" + getConnectionFailReason(reason),
@@ -253,6 +255,8 @@ async function pollAndHandleNetworkClient(loadSavedGame)
 	while (true)
 	{
 		const message = await Engine.PollNetworkClient();
+		if (!message)
+			return true;
 		if (!g_IsConnecting)
 			continue;
 
@@ -268,7 +272,7 @@ async function pollAndHandleNetworkClient(loadSavedGame)
 				switch (message.status)
 				{
 				case "failed":
-					reportConnectionFail(message.reason, false);
+					await reportConnectionFail(message.reason, false);
 					return true;
 
 				default:
@@ -326,7 +330,7 @@ async function pollAndHandleNetworkClient(loadSavedGame)
 				switch (message.status)
 				{
 				case "failed":
-					reportConnectionFail(message.reason, false);
+					await reportConnectionFail(message.reason, false);
 					return true;
 
 				default:

@@ -32,6 +32,8 @@ class NetMessages
 		while (true)
 		{
 			const message = await Engine.PollNetworkClient();
+			if (!message)
+				return;
 
 			log("Net message: " + uneval(message));
 
