@@ -260,6 +260,11 @@ void WaterManager::RecreateOrLoadTexturesIfNeeded()
 				Renderer::Backend::ITexture::Usage::DEPTH_STENCIL_ATTACHMENT,
 			true, false);
 
+	Renderer::Backend::Format framebufferColorFormat{
+		g_Renderer.GetPostprocManager().IsEnabled()
+		? g_Renderer.GetPostprocManager().GetFramebufferColorFormat()
+		: Renderer::Backend::Format::R8G8B8A8_UNORM};
+
 	// Create reflection textures.
 	const bool needsReflectionTextures =
 		g_RenderingOptions.GetWaterEffects() &&
@@ -269,7 +274,7 @@ void WaterManager::RecreateOrLoadTexturesIfNeeded()
 		m_ReflectionTexture = m_Device->CreateTexture2D("WaterReflectionTexture",
 			Renderer::Backend::ITexture::Usage::SAMPLED |
 				Renderer::Backend::ITexture::Usage::COLOR_ATTACHMENT,
-			Renderer::Backend::Format::R8G8B8A8_UNORM, m_RefTextureSize, m_RefTextureSize,
+			framebufferColorFormat, m_RefTextureSize, m_RefTextureSize,
 			Renderer::Backend::Sampler::MakeDefaultSampler(
 				Renderer::Backend::Sampler::Filter::LINEAR,
 				Renderer::Backend::Sampler::AddressMode::MIRRORED_REPEAT));
@@ -312,7 +317,7 @@ void WaterManager::RecreateOrLoadTexturesIfNeeded()
 		m_RefractionTexture = m_Device->CreateTexture2D("WaterRefractionTexture",
 			Renderer::Backend::ITexture::Usage::SAMPLED |
 				Renderer::Backend::ITexture::Usage::COLOR_ATTACHMENT,
-			Renderer::Backend::Format::R8G8B8A8_UNORM, m_RefTextureSize, m_RefTextureSize,
+			framebufferColorFormat, m_RefTextureSize, m_RefTextureSize,
 			Renderer::Backend::Sampler::MakeDefaultSampler(
 				Renderer::Backend::Sampler::Filter::LINEAR,
 				Renderer::Backend::Sampler::AddressMode::MIRRORED_REPEAT));

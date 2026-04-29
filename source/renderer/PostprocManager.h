@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -95,9 +95,16 @@ public:
 
 	float GetScale() const { return m_Scale; }
 
+	bool IsPBREnabled() const { return m_PBREnabled; }
+
+	Renderer::Backend::Format GetFramebufferColorFormat() const { return m_FramebufferColorFormat; }
+
 private:
 	void CreateMultisampleBuffer();
 	void DestroyMultisampleBuffer();
+	void RecreateCaptureFramebuffer();
+
+	void InitializePBR();
 
 	void RecalculateSize(const uint32_t width, const uint32_t height);
 
@@ -127,7 +134,19 @@ private:
 		Renderer::Backend::ITexture* source,
 		Renderer::Backend::ITexture* destination);
 
+	/**
+	 * Resolve PBR HDR output to SDR one.
+	 */
+	void ResolvePBR(
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
+
 	Renderer::Backend::IDevice* m_Device = nullptr;
+
+	Renderer::Backend::Format m_FramebufferColorFormat{
+		Renderer::Backend::Format::R8G8B8A8_UNORM};
+
+	bool m_PBREnabled{false};
+	std::unique_ptr<Renderer::Backend::ITexture> m_PBROutputTexture;
 
 	std::unique_ptr<Renderer::Backend::IFramebuffer> m_CaptureFramebuffer;
 
@@ -169,6 +188,8 @@ private:
 	// (i.e. while we do allocate the buffers, no effects are rendered).
 	CStrW m_PostProcEffect;
 	CShaderTechniquePtr m_PostProcTech;
+
+	CShaderTechniquePtr m_ResolvePBRComputeTech;
 
 	CStr m_SharpName;
 	CShaderTechniquePtr m_SharpTech;

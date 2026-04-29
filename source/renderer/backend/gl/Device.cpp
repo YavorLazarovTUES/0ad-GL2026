@@ -968,7 +968,7 @@ bool CDevice::IsTextureFormatSupported(const Format format) const
 
 	case Format::R16G16B16A16_SFLOAT:
 	case Format::R32G32B32A32_SFLOAT:
-		supported = m_Capabilities.computeShaders && m_Capabilities.storage && ogl_HaveExtension("GL_ARB_texture_float");
+		supported = m_Capabilities.computeShaders && m_Capabilities.storage && GLAD_GL_ARB_texture_float;
 		break;
 
 	default:

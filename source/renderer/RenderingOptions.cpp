@@ -271,6 +271,8 @@ void CRenderingOptions::ReadConfigAndSetupHooks()
 		if (CRenderer::IsInitialised())
 			g_Renderer.GetTextureManager().OnQualityChanged();
 	});
+
+	m_ConfigHooks->Setup("pbr.brightness", m_PBRBrightness);
 }
 
 void CRenderingOptions::ClearHooks()

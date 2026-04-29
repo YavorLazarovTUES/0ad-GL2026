@@ -120,6 +120,8 @@ OPTION_CUSTOM_SETTER(NAME, TYPE); OPTION_GETTER(NAME, TYPE); OPTION_DEF(NAME, TY
 	OPTION(DisplayFrustum, bool);
 	OPTION(DisplayShadowsFrustum, bool);
 
+	OPTION(PBRBrightness, float);
+
 	// Cutscene Mode: while active, (most) visual overlays aren't rendered in order to give the scene a more "pure"
 	// and real feel, like a movie.
 	// The idea is for it to be inactive during normal gameplay, but enabled while playing cinema paths and
