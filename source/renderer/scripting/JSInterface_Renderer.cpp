@@ -67,6 +67,16 @@ bool TextureExists(const std::wstring& filename)
 	return g_Renderer.GetTextureManager().TextureExists(filename);
 }
 
+float GetPBRBrightness()
+{
+	return g_RenderingOptions.GetPBRBrightness();
+}
+
+void SetPBRBrightness(const float value)
+{
+	g_RenderingOptions.SetPBRBrightness(value);
+}
+
 #define REGISTER_BOOLEAN_SCRIPT_SETTING(NAME) \
 ScriptFunction::Register<&Get##NAME##Enabled>(rq, "Renderer_Get" #NAME "Enabled"); \
 ScriptFunction::Register<&Set##NAME##Enabled>(rq, "Renderer_Set" #NAME "Enabled");
@@ -77,6 +87,8 @@ void RegisterScriptFunctions(const ScriptRequest& rq)
 	ScriptFunction::Register<&TextureExists>(rq, "TextureExists");
 	ScriptFunction::Register<&GetRenderDebugMode>(rq, "Renderer_GetRenderDebugMode");
 	ScriptFunction::Register<&SetRenderDebugMode>(rq, "Renderer_SetRenderDebugMode");
+	ScriptFunction::Register<&GetPBRBrightness>(rq, "Renderer_GetPBRBrightness");
+	ScriptFunction::Register<&SetPBRBrightness>(rq, "Renderer_SetPBRBrightness");
 	REGISTER_BOOLEAN_SCRIPT_SETTING(CutsceneMode);
 	REGISTER_BOOLEAN_SCRIPT_SETTING(DisplayFrustum);
 	REGISTER_BOOLEAN_SCRIPT_SETTING(DisplayShadowsFrustum);
