@@ -244,6 +244,16 @@ std::unique_ptr<CTexture> CTexture::Create(
 			pixelFormat = GL_DEPTH_STENCIL_EXT;
 			pixelType = GL_UNSIGNED_INT_24_8_EXT;
 			break;
+		case Format::R16G16B16A16_SFLOAT:
+			internalFormat = GL_RGBA16F_ARB;
+			pixelFormat = GL_RGBA;
+			pixelType = GL_HALF_FLOAT;
+			break;
+		case Format::R32G32B32A32_SFLOAT:
+			internalFormat = GL_RGBA32F_ARB;
+			pixelFormat = GL_RGBA;
+			pixelType = GL_FLOAT;
+			break;
 #endif
 		case Format::BC1_RGB_UNORM:
 		case Format::BC1_RGBA_UNORM:
@@ -272,6 +282,14 @@ std::unique_ptr<CTexture> CTexture::Create(
 		if (format == Format::R8G8B8A8_UNORM)
 		{
 			glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, sampleCount, GL_RGBA8, width, height, GL_TRUE);
+		}
+		else if (format == Format::R16G16B16A16_SFLOAT)
+		{
+			glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, sampleCount, GL_RGBA16F_ARB, width, height, GL_TRUE);
+		}
+		else if (format == Format::R32G32B32A32_SFLOAT)
+		{
+			glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, sampleCount, GL_RGBA32F_ARB, width, height, GL_TRUE);
 		}
 		else if (format == Format::D24_UNORM_S8_UINT)
 		{

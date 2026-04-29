@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -55,6 +55,8 @@ enum class Format
 	R32G32_SFLOAT,
 	R32G32B32_SFLOAT,
 	R32G32B32A32_SFLOAT,
+
+	B10G11R11_UFLOAT,
 
 	D16_UNORM,
 	D24_UNORM,

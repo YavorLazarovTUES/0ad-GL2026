@@ -943,7 +943,6 @@ bool CDevice::IsTextureFormatSupported(const Format format) const
 	case Format::R32_SFLOAT:
 	case Format::R32G32_SFLOAT:
 	case Format::R32G32B32_SFLOAT:
-	case Format::R32G32B32A32_SFLOAT:
 		break;
 
 	case Format::D16_UNORM:
@@ -967,6 +966,11 @@ bool CDevice::IsTextureFormatSupported(const Format format) const
 		supported = m_Capabilities.S3TC;
 		break;
 
+	case Format::R16G16B16A16_SFLOAT:
+	case Format::R32G32B32A32_SFLOAT:
+		supported = m_Capabilities.computeShaders && m_Capabilities.storage && ogl_HaveExtension("GL_ARB_texture_float");
+		break;
+
 	default:
 		break;
 	}
@@ -983,6 +987,10 @@ bool CDevice::IsFramebufferFormatSupported(const Format format) const
 #if !CONFIG2_GLES
 	case Format::R8_UNORM:
 		supported = ogl_HaveVersion(3, 0);
+		break;
+	case Format::R16G16B16A16_SFLOAT:
+	case Format::R32G32B32A32_SFLOAT:
+		supported = m_Capabilities.computeShaders && m_Capabilities.storage && GLAD_GL_ARB_texture_float;
 		break;
 #endif
 	case Format::R8G8B8A8_UNORM:

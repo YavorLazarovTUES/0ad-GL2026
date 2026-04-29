@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -194,6 +194,8 @@ VkFormat FromFormat(const Format format)
 	CASE(R32G32_SFLOAT)
 	CASE(R32G32B32_SFLOAT)
 	CASE(R32G32B32A32_SFLOAT)
+
+	CASE2(B10G11R11_UFLOAT, B10G11R11_UFLOAT_PACK32)
 
 	CASE(D16_UNORM)
 	CASE2(D24_UNORM, X8_D24_UNORM_PACK32)
