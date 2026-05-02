@@ -496,14 +496,13 @@ bool CNetServerWorker::RunStep()
 
 			// Remove the session first, so we won't send player-update messages to it
 			// when updating the FSM
-			std::erase_if(m_Sessions, [&](const auto& s)
-			{
-				return s.get() == session;
-			});
+			const auto iter = std::ranges::find(m_Sessions, session,
+				&std::unique_ptr<CNetServerSession>::get);
+			const std::unique_ptr<CNetServerSession> _ = std::move(*iter);
+			m_Sessions.erase(iter);
 
 			session->Update((uint)NMT_CONNECTION_LOST, NULL);
 
-			delete session;
 			event.peer->data = NULL;
 		}
 
