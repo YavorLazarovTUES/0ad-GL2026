@@ -6,6 +6,13 @@
   <define name="USE_WIND" value="1"/>
   <renderquery name="sim_time"/>
   <required_texture name="baseTex"/>
-  <shader effect="model_transparent"/>
+  <shader pass="main" effect="model_transparent"/>
+  <shader pass="shadow_caster" effect="model_transparent_solid"/>
+  <shader pass="silhouette_occluder" effect="model_transparent_solid"/>
+  <shader pass="silhouette_caster" effect="model_transparent_silhouette_caster"/>
+  <shader pass="reflections" effect="model_transparent_reflections"/>
+  <shader pass="refractions" effect="model_transparent"/>
+  <shader pass="wireframe" effect="model_transparent_wireframe"/>
+  <shader pass="wireframe_solid" effect="model_transparent_wireframe_solid"/>
   <uniform name="windData" value="6.0 6.0"/>
 </material>

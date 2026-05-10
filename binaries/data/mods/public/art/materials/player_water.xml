@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <material>
-  <shader effect="model_water"/>
+  <shader pass="main" effect="model_water"/>
+  <shader pass="shadow_caster" effect="model_water_shadow_caster"/>
+  <shader pass="silhouette_occluder" effect="model_water"/>
+  <shader pass="wireframe" effect="model_water"/>
+  <shader pass="wireframe_solid" effect="model_water"/>
   <renderquery name="water_tex"/>
   <renderquery name="sky_cube"/>
   <renderquery name="sim_time"/>
