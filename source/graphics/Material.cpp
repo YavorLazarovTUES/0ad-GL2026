@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -28,9 +28,16 @@ CMaterial::CMaterial() :
 {
 }
 
-void CMaterial::SetShaderEffect(const CStr& effect)
+CStrIntern CMaterial::GetShaderEffect(const Pass pass) const
 {
-	m_ShaderEffect = CStrIntern(effect);
+	ENSURE(pass < Pass::COUNT);
+	return m_ShaderEffects[static_cast<uint8_t>(pass)];
+}
+
+void CMaterial::SetShaderEffect(const Pass pass, CStrIntern effect)
+{
+	ENSURE(pass < Pass::COUNT);
+	m_ShaderEffects[static_cast<uint8_t>(pass)] = effect;
 }
 
 void CMaterial::AddShaderDefine(CStrIntern key, CStrIntern value)

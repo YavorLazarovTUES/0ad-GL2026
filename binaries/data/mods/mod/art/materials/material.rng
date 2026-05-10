@@ -24,9 +24,23 @@
         <empty/>
       </element>
     </optional>
-    <element name="shader">
-      <attribute name="effect"/>
-    </element>
+    <oneOrMore>
+      <element name="shader">
+        <attribute name="effect"/>
+        <attribute name="pass">
+          <choice>
+            <value>main</value>
+            <value>shadow_caster</value>
+            <value>silhouette_occluder</value>
+            <value>silhouette_caster</value>
+            <value>wireframe</value>
+            <value>wireframe_solid</value>
+            <value>reflections</value>
+            <value>refractions</value>
+          </choice>
+        </attribute>
+      </element>
+    </oneOrMore>
     <zeroOrMore>
       <element name="define">
         <attribute name="name"/>

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -39,6 +39,31 @@
 #include <string>
 #include <utility>
 
+namespace
+{
+
+CMaterial::Pass GetMaterialPassFromStr(const std::string_view pass)
+{
+	if (pass == "shadow_caster")
+		return CMaterial::Pass::SHADOW_CASTER;
+	else if (pass == "reflections")
+		return CMaterial::Pass::REFLECTIONS;
+	else if (pass == "refractions")
+		return CMaterial::Pass::REFRACTIONS;
+	else if (pass == "silhouette_occluder")
+		return CMaterial::Pass::SILHOUETTE_OCCLUDER;
+	else if (pass == "silhouette_caster")
+		return CMaterial::Pass::SILHOUETTE_CASTER;
+	else if (pass == "wireframe")
+		return CMaterial::Pass::WIREFRAME;
+	else if (pass == "wireframe_solid")
+		return CMaterial::Pass::WIREFRAME_SOLID;
+	else
+		return CMaterial::Pass::MAIN;
+}
+
+}
+
 CMaterialManager::CMaterialManager() :
 	qualityLevel{Clamp(g_ConfigDB.Get("materialmgr.quality", 5.0f), 0.0f, 10.0f)}
 {
@@ -77,6 +102,7 @@ CMaterial CMaterialManager::LoadMaterial(const VfsPath& pathname)
 	AT(quality);
 	AT(material);
 	AT(name);
+	AT(pass);
 	AT(value);
 	#undef AT
 	#undef EL
@@ -114,7 +140,9 @@ CMaterial CMaterialManager::LoadMaterial(const VfsPath& pathname)
 		}
 		else if (token == el_shader)
 		{
-			material.SetShaderEffect(attrs.GetNamedItem(at_effect));
+			const CStr pass{attrs.GetNamedItem(at_pass)};
+			const CStrIntern shaderEffect{attrs.GetNamedItem(at_effect)};
+			material.SetShaderEffect(GetMaterialPassFromStr(pass), shaderEffect);
 		}
 		else if (token == el_define)
 		{
