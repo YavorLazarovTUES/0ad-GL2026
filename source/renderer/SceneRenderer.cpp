@@ -317,7 +317,7 @@ void CSceneRenderer::RenderShadowMap(
 		const int cullGroup = CULL_SHADOWS_CASCADE_0 + cascade;
 		{
 			PROFILE("render patches");
-			m->terrainRenderer.RenderPatches(deviceCommandContext, cullGroup, shadowsContext);
+			m->terrainRenderer.RenderPatches(deviceCommandContext, cullGroup, {});
 		}
 
 		{
@@ -739,7 +739,7 @@ void CSceneRenderer::RenderSilhouettes(
 
 	{
 		PROFILE("render patches");
-		m->terrainRenderer.RenderPatches(deviceCommandContext, CULL_SILHOUETTE_OCCLUDER, contextOccluder);
+		m->terrainRenderer.RenderPatches(deviceCommandContext, CULL_SILHOUETTE_OCCLUDER, {});
 	}
 
 	{

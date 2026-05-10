@@ -93,6 +93,8 @@ struct TerrainRendererInternals
 	/// Fancy water shader
 	CShaderTechniquePtr fancyWaterTech;
 
+	CShaderTechniquePtr shadowCasterTech, silhouettteOccluderTech;
+
 	CShaderTechniquePtr shaderTechniqueSolid, shaderTechniqueSolidDepthTest;
 
 	Renderer::Backend::IVertexInputLayout* overlayVertexInputLayout = nullptr;
@@ -150,6 +152,10 @@ void TerrainRenderer::Initialize()
 	m->waterSurfaceVertexInputLayout = CPatchRData::GetWaterSurfaceVertexInputLayout(false);
 	m->waterSurfaceWithDataVertexInputLayout = CPatchRData::GetWaterSurfaceVertexInputLayout(true);
 	m->waterShoreVertexInputLayout = CPatchRData::GetWaterShoreVertexInputLayout();
+
+	CShaderManager& shaderManager{g_Renderer.GetShaderManager()};
+	m->shadowCasterTech = shaderManager.LoadEffect(str_terrain_shadow_caster);
+	m->silhouettteOccluderTech = shaderManager.LoadEffect(str_terrain_silhouette_occluder);
 }
 
 void TerrainRenderer::SetSimulation(CSimulation2* simulation)
@@ -372,7 +378,24 @@ void TerrainRenderer::RenderPatches(
 
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render terrain patches");
 
-	CShaderTechniquePtr solidTech = g_Renderer.GetShaderManager().LoadEffect(str_terrain_solid, defines);
+	CShaderTechniquePtr solidTech;
+	switch (cullGroup)
+	{
+	case CSceneRenderer::CULL_SHADOWS_CASCADE_0: [[fallthrough]];
+	case CSceneRenderer::CULL_SHADOWS_CASCADE_1: [[fallthrough]];
+	case CSceneRenderer::CULL_SHADOWS_CASCADE_2: [[fallthrough]];
+	case CSceneRenderer::CULL_SHADOWS_CASCADE_3:
+		ENSURE(defines.GetMap().empty());
+		solidTech = m->shadowCasterTech;
+		break;
+	case CSceneRenderer::CULL_SILHOUETTE_OCCLUDER:
+		ENSURE(defines.GetMap().empty());
+		solidTech = m->silhouettteOccluderTech;
+		break;
+	default:
+		solidTech = g_Renderer.GetShaderManager().LoadEffect(str_terrain_solid, defines);
+		break;
+	}
 	deviceCommandContext->SetGraphicsPipelineState(
 		solidTech->GetGraphicsPipelineState());
 	deviceCommandContext->BeginPass();
