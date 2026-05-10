@@ -883,7 +883,8 @@ using ShaderTechniqueBatches = PooledBatchMap<std::pair<CStrIntern, CShaderDefin
 void CPatchRData::RenderBases(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	Renderer::Backend::IVertexInputLayout* vertexInputLayout,
-	const std::vector<CPatchRData*>& patches, const CShaderDefines& context, ShadowMap* shadow)
+	const std::vector<CPatchRData*>& patches, const CShaderDefines& context,
+	ShadowMap* shadow, const CMaterial::Pass materialPass)
 {
 	PROFILE3("render terrain bases");
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render terrain bases");
@@ -902,7 +903,7 @@ void CPatchRData::RenderBases(
 		{
 			SSplat& splat = patch->m_Splats[j];
 			const CMaterial& material = splat.m_Texture->GetMaterial();
-			if (material.GetShaderEffect().empty())
+			if (material.GetShaderEffect(materialPass).empty())
 			{
 				LOGERROR("Terrain renderer failed to load shader effect.\n");
 				continue;
@@ -911,7 +912,9 @@ void CPatchRData::RenderBases(
 			BatchElements& batch = PooledPairGet(
 				PooledMapGet(
 					PooledMapGet(
-						PooledMapGet(batches, std::make_pair(material.GetShaderEffect(), material.GetShaderDefines()), scopedLinearAllocator),
+						PooledMapGet(
+							batches, std::make_pair(material.GetShaderEffect(materialPass), material.GetShaderDefines()),
+							scopedLinearAllocator),
 						splat.m_Texture, scopedLinearAllocator
 					),
 					patch->m_VBBase->m_Owner, scopedLinearAllocator
@@ -1043,7 +1046,8 @@ struct SBlendStackItem
 void CPatchRData::RenderBlends(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	Renderer::Backend::IVertexInputLayout* vertexInputLayout,
-	const std::vector<CPatchRData*>& patches, const CShaderDefines& context, ShadowMap* shadow)
+	const std::vector<CPatchRData*>& patches, const CShaderDefines& context,
+	ShadowMap* shadow, const CMaterial::Pass materialPass)
 {
 	PROFILE3("render terrain blends");
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render terrain blends");
@@ -1130,11 +1134,19 @@ void CPatchRData::RenderBlends(
 			CShaderDefines defines = contextBlend;
 			defines.SetMany(bestTex->GetMaterial().GetShaderDefines());
 			// TODO: move enabling blend to XML.
-			const CStrIntern shaderEffect = bestTex->GetMaterial().GetShaderEffect();
-			if (shaderEffect != str_terrain_base)
+			const CStrIntern shaderEffect = bestTex->GetMaterial().GetShaderEffect(materialPass);
+			if (shaderEffect != str_terrain_base && shaderEffect != str_terrain_base_reflections && shaderEffect != str_terrain_base_wireframe)
 				ONCE(LOGWARNING("Shader effect '%s' doesn't support semi-transparent terrain rendering.", shaderEffect.c_str()));
-			layer.m_ShaderTech = g_Renderer.GetShaderManager().LoadEffect(
-				shaderEffect == str_terrain_base ? str_terrain_blend : shaderEffect, defines);
+			layer.m_ShaderTech = g_Renderer.GetShaderManager().LoadEffect([](const CStrIntern shaderEffect)
+				{
+					if (shaderEffect == str_terrain_base)
+						return str_terrain_blend;
+					if (shaderEffect == str_terrain_base_reflections)
+						return str_terrain_blend_reflections;
+					if (shaderEffect == str_terrain_base_wireframe)
+						return str_terrain_blend_wireframe;
+					return shaderEffect;
+				}(shaderEffect), defines);
 		}
 		batches.push_back(layer);
 	}

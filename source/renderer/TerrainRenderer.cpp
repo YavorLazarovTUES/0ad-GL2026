@@ -65,6 +65,9 @@
 #include <string>
 #include <vector>
 
+namespace
+{
+
 /**
  * TerrainRenderer keeps track of which phase it is in, to detect
  * when Submit, PrepareForRendering etc. are called in the wrong order.
@@ -75,6 +78,17 @@ enum Phase
 	Phase_Render
 };
 
+CMaterial::Pass GetMaterialPassFromCullGroup(const int cullGroup, const bool wireframe)
+{
+	if (wireframe)
+		return CMaterial::Pass::WIREFRAME;
+
+	return cullGroup == CSceneRenderer::CULL_REFLECTIONS
+		? CMaterial::Pass::REFLECTIONS
+		: CMaterial::Pass::MAIN;
+}
+
+}
 
 /**
  * Struct TerrainRendererInternals: Internal variables used by the TerrainRenderer class.
@@ -93,7 +107,7 @@ struct TerrainRendererInternals
 	/// Fancy water shader
 	CShaderTechniquePtr fancyWaterTech;
 
-	CShaderTechniquePtr shadowCasterTech, silhouettteOccluderTech;
+	CShaderTechniquePtr shadowCasterTech, silhouettteOccluderTech, wireframeTech;
 
 	CShaderTechniquePtr shaderTechniqueSolid, shaderTechniqueSolidDepthTest;
 
@@ -156,6 +170,7 @@ void TerrainRenderer::Initialize()
 	CShaderManager& shaderManager{g_Renderer.GetShaderManager()};
 	m->shadowCasterTech = shaderManager.LoadEffect(str_terrain_shadow_caster);
 	m->silhouettteOccluderTech = shaderManager.LoadEffect(str_terrain_silhouette_occluder);
+	m->wireframeTech = shaderManager.LoadEffect(str_terrain_wireframe);
 }
 
 void TerrainRenderer::SetSimulation(CSimulation2* simulation)
@@ -316,7 +331,8 @@ void TerrainRenderer::PrepareShader(
 
 void TerrainRenderer::RenderTerrainShader(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-	const CShaderDefines& context, int cullGroup, ShadowMap* shadow)
+	const CShaderDefines& context, int cullGroup, ShadowMap* shadow,
+	const bool wireframe)
 {
 	ENSURE(m->phase == Phase_Render);
 
@@ -353,22 +369,25 @@ void TerrainRenderer::RenderTerrainShader(
 
 	deviceCommandContext->EndPass();
 
+	const CMaterial::Pass materialPass{GetMaterialPassFromCullGroup(cullGroup, wireframe)};
+
 	CPatchRData::RenderBases(
-		deviceCommandContext, m->baseVertexInputLayout, visiblePatches, context, shadow);
+		deviceCommandContext, m->baseVertexInputLayout, visiblePatches, context, shadow, materialPass);
 
 	// render blend passes for each patch
 	CPatchRData::RenderBlends(
-		deviceCommandContext, m->blendVertexInputLayout, visiblePatches, context, shadow);
+		deviceCommandContext, m->blendVertexInputLayout, visiblePatches, context, shadow, materialPass);
 
 	CDecalRData::RenderDecals(
-		deviceCommandContext, m->decalsVertexInputLayout, visibleDecals, context, shadow);
+		deviceCommandContext, m->decalsVertexInputLayout, visibleDecals, context, shadow, materialPass);
 }
 
 ///////////////////////////////////////////////////////////////////
 // Render un-textured patches as polygons
 void TerrainRenderer::RenderPatches(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-	int cullGroup, const CShaderDefines& defines, const CColor& color)
+	int cullGroup, const CShaderDefines& defines, const CColor& color,
+	const bool wireframe)
 {
 	ENSURE(m->phase == Phase_Render);
 
@@ -379,22 +398,29 @@ void TerrainRenderer::RenderPatches(
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render terrain patches");
 
 	CShaderTechniquePtr solidTech;
-	switch (cullGroup)
+	if (wireframe)
 	{
-	case CSceneRenderer::CULL_SHADOWS_CASCADE_0: [[fallthrough]];
-	case CSceneRenderer::CULL_SHADOWS_CASCADE_1: [[fallthrough]];
-	case CSceneRenderer::CULL_SHADOWS_CASCADE_2: [[fallthrough]];
-	case CSceneRenderer::CULL_SHADOWS_CASCADE_3:
-		ENSURE(defines.GetMap().empty());
-		solidTech = m->shadowCasterTech;
-		break;
-	case CSceneRenderer::CULL_SILHOUETTE_OCCLUDER:
-		ENSURE(defines.GetMap().empty());
-		solidTech = m->silhouettteOccluderTech;
-		break;
-	default:
-		solidTech = g_Renderer.GetShaderManager().LoadEffect(str_terrain_solid, defines);
-		break;
+		solidTech = m->wireframeTech;
+	}
+	else
+	{
+		switch (cullGroup)
+		{
+		case CSceneRenderer::CULL_SHADOWS_CASCADE_0: [[fallthrough]];
+		case CSceneRenderer::CULL_SHADOWS_CASCADE_1: [[fallthrough]];
+		case CSceneRenderer::CULL_SHADOWS_CASCADE_2: [[fallthrough]];
+		case CSceneRenderer::CULL_SHADOWS_CASCADE_3:
+			ENSURE(defines.GetMap().empty());
+			solidTech = m->shadowCasterTech;
+			break;
+		case CSceneRenderer::CULL_SILHOUETTE_OCCLUDER:
+			ENSURE(defines.GetMap().empty());
+			solidTech = m->silhouettteOccluderTech;
+			break;
+		default:
+			solidTech = g_Renderer.GetShaderManager().LoadEffect(str_terrain_solid, defines);
+			break;
+		}
 	}
 	deviceCommandContext->SetGraphicsPipelineState(
 		solidTech->GetGraphicsPipelineState());

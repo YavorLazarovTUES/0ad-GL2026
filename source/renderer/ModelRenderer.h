@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -26,6 +26,7 @@
 
 #include "graphics/MeshManager.h"
 #include "graphics/RenderableObject.h"
+#include "renderer/SceneRenderer.h"
 #include "lib/types.h"
 
 #include <memory>
@@ -173,7 +174,8 @@ public:
 	 */
 	virtual void Render(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-		const RenderModifierPtr& modifier, const CShaderDefines& context, int cullGroup, int flags) = 0;
+		const RenderModifierPtr& modifier, const CShaderDefines& context,
+		int cullGroup, int flags, const ERenderMode renderMode) = 0;
 
 	/**
 	 * CopyPositionAndNormals: Copy unanimated object-space vertices and
@@ -282,7 +284,8 @@ public:
 	void EndFrame() override;
 	void Render(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-		const RenderModifierPtr& modifier, const CShaderDefines& context, int cullGroup, int flags) override;
+		const RenderModifierPtr& modifier, const CShaderDefines& context,
+		int cullGroup, int flags, const ERenderMode renderMode) override;
 
 private:
 	struct ShaderModelRendererInternals;

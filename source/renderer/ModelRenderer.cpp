@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -64,8 +64,43 @@
 #include <unordered_map>
 #include <utility>
 
-///////////////////////////////////////////////////////////////////////////////////////////////
-// ModelRenderer implementation
+
+namespace
+{
+
+CMaterial::Pass GetMaterialPassFromCullGroup(const int cullGroup, const ERenderMode renderMode)
+{
+	switch (renderMode)
+	{
+	case ERenderMode::WIREFRAME:
+		return CMaterial::Pass::WIREFRAME;
+	case ERenderMode::EDGED_FACES:
+		return CMaterial::Pass::WIREFRAME_SOLID;
+	case ERenderMode::SOLID:
+		break;
+	}
+
+	switch (cullGroup)
+	{
+	case CSceneRenderer::CULL_SHADOWS_CASCADE_0: [[fallthrough]];
+	case CSceneRenderer::CULL_SHADOWS_CASCADE_1: [[fallthrough]];
+	case CSceneRenderer::CULL_SHADOWS_CASCADE_2: [[fallthrough]];
+	case CSceneRenderer::CULL_SHADOWS_CASCADE_3:
+		return CMaterial::Pass::SHADOW_CASTER;
+	case CSceneRenderer::CULL_SILHOUETTE_OCCLUDER:
+		return CMaterial::Pass::SILHOUETTE_OCCLUDER;
+	case CSceneRenderer::CULL_SILHOUETTE_CASTER:
+		return CMaterial::Pass::SILHOUETTE_CASTER;
+	case CSceneRenderer::CULL_DEFAULT:
+		return CMaterial::Pass::MAIN;
+	default:
+		break;
+	}
+
+	return CMaterial::Pass::MAIN;
+}
+
+}
 
 void ModelRenderer::Init()
 {
@@ -380,13 +415,16 @@ struct SMRCompareTechBucket
 
 void ShaderModelRenderer::Render(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-	const RenderModifierPtr& modifier, const CShaderDefines& context, int cullGroup, int flags)
+	const RenderModifierPtr& modifier, const CShaderDefines& context,
+	int cullGroup, int flags, const ERenderMode renderMode)
 {
 	if (m->submissions[cullGroup].empty())
 		return;
 
 	CMatrix3D worldToCam;
 	g_Renderer.GetSceneRenderer().GetViewCamera().GetOrientation().GetInverse(worldToCam);
+
+	const CMaterial::Pass materialPass{GetMaterialPassFromCullGroup(cullGroup, renderMode)};
 
 	/*
 	 * Rendering approach:
@@ -462,8 +500,10 @@ void ShaderModelRenderer::Render(
 		for (size_t i = 0; i < m->submissions[cullGroup].size(); ++i)
 		{
 			CModel* model = m->submissions[cullGroup][i];
-			const CShaderDefines& defines = model->GetMaterial().GetShaderDefines();
-			SMRMaterialBucketKey key(model->GetMaterial().GetShaderEffect(), defines);
+			const CMaterial material{model->GetMaterial()};
+			const CShaderDefines& defines{material.GetShaderDefines()};
+			const CStrIntern shaderEffect{material.GetShaderEffect(materialPass)};
+			SMRMaterialBucketKey key(shaderEffect, defines);
 
 			MaterialBuckets_t::iterator it = materialBuckets.find(key);
 			if (it == materialBuckets.end())

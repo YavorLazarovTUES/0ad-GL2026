@@ -18,6 +18,7 @@
 #ifndef INCLUDED_PATCHRDATA
 #define INCLUDED_PATCHRDATA
 
+#include "graphics/Material.h"
 #include "graphics/Patch.h"
 #include "graphics/RenderableObject.h"
 #include "lib/code_annotation.h"
@@ -76,11 +77,13 @@ public:
 	static void RenderBases(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		Renderer::Backend::IVertexInputLayout* vertexInputLayout,
-		const std::vector<CPatchRData*>& patches, const CShaderDefines& context, ShadowMap* shadow);
+		const std::vector<CPatchRData*>& patches, const CShaderDefines& context,
+		ShadowMap* shadow, const CMaterial::Pass materialPass);
 	static void RenderBlends(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		Renderer::Backend::IVertexInputLayout* vertexInputLayout,
-		const std::vector<CPatchRData*>& patches, const CShaderDefines& context, ShadowMap* shadow);
+		const std::vector<CPatchRData*>& patches, const CShaderDefines& context,
+		ShadowMap* shadow, const CMaterial::Pass materialPass);
 	static void RenderStreams(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		Renderer::Backend::IVertexInputLayout* vertexInputLayout,

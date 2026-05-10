@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -104,7 +104,8 @@ public:
 	 */
 	void RenderTerrainShader(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-		const CShaderDefines& context, int cullGroup, ShadowMap* shadow);
+		const CShaderDefines& context, int cullGroup, ShadowMap* shadow,
+		const bool wireframe);
 
 	/**
 	 * RenderPatches: Render all patches un-textured as polygons.
@@ -118,7 +119,7 @@ public:
 	void RenderPatches(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		int cullGroup, const CShaderDefines& defines,
-		const CColor& color = CColor(0.0f, 0.0f, 0.0f, 1.0f));
+		const CColor& color, const bool wireframe);
 
 	/**
 	 * RenderOutlines: Render the outline of patches as lines.

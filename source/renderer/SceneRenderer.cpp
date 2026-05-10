@@ -154,18 +154,18 @@ public:
 	 */
 	void CallModelRenderers(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-		const CShaderDefines& context, int cullGroup, int flags)
+		const CShaderDefines& context, int cullGroup, int flags, const ERenderMode renderMode)
 	{
 		CShaderDefines contextSkinned = context;
 		if (g_RenderingOptions.GetGPUSkinning())
 			contextSkinned.Add(str_USE_INSTANCING, str_1);
-		Model.NormalSkinned->Render(deviceCommandContext, Model.ModShader, contextSkinned, cullGroup, flags);
+		Model.NormalSkinned->Render(deviceCommandContext, Model.ModShader, contextSkinned, cullGroup, flags, renderMode);
 
 		if (Model.NormalUnskinned != Model.NormalSkinned)
 		{
 			CShaderDefines contextUnskinned = context;
 			contextUnskinned.Add(str_USE_INSTANCING, str_1);
-			Model.NormalUnskinned->Render(deviceCommandContext, Model.ModShader, contextUnskinned, cullGroup, flags);
+			Model.NormalUnskinned->Render(deviceCommandContext, Model.ModShader, contextUnskinned, cullGroup, flags, renderMode);
 		}
 	}
 
@@ -174,18 +174,18 @@ public:
 	 */
 	void CallTranspModelRenderers(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-		const CShaderDefines& context, int cullGroup, int flags)
+		const CShaderDefines& context, int cullGroup, int flags, const ERenderMode renderMode)
 	{
 		CShaderDefines contextSkinned = context;
 		if (g_RenderingOptions.GetGPUSkinning())
 			contextSkinned.Add(str_USE_INSTANCING, str_1);
-		Model.TranspSkinned->Render(deviceCommandContext, Model.ModShader, contextSkinned, cullGroup, flags);
+		Model.TranspSkinned->Render(deviceCommandContext, Model.ModShader, contextSkinned, cullGroup, flags, renderMode);
 
 		if (Model.TranspUnskinned != Model.TranspSkinned)
 		{
 			CShaderDefines contextUnskinned = context;
 			contextUnskinned.Add(str_USE_INSTANCING, str_1);
-			Model.TranspUnskinned->Render(deviceCommandContext, Model.ModShader, contextUnskinned, cullGroup, flags);
+			Model.TranspUnskinned->Render(deviceCommandContext, Model.ModShader, contextUnskinned, cullGroup, flags, renderMode);
 		}
 	}
 };
@@ -294,17 +294,10 @@ void CSceneRenderer::SetSimulation(CSimulation2* simulation)
 }
 
 void CSceneRenderer::RenderShadowMap(
-	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-	const CShaderDefines& context)
+	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
 	PROFILE3_GPU(deviceCommandContext, "shadow map");
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render shadow map");
-
-	CShaderDefines shadowsContext = context;
-	shadowsContext.Add(str_PASS_SHADOWS, str_1);
-
-	CShaderDefines contextCast = shadowsContext;
-	contextCast.Add(str_MODE_SHADOWCAST, str_1);
 
 	m->shadow.BeginRender(deviceCommandContext);
 
@@ -317,17 +310,18 @@ void CSceneRenderer::RenderShadowMap(
 		const int cullGroup = CULL_SHADOWS_CASCADE_0 + cascade;
 		{
 			PROFILE("render patches");
-			m->terrainRenderer.RenderPatches(deviceCommandContext, cullGroup, {});
+			m->terrainRenderer.RenderPatches(
+				deviceCommandContext, cullGroup, {}, CColor(0.0f, 0.0f, 0.0f, 1.0f), false);
 		}
 
 		{
 			PROFILE("render models");
-			m->CallModelRenderers(deviceCommandContext, contextCast, cullGroup, ModelFlag::CAST_SHADOWS);
+			m->CallModelRenderers(deviceCommandContext, {}, cullGroup, ModelFlag::CAST_SHADOWS, ERenderMode::SOLID);
 		}
 
 		{
 			PROFILE("render transparent models");
-			m->CallTranspModelRenderers(deviceCommandContext, contextCast, cullGroup, ModelFlag::CAST_SHADOWS);
+			m->CallTranspModelRenderers(deviceCommandContext, {}, cullGroup, ModelFlag::CAST_SHADOWS, ERenderMode::SOLID);
 		}
 	}
 
@@ -341,23 +335,17 @@ void CSceneRenderer::RenderPatches(
 	PROFILE3("patches");
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render patches");
 
-	// Switch on wireframe if we need it.
-	CShaderDefines localContext = context;
-	if (m_TerrainRenderMode == WIREFRAME)
-		localContext.Add(str_MODE_WIREFRAME, str_1);
-
 	// Render all the patches, including blend pass.
-	m->terrainRenderer.RenderTerrainShader(deviceCommandContext, localContext, cullGroup,
-		g_RenderingOptions.GetShadows() ? &m->shadow : nullptr);
+	m->terrainRenderer.RenderTerrainShader(deviceCommandContext, context, cullGroup,
+		g_RenderingOptions.GetShadows() ? &m->shadow : nullptr, m_TerrainRenderMode == WIREFRAME);
 
 	if (m_TerrainRenderMode == EDGED_FACES)
 	{
-		localContext.Add(str_MODE_WIREFRAME, str_1);
 		// Edged faces: need to make a second pass over the data.
 
 		// Render tiles edges.
 		m->terrainRenderer.RenderPatches(
-			deviceCommandContext, cullGroup, localContext, CColor(0.5f, 0.5f, 1.0f, 1.0f));
+			deviceCommandContext, cullGroup, context, CColor(0.5f, 0.5f, 1.0f, 1.0f), true);
 
 		// Render outline of each patch.
 		m->terrainRenderer.RenderOutlines(deviceCommandContext, cullGroup);
@@ -373,18 +361,13 @@ void CSceneRenderer::RenderModels(
 
 	int flags = 0;
 
-	CShaderDefines localContext = context;
+	const ERenderMode modelRenderMode{
+		m_ModelRenderMode == WIREFRAME ? WIREFRAME : SOLID};
 
-	if (m_ModelRenderMode == WIREFRAME)
-		localContext.Add(str_MODE_WIREFRAME, str_1);
-
-	m->CallModelRenderers(deviceCommandContext, localContext, cullGroup, flags);
+	m->CallModelRenderers(deviceCommandContext, context, cullGroup, flags, modelRenderMode);
 
 	if (m_ModelRenderMode == EDGED_FACES)
-	{
-		localContext.Add(str_MODE_WIREFRAME_SOLID, str_1);
-		m->CallModelRenderers(deviceCommandContext, localContext, cullGroup, flags);
-	}
+		m->CallModelRenderers(deviceCommandContext, {}, cullGroup, flags, EDGED_FACES);
 }
 
 void CSceneRenderer::RenderTransparentModels(
@@ -402,25 +385,17 @@ void CSceneRenderer::RenderTransparentModels(
 	CShaderDefines contextBlend = context;
 	contextBlend.Add(str_ALPHABLEND_PASS_BLEND, str_1);
 
-	if (m_ModelRenderMode == WIREFRAME)
-	{
-		contextOpaque.Add(str_MODE_WIREFRAME, str_1);
-		contextBlend.Add(str_MODE_WIREFRAME, str_1);
-	}
+	const ERenderMode modelRenderMode{
+		m_ModelRenderMode == WIREFRAME ? WIREFRAME : SOLID};
 
 	if (transparentMode == TRANSPARENT || transparentMode == TRANSPARENT_OPAQUE)
-		m->CallTranspModelRenderers(deviceCommandContext, contextOpaque, cullGroup, flags);
+		m->CallTranspModelRenderers(deviceCommandContext, contextOpaque, cullGroup, flags, modelRenderMode);
 
 	if (transparentMode == TRANSPARENT || transparentMode == TRANSPARENT_BLEND)
-		m->CallTranspModelRenderers(deviceCommandContext, contextBlend, cullGroup, flags);
+		m->CallTranspModelRenderers(deviceCommandContext, contextBlend, cullGroup, flags, modelRenderMode);
 
 	if (m_ModelRenderMode == EDGED_FACES)
-	{
-		CShaderDefines contextWireframe = contextOpaque;
-		contextWireframe.Add(str_MODE_WIREFRAME, str_1);
-
-		m->CallTranspModelRenderers(deviceCommandContext, contextWireframe, cullGroup, flags);
-	}
+		m->CallTranspModelRenderers(deviceCommandContext, {}, cullGroup, flags, EDGED_FACES);
 }
 
 // SetObliqueFrustumClipping: change the near plane to the given clip plane (in world space)
@@ -602,13 +577,10 @@ void CSceneRenderer::RenderReflections(
 	scissorRect.height = screenScissor.y2 - screenScissor.y1;
 	deviceCommandContext->SetScissors(1, &scissorRect);
 
-	CShaderDefines reflectionsContext = context;
-	reflectionsContext.Add(str_PASS_REFLECTIONS, str_1);
-
 	// Render terrain and models
-	RenderPatches(deviceCommandContext, reflectionsContext, CULL_REFLECTIONS);
-	RenderModels(deviceCommandContext, reflectionsContext, CULL_REFLECTIONS);
-	RenderTransparentModels(deviceCommandContext, reflectionsContext, CULL_REFLECTIONS, TRANSPARENT);
+	RenderPatches(deviceCommandContext, context, CULL_REFLECTIONS);
+	RenderModels(deviceCommandContext, context, CULL_REFLECTIONS);
+	RenderTransparentModels(deviceCommandContext, context, CULL_REFLECTIONS, TRANSPARENT);
 
 	// Particles are always oriented to face the camera in the vertex shader,
 	// so they don't need the inverted cull face.
@@ -713,17 +685,10 @@ void CSceneRenderer::RenderRefractions(
 }
 
 void CSceneRenderer::RenderSilhouettes(
-	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-	const CShaderDefines& context)
+	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
 	PROFILE3("silhouettes");
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render silhouettes");
-
-	CShaderDefines contextOccluder = context;
-	contextOccluder.Add(str_MODE_SILHOUETTEOCCLUDER, str_1);
-
-	CShaderDefines contextDisplay = context;
-	contextDisplay.Add(str_MODE_SILHOUETTEDISPLAY, str_1);
 
 	// Render silhouettes of units hidden behind terrain or occluders.
 	// To avoid breaking the standard rendering of alpha-blended objects, this
@@ -739,29 +704,30 @@ void CSceneRenderer::RenderSilhouettes(
 
 	{
 		PROFILE("render patches");
-		m->terrainRenderer.RenderPatches(deviceCommandContext, CULL_SILHOUETTE_OCCLUDER, {});
+		m->terrainRenderer.RenderPatches(
+			deviceCommandContext, CULL_SILHOUETTE_OCCLUDER, {}, CColor(0.0f, 0.0f, 0.0f, 1.0f), false);
 	}
 
 	{
 		PROFILE("render model occluders");
-		m->CallModelRenderers(deviceCommandContext, contextOccluder, CULL_SILHOUETTE_OCCLUDER, 0);
+		m->CallModelRenderers(deviceCommandContext, {}, CULL_SILHOUETTE_OCCLUDER, 0, ERenderMode::SOLID);
 	}
 
 	{
 		PROFILE("render transparent occluders");
-		m->CallTranspModelRenderers(deviceCommandContext, contextOccluder, CULL_SILHOUETTE_OCCLUDER, 0);
+		m->CallTranspModelRenderers(deviceCommandContext, {}, CULL_SILHOUETTE_OCCLUDER, 0, ERenderMode::SOLID);
 	}
 
 	// Since we can't sort, we'll use the stencil buffer to ensure we only draw
 	// a pixel once (using the color of whatever model happens to be drawn first).
 	{
 		PROFILE("render model casters");
-		m->CallModelRenderers(deviceCommandContext, contextDisplay, CULL_SILHOUETTE_CASTER, 0);
+		m->CallModelRenderers(deviceCommandContext, {}, CULL_SILHOUETTE_CASTER, 0, ERenderMode::SOLID);
 	}
 
 	{
 		PROFILE("render transparent casters");
-		m->CallTranspModelRenderers(deviceCommandContext, contextDisplay, CULL_SILHOUETTE_CASTER, 0);
+		m->CallTranspModelRenderers(deviceCommandContext, {}, CULL_SILHOUETTE_CASTER, 0, ERenderMode::SOLID);
 	}
 }
 
@@ -832,7 +798,7 @@ void CSceneRenderer::PrepareSubmissions(
 
 	if (g_RenderingOptions.GetShadows())
 	{
-		RenderShadowMap(deviceCommandContext, context);
+		RenderShadowMap(deviceCommandContext);
 	}
 
 	if (m->waterManager.m_RenderWater)
@@ -1164,7 +1130,7 @@ void CSceneRenderer::RenderSceneOverlays(
 	if (!g_RenderingOptions.GetCutsceneMode())
 	{
 		if (g_RenderingOptions.GetSilhouettes())
-			RenderSilhouettes(deviceCommandContext, m->globalContext);
+			RenderSilhouettes(deviceCommandContext);
 
 		m->silhouetteRenderer.RenderDebugOverlays(deviceCommandContext);
 

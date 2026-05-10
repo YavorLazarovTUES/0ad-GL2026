@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -138,7 +138,8 @@ void CDecalRData::Update(CSimulation2* simulation)
 void CDecalRData::RenderDecals(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	Renderer::Backend::IVertexInputLayout* vertexInputLayout,
-	const std::vector<CDecalRData*>& decals, const CShaderDefines& context, ShadowMap* shadow)
+	const std::vector<CDecalRData*>& decals, const CShaderDefines& context,
+	ShadowMap* shadow, const CMaterial::Pass materialPass)
 {
 	PROFILE3("render terrain decals");
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render terrain decals");
@@ -156,7 +157,7 @@ void CDecalRData::RenderDecals(
 	{
 		CMaterial& material = decal->m_Decal->m_Decal.m_Material;
 
-		if (material.GetShaderEffect().empty())
+		if (material.GetShaderEffect(materialPass).empty())
 		{
 			LOGERROR("Terrain renderer failed to load shader effect.\n");
 			continue;
@@ -167,7 +168,7 @@ void CDecalRData::RenderDecals(
 
 		SDecalBatch batch;
 		batch.decal = decal;
-		batch.shaderEffect = material.GetShaderEffect();
+		batch.shaderEffect = material.GetShaderEffect(materialPass);
 		batch.shaderDefines = material.GetShaderDefines();
 		batch.vertices = decal->m_VBDecals.Get();
 		batch.indices = decal->m_VBDecalsIndices.Get();
@@ -193,8 +194,16 @@ void CDecalRData::RenderDecals(
 		CShaderDefines defines = contextDecal;
 		defines.SetMany(itTechBegin->shaderDefines);
 		// TODO: move enabling blend to XML.
-		CShaderTechniquePtr techBase = g_Renderer.GetShaderManager().LoadEffect(
-			itTechBegin->shaderEffect == str_terrain_base ? str_terrain_decal : itTechBegin->shaderEffect, defines);
+		CShaderTechniquePtr techBase{g_Renderer.GetShaderManager().LoadEffect([](const CStrIntern shaderEffect)
+			{
+				if (shaderEffect == str_terrain_base)
+					return str_terrain_decal;
+				if (shaderEffect == str_terrain_base_reflections)
+					return str_terrain_decal_reflections;
+				if (shaderEffect == str_terrain_base_wireframe)
+					return str_terrain_decal_wireframe;
+				return shaderEffect;
+			}(itTechBegin->shaderEffect), defines)};
 		if (!techBase)
 		{
 			LOGERROR("Terrain renderer failed to load shader effect (%s)\n",

@@ -230,8 +230,7 @@ protected:
 		const CShaderDefines& context, int cullGroup, ETransparentMode transparentMode);
 
 	void RenderSilhouettes(
-		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-		const CShaderDefines& context);
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
 
 	void RenderParticles(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
@@ -239,8 +238,7 @@ protected:
 
 	// shadow rendering stuff
 	void RenderShadowMap(
-		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-		const CShaderDefines& context);
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
 
 	// render water reflection and refraction textures
 	void RenderReflections(

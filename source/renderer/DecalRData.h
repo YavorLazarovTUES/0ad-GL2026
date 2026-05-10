@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,6 +18,7 @@
 #ifndef INCLUDED_DECALRDATA
 #define INCLUDED_DECALRDATA
 
+#include "graphics/Material.h"
 #include "graphics/RenderableObject.h"
 #include "lib/code_annotation.h"
 #include "maths/Vector2D.h"
@@ -45,7 +46,8 @@ public:
 	static void RenderDecals(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		Renderer::Backend::IVertexInputLayout* vertexInputLayout,
-		const std::vector<CDecalRData*>& decals, const CShaderDefines& context, ShadowMap* shadow);
+		const std::vector<CDecalRData*>& decals, const CShaderDefines& context,
+		ShadowMap* shadow, const CMaterial::Pass materialPass);
 
 	CModelDecal* GetDecal() { return m_Decal; }
 
