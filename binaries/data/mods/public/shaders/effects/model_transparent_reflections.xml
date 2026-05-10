@@ -7,6 +7,7 @@
 		<pass shader="model_common">
 			<define name="USE_TRANSPARENT" value="1"/>
 			<define name="REQUIRE_ALPHA_GEQUAL" value="0.6375"/>
+			<cull mode="NONE"/>
 		</pass>
 	</technique>
 
@@ -19,6 +20,7 @@
 			<define name="REQUIRE_ALPHA_GEQUAL" value="0.05"/>
 			<blend src="src_alpha" dst="one_minus_src_alpha"/>
 			<depth func="less" mask="false"/>
+			<cull mode="NONE"/>
 		</pass>
 	</technique>
 </effect>

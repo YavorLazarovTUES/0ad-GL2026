@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <effect>
-	<technique>
+	<technique>>
 		<require shaders="glsl"/>
 		<require shaders="spirv"/>
-		<pass shader="terrain_blend">
+		<pass shader="terrain_decal">
 			<depth mask="false"/>
+			<cull mode="FRONT"/>
 			<blend src="src_alpha" dst="one_minus_src_alpha"/>
 		</pass>
 	</technique>

@@ -3,16 +3,6 @@
 	<technique>
 		<require shaders="glsl"/>
 		<require shaders="spirv"/>
-		<require context="MODE_WIREFRAME"/>
-		<pass shader="dummy">
-			<polygon mode="LINE"/>
-		</pass>
-	</technique>
-
-	<technique>
-		<require shaders="glsl"/>
-		<require shaders="spirv"/>
 		<pass shader="dummy"/>
 	</technique>
-
 </effect>
