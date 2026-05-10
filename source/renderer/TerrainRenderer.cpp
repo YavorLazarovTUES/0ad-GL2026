@@ -672,17 +672,17 @@ void TerrainRenderer::RenderSimpleWater(
 	PROFILE3("simple water");
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render Simple Water");
 
-	const WaterManager& waterManager = g_Renderer.GetSceneRenderer().GetWaterManager();
-	CLOSTexture& losTexture = g_Renderer.GetSceneRenderer().GetScene().GetLOSTexture();
+	CSceneRenderer& sceneRenderer{g_Renderer.GetSceneRenderer()};
+	const WaterManager& waterManager{sceneRenderer.GetWaterManager()};
+	CLOSTexture& losTexture{sceneRenderer.GetScene().GetLOSTexture()};
 
 	const double time = waterManager.m_WaterTexTimer;
 
-	CShaderDefines context;
-	if (g_Renderer.GetSceneRenderer().GetWaterRenderMode() == WIREFRAME)
-		context.Add(str_MODE_WIREFRAME, str_1);
-
-	CShaderTechniquePtr waterSimpleTech =
-		g_Renderer.GetShaderManager().LoadEffect(str_water_simple, context);
+	CShaderTechniquePtr waterSimpleTech{
+		g_Renderer.GetShaderManager().LoadEffect(
+			sceneRenderer.GetWaterRenderMode() == WIREFRAME
+				? str_water_simple_wireframe
+				: str_water_simple, {})};
 	deviceCommandContext->SetGraphicsPipelineState(
 		waterSimpleTech->GetGraphicsPipelineState());
 	deviceCommandContext->BeginPass();

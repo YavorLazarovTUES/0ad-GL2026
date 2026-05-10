@@ -112,9 +112,7 @@ void ParticleRenderer::PrepareForRendering(const CShaderDefines& context)
 		m->techSubtract = g_Renderer.GetShaderManager().LoadEffect(str_particle_subtract, context);
 		m->techOverlay = g_Renderer.GetShaderManager().LoadEffect(str_particle_overlay, context);
 		m->techMultiply = g_Renderer.GetShaderManager().LoadEffect(str_particle_multiply, context);
-		CShaderDefines contextWithWireframe = context;
-		contextWithWireframe.Add(str_MODE_WIREFRAME, str_1);
-		m->techWireframe = g_Renderer.GetShaderManager().LoadEffect(str_particle_solid, contextWithWireframe);
+		m->techWireframe = g_Renderer.GetShaderManager().LoadEffect(str_particle_wireframe, {});
 	}
 
 	++m->frameNumber;

@@ -4,7 +4,7 @@
 		<require shaders="glsl"/>
 		<require shaders="spirv"/>
 		<pass shader="particle_solid">
-			<depth mask="false"/>
+			<polygon mode="LINE"/>
 		</pass>
 	</technique>
 </effect>

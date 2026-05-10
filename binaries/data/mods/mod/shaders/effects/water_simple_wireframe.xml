@@ -3,8 +3,9 @@
 	<technique>
 		<require shaders="glsl"/>
 		<require shaders="spirv"/>
-		<pass shader="particle_solid">
-			<depth mask="false"/>
+		<pass shader="water_simple">
+			<depth test="TRUE"/>
+			<polygon mode="LINE"/>
 		</pass>
 	</technique>
 </effect>
