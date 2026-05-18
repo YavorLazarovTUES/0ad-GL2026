@@ -43,7 +43,7 @@ class ScriptContext;
 namespace JS { class HandleValueArray; }
 namespace JS { class Value; }
 namespace PS { template <typename T, size_t N> class StaticVector; }
-struct SDL_Event_;
+union SDL_Event;
 
 /**
  * External interface to the GUI system.
@@ -99,7 +99,7 @@ public:
 	/**
 	 * Pass input events to the currently active GUI page.
 	 */
-	InReaction HandleEvent(const SDL_Event_* ev);
+	InReaction HandleEvent(const SDL_Event& ev);
 
 	/**
 	 * See CGUI::SendEventToAll; applies to the currently active page.
@@ -242,6 +242,6 @@ private:
 
 extern CGUIManager* g_GUI;
 
-extern InReaction gui_handler(const SDL_Event_* ev);
+extern InReaction gui_handler(const SDL_Event& ev);
 
 #endif // INCLUDED_GUIMANAGER

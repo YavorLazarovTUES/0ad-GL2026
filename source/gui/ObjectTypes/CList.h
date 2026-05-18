@@ -35,6 +35,7 @@
 class CCanvas2D;
 class CGUI;
 class CGUIString;
+union SDL_Event;
 
 /**
  * Create a list of elements, where one can be selected
@@ -88,7 +89,7 @@ protected:
 	/**
 	 * Handle events manually to catch keyboard inputting.
 	 */
-	virtual InReaction ManuallyHandleKeys(const SDL_Event_* ev);
+	virtual InReaction ManuallyHandleKeys(const SDL_Event& ev);
 
 	/**
 	 * Draws the List box

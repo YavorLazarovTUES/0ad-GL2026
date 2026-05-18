@@ -271,16 +271,16 @@ void CProfileViewer::RenderProfile(CCanvas2D& canvas)
 
 
 // Handle input
-InReaction CProfileViewer::Input(const SDL_Event_* ev)
+InReaction CProfileViewer::Input(const SDL_Event& ev)
 {
-	switch(ev->ev.type)
+	switch(ev.type)
 	{
 	case SDL_KEYDOWN:
 	{
 		if (!m->profileVisible)
 			break;
 
-		int k = ev->ev.key.keysym.sym;
+		int k = ev.key.keysym.sym;
 		if (k >= SDLK_0 && k <= SDLK_9)
 		{
 			m->NavigateTree(k - SDLK_0);
@@ -289,7 +289,7 @@ InReaction CProfileViewer::Input(const SDL_Event_* ev)
 		break;
 	}
 	case SDL_HOTKEYPRESS:
-		std::string hotkey = static_cast<const char*>(ev->ev.user.data1);
+		std::string hotkey = static_cast<const char*>(ev.user.data1);
 
 		if( hotkey == "profile.toggle" )
 		{
@@ -334,7 +334,7 @@ InReaction CProfileViewer::Input(const SDL_Event_* ev)
 	return( IN_PASS );
 }
 
-InReaction CProfileViewer::InputThunk(const SDL_Event_* ev)
+InReaction CProfileViewer::InputThunk(const SDL_Event& ev)
 {
 	if (CProfileViewer::IsInitialised())
 		return g_ProfileViewer.Input(ev);

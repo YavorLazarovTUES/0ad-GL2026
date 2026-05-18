@@ -53,6 +53,7 @@
 #include "renderer/WaterManager.h"
 #include "simulation2/Simulation2.h"
 
+#include <SDL_events.h>
 #include <memory>
 #include <string>
 
@@ -350,7 +351,7 @@ entity_id_t CGameView::GetFollowedEntity()
 	return m->CameraController->GetFollowedEntity();
 }
 
-InReaction game_view_handler(const SDL_Event_* ev)
+InReaction game_view_handler(const SDL_Event& ev)
 {
 	// put any events that must be processed even if inactive here
 	if (!g_app_has_focus || !g_Game || !g_Game->IsGameStarted() || g_Game->GetView()->GetCinema()->IsPlaying())
@@ -361,13 +362,13 @@ InReaction game_view_handler(const SDL_Event_* ev)
 	return pView->HandleEvent(ev);
 }
 
-InReaction CGameView::HandleEvent(const SDL_Event_* ev)
+InReaction CGameView::HandleEvent(const SDL_Event& ev)
 {
-	switch(ev->ev.type)
+	switch(ev.type)
 	{
 	case SDL_HOTKEYPRESS:
 	{
-		std::string hotkey = static_cast<const char*>(ev->ev.user.data1);
+		std::string hotkey = static_cast<const char*>(ev.user.data1);
 		CSceneRenderer& sceneRenderer = g_Renderer.GetSceneRenderer();
 		if (hotkey == "wireframe")
 		{

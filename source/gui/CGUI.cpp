@@ -111,15 +111,15 @@ CGUI::~CGUI()
 		g_NetClient->Unregister(m_ScriptInterface.get());
 }
 
-InReaction CGUI::HandleEvent(const SDL_Event_* ev)
+InReaction CGUI::HandleEvent(const SDL_Event& ev)
 {
 	InReaction ret = IN_PASS;
 
-	if (ev->ev.type == SDL_HOTKEYDOWN || ev->ev.type == SDL_HOTKEYPRESS || ev->ev.type == SDL_HOTKEYUP)
+	if (ev.type == SDL_HOTKEYDOWN || ev.type == SDL_HOTKEYPRESS || ev.type == SDL_HOTKEYUP)
 	{
-		const char* hotkey = static_cast<const char*>(ev->ev.user.data1);
+		const char* hotkey = static_cast<const char*>(ev.user.data1);
 
-		const CStr& eventName = ev->ev.type == SDL_HOTKEYPRESS ? EventNamePress : ev->ev.type == SDL_HOTKEYDOWN ? EventNameKeyDown : EventNameRelease;
+		const CStr& eventName = ev.type == SDL_HOTKEYPRESS ? EventNamePress : ev.type == SDL_HOTKEYDOWN ? EventNameKeyDown : EventNameRelease;
 
 		if (m_GlobalHotkeys.find(hotkey) != m_GlobalHotkeys.end() && m_GlobalHotkeys[hotkey].find(eventName) != m_GlobalHotkeys[hotkey].end())
 		{
@@ -138,35 +138,35 @@ InReaction CGUI::HandleEvent(const SDL_Event_* ev)
 			{
 				if (!obj->IsEnabled())
 					continue;
-				if (ev->ev.type == SDL_HOTKEYPRESS)
+				if (ev.type == SDL_HOTKEYPRESS)
 					ret = obj->SendEvent(GUIM_PRESSED, EventNamePress);
-				else if (ev->ev.type == SDL_HOTKEYDOWN)
+				else if (ev.type == SDL_HOTKEYDOWN)
 					ret = obj->SendEvent(GUIM_KEYDOWN, EventNameKeyDown);
 				else
 					ret = obj->SendEvent(GUIM_RELEASED, EventNameRelease);
 			}
 	}
 
-	else if (ev->ev.type == SDL_MOUSEMOTION)
+	else if (ev.type == SDL_MOUSEMOTION)
 	{
 		// Yes the mouse position is stored as float to avoid
 		//  constant conversions when operating in a
 		//  float-based environment.
-		m_MousePos = CVector2D((float)ev->ev.motion.x / g_VideoMode.GetScale(), (float)ev->ev.motion.y / g_VideoMode.GetScale());
+		m_MousePos = CVector2D(static_cast<float>(ev.motion.x) / g_VideoMode.GetScale(), static_cast<float>(ev.motion.y) / g_VideoMode.GetScale());
 
 		SGUIMessage msg(GUIM_MOUSE_MOTION);
 		m_BaseObject->RecurseObject(&IGUIObject::IsHiddenOrGhostOrOutOfBoundaries, &IGUIObject::HandleMessage, msg);
 	}
 
 	// Update m_MouseButtons. (BUTTONUP is handled later.)
-	else if (ev->ev.type == SDL_MOUSEBUTTONDOWN)
+	else if (ev.type == SDL_MOUSEBUTTONDOWN)
 	{
-		switch (ev->ev.button.button)
+		switch (ev.button.button)
 		{
 		case SDL_BUTTON_LEFT:
 		case SDL_BUTTON_RIGHT:
 		case SDL_BUTTON_MIDDLE:
-			m_MouseButtons |= Bit<unsigned int>(ev->ev.button.button);
+			m_MouseButtons |= Bit<unsigned int>(ev.button.button);
 			break;
 		default:
 			break;
@@ -175,9 +175,9 @@ InReaction CGUI::HandleEvent(const SDL_Event_* ev)
 
 	// Update m_MousePos (for delayed mouse button events)
 	CVector2D oldMousePos = m_MousePos;
-	if (ev->ev.type == SDL_MOUSEBUTTONDOWN || ev->ev.type == SDL_MOUSEBUTTONUP)
+	if (ev.type == SDL_MOUSEBUTTONDOWN || ev.type == SDL_MOUSEBUTTONUP)
 	{
-		m_MousePos = CVector2D((float)ev->ev.button.x / g_VideoMode.GetScale(), (float)ev->ev.button.y / g_VideoMode.GetScale());
+		m_MousePos = CVector2D(static_cast<float>(ev.button.x) / g_VideoMode.GetScale(), static_cast<float>(ev.button.y) / g_VideoMode.GetScale());
 	}
 
 	// Allow the focused object to pre-empt regular GUI events.
@@ -195,9 +195,9 @@ InReaction CGUI::HandleEvent(const SDL_Event_* ev)
 		// update their own data and send messages accordingly
 		m_BaseObject->RecurseObject(&IGUIObject::IsHiddenOrGhostOrOutOfBoundaries, &IGUIObject::UpdateMouseOver, static_cast<IGUIObject* const&>(pNearest));
 
-		if (ev->ev.type == SDL_MOUSEBUTTONDOWN)
+		if (ev.type == SDL_MOUSEBUTTONDOWN)
 		{
-			switch (ev->ev.button.button)
+			switch (ev.button.button)
 			{
 			case SDL_BUTTON_LEFT:
 				// Focus the clicked object (or focus none if nothing clicked on)
@@ -216,21 +216,21 @@ InReaction CGUI::HandleEvent(const SDL_Event_* ev)
 				break;
 			}
 		}
-		else if (ev->ev.type == SDL_MOUSEWHEEL && pNearest)
+		else if (ev.type == SDL_MOUSEWHEEL && pNearest)
 		{
-			if (ev->ev.wheel.y < 0)
+			if (ev.wheel.y < 0)
 				ret = pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_DOWN, EventNameMouseWheelDown);
-			else if (ev->ev.wheel.y > 0)
+			else if (ev.wheel.y > 0)
 				ret = pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_UP, EventNameMouseWheelUp);
 
-			if (ev->ev.wheel.x < 0)
+			if (ev.wheel.x < 0)
 				ret = pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_LEFT, EventNameMouseWheelLeft);
-			else if (ev->ev.wheel.x > 0)
+			else if (ev.wheel.x > 0)
 				ret = pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_RIGHT, EventNameMouseWheelRight);
 		}
-		else if (ev->ev.type == SDL_MOUSEBUTTONUP)
+		else if (ev.type == SDL_MOUSEBUTTONUP)
 		{
-			switch (ev->ev.button.button)
+			switch (ev.button.button)
 			{
 			case SDL_BUTTON_LEFT:
 				if (pNearest)
@@ -267,14 +267,14 @@ InReaction CGUI::HandleEvent(const SDL_Event_* ev)
 	// BUTTONUP's effect on m_MouseButtons is handled after
 	// everything else, so that e.g. 'press' handlers (activated
 	// on button up) see which mouse button had been pressed.
-	if (ev->ev.type == SDL_MOUSEBUTTONUP)
+	if (ev.type == SDL_MOUSEBUTTONUP)
 	{
-		switch (ev->ev.button.button)
+		switch (ev.button.button)
 		{
 		case SDL_BUTTON_LEFT:
 		case SDL_BUTTON_RIGHT:
 		case SDL_BUTTON_MIDDLE:
-			m_MouseButtons &= ~Bit<unsigned int>(ev->ev.button.button);
+			m_MouseButtons &= ~Bit<unsigned int>(ev.button.button);
 			break;
 		default:
 			break;
@@ -282,15 +282,15 @@ InReaction CGUI::HandleEvent(const SDL_Event_* ev)
 	}
 
 	// Restore m_MousePos (for delayed mouse button events)
-	if (ev->ev.type == SDL_MOUSEBUTTONDOWN || ev->ev.type == SDL_MOUSEBUTTONUP)
+	if (ev.type == SDL_MOUSEBUTTONDOWN || ev.type == SDL_MOUSEBUTTONUP)
 		m_MousePos = oldMousePos;
 
 	// Let GUI items handle keys after everything else, e.g. for input boxes.
 	if (ret == IN_PASS && GetFocusedObject())
 	{
-		if (ev->ev.type == SDL_KEYUP || ev->ev.type == SDL_KEYDOWN ||
-			ev->ev.type == SDL_HOTKEYUP || ev->ev.type == SDL_HOTKEYDOWN ||
-			ev->ev.type == SDL_TEXTINPUT || ev->ev.type == SDL_TEXTEDITING)
+		if (ev.type == SDL_KEYUP || ev.type == SDL_KEYDOWN ||
+			ev.type == SDL_HOTKEYUP || ev.type == SDL_HOTKEYDOWN ||
+			ev.type == SDL_TEXTINPUT || ev.type == SDL_TEXTEDITING)
 			ret = GetFocusedObject()->ManuallyHandleKeys(ev);
 		// else will return IN_PASS because we never used the button.
 	}

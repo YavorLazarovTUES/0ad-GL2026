@@ -42,6 +42,7 @@ GUI Object - Drop Down (list)
 #include <string>
 
 class CGUI;
+union SDL_Event;
 
 /**
  * Drop Down
@@ -67,7 +68,7 @@ public:
 	/**
 	 * Handle events manually to catch keyboard inputting.
 	 */
-	virtual InReaction ManuallyHandleKeys(const SDL_Event_* ev);
+	virtual InReaction ManuallyHandleKeys(const SDL_Event& ev);
 
 	/**
 	 * Draws the Button

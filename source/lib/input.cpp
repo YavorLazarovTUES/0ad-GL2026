@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -40,7 +40,7 @@ const size_t MAX_HANDLERS = 10;
 static InHandler handler_stack[MAX_HANDLERS];
 static size_t handler_stack_top = 0;
 
-static std::list<SDL_Event_> priority_events;
+static std::list<SDL_Event> priority_events;
 
 void in_add_handler(InHandler handler)
 {
@@ -58,11 +58,11 @@ void in_reset_handlers()
 }
 
 // send ev to each handler until one returns IN_HANDLED
-void in_dispatch_event(const SDL_Event_* ev)
+void in_dispatch_event(const SDL_Event& ev)
 {
 	for(int i = (int)handler_stack_top-1; i >= 0; i--)
 	{
-		ENSURE(handler_stack[i] && ev);
+		ENSURE(handler_stack[i]);
 		InReaction ret = handler_stack[i](ev);
 		// .. done, return
 		if(ret == IN_HANDLED)
@@ -76,22 +76,22 @@ void in_dispatch_event(const SDL_Event_* ev)
 	}
 }
 
-void in_push_priority_event(const SDL_Event_* event)
+void in_push_priority_event(const SDL_Event& event)
 {
-	priority_events.push_back(*event);
+	priority_events.push_back(event);
 }
 
-int in_poll_priority_event(SDL_Event_* event)
+int in_poll_priority_event(SDL_Event& event)
 {
 	if (priority_events.empty())
 		return 0;
 
-	*event = priority_events.front();
+	event = priority_events.front();
 	priority_events.pop_front();
 	return 1;
 }
 
-int in_poll_event(SDL_Event_* event)
+int in_poll_event(SDL_Event& event)
 {
-	return in_poll_priority_event(event) ? 1 : SDL_PollEvent(&event->ev);
+	return in_poll_priority_event(event) ? 1 : SDL_PollEvent(&event);
 }

@@ -272,14 +272,14 @@ void CDropDown::HandleMessage(SGUIMessage& Message)
 		SetupText();
 }
 
-InReaction CDropDown::ManuallyHandleKeys(const SDL_Event_* ev)
+InReaction CDropDown::ManuallyHandleKeys(const SDL_Event& ev)
 {
 	InReaction result = IN_PASS;
 	bool update_highlight = false;
 
-	if (ev->ev.type == SDL_KEYDOWN)
+	if (ev.type == SDL_KEYDOWN)
 	{
-		int szChar = ev->ev.key.keysym.sym;
+		int szChar = ev.key.keysym.sym;
 
 		switch (szChar)
 		{

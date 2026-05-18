@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
 * This file is part of 0 A.D.
 *
 * 0 A.D. is free software: you can redistribute it and/or modify
@@ -30,6 +30,7 @@ class CCamera;
 class CConfigDBHook;
 class CMatrix3D;
 class CVector3D;
+union SDL_Event;
 
 class CCameraController : public ICameraController
 {
@@ -40,7 +41,7 @@ public:
 
 	void LoadConfig() override;
 
-	InReaction HandleEvent(const SDL_Event_* ev) override;
+	InReaction HandleEvent(const SDL_Event& ev) override;
 
 	CVector3D GetCameraPivot() const override;
 	CVector3D GetCameraPosition() const override;

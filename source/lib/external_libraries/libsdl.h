@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -28,7 +28,6 @@
 #define INCLUDED_SDL
 
 #include "lib/config2.h"
-#include "lib/external_libraries/libsdl_fwd.h"
 
 # include <SDL.h>
 # include <SDL_thread.h>
@@ -42,12 +41,6 @@
 // will strip them if unused, and this is more convenient than
 // another header that toggles between wsdl and SDL_endian.h.
 # include <SDL_endian.h>
-
-// complete definition of our forward-declared SDL_Event (see sdl_fwd.h)
-struct SDL_Event_
-{
-	SDL_Event ev;
-};
 
 // Returns a windowing subsystem used for the window.
 const char* GetSDLSubsystem(SDL_Window* window);

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -34,7 +34,7 @@
 
 class CCanvas2D;
 class CTextRenderer;
-struct SDL_Event_;
+union SDL_Event;
 
 /**
  * In-game console.
@@ -137,6 +137,6 @@ private:
 
 extern CConsole* g_Console;
 
-extern InReaction conInputHandler(const SDL_Event_* ev);
+extern InReaction conInputHandler(const SDL_Event& ev);
 
 #endif // INCLUDED_CCONSOLE

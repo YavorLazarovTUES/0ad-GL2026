@@ -195,19 +195,19 @@ void RestartEngine()
 }
 
 // main app message handler
-static InReaction MainInputHandler(const SDL_Event_* ev)
+static InReaction MainInputHandler(const SDL_Event& ev)
 {
-	switch(ev->ev.type)
+	switch(ev.type)
 	{
 	case SDL_WINDOWEVENT:
-		switch(ev->ev.window.event)
+		switch(ev.window.event)
 		{
 		case SDL_WINDOWEVENT_RESIZED:
-			g_ResizedW = ev->ev.window.data1;
-			g_ResizedH = ev->ev.window.data2;
+			g_ResizedW = ev.window.data1;
+			g_ResizedH = ev.window.data2;
 			break;
 		case SDL_WINDOWEVENT_MOVED:
-			g_VideoMode.UpdatePosition(ev->ev.window.data1, ev->ev.window.data2);
+			g_VideoMode.UpdatePosition(ev.window.data1, ev.window.data2);
 		}
 		break;
 
@@ -217,7 +217,7 @@ static InReaction MainInputHandler(const SDL_Event_* ev)
 
 	case SDL_DROPFILE:
 	{
-		char* dropped_filedir = ev->ev.drop.file;
+		char* dropped_filedir = ev.drop.file;
 		const Paths paths(g_CmdLineArgs);
 		CModInstaller installer(paths.UserData() / "mods", paths.Cache());
 		installer.Install(std::string(dropped_filedir), g_ScriptContext, true);
@@ -235,7 +235,7 @@ static InReaction MainInputHandler(const SDL_Event_* ev)
 	}
 
 	case SDL_HOTKEYPRESS:
-		std::string hotkey = static_cast<const char*>(ev->ev.user.data1);
+		std::string hotkey = static_cast<const char*>(ev.user.data1);
 		if (hotkey == "exit")
 		{
 			QuitEngine(EXIT_SUCCESS);
@@ -281,8 +281,8 @@ static void PumpEvents()
 
 	PROFILE3("dispatch events");
 
-	SDL_Event_ ev;
-	while (in_poll_event(&ev))
+	SDL_Event ev{};
+	while (in_poll_event(ev))
 	{
 		PROFILE2("event");
 		if (g_GUI)
@@ -292,7 +292,7 @@ static void PumpEvents()
 			std::string data = Script::StringifyJSON(rq, &tmpVal);
 			PROFILE2_ATTR("%s", data.c_str());
 		}
-		in_dispatch_event(&ev);
+		in_dispatch_event(ev);
 	}
 
 	g_TouchInput.Frame();

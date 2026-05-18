@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -52,20 +52,20 @@ private:
 
 	void fakeInput(const char* key, bool keyDown)
 	{
-		SDL_Event_ ev;
-		ev.ev.type = keyDown ? SDL_KEYDOWN : SDL_KEYUP;
-		ev.ev.key.repeat = 0;
-		ev.ev.key.keysym.scancode = SDL_GetScancodeFromName(key);
-		GlobalsInputHandler(&ev);
-		HotkeyInputPrepHandler(&ev);
-		HotkeyInputActualHandler(&ev);
+		SDL_Event ev;
+		ev.type = keyDown ? SDL_KEYDOWN : SDL_KEYUP;
+		ev.key.repeat = 0;
+		ev.key.keysym.scancode = SDL_GetScancodeFromName(key);
+		GlobalsInputHandler(ev);
+		HotkeyInputPrepHandler(ev);
+		HotkeyInputActualHandler(ev);
 		hotkeyPress = false;
 		hotkeyUp = false;
-		while(in_poll_priority_event(&ev))
+		while(in_poll_priority_event(ev))
 		{
-			hotkeyUp |= ev.ev.type == SDL_HOTKEYUP;
-			hotkeyPress |= ev.ev.type == SDL_HOTKEYPRESS;
-			HotkeyStateChange(&ev);
+			hotkeyUp |= ev.type == SDL_HOTKEYUP;
+			hotkeyPress |= ev.type == SDL_HOTKEYPRESS;
+			HotkeyStateChange(ev);
 		}
 	}
 

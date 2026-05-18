@@ -260,13 +260,13 @@ void CList::HandleMessage(SGUIMessage& Message)
 	IGUITextOwner::HandleMessage(Message);
 }
 
-InReaction CList::ManuallyHandleKeys(const SDL_Event_* ev)
+InReaction CList::ManuallyHandleKeys(const SDL_Event& ev)
 {
 	InReaction result = IN_PASS;
 
-	if (ev->ev.type == SDL_KEYDOWN)
+	if (ev.type == SDL_KEYDOWN)
 	{
-		int szChar = ev->ev.key.keysym.sym;
+		int szChar = ev.key.keysym.sym;
 
 		switch (szChar)
 		{

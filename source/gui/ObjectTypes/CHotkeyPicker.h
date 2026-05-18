@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -27,6 +27,7 @@
 #include <vector>
 
 class CGUI;
+union SDL_Event;
 
 /**
  * When in focus, returns all currently pressed keys.
@@ -52,7 +53,7 @@ public:
 	virtual void HandleMessage(SGUIMessage& Message);
 
 	// Pre-empt events: this is our sole purpose.
-	virtual InReaction PreemptEvent(const SDL_Event_* ev);
+	virtual InReaction PreemptEvent(const SDL_Event& ev);
 
 	struct Key
 	{

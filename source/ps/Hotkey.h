@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -39,7 +39,7 @@
 #include <unordered_map>
 #include <vector>
 
-struct SDL_Event_;
+union SDL_Event;
 
 // SDL_Scancode is an enum, we'll use an explicit int to avoid including SDL in this header.
 using SDL_Scancode_ = int;
@@ -85,22 +85,22 @@ extern void UnloadHotkeys();
 /**
  * Updates g_HotkeyMap.
  */
-extern InReaction HotkeyStateChange(const SDL_Event_* ev);
+extern InReaction HotkeyStateChange(const SDL_Event& ev);
 
 /**
  * Detects hotkeys that should fire. This allows using EventWillFireHotkey,
  * (and then possibly preventing those hotkeys from firing by handling the event).
  */
-extern InReaction HotkeyInputPrepHandler(const SDL_Event_* ev);
+extern InReaction HotkeyInputPrepHandler(const SDL_Event& ev);
 /**
  * Actually fires hotkeys.
  */
-extern InReaction HotkeyInputActualHandler(const SDL_Event_* ev);
+extern InReaction HotkeyInputActualHandler(const SDL_Event& ev);
 
 /**
  * @return whether the event @param ev will fire the hotkey @param keyname.
  */
-extern bool EventWillFireHotkey(const SDL_Event_* ev, const CStr& keyname);
+extern bool EventWillFireHotkey(const SDL_Event& ev, const CStr& keyname);
 
 /**
  * Resets all currently active hotkeys (and clears in-flight hotkeys).

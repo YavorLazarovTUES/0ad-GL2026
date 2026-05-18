@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -42,6 +42,7 @@
 #include "simulation2/components/ICmpRangeManager.h"
 #include "simulation2/system/Component.h"
 
+#include <SDL_events.h>
 #include <algorithm>
 #include <cmath>
 #include <functional>
@@ -654,13 +655,13 @@ void CCameraController::FocusHeight(bool smooth)
 		m_PosY.Add(diff);
 }
 
-InReaction CCameraController::HandleEvent(const SDL_Event_* ev)
+InReaction CCameraController::HandleEvent(const SDL_Event& ev)
 {
-	switch (ev->ev.type)
+	switch (ev.type)
 	{
 	case SDL_HOTKEYPRESS:
 	{
-		std::string hotkey = static_cast<const char*>(ev->ev.user.data1);
+		std::string hotkey = static_cast<const char*>(ev.user.data1);
 		if (hotkey == "camera.reset")
 		{
 			ResetCameraAngleZoom();
@@ -676,7 +677,7 @@ InReaction CCameraController::HandleEvent(const SDL_Event_* ev)
 
 	case SDL_HOTKEYDOWN:
 	{
-		std::string hotkey = static_cast<const char*>(ev->ev.user.data1);
+		std::string hotkey = static_cast<const char*>(ev.user.data1);
 
 		// Mouse wheel must be treated using events instead of polling,
 		// because SDL auto-generates a sequence of mousedown/mouseup events

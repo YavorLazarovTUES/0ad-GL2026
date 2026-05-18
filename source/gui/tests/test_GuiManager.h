@@ -160,17 +160,17 @@ public:
 		g_GUI->OpenChildPage(L"hotkey/page_hotkey.xml", data);
 
 		// Press 'a'.
-		SDL_Event_ hotkeyNotification;
-		hotkeyNotification.ev.type = SDL_KEYDOWN;
-		hotkeyNotification.ev.key.keysym.scancode = SDL_SCANCODE_A;
-		hotkeyNotification.ev.key.repeat = 0;
+		SDL_Event hotkeyNotification;
+		hotkeyNotification.type = SDL_KEYDOWN;
+		hotkeyNotification.key.keysym.scancode = SDL_SCANCODE_A;
+		hotkeyNotification.key.repeat = 0;
 
 		// Init input and poll the event.
 		InitInput();
-		in_push_priority_event(&hotkeyNotification);
-		SDL_Event_ ev;
-		while (in_poll_event(&ev))
-			in_dispatch_event(&ev);
+		in_push_priority_event(hotkeyNotification);
+		SDL_Event ev;
+		while (in_poll_event(ev))
+			in_dispatch_event(ev);
 
 		const ScriptInterface& pageScriptInterface = *(g_GUI->GetActiveGUI()->GetScriptInterface());
 		ScriptRequest prq(pageScriptInterface);
@@ -190,10 +190,10 @@ public:
 		TS_ASSERT_EQUALS(hotkey_pressed_value, true);
 
 		// We are listening to KeyDown events, so repeat shouldn't matter.
-		hotkeyNotification.ev.key.repeat = 1;
-		in_push_priority_event(&hotkeyNotification);
-		while (in_poll_event(&ev))
-			in_dispatch_event(&ev);
+		hotkeyNotification.key.repeat = 1;
+		in_push_priority_event(hotkeyNotification);
+		while (in_poll_event(ev))
+			in_dispatch_event(ev);
 
 		hotkey_pressed_value = false;
 		Script::GetProperty(prq, global, "state_before", &js_hotkey_pressed_value);
@@ -205,10 +205,10 @@ public:
 		Script::FromJSVal(prq, js_hotkey_pressed_value, hotkey_pressed_value);
 		TS_ASSERT_EQUALS(hotkey_pressed_value, true);
 
-		hotkeyNotification.ev.type = SDL_KEYUP;
-		in_push_priority_event(&hotkeyNotification);
-		while (in_poll_event(&ev))
-			in_dispatch_event(&ev);
+		hotkeyNotification.type = SDL_KEYUP;
+		in_push_priority_event(hotkeyNotification);
+		while (in_poll_event(ev))
+			in_dispatch_event(ev);
 
 		hotkey_pressed_value = true;
 		Script::GetProperty(prq, global, "state_before", &js_hotkey_pressed_value);

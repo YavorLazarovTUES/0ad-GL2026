@@ -49,7 +49,7 @@ class JSTracer;
 class XMBData;
 class XMBElement;
 namespace JS { class HandleValueArray; }
-struct SDL_Event_;
+union SDL_Event;
 
 #define GUI_OBJECT(obj) \
 public: \
@@ -285,17 +285,17 @@ protected:
 	virtual void Draw(CCanvas2D& canvas) = 0;
 
 	/**
-	 * Some objects need to be able to pre-emptively process SDL_Event_.
+	 * Some objects need to be able to pre-emptively process SDL_Event.
 	 *
 	 * Only the object with focus will have this function called.
 	 *
 	 * Returns either IN_PASS or IN_HANDLED. If IN_HANDLED, then
 	 * the event won't be passed on and processed by other handlers.
 	 */
-	virtual InReaction PreemptEvent(const SDL_Event_*) { return IN_PASS; }
+	virtual InReaction PreemptEvent(const SDL_Event&) { return IN_PASS; }
 
 	/**
-	 * Some objects need to handle the text-related SDL_Event_ manually.
+	 * Some objects need to handle the text-related SDL_Event manually.
 	 * For instance the input box.
 	 *
 	 * Only the object with focus will have this function called.
@@ -304,7 +304,7 @@ protected:
 	 * the key won't be passed on and processed by other handlers.
 	 * This is used for keys that the GUI uses.
 	 */
-	virtual InReaction ManuallyHandleKeys(const SDL_Event_*) { return IN_PASS; }
+	virtual InReaction ManuallyHandleKeys(const SDL_Event&) { return IN_PASS; }
 
 	/**
 	 * Applies the given style to the object.

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -71,7 +71,7 @@ namespace {
 	// Stores the 'specificity' of the newly pressed hotkeys.
 	size_t closestMapMatch = 0;
 	// This is merely used to ensure consistency in EventWillFireHotkey.
-	const SDL_Event_* currentEvent;
+	const SDL_Event* currentEvent;
 
 	// List of currently pressed hotkeys. This is used to quickly reset hotkeys.
 	// This is an unsorted vector because there will generally be very few elements,
@@ -174,16 +174,16 @@ bool isPressed(const SKey& key)
 		return false;
 }
 
-InReaction HotkeyStateChange(const SDL_Event_* ev)
+InReaction HotkeyStateChange(const SDL_Event& ev)
 {
-	if (ev->ev.type == SDL_HOTKEYPRESS || ev->ev.type == SDL_HOTKEYPRESS_SILENT)
-		g_HotkeyStatus[static_cast<const char*>(ev->ev.user.data1)] = true;
-	else if (ev->ev.type == SDL_HOTKEYUP || ev->ev.type == SDL_HOTKEYUP_SILENT)
-		g_HotkeyStatus[static_cast<const char*>(ev->ev.user.data1)] = false;
+	if (ev.type == SDL_HOTKEYPRESS || ev.type == SDL_HOTKEYPRESS_SILENT)
+		g_HotkeyStatus[static_cast<const char*>(ev.user.data1)] = true;
+	else if (ev.type == SDL_HOTKEYUP || ev.type == SDL_HOTKEYUP_SILENT)
+		g_HotkeyStatus[static_cast<const char*>(ev.user.data1)] = false;
 	return IN_PASS;
 }
 
-InReaction HotkeyInputPrepHandler(const SDL_Event_* ev)
+InReaction HotkeyInputPrepHandler(const SDL_Event& ev)
 {
 	int scancode = SDL_SCANCODE_UNKNOWN;
 
@@ -191,40 +191,40 @@ InReaction HotkeyInputPrepHandler(const SDL_Event_* ev)
 	newPressedHotkeys.clear();
 	currentEvent = nullptr;
 
-	switch(ev->ev.type)
+	switch(ev.type)
 	{
 	case SDL_KEYDOWN:
 	case SDL_KEYUP:
-		scancode = ev->ev.key.keysym.scancode;
+		scancode = ev.key.keysym.scancode;
 		break;
 
 	case SDL_MOUSEBUTTONDOWN:
 	case SDL_MOUSEBUTTONUP:
 		// Mousewheel events are no longer buttons, but we want to maintain the order
 		// expected by g_mouse_buttons for compatibility
-		if (ev->ev.button.button >= SDL_BUTTON_X1)
-			scancode = MOUSE_BASE + (int)ev->ev.button.button + 2;
+		if (ev.button.button >= SDL_BUTTON_X1)
+			scancode = MOUSE_BASE + static_cast<int>(ev.button.button) + 2;
 		else
-			scancode = MOUSE_BASE + (int)ev->ev.button.button;
+			scancode = MOUSE_BASE + static_cast<int>(ev.button.button);
 		break;
 
 	case SDL_MOUSEWHEEL:
-		if (ev->ev.wheel.y > 0)
+		if (ev.wheel.y > 0)
 		{
 			scancode = MOUSE_WHEELUP;
 			break;
 		}
-		else if (ev->ev.wheel.y < 0)
+		else if (ev.wheel.y < 0)
 		{
 			scancode = MOUSE_WHEELDOWN;
 			break;
 		}
-		else if (ev->ev.wheel.x > 0)
+		else if (ev.wheel.x > 0)
 		{
 			scancode = MOUSE_X2;
 			break;
 		}
-		else if (ev->ev.wheel.x < 0)
+		else if (ev.wheel.x < 0)
 		{
 			scancode = MOUSE_X1;
 			break;
@@ -240,41 +240,41 @@ InReaction HotkeyInputPrepHandler(const SDL_Event_* ev)
 	// Create phantom 'unified-modifier' events when left- or right- modifier keys are pressed
 	// Just send them to this handler; don't let the imaginary event codes leak back to real SDL.
 
-	SDL_Event_ phantom;
-	phantom.ev.type = ((ev->ev.type == SDL_KEYDOWN) || (ev->ev.type == SDL_MOUSEBUTTONDOWN)) ? SDL_KEYDOWN : SDL_KEYUP;
-	if (phantom.ev.type == SDL_KEYDOWN)
-		phantom.ev.key.repeat = ev->ev.type == SDL_KEYDOWN ? ev->ev.key.repeat : 0;
+	SDL_Event phantom{};
+	phantom.type = ((ev.type == SDL_KEYDOWN) || (ev.type == SDL_MOUSEBUTTONDOWN)) ? SDL_KEYDOWN : SDL_KEYUP;
+	if (phantom.type == SDL_KEYDOWN)
+		phantom.key.repeat = ev.type == SDL_KEYDOWN ? ev.key.repeat : 0;
 
 	if (scancode == SDL_SCANCODE_LSHIFT || scancode == SDL_SCANCODE_RSHIFT)
 	{
-		phantom.ev.key.keysym.scancode = static_cast<SDL_Scancode>(UNIFIED_SHIFT);
-		unified[0] = (phantom.ev.type == SDL_KEYDOWN);
-		return HotkeyInputPrepHandler(&phantom);
+		phantom.key.keysym.scancode = static_cast<SDL_Scancode>(UNIFIED_SHIFT);
+		unified[0] = (phantom.type == SDL_KEYDOWN);
+		return HotkeyInputPrepHandler(phantom);
 	}
 	else if (scancode == SDL_SCANCODE_LCTRL || scancode == SDL_SCANCODE_RCTRL)
 	{
-		phantom.ev.key.keysym.scancode = static_cast<SDL_Scancode>(UNIFIED_CTRL);
-		unified[1] = (phantom.ev.type == SDL_KEYDOWN);
-		return HotkeyInputPrepHandler(&phantom);
+		phantom.key.keysym.scancode = static_cast<SDL_Scancode>(UNIFIED_CTRL);
+		unified[1] = (phantom.type == SDL_KEYDOWN);
+		return HotkeyInputPrepHandler(phantom);
 	}
 	else if (scancode == SDL_SCANCODE_LALT || scancode == SDL_SCANCODE_RALT)
 	{
-		phantom.ev.key.keysym.scancode = static_cast<SDL_Scancode>(UNIFIED_ALT);
-		unified[2] = (phantom.ev.type == SDL_KEYDOWN);
-		return HotkeyInputPrepHandler(&phantom);
+		phantom.key.keysym.scancode = static_cast<SDL_Scancode>(UNIFIED_ALT);
+		unified[2] = (phantom.type == SDL_KEYDOWN);
+		return HotkeyInputPrepHandler(phantom);
 	}
 	else if (scancode == SDL_SCANCODE_LGUI || scancode == SDL_SCANCODE_RGUI)
 	{
-		phantom.ev.key.keysym.scancode = static_cast<SDL_Scancode>(UNIFIED_SUPER);
-		unified[3] = (phantom.ev.type == SDL_KEYDOWN);
-		return HotkeyInputPrepHandler(&phantom);
+		phantom.key.keysym.scancode = static_cast<SDL_Scancode>(UNIFIED_SUPER);
+		unified[3] = (phantom.type == SDL_KEYDOWN);
+		return HotkeyInputPrepHandler(phantom);
 	}
 
 	// Check whether we have any hotkeys registered that include this scancode.
 	if (g_HotkeyMap.find(scancode) == g_HotkeyMap.end())
 		return IN_PASS;
 
-	currentEvent = ev;
+	currentEvent = &ev;
 
 	/**
 	 * Hotkey behaviour spec (see also tests):
@@ -299,9 +299,9 @@ InReaction HotkeyInputPrepHandler(const SDL_Event_* ev)
 	 * ...Yes, this is all surprisingly complex.
 	 */
 
-	bool isReleasedKey = ev->ev.type == SDL_KEYUP || ev->ev.type == SDL_MOUSEBUTTONUP;
+	bool isReleasedKey = ev.type == SDL_KEYUP || ev.type == SDL_MOUSEBUTTONUP;
 	// Wheel events are pressed & released in the same go.
-	bool isInstantaneous = ev->ev.type == SDL_MOUSEWHEEL;
+	bool isInstantaneous = ev.type == SDL_MOUSEWHEEL;
 
 	if (!isInstantaneous)
 	{
@@ -359,12 +359,12 @@ InReaction HotkeyInputPrepHandler(const SDL_Event_* ev)
 	return IN_PASS;
 }
 
-InReaction HotkeyInputActualHandler(const SDL_Event_* ev)
+InReaction HotkeyInputActualHandler(const SDL_Event& ev)
 {
 	if (!currentEvent)
 		return IN_PASS;
 
-	bool isInstantaneous = ev->ev.type == SDL_MOUSEWHEEL;
+	bool isInstantaneous = ev.type == SDL_MOUSEWHEEL;
 
 	// TODO: it's probably possible to break hotkeys somewhat if the "Up" event that would release a hotkey is handled
 	// by a priori handler - it might be safer to do that in the 'Prep' phase.
@@ -424,12 +424,12 @@ InReaction HotkeyInputActualHandler(const SDL_Event_* ev)
 	for (const PressedHotkey& hotkey : isInstantaneous ? newPressedHotkeys : pressedHotkeys)
 	{
 		// Send a KeyPress event when a hotkey is pressed initially and on mouseButton and mouseWheel events.
-		if (ev->ev.type != SDL_KEYDOWN || ev->ev.key.repeat == 0)
+		if (ev.type != SDL_KEYDOWN || ev.key.repeat == 0)
 		{
-			SDL_Event_ hotkeyPressNotification;
-			hotkeyPressNotification.ev.type = hotkey.retriggered ? SDL_HOTKEYPRESS_SILENT : SDL_HOTKEYPRESS;
-			hotkeyPressNotification.ev.user.data1 = const_cast<char*>(hotkey.mapping->name.c_str());
-			in_push_priority_event(&hotkeyPressNotification);
+			SDL_Event hotkeyPressNotification{};
+			hotkeyPressNotification.type = hotkey.retriggered ? SDL_HOTKEYPRESS_SILENT : SDL_HOTKEYPRESS;
+			hotkeyPressNotification.user.data1 = const_cast<char*>(hotkey.mapping->name.c_str());
+			in_push_priority_event(hotkeyPressNotification);
 		}
 
 		// Send a HotkeyDown event on every key, mouseButton and mouseWheel event.
@@ -439,12 +439,12 @@ InReaction HotkeyInputActualHandler(const SDL_Event_* ev)
 		// (It might be better to check for HotkeyIsPressed, however).
 		// For keys the event is repeated depending on hardware and OS configured interval.
 		// On linux, modifier keys (shift, alt, ctrl) are not repeated, see https://github.com/SFML/SFML/issues/122.
-		if (ev->ev.key.repeat == 0 && hotkey.retriggered)
+		if (ev.key.repeat == 0 && hotkey.retriggered)
 			continue;
-		SDL_Event_ hotkeyDownNotification;
-		hotkeyDownNotification.ev.type = SDL_HOTKEYDOWN;
-		hotkeyDownNotification.ev.user.data1 = const_cast<char*>(hotkey.mapping->name.c_str());
-		in_push_priority_event(&hotkeyDownNotification);
+		SDL_Event hotkeyDownNotification{};
+		hotkeyDownNotification.type = SDL_HOTKEYDOWN;
+		hotkeyDownNotification.user.data1 = const_cast<char*>(hotkey.mapping->name.c_str());
+		in_push_priority_event(hotkeyDownNotification);
 	}
 
 	// Release instantaneous events (e.g. mouse wheel) right away.
@@ -454,19 +454,19 @@ InReaction HotkeyInputActualHandler(const SDL_Event_* ev)
 
 	for (const ReleasedHotkey& hotkey : releasedHotkeys)
 	{
-		SDL_Event_ hotkeyNotification;
-		hotkeyNotification.ev.type = hotkey.wasRetriggered ? SDL_HOTKEYUP_SILENT : SDL_HOTKEYUP;
-		hotkeyNotification.ev.user.data1 = const_cast<char*>(hotkey.name);
-		in_push_priority_event(&hotkeyNotification);
+		SDL_Event hotkeyNotification{};
+		hotkeyNotification.type = hotkey.wasRetriggered ? SDL_HOTKEYUP_SILENT : SDL_HOTKEYUP;
+		hotkeyNotification.user.data1 = const_cast<char*>(hotkey.name);
+		in_push_priority_event(hotkeyNotification);
 	}
 
 	return IN_PASS;
 }
 
-bool EventWillFireHotkey(const SDL_Event_* ev, const CStr& keyname)
+bool EventWillFireHotkey(const SDL_Event& ev, const CStr& keyname)
 {
 	// Sanity check of sort. This parameter mostly exists because it looks right from the caller's perspective.
-	if (ev != currentEvent || !currentEvent)
+	if (&ev != currentEvent || !currentEvent)
 		return false;
 
 	return std::find_if(newPressedHotkeys.begin(), newPressedHotkeys.end(),
@@ -478,10 +478,10 @@ void ResetActiveHotkeys()
 	newPressedHotkeys.clear();
 	for (const PressedHotkey& hotkey : pressedHotkeys)
 	{
-		SDL_Event_ hotkeyNotification;
-		hotkeyNotification.ev.type = hotkey.retriggered ? SDL_HOTKEYUP_SILENT : SDL_HOTKEYUP;
-		hotkeyNotification.ev.user.data1 = const_cast<char*>(hotkey.mapping->name.c_str());
-		in_push_priority_event(&hotkeyNotification);
+		SDL_Event hotkeyNotification;
+		hotkeyNotification.type = hotkey.retriggered ? SDL_HOTKEYUP_SILENT : SDL_HOTKEYUP;
+		hotkeyNotification.user.data1 = const_cast<char*>(hotkey.mapping->name.c_str());
+		in_push_priority_event(hotkeyNotification);
 	}
 	pressedHotkeys.clear();
 	activeScancodes.clear();

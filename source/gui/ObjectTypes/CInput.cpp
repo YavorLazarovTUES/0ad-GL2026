@@ -113,7 +113,7 @@ void CInput::ClearComposedText()
 	m_iComposedPos = 0;
 }
 
-InReaction CInput::ManuallyHandleKeys(const SDL_Event_* ev)
+InReaction CInput::ManuallyHandleKeys(const SDL_Event& ev)
 {
 	ENSURE(m_iBufferPos != -1);
 
@@ -121,7 +121,7 @@ InReaction CInput::ManuallyHandleKeys(const SDL_Event_* ev)
 	// (Messages don't currently need to be sent)
 	CStrW& caption = m_Caption.GetMutable();
 
-	switch (ev->ev.type)
+	switch (ev.type)
 	{
 	case SDL_HOTKEYDOWN:
 	{
@@ -138,7 +138,7 @@ InReaction CInput::ManuallyHandleKeys(const SDL_Event_* ev)
 			return IN_PASS;
 
 		// Text has been committed, either single key presses or through an IME
-		std::wstring text = wstring_from_utf8(ev->ev.text.text);
+		std::wstring text = wstring_from_utf8(ev.text.text);
 
 		// Check max length
 		if (m_MaxLength != 0 && caption.length() + text.length() > static_cast<size_t>(m_MaxLength))
@@ -178,7 +178,7 @@ InReaction CInput::ManuallyHandleKeys(const SDL_Event_* ev)
 
 		// Text is being composed with an IME
 		// TODO: indicate this by e.g. underlining the uncommitted text
-		const char* rawText = ev->ev.edit.text;
+		const char* rawText = ev.edit.text;
 		int rawLength = strlen(rawText);
 		std::wstring wtext = wstring_from_utf8(rawText);
 
@@ -196,7 +196,7 @@ InReaction CInput::ManuallyHandleKeys(const SDL_Event_* ev)
 			ClearComposedText();
 		}
 
-		m_ComposingText = ev->ev.edit.start != 0 || rawLength != 0;
+		m_ComposingText = ev.edit.start != 0 || rawLength != 0;
 		if (m_ComposingText)
 		{
 			caption.insert(m_iInsertPos, wtext);
@@ -204,7 +204,7 @@ InReaction CInput::ManuallyHandleKeys(const SDL_Event_* ev)
 			// The text buffer is limited to SDL_TEXTEDITINGEVENT_TEXT_SIZE bytes, yet start
 			// increases without limit, so don't let it advance beyond the composed text length
 			m_iComposedLength = wtext.length();
-			m_iComposedPos = ev->ev.edit.start < m_iComposedLength ? ev->ev.edit.start : m_iComposedLength;
+			m_iComposedPos = ev.edit.start < m_iComposedLength ? ev.edit.start : m_iComposedLength;
 			m_iBufferPos = m_iInsertPos + m_iComposedPos;
 
 			// TODO: composed text selection - what does ev.edit.length do?
@@ -225,7 +225,7 @@ InReaction CInput::ManuallyHandleKeys(const SDL_Event_* ev)
 		// Since the GUI framework doesn't handle to set settings
 		//  in Unicode (CStrW), we'll simply retrieve the actual
 		//  pointer and edit that.
-		SDL_Keycode keyCode = ev->ev.key.keysym.sym;
+		SDL_Keycode keyCode = ev.key.keysym.sym;
 
 		// We have a probably printable key - we should return HANDLED so it can't trigger hotkeys.
 		// However, if Ctrl/Meta modifiers are active, just pass it through instead,
@@ -242,7 +242,7 @@ InReaction CInput::ManuallyHandleKeys(const SDL_Event_* ev)
 		if (m_ComposingText)
 			return IN_HANDLED;
 
-		if (ev->ev.type == SDL_KEYDOWN)
+		if (ev.type == SDL_KEYDOWN)
 		{
 			ManuallyImmutableHandleKeyDownEvent(keyCode);
 			ManuallyMutableHandleKeyDownEvent(keyCode);
@@ -619,11 +619,11 @@ void CInput::SetupGeneratedPlaceholderText()
 	m_GeneratedPlaceholderTextValid = true;
 }
 
-InReaction CInput::ManuallyHandleHotkeyEvent(const SDL_Event_* ev)
+InReaction CInput::ManuallyHandleHotkeyEvent(const SDL_Event& ev)
 {
 	bool shiftKeyPressed = g_scancodes[SDL_SCANCODE_LSHIFT] || g_scancodes[SDL_SCANCODE_RSHIFT];
 
-	std::string hotkey = static_cast<const char*>(ev->ev.user.data1);
+	std::string hotkey = static_cast<const char*>(ev.user.data1);
 
 	// Get direct access to silently mutate m_Caption.
 	// (Messages don't currently need to be sent)
@@ -1161,12 +1161,12 @@ void CInput::HandleMessage(SGUIMessage& Message)
 		if (m_ComposingText)
 		{
 			// Simulate a final text editing event to clear the composition
-			SDL_Event_ evt;
-			evt.ev.type = SDL_TEXTEDITING;
-			evt.ev.edit.length = 0;
-			evt.ev.edit.start = 0;
-			evt.ev.edit.text[0] = 0;
-			ManuallyHandleKeys(&evt);
+			SDL_Event ev{};
+			ev.type = SDL_TEXTEDITING;
+			ev.edit.length = 0;
+			ev.edit.start = 0;
+			ev.edit.text[0] = '\0';
+			ManuallyHandleKeys(ev);
 		}
 		SDL_StopTextInput();
 

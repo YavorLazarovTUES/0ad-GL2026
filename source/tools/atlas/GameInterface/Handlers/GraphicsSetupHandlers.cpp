@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -254,9 +254,9 @@ QUERYHANDLER(RenderLoop)
 	RendererIncrementalLoad();
 
 	// Pump SDL events (e.g. hotkeys)
-	SDL_Event_ ev;
-	while (in_poll_priority_event(&ev))
-		in_dispatch_event(&ev);
+	SDL_Event ev{};
+	while (in_poll_priority_event(ev))
+		in_dispatch_event(ev);
 
 	if (g_GUI)
 		g_GUI->TickObjects();

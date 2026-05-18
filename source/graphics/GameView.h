@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -31,8 +31,8 @@ class CObjectManager;
 class CVector3D;
 namespace Renderer::Backend { class IDevice; }
 namespace Renderer::Backend { class IDeviceCommandContext; }
-struct SDL_Event_;
 struct SViewPort;
+union SDL_Event;
 
 class CGameView : private Scene
 {
@@ -58,7 +58,7 @@ public:
 	void Render(Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
 	void RenderOverlays(Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
 
-	InReaction HandleEvent(const SDL_Event_* ev);
+	InReaction HandleEvent(const SDL_Event& ev);
 
 	CVector3D GetCameraPivot() const;
 	CVector3D GetCameraPosition() const;
@@ -98,6 +98,6 @@ private:
 	CGameViewImpl* m;
 };
 
-extern InReaction game_view_handler(const SDL_Event_* ev);
+extern InReaction game_view_handler(const SDL_Event& ev);
 
 #endif // INCLUDED_GAMEVIEW

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -692,14 +692,14 @@ static bool isUnprintableChar(SDL_Keysym key)
 	}
 }
 
-InReaction conInputHandler(const SDL_Event_* ev)
+InReaction conInputHandler(const SDL_Event& ev)
 {
 	if (!g_Console)
 		return IN_PASS;
 
-	if (static_cast<int>(ev->ev.type) == SDL_HOTKEYPRESS)
+	if (static_cast<int>(ev.type) == SDL_HOTKEYPRESS)
 	{
-		std::string hotkey = static_cast<const char*>(ev->ev.user.data1);
+		std::string hotkey = static_cast<const char*>(ev.user.data1);
 
 		if (hotkey == "console.toggle")
 		{
@@ -734,23 +734,23 @@ InReaction conInputHandler(const SDL_Event_* ev)
 
 	// In SDL2, we no longer get Unicode wchars via SDL_Keysym
 	// we use text input events instead and they provide UTF-8 chars
-	if (ev->ev.type == SDL_TEXTINPUT)
+	if (ev.type == SDL_TEXTINPUT)
 	{
 		// TODO: this could be more efficient with an interface to insert UTF-8 strings directly
-		std::wstring wstr = wstring_from_utf8(ev->ev.text.text);
+		std::wstring wstr = wstring_from_utf8(ev.text.text);
 		for (size_t i = 0; i < wstr.length(); ++i)
 			g_Console->InsertChar(0, wstr[i]);
 		return IN_HANDLED;
 	}
 	// TODO: text editing events for IME support
 
-	if (ev->ev.type != SDL_KEYDOWN && ev->ev.type != SDL_KEYUP)
+	if (ev.type != SDL_KEYDOWN && ev.type != SDL_KEYUP)
 		return IN_PASS;
 
-	int sym = ev->ev.key.keysym.sym;
+	int sym = ev.key.keysym.sym;
 
 	// Stop unprintable characters (ctrl+, alt+ and escape).
-	if (ev->ev.type == SDL_KEYDOWN && isUnprintableChar(ev->ev.key.keysym) &&
+	if (ev.type == SDL_KEYDOWN && isUnprintableChar(ev.key.keysym) &&
 		!HotkeyIsPressed("console.toggle"))
 	{
 		g_Console->InsertChar(sym, 0);
