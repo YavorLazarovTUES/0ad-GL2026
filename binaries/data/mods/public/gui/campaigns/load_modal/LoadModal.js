@@ -43,7 +43,8 @@ class LoadModal extends AutoWatcher
 			[Engine.openRequest]: { "page": "page_pregame.xml" }
 		});
 		Engine.GetGUIObjectByName('deleteGameButton').onPress = () => this.deleteSelectedRun();
-		Engine.GetGUIObjectByName('startButton').onPress = () => this.startSelectedRun();
+		Engine.GetGUIObjectByName('startButton').onPress = () =>
+			this.startSelectedRun(closePageCallback);
 
 		this.noCampaignsText = Engine.GetGUIObjectByName("noCampaignsText");
 
@@ -58,7 +59,8 @@ class LoadModal extends AutoWatcher
 				Engine.GetGUIObjectByName('runDescription').caption = this.currentRuns[this.selectedRun].getLabel();
 		};
 
-		this.runSelection.onMouseLeftDoubleClickItem = () => this.startSelectedRun();
+		this.runSelection.onMouseLeftDoubleClickItem = () =>
+			this.startSelectedRun(closePageCallback);
 
 		this._ready = true;
 	}
