@@ -259,6 +259,10 @@ CDeviceCommandContext::CDeviceCommandContext(CDevice* device)
 		// Currently we don't support upload buffers for GL.
 		if (type == CBuffer::Type::UPLOAD)
 			continue;
+#if CONFIG2_GLES
+		if (type == CBuffer::Type::UNIFORM)
+			continue;
+#endif
 		const GLenum target = BufferTypeToGLTarget(type);
 		const GLuint handle = 0;
 		m_BoundBuffers[index].first = target;
