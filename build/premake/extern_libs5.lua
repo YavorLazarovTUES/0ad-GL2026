@@ -752,18 +752,6 @@ extern_lib_defs = {
 			end
 		end,
 	},
-	x11 = {
-		compile_settings = function()
-			if not os.istarget("windows") and not os.istarget("macosx") then
-				pkgconfig.add_includes("x11")
-			end
-		end,
-		link_settings = function()
-			if not os.istarget("windows") and not os.istarget("macosx") then
-				pkgconfig.add_links("x11")
-			end
-		end,
-	},
 	zlib = {
 		compile_settings = function()
 			if os.istarget("windows") then

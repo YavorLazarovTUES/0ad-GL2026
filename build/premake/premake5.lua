@@ -1057,9 +1057,6 @@ function setup_all_libs ()
 
 
 	extern_libs = { "glad" }
-	if not os.istarget("windows") and not _OPTIONS["android"] and not os.istarget("macosx") then
-		table.insert(extern_libs, "x11")
-	end
 	setup_static_lib_project("gladwrapper", {}, extern_libs, { no_pch = 1 })
 	-- select files to build for the current platform
 	glad_path = third_party_source_dir.."glad/"
@@ -1109,11 +1106,6 @@ used_extern_libs = {
 
 	"oleaut32",
 }
-
-if not os.istarget("windows") and not _OPTIONS["android"] and not os.istarget("macosx") then
-	-- X11 should only be linked on *nix
-	table.insert(used_extern_libs, "x11")
-end
 
 if not _OPTIONS["without-audio"] then
 	table.insert(used_extern_libs, "openal")
@@ -1349,10 +1341,6 @@ function setup_atlas_projects()
 		"wxwidgets",
 		"zlib",
 	}
-	if not os.istarget("windows") and not os.istarget("macosx") then
-		-- X11 should only be linked on *nix
-		table.insert(atlas_extern_libs, "x11")
-	end
 
 	setup_atlas_project("AtlasUI", "SharedLib", atlas_src,
 	{	-- include
