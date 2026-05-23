@@ -31,10 +31,6 @@
 #include <cstdarg>
 #include <cstring>
 
-#if OS_WIN
-# include <glad/wgl.h>
-#endif
-
 //----------------------------------------------------------------------------
 // extensions
 //----------------------------------------------------------------------------
@@ -202,9 +198,6 @@ bool ogl_HaveExtension(const char* ext)
 }
 
 static int GLVersion;
-#if OS_WIN
-static int WGLVersion;
-#endif
 
 bool ogl_HaveVersion(int major, int minor)
 {
@@ -344,11 +337,7 @@ bool ogl_SquelchError(GLenum err_to_ignore)
 // feature and limit detect
 //----------------------------------------------------------------------------
 
-#if OS_WIN
-bool ogl_Init(void* (load)(const char*), void* hdc)
-#else
 bool ogl_Init(void* (load)(const char*))
-#endif
 {
 	GLADloadfunc loadFunc = reinterpret_cast<GLADloadfunc>(load);
 	if (!loadFunc)
@@ -367,14 +356,6 @@ bool ogl_Init(void* (load)(const char*))
 		LOAD_ERROR("Failed to load OpenGL functions.");
 		return false;
 	}
-# if OS_WIN
-	WGLVersion = gladLoadWGL(reinterpret_cast<HDC>(hdc), loadFunc);
-	if (!WGLVersion)
-	{
-		LOAD_ERROR("Failed to load WGL functions.");
-		return false;
-	}
-# endif
 #else
 	GLVersion = gladLoadGLES2(loadFunc);
 	if (!GLVersion)

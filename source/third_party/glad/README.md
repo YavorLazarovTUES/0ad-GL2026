@@ -33,10 +33,6 @@ Build the source files for all four backends with their respective extensions
     ```sh
     python -m glad --api="gles2=2.0" --extensions="../extensions/gles2.txt" --out-path="../" c
     ```
-- WGL
-    ```sh
-    python -m glad --api="wgl=1.0" --extensions="../extensions/wgl.txt" --out-path="../" c
-    ```
 - Vulkan
     ```sh
     python -m glad --api="vulkan=1.1" --extensions="../extensions/vulkan.txt" --out-path="../" c

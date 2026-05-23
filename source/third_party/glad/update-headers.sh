@@ -9,12 +9,10 @@ export PYTHONPATH="glad"
 
 python -m glad --api="gl:core=2.1" --extensions="extensions/gl.txt" --out-path="." c
 python -m glad --api="gles2=2.0" --extensions="extensions/gles2.txt" --out-path="." c
-python -m glad --api="wgl=1.0" --extensions="extensions/wgl.txt" --out-path="." c
 python -m glad --api="vulkan=1.1" --extensions="extensions/vulkan.txt" --out-path="." c
 
 patch -p1 --ignore-whitespace --fuzz 1 <fix_macos.patch
 
 mv src/gl.c src/gl.cpp
 mv src/gles2.c src/gles2.cpp
-mv src/wgl.c src/wgl.cpp
 mv src/vulkan.c src/vulkan.cpp

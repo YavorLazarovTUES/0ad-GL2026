@@ -1065,9 +1065,6 @@ function setup_all_libs ()
 		files { glad_path.."src/gles2.cpp" }
 	else
 		files { glad_path.."src/gl.cpp" }
-		if os.istarget("windows") then
-			files { glad_path.."src/wgl.cpp" }
-		end
 	end
 	-- on Windows, silence a build warning in vulkan.cpp
 	filter "action:vs*"

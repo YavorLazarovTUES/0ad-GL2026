@@ -26,7 +26,6 @@
 #include "lib/external_libraries/libsdl.h"
 #include "lib/ogl.h"
 #include "lib/secure_crt.h"
-#include "lib/sysdep/os.h"
 #include "ps/CLogger.h"
 #include "ps/ConfigDB.h"
 #include "ps/Profile.h"
@@ -55,12 +54,6 @@
 #include <js/RootingAPI.h>
 #include <limits>
 #include <utility>
-
-#if OS_WIN
-// We can't include wutil directly because GL headers conflict with Windows
-// until we use a proper GL loader.
-extern void* wutil_GetAppHDC();
-#endif
 
 namespace Renderer
 {
@@ -232,11 +225,7 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 		}
 	}
 
-#if OS_WIN
-	ogl_Init(SDL_GL_GetProcAddress, wutil_GetAppHDC());
-#else
 	ogl_Init(SDL_GL_GetProcAddress);
-#endif
 
 	if (!ogl_HaveVersion(2, 0)
 		|| !ogl_HaveExtension("GL_ARB_vertex_buffer_object")

@@ -29,7 +29,6 @@
 
 #include "lib/code_annotation.h"
 #include "lib/config2.h" // CONFIG2_GLES
-#include "lib/sysdep/os.h" // OS_WIN
 
 
 #if CONFIG2_GLES
@@ -44,11 +43,7 @@
  * fails if OpenGL not ready for use.
  * TODO: move loading functionality to GL backend.
  **/
-#if OS_WIN
-extern bool ogl_Init(void* (load)(const char*), void* hdc);
-#else
 extern bool ogl_Init(void* (load)(const char*));
-#endif
 
 //-----------------------------------------------------------------------------
 // extensions
