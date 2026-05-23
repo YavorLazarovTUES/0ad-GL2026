@@ -62,17 +62,6 @@
 extern void* wutil_GetAppHDC();
 #endif
 
-#if !CONFIG2_GLES && (defined(SDL_VIDEO_DRIVER_X11) || defined(SDL_VIDEO_DRIVER_WAYLAND))
-
-#if defined(SDL_VIDEO_DRIVER_X11)
-#include <X11/Xlib.h>
-#include <glad/glx.h>
-#endif
-
-#include <SDL_syswm.h>
-
-#endif // !CONFIG2_GLES && (defined(SDL_VIDEO_DRIVER_X11) || defined(SDL_VIDEO_DRIVER_WAYLAND))
-
 namespace Renderer
 {
 
@@ -241,76 +230,12 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 			LOGERROR("SDL_GL_CreateContext failed: '%s'", SDL_GetError());
 			return nullptr;
 		}
+	}
 
 #if OS_WIN
-		ogl_Init(SDL_GL_GetProcAddress, wutil_GetAppHDC());
-#elif (defined(SDL_VIDEO_DRIVER_X11) || defined(SDL_VIDEO_DRIVER_WAYLAND)) && !CONFIG2_GLES
-		SDL_SysWMinfo wminfo;
-		// The info structure must be initialized with the SDL version.
-		SDL_VERSION(&wminfo.version);
-		if (!SDL_GetWindowWMInfo(window, &wminfo))
-		{
-			LOGERROR("Failed to query SDL WM info: %s", SDL_GetError());
-			return nullptr;
-		}
-		switch (wminfo.subsystem)
-		{
-#if defined(SDL_VIDEO_DRIVER_WAYLAND)
-		case SDL_SYSWM_WAYLAND:
-			// TODO: maybe we need to load X11 functions
-			// dynamically as well.
-			ogl_Init(SDL_GL_GetProcAddress,
-				GetWaylandDisplay(device->m_Window),
-				static_cast<int>(wminfo.subsystem));
-			break;
-#endif
-#if defined(SDL_VIDEO_DRIVER_X11)
-		case SDL_SYSWM_X11:
-			ogl_Init(SDL_GL_GetProcAddress,
-				GetX11Display(device->m_Window),
-				static_cast<int>(wminfo.subsystem));
-			break;
-#endif
-		default:
-			ogl_Init(SDL_GL_GetProcAddress, nullptr,
-				static_cast<int>(wminfo.subsystem));
-			break;
-		}
+	ogl_Init(SDL_GL_GetProcAddress, wutil_GetAppHDC());
 #else
-		ogl_Init(SDL_GL_GetProcAddress);
-#endif
-	}
-	else
-	{
-#if OS_WIN
-		ogl_Init(SDL_GL_GetProcAddress, wutil_GetAppHDC());
-#elif (defined(SDL_VIDEO_DRIVER_X11) || defined(SDL_VIDEO_DRIVER_WAYLAND)) && !CONFIG2_GLES
-		bool initialized = false;
-		// Currently we don't have access to the backend type without
-		// the window. So we use hack to detect X11.
-#if defined(SDL_VIDEO_DRIVER_X11)
-		Display* display = XOpenDisplay(NULL);
-		if (display)
-		{
-			ogl_Init(SDL_GL_GetProcAddress, display, static_cast<int>(SDL_SYSWM_X11));
-			initialized = true;
-		}
-#endif
-#if defined(SDL_VIDEO_DRIVER_WAYLAND)
-		if (!initialized)
-		{
-			// glad will find default EGLDisplay internally.
-			ogl_Init(SDL_GL_GetProcAddress, nullptr, static_cast<int>(SDL_SYSWM_WAYLAND));
-			initialized = true;
-		}
-#endif
-		if (!initialized)
-		{
-			LOGERROR("Can't initialize GL");
-			return nullptr;
-		}
-#else
-		ogl_Init(SDL_GL_GetProcAddress);
+	ogl_Init(SDL_GL_GetProcAddress);
 #endif
 
 	if (!ogl_HaveVersion(2, 0)
@@ -723,68 +648,6 @@ void CDevice::Report(const Script::Request& rq, JS::HandleValue settings)
 
 
 // TODO: Support OpenGL platforms which don't use GLX as well.
-#if defined(SDL_VIDEO_DRIVER_X11) && !CONFIG2_GLES
-
-#define GLXQCR_INTEGER(id) do { \
-	unsigned int i = UINT_MAX; \
-	if (glXQueryCurrentRendererIntegerMESA(id, &i)) \
-		Script::SetProperty(rq, settings, #id, i); \
-	} while (false)
-
-#define GLXQCR_INTEGER2(id) do { \
-	unsigned int i[2] = { UINT_MAX, UINT_MAX }; \
-	if (glXQueryCurrentRendererIntegerMESA(id, i)) { \
-		Script::SetProperty(rq, settings, #id "[0]", i[0]); \
-		Script::SetProperty(rq, settings, #id "[1]", i[1]); \
-	} \
-	} while (false)
-
-#define GLXQCR_INTEGER3(id) do { \
-	unsigned int i[3] = { UINT_MAX, UINT_MAX, UINT_MAX }; \
-	if (glXQueryCurrentRendererIntegerMESA(id, i)) { \
-		Script::SetProperty(rq, settings, #id "[0]", i[0]); \
-		Script::SetProperty(rq, settings, #id "[1]", i[1]); \
-		Script::SetProperty(rq, settings, #id "[2]", i[2]); \
-	} \
-	} while (false)
-
-#define GLXQCR_STRING(id) do { \
-	const char* str = glXQueryCurrentRendererStringMESA(id); \
-	if (str) \
-		Script::SetProperty(rq, settings, #id ".string", str); \
-	} while (false)
-
-
-	SDL_SysWMinfo wminfo;
-	SDL_VERSION(&wminfo.version);
-	const int ret = SDL_GetWindowWMInfo(m_Window, &wminfo);
-	if (ret && wminfo.subsystem == SDL_SYSWM_X11)
-	{
-		Display* dpy = wminfo.info.x11.display;
-		int scrnum = DefaultScreen(dpy);
-
-		const char* glxexts = glXQueryExtensionsString(dpy, scrnum);
-
-		Script::SetProperty(rq, settings, "GLX_EXTENSIONS", glxexts);
-
-		if (strstr(glxexts, "GLX_MESA_query_renderer") && glXQueryCurrentRendererIntegerMESA && glXQueryCurrentRendererStringMESA)
-		{
-			GLXQCR_INTEGER(GLX_RENDERER_VENDOR_ID_MESA);
-			GLXQCR_INTEGER(GLX_RENDERER_DEVICE_ID_MESA);
-			GLXQCR_INTEGER3(GLX_RENDERER_VERSION_MESA);
-			GLXQCR_INTEGER(GLX_RENDERER_ACCELERATED_MESA);
-			GLXQCR_INTEGER(GLX_RENDERER_VIDEO_MEMORY_MESA);
-			GLXQCR_INTEGER(GLX_RENDERER_UNIFIED_MEMORY_ARCHITECTURE_MESA);
-			GLXQCR_INTEGER(GLX_RENDERER_PREFERRED_PROFILE_MESA);
-			GLXQCR_INTEGER2(GLX_RENDERER_OPENGL_CORE_PROFILE_VERSION_MESA);
-			GLXQCR_INTEGER2(GLX_RENDERER_OPENGL_COMPATIBILITY_PROFILE_VERSION_MESA);
-			GLXQCR_INTEGER2(GLX_RENDERER_OPENGL_ES_PROFILE_VERSION_MESA);
-			GLXQCR_INTEGER2(GLX_RENDERER_OPENGL_ES2_PROFILE_VERSION_MESA);
-			GLXQCR_STRING(GLX_RENDERER_VENDOR_ID_MESA);
-			GLXQCR_STRING(GLX_RENDERER_DEVICE_ID_MESA);
-		}
-	}
-#endif // SDL_VIDEO_DRIVER_X11
 }
 
 std::unique_ptr<IDeviceCommandContext> CDevice::CreateCommandContext()

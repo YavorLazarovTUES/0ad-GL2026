@@ -27,8 +27,6 @@
 #ifndef INCLUDED_SDL
 #define INCLUDED_SDL
 
-#include "lib/config2.h"
-
 # include <SDL.h>
 # include <SDL_thread.h>
 
@@ -44,13 +42,5 @@
 
 // Returns a windowing subsystem used for the window.
 const char* GetSDLSubsystem(SDL_Window* window);
-
-#if defined(SDL_VIDEO_DRIVER_X11) && !CONFIG2_GLES
-void* GetX11Display(SDL_Window* window);
-#endif
-
-#if defined(SDL_VIDEO_DRIVER_WAYLAND) && !CONFIG2_GLES
-void* GetWaylandDisplay(SDL_Window* window);
-#endif
 
 #endif // INCLUDED_SDL

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -28,34 +28,6 @@
 
 #include <SDL_error.h>
 #include <SDL_syswm.h>
-
-#if defined(SDL_VIDEO_DRIVER_X11) && !CONFIG2_GLES
-void* GetX11Display(SDL_Window* window)
-{
-	SDL_SysWMinfo wminfo;
-	SDL_VERSION(&wminfo.version);
-	const int ret = SDL_GetWindowWMInfo(window, &wminfo);
-	if (ret && wminfo.subsystem == SDL_SYSWM_X11)
-	{
-		return reinterpret_cast<void*>(wminfo.info.x11.display);
-	}
-	return nullptr;
-}
-#endif
-
-#if defined(SDL_VIDEO_DRIVER_WAYLAND) && !CONFIG2_GLES
-void* GetWaylandDisplay(SDL_Window* window)
-{
-	SDL_SysWMinfo wminfo;
-	SDL_VERSION(&wminfo.version);
-	const int ret = SDL_GetWindowWMInfo(window, &wminfo);
-	if (ret && wminfo.subsystem == SDL_SYSWM_WAYLAND)
-	{
-		return reinterpret_cast<void*>(wminfo.info.wl.display);
-	}
-	return nullptr;
-}
-#endif
 
 const char* GetSDLSubsystem(SDL_Window* window)
 {

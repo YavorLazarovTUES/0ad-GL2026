@@ -31,21 +31,9 @@
 #include <cstdarg>
 #include <cstring>
 
-#if !CONFIG2_GLES
-# if OS_WIN
-#  include <glad/wgl.h>
-# elif !OS_MACOSX
-#  include <SDL_config.h>
-#  include <SDL_syswm.h>
-#  if defined(SDL_VIDEO_DRIVER_X11)
-#   include <X11/Xlib.h>
-#   include <glad/glx.h>
-#  endif
-#  if defined(SDL_VIDEO_DRIVER_WAYLAND)
-#   include <glad/egl.h>
-#  endif
-# endif
-#endif // !CONFIG2_GLES
+#if OS_WIN
+# include <glad/wgl.h>
+#endif
 
 //----------------------------------------------------------------------------
 // extensions
@@ -216,13 +204,6 @@ bool ogl_HaveExtension(const char* ext)
 static int GLVersion;
 #if OS_WIN
 static int WGLVersion;
-#elif !CONFIG2_GLES && !OS_MACOSX
-#if defined(SDL_VIDEO_DRIVER_X11)
-static int GLXVersion;
-#endif
-#if defined(SDL_VIDEO_DRIVER_WAYLAND)
-static int EGLVersion;
-#endif
 #endif
 
 bool ogl_HaveVersion(int major, int minor)
@@ -365,8 +346,6 @@ bool ogl_SquelchError(GLenum err_to_ignore)
 
 #if OS_WIN
 bool ogl_Init(void* (load)(const char*), void* hdc)
-#elif !CONFIG2_GLES && !OS_MACOSX
-bool ogl_Init(void* (load)(const char*), void* display, int subsystem)
 #else
 bool ogl_Init(void* (load)(const char*))
 #endif
@@ -395,34 +374,6 @@ bool ogl_Init(void* (load)(const char*))
 		LOAD_ERROR("Failed to load WGL functions.");
 		return false;
 	}
-# elif !OS_MACOSX
-	const SDL_SYSWM_TYPE sysWMType = static_cast<SDL_SYSWM_TYPE>(subsystem);
-#  if defined(SDL_VIDEO_DRIVER_X11)
-	if (sysWMType == SDL_SYSWM_X11)
-	{
-		GLXVersion = gladLoadGLX(reinterpret_cast<Display*>(display), DefaultScreen(display), loadFunc);
-		if (!GLXVersion)
-		{
-			LOAD_ERROR("Failed to load GLX functions.");
-			return false;
-		}
-	}
-#  endif
-#  if defined(SDL_VIDEO_DRIVER_WAYLAND)
-	if (sysWMType == SDL_SYSWM_WAYLAND)
-	{
-		// TODO: investiage do we need Wayland display to load EGL.
-		// Because without eglGetDisplay we can't get one. But the
-		// function is loaded inside gladLoadEGL. So maybe we need to
-		// call it twice.
-		EGLVersion = gladLoadEGL(nullptr, loadFunc);
-		if (!EGLVersion)
-		{
-			LOAD_ERROR("Failed to load EGL functions.");
-			return false;
-		}
-	}
-#  endif
 # endif
 #else
 	GLVersion = gladLoadGLES2(loadFunc);
