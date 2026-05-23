@@ -52,10 +52,6 @@
 #error libxml2 must have threading support enabled
 #endif
 
-#ifdef __WXGTK__
-#include <X11/Xlib.h>
-#endif
-
 // If enabled, we'll try to use wxDebugReport to report fatal exceptions.
 // But this is broken on Linux and can cause the UI to deadlock (see comment
 // in OnFatalException), and it's never especially useful, so don't use it.
@@ -138,18 +134,6 @@ ATLASDLLIMPEXP void Atlas_StartWindow(const wchar_t* type)
 	// (If we're executed from the game instead, it has the responsibility to initialise libxml2)
 	LIBXML_TEST_VERSION
 
-	g_InitialWindowType = type;
-#ifdef __WXMSW__
-	wxEntry(g_Module);
-#else
-#ifdef __WXGTK__
-	// Because we do GL calls from a secondary thread, Xlib needs to
-	// be told to support multiple threads safely
-	int status = XInitThreads();
-	if (status == 0)
-	{
-		fprintf(stderr, "Error enabling thread-safety via XInitThreads\n");
-	}
 #if defined(wxUSE_GLCANVAS_EGL) && wxUSE_GLCANVAS_EGL == 0
 	// The glcanvas is currently either built with support for GLX or EGL, if
 	// built with GLX support on Wayland we need to use XWayland.
@@ -163,13 +147,17 @@ ATLASDLLIMPEXP void Atlas_StartWindow(const wchar_t* type)
 		wxSetEnv("GDK_BACKEND", "x11");
 	}
 #endif
-#endif
+
+	g_InitialWindowType = type;
+#ifdef __WXMSW__
+	wxEntry(g_Module);
+#else
 	int argc = 1;
 	char atlas[] = "atlas";
 	char *argv[] = {atlas, NULL};
-#ifndef __WXOSX__
+# ifndef __WXOSX__
 	wxEntry(argc, argv);
-#else
+# else
 	// Fix for OS X init (see https://gitea.wildfiregames.com/0ad/0ad/issues/2427 )
 	// If we launched from in-game, SDL started NSApplication which will
 	// break some things in wxWidgets
@@ -178,8 +166,7 @@ ATLASDLLIMPEXP void Atlas_StartWindow(const wchar_t* type)
 	wxTheApp->OnRun();
 	wxTheApp->OnExit();
 	wxEntryCleanup();
-#endif
-
+# endif
 #endif
 }
 

@@ -122,14 +122,6 @@
 #include <unordered_set>
 #include <utility>
 
-
-#if !(OS_WIN || OS_MACOSX || OS_ANDROID) // assume all other platforms use X11 for wxWidgets
-#define MUST_INIT_X11 1
-#include <X11/Xlib.h>
-#else
-#define MUST_INIT_X11 0
-#endif
-
 extern void RestartEngine();
 
 using namespace std::literals;
@@ -500,17 +492,6 @@ void EarlyInit()
 	g_Profiler2.Initialise();
 
 	FixLocales();
-
-	// Because we do GL calls from a secondary thread, Xlib needs to
-	// be told to support multiple threads safely.
-	// This is needed for Atlas, but we have to call it before any other
-	// Xlib functions (e.g. the ones used when drawing the main menu
-	// before launching Atlas)
-#if MUST_INIT_X11
-	int status = XInitThreads();
-	if (status == 0)
-		debug_printf("Error enabling thread-safety via XInitThreads\n");
-#endif
 
 	// Initialise the low-quality rand function
 	srand(time(NULL));	// NOTE: this rand should *not* be used for simulation!
