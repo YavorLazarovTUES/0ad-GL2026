@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -51,11 +51,6 @@ extern bool ogl_Init(void* (load)(const char*), void* display, int subsystem);
 #else
 extern bool ogl_Init(void* (load)(const char*));
 #endif
-
-/**
- * Change vsync state.
- **/
-extern void ogl_SetVsyncEnabled(bool enabled);
 
 //-----------------------------------------------------------------------------
 // extensions

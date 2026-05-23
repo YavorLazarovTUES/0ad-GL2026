@@ -313,12 +313,6 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 		ogl_Init(SDL_GL_GetProcAddress);
 #endif
 
-#if OS_WIN || defined(SDL_VIDEO_DRIVER_X11) && !CONFIG2_GLES
-		// Hack to stop things looking very ugly when scrolling in Atlas.
-		ogl_SetVsyncEnabled(true);
-#endif
-	}
-
 	if (!ogl_HaveVersion(2, 0)
 		|| !ogl_HaveExtension("GL_ARB_vertex_buffer_object")
 		|| ogl_HaveExtensions(0, "GL_ARB_multitexture", "GL_EXT_draw_range_elements", nullptr)

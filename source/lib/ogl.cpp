@@ -449,18 +449,3 @@ bool ogl_Init(void* (load)(const char*))
 
 	return true;
 }
-
-
-void ogl_SetVsyncEnabled(bool enabled)
-{
-	[[maybe_unused]] const int interval = enabled ? 1 : 0;
-#if !CONFIG2_GLES && OS_WIN
-	if (ogl_HaveExtension("WGL_EXT_swap_control"))
-		wglSwapIntervalEXT(interval);
-#elif !CONFIG2_GLES && !OS_MACOSX
-#if defined(SDL_VIDEO_DRIVER_X11)
-	if (GLXVersion && ogl_HaveExtension("GLX_SGI_swap_control"))
-		glXSwapIntervalSGI(interval);
-#endif
-#endif
-}
