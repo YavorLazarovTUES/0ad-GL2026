@@ -693,7 +693,7 @@ static int glad_vk_find_extensions_vulkan( VkPhysicalDevice physical_device) {
     GLAD_VK_KHR_swapchain = glad_vk_has_extension("VK_KHR_swapchain", extension_count, extensions);
     GLAD_VK_KHR_timeline_semaphore = glad_vk_has_extension("VK_KHR_timeline_semaphore", extension_count, extensions);
 
-    GLAD_UNUSED(glad_vk_has_extension);
+    GLAD_UNUSED(&glad_vk_has_extension);
 
     glad_vk_free_extensions(extension_count, extensions);
 
