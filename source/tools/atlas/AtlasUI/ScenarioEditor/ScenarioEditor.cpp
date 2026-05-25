@@ -173,6 +173,12 @@ private:
 		if (KeyScroll(evt, true))
 			return;
 
+		if (evt.GetKeyCode() == 'B')
+		{
+			POST_MESSAGE(ToggleBirdsEyeView, ());
+			return;
+		}
+
 		POST_MESSAGE(GuiKeyEvent, (GetSDLKeyFromWxKeyCode(evt.GetKeyCode()), evt.GetUnicodeKey(), true));
 
 		evt.Skip();

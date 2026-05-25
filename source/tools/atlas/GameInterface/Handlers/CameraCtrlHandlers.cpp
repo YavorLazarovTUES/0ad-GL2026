@@ -258,4 +258,42 @@ MESSAGEHANDLER(SetView)
 	// TODO: Rotation
 }
 
+MESSAGEHANDLER(ToggleBirdsEyeView)
+{
+	if (!g_Game || g_Game->GetView()->GetCinema()->IsPlaying())
+		return;
+
+	static bool birdEyeView{false};
+	static float declination{0.f};
+
+	CCamera& camera = AtlasView::GetView_Game()->GetCamera();
+	CMatrix3D& orientation = camera.GetOrientation();
+	CVector3D focus = camera.GetFocus();
+
+	if (!birdEyeView)
+	{
+		CVector3D in = orientation.GetIn();
+		declination = atan2(sqrt(in.X*in.X + in.Z*in.Z), in.Y) - std::numbers::pi_v<float> / 2.f;
+	}
+
+	CQuaternion q;
+	// If really 90° then the camera movement bugs out as it has no clear
+	// forward anymore, so stick with 89°.
+	q.FromAxisAngle(orientation.GetLeft(), birdEyeView ?
+		DEGTORAD(89.f) - declination : DEGTORAD(-89.f) + declination);
+
+	CVector3D origin = orientation.GetTranslation();
+	CVector3D offset = q.Rotate(origin - focus);
+
+	q *= orientation.GetRotation();
+	q.Normalize();
+	q.ToMatrix(orientation);
+
+	orientation.Translate(focus + offset);
+
+	camera.UpdateFrustum();
+
+	birdEyeView = !birdEyeView;
+}
+
 }
