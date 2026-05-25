@@ -129,7 +129,7 @@ public:
 		SetSizer(m_Sizer);
 
 		// Use placeholder bitmap for now
-		m_Sizer->Add(new wxStaticBitmap(m_Sizer->GetStaticBox(), wxID_ANY, wxNullBitmap), wxSizerFlags(1).Expand());
+		m_Sizer->Add(new wxStaticBitmap(m_Sizer->GetStaticBox(), wxID_ANY, wxNullBitmap), wxSizerFlags().Expand().Border(wxALL, 5));
 	}
 
 	void LoadPreview()
@@ -152,6 +152,8 @@ public:
 		// Check for invalid/missing texture - shouldn't happen
 		if (!wxString(qry.preview->name.c_str()).IsEmpty())
 		{
+			wxFlexGridSizer* sizer = new wxFlexGridSizer(1, 5, 5);
+
 			// Construct the wrapped-text label
 			wxStaticText* label = new wxStaticText(m_Sizer->GetStaticBox(), wxID_ANY, FormatTextureName(*qry.preview->name), wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER);
 			label->Wrap(m_Sizer->GetSize().GetX());
@@ -164,8 +166,10 @@ public:
 			wxImage img(qry.preview->imageWidth, qry.preview->imageHeight, buf);
 
 			wxStaticBitmap* bitmap = new wxStaticBitmap(m_Sizer->GetStaticBox(), wxID_ANY, wxBitmap(img), wxDefaultPosition, wxSize(qry.preview->imageWidth, qry.preview->imageHeight), wxBORDER_SIMPLE);
-			m_Sizer->Add(bitmap, wxSizerFlags(1).Align(wxALIGN_CENTER));
-			m_Sizer->Add(label, wxSizerFlags().Expand());
+
+			sizer->Add(bitmap, wxSizerFlags().Align(wxALIGN_CENTER));
+			sizer->Add(label, wxSizerFlags().Align(wxALIGN_CENTER));
+			m_Sizer->Add(sizer, wxSizerFlags().Align(wxALIGN_CENTER).Border(wxALL, 5));
 
 			// We have to force the sidebar to layout manually
 			GetParent()->GetParent()->Layout();
@@ -228,7 +232,7 @@ TerrainSidebar::TerrainSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebar
 		/////////////////////////////////////////////////////////////////////////
 		// Terrain elevation
 		wxStaticBoxSizer* sizer = new wxStaticBoxSizer(wxVERTICAL, scrolledWindow, _("Elevation tools"));
-		wxSizer* gridSizer = new wxGridSizer(4);
+		wxSizer* gridSizer = new wxGridSizer(4, 5, 5);
 		gridSizer->Add(Tooltipped(new ToolButton(scenarioEditor.GetToolManager(), sizer->GetStaticBox(), _("Modify"), _T("AlterElevation"), wxSize(48, -1)),
 			_("Brush with left mouse buttons to raise terrain,\nright mouse button to lower it")), wxSizerFlags().Expand());
 		gridSizer->Add(Tooltipped(new ToolButton(scenarioEditor.GetToolManager(), sizer->GetStaticBox(), _("Ridge"), _T("PikeElevation"), wxSize(48, -1)),
@@ -237,22 +241,22 @@ TerrainSidebar::TerrainSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebar
 			_("Brush with left mouse button to smooth terrain,\nright mouse button to roughen it")), wxSizerFlags().Expand());
 		gridSizer->Add(Tooltipped(new ToolButton(scenarioEditor.GetToolManager(), sizer->GetStaticBox(), _("Flatten"), _T("FlattenElevation"), wxSize(48, -1)),
 			_("Brush with left mouse button to flatten terrain")), wxSizerFlags().Expand());
-		sizer->Add(gridSizer, wxSizerFlags().Expand());
-		scrollSizer->Add(sizer, wxSizerFlags().Expand().Border(wxTOP, 10));
+		sizer->Add(gridSizer, wxSizerFlags().Expand().Border(wxALL, 5));
+		scrollSizer->Add(sizer, wxSizerFlags().Expand());
 	}
 
 	{
 		/////////////////////////////////////////////////////////////////////////
 		// Terrain texture
 		wxStaticBoxSizer* sizer = new wxStaticBoxSizer(wxVERTICAL, scrolledWindow, _("Texture tools"));
-		wxSizer* gridSizer = new wxGridSizer(3);
+		wxSizer* gridSizer = new wxGridSizer(3, 5, 5);
 		gridSizer->Add(Tooltipped(new ToolButton(scenarioEditor.GetToolManager(), sizer->GetStaticBox(), _("Paint"), _T("PaintTerrain"), wxSize(48, -1)),
 			_("Brush with left mouse button to paint texture dominantly,\nright mouse button to paint submissively.\nShift-left-click for eyedropper tool")), wxSizerFlags().Expand());
 		gridSizer->Add(Tooltipped(new ToolButton(scenarioEditor.GetToolManager(), sizer->GetStaticBox(), _("Replace"), _T("ReplaceTerrain"), wxSize(48, -1)),
 			_("Replace all of a terrain texture with a new one")), wxSizerFlags().Expand());
 		gridSizer->Add(Tooltipped(new ToolButton(scenarioEditor.GetToolManager(), sizer->GetStaticBox(), _("Fill"), _T("FillTerrain"), wxSize(48, -1)),
 			_T("Bucket fill a patch of terrain texture with a new one")), wxSizerFlags().Expand());
-		sizer->Add(gridSizer, wxSizerFlags().Expand());
+		sizer->Add(gridSizer, wxSizerFlags().Expand().Border(wxALL, 5));
 		scrollSizer->Add(sizer, wxSizerFlags().Expand().Border(wxTOP, 10));
 	}
 
@@ -262,7 +266,7 @@ TerrainSidebar::TerrainSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebar
 		wxStaticBoxSizer* sizer = new wxStaticBoxSizer(wxVERTICAL, scrolledWindow, _("Brush"));
 
 		m_TexturePreview = new TexturePreviewPanel(sizer->GetStaticBox());
-		sizer->Add(m_TexturePreview, wxSizerFlags(1).Expand());
+		sizer->Add(m_TexturePreview, wxSizerFlags(1).Expand().Border(wxALL, 5));
 
 		g_Brush_Elevation.CreateUI(sizer->GetStaticBox(), sizer);
 		scrollSizer->Add(sizer, wxSizerFlags().Expand().Border(wxTOP, 10));
@@ -276,7 +280,7 @@ TerrainSidebar::TerrainSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebar
 
 		wxFlexGridSizer* visSizer = new wxFlexGridSizer(2, 5, 5);
 		visSizer->AddGrowableCol(1);
-		sizer->Add(visSizer, wxSizerFlags().Expand());
+		sizer->Add(visSizer, wxSizerFlags().Expand().Border(wxALL, 5));
 
 		wxArrayString defaultChoices;
 		defaultChoices.Add(_("(none)"));

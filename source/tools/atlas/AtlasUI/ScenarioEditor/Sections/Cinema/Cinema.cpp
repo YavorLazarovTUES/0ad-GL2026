@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
 * This file is part of 0 A.D.
 *
 * 0 A.D. is free software: you can redistribute it and/or modify
@@ -79,15 +79,19 @@ CinemaSidebar::CinemaSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarCo
 	commonSizer->Add(gridSizer, wxSizerFlags().Expand());
 
 	// Paths list panel
-	wxStaticBoxSizer* pathsSizer = new wxStaticBoxSizer(wxVERTICAL, commonSizer->GetStaticBox(), _T("Paths"));
-	commonSizer->Add(pathsSizer, wxSizerFlags().Proportion(1).Expand());
+	wxStaticBoxSizer* pathsBoxSizer = new wxStaticBoxSizer(wxVERTICAL, commonSizer->GetStaticBox(), _T("Paths"));
+	wxStaticBox* pathsBox = pathsBoxSizer->GetStaticBox();
+	commonSizer->Add(pathsBoxSizer, wxSizerFlags().Proportion(1).Expand().Border(wxALL, 5));
+	wxFlexGridSizer* pathsSizer = new wxFlexGridSizer(1, 5, 5);
+	pathsSizer->AddGrowableCol(0);
+	pathsBoxSizer->Add(pathsSizer, wxSizerFlags().Expand().Border(wxALL, 5));
 
-	pathsSizer->Add(m_PathList = new wxListBox(pathsSizer->GetStaticBox(), ID_PathsList, wxDefaultPosition, wxDefaultSize, 0, NULL, wxLB_SINGLE | wxLB_SORT), wxSizerFlags().Proportion(1).Expand());
+	pathsSizer->Add(m_PathList = new wxListBox(pathsBox, ID_PathsList, wxDefaultPosition, wxDefaultSize, 0, NULL, wxLB_SINGLE | wxLB_SORT), wxSizerFlags().Proportion(1).Expand());
 	commonSizer->AddSpacer(3);
-	pathsSizer->Add(Tooltipped(new wxButton(pathsSizer->GetStaticBox(), ID_DeletePath, _("Delete")), _T("Delete selected path")), wxSizerFlags().Expand());
+	pathsSizer->Add(Tooltipped(new wxButton(pathsBox, ID_DeletePath, _("Delete")), _T("Delete selected path")), wxSizerFlags().Expand());
 
-	pathsSizer->Add(m_NewPathName = new wxTextCtrl(pathsSizer->GetStaticBox(), wxID_ANY), wxSizerFlags().Expand());
-	pathsSizer->Add(new wxButton(pathsSizer->GetStaticBox(), ID_AddPath, _("Add")), wxSizerFlags().Expand());
+	pathsSizer->Add(m_NewPathName = new wxTextCtrl(pathsBox, wxID_ANY), wxSizerFlags().Expand());
+	pathsSizer->Add(new wxButton(pathsBox, ID_AddPath, _("Add")), wxSizerFlags().Expand());
 }
 
 void CinemaSidebar::OnFirstDisplay()

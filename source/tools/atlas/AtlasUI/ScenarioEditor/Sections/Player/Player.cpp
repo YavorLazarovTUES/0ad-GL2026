@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -180,8 +180,8 @@ public:
 				_("Select AI")), wxSizerFlags(1).Expand().Align(wxALIGN_RIGHT));
 			m_Controls.ai = aiChoice;
 
-			playerInfoSizer->Add(gridSizer, wxSizerFlags(1).Expand());
-			sizer->Add(playerInfoSizer, wxSizerFlags().Expand().Border(wxTOP, 10));
+			playerInfoSizer->Add(gridSizer, wxSizerFlags(1).Expand().Border(wxALL, 5));
+			sizer->Add(playerInfoSizer, wxSizerFlags().Expand().Border(wxTOP, 5));
 		}
 
 		{
@@ -226,7 +226,7 @@ public:
 				_("Population limit for this player")), wxSizerFlags().Expand());
 			m_Controls.pop = popCtrl;
 
-			resourceSizer->Add(gridSizer, wxSizerFlags(1).Expand());
+			resourceSizer->Add(gridSizer, wxSizerFlags(1).Expand().Border(wxALL, 5));
 			sizer->Add(resourceSizer, wxSizerFlags().Expand().Border(wxTOP, 10));
 		}
 		{
@@ -246,7 +246,7 @@ public:
 			teamCtrl->Append(_T("4"));
 			boxSizer->Add(teamCtrl);
 			m_Controls.team = teamCtrl;
-			diplomacySizer->Add(boxSizer, wxSizerFlags(1).Expand());
+			diplomacySizer->Add(boxSizer, wxSizerFlags().Expand().Border(wxALL, 5));
 
 			// TODO: possibly have advanced panel where each player's diplomacy can be set?
 			// Advanced panel
@@ -261,7 +261,7 @@ public:
 			/////////////////////////////////////////////////////////////////////////
 			// Camera
 			wxStaticBoxSizer* cameraSizer = new wxStaticBoxSizer(wxVERTICAL, this, _("Starting Camera"));
-			wxGridSizer* gridSizer = new wxGridSizer(3);
+			wxGridSizer* gridSizer = new wxGridSizer(3, 5, 5);
 			wxButton* cameraSet = new wxButton(cameraSizer->GetStaticBox(), ID_CameraSet, _("Set"), wxDefaultPosition, wxSize(48, -1));
 			gridSizer->Add(Tooltipped(cameraSet,
 				_("Set player camera to cameraSizer->GetStaticBox() view")), wxSizerFlags().Expand());
@@ -273,7 +273,7 @@ public:
 			cameraClear->Enable(false);
 			gridSizer->Add(Tooltipped(cameraClear,
 				_("Clear player camera")), wxSizerFlags().Expand());
-			cameraSizer->Add(gridSizer, wxSizerFlags().Expand());
+			cameraSizer->Add(gridSizer, wxSizerFlags().Expand().Border(wxALL, 5));
 
 			sizer->Add(cameraSizer, wxSizerFlags().Expand().Border(wxTOP, 10));
 		}
@@ -592,19 +592,20 @@ PlayerSettingsControl::PlayerSettingsControl(wxWindow* parent, ScenarioEditor& s
 	// To prevent recursion, don't handle GUI events right now
 	m_InGUIUpdate = true;
 
-	wxStaticBoxSizer* sizer = new wxStaticBoxSizer(wxVERTICAL, this, _("Player settings"));
-	SetSizer(sizer);
+	wxStaticBoxSizer* topSizer = new wxStaticBoxSizer(wxVERTICAL, this, _("Player settings"));
+	wxStaticBox* topBox = topSizer->GetStaticBox();
+	SetSizer(topSizer);
 
 	wxBoxSizer* boxSizer = new wxBoxSizer(wxHORIZONTAL);
-	boxSizer->Add(new wxStaticText(sizer->GetStaticBox(), wxID_ANY, _("Num players")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
-	wxSpinCtrl* numPlayersSpin = new wxSpinCtrl(sizer->GetStaticBox(), ID_NumPlayers, wxEmptyString, wxDefaultPosition, wxSize(40, -1));
+	boxSizer->Add(new wxStaticText(topBox, wxID_ANY, _("Num players")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
+	boxSizer->AddSpacer(10);
+	wxSpinCtrl* numPlayersSpin = new wxSpinCtrl(topBox, ID_NumPlayers, wxEmptyString, wxDefaultPosition, wxSize(40, -1));
 	numPlayersSpin->SetValue(MAX_NUM_PLAYERS);
 	numPlayersSpin->SetRange(1, MAX_NUM_PLAYERS);
 	boxSizer->Add(numPlayersSpin);
-	sizer->Add(boxSizer, wxSizerFlags().Expand().Proportion(0));
-	sizer->AddSpacer(5);
-	m_Players = new PlayerNotebook(sizer->GetStaticBox());
-	sizer->Add(m_Players, wxSizerFlags().Expand().Proportion(1));
+	topSizer->Add(boxSizer, wxSizerFlags().Expand().Proportion(0).Border(wxALL, 5));
+	m_Players = new PlayerNotebook(topBox);
+	topSizer->Add(m_Players, wxSizerFlags().Expand().Proportion(1).Border(wxALL, 5));
 
 	m_InGUIUpdate = false;
 }

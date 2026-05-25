@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -252,7 +252,7 @@ void Brush::CreateUI(wxWindow* parent, wxSizer* sizer)
 	shapes.Add(_("Circle"));
 	shapes.Add(_("Square"));
 	// TODO (maybe): get rid of the extra static box, by not using wxRadioBox
-	sizer->Add(new BrushShapeCtrl(parent, shapes, *this), wxSizerFlags().Expand());
+	sizer->Add(new BrushShapeCtrl(parent, shapes, *this), wxSizerFlags().Expand().Border(wxALL, 5));
 
 	sizer->AddSpacer(5);
 
@@ -263,5 +263,5 @@ void Brush::CreateUI(wxWindow* parent, wxSizer* sizer)
 	spinnerSizer->Add(new BrushSizeCtrl(parent, *this), wxSizerFlags().Expand());
 	spinnerSizer->Add(new wxStaticText(parent, wxID_ANY, _("Strength")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL|wxALIGN_RIGHT));
 	spinnerSizer->Add(new BrushStrengthCtrl(parent, *this), wxSizerFlags().Expand());
-	sizer->Add(spinnerSizer, wxSizerFlags().Expand());
+	sizer->Add(spinnerSizer, wxSizerFlags().Expand().Border(wxALL, 5));
 }
