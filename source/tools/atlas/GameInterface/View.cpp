@@ -38,6 +38,7 @@
 #include "renderer/SceneRenderer.h"
 #include "renderer/backend/ISwapChain.h"
 #include "simulation2/Simulation2.h"
+#include "simulation2/components/ICmpRangeManager.h"
 #include "simulation2/components/ICmpParticleManager.h"
 #include "simulation2/components/ICmpPathfinder.h"
 #include "simulation2/system/Component.h"
@@ -372,6 +373,12 @@ void AtlasViewGame::RestoreState(const std::wstring& label)
 		return;
 
 	simState->Thaw();
+
+	// LOS override setting isn't part of the sim state as such we have to set
+	// it again when restoring a game.
+	CmpPtr<ICmpRangeManager> cmpRangeManager{*g_Game->GetSimulation2(), SYSTEM_ENTITY};
+	if (cmpRangeManager)
+		cmpRangeManager->SetLosRevealWholeMapForAll(true);
 }
 
 std::wstring AtlasViewGame::DumpState(bool binary)
