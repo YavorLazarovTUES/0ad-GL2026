@@ -189,12 +189,16 @@ public:
 		}
 		bool OnKey(PlaceObject* obj, wxKeyEvent& evt, KeyEventType type)
 		{
-			if (type == KEY_CHAR && (evt.GetKeyCode() >= '0' && evt.GetKeyCode() <= '9'))
+			if (type == KEY_CHAR && (evt.GetKeyCode() >= '0' && evt.GetKeyCode() <= '8'))
 			{
-				int playerID = evt.GetKeyCode() - '0';
-				obj->GetScenarioEditor().GetObjectSettings().SetPlayerID(playerID);
-				obj->GetScenarioEditor().GetObjectSettings().NotifyObservers();
-				obj->SendObjectMsg(true);
+				const int maxPlayerID = obj->GetScenarioEditor().GetMapSettings()["PlayerData"]["item"].count();
+				const int playerID = evt.GetKeyCode() - '0';
+				if (playerID <= maxPlayerID)
+				{
+					obj->GetScenarioEditor().GetObjectSettings().SetPlayerID(playerID);
+					obj->GetScenarioEditor().GetObjectSettings().NotifyObservers();
+					obj->SendObjectMsg(true);
+				}
 				return true;
 			}
 			else

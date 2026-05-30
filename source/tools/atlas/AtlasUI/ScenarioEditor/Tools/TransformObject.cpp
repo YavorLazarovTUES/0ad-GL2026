@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -344,11 +344,15 @@ public:
 				POST_MESSAGE(SetSelectionPreview, (g_SelectedObjects));
 				return true;
 			}
-			else if (type == KEY_CHAR && (evt.GetKeyCode() >= '0' && evt.GetKeyCode() <= '9'))
+			else if (type == KEY_CHAR && (evt.GetKeyCode() >= '0' && evt.GetKeyCode() <= '8'))
 			{
-				int playerID = evt.GetKeyCode() - '0';
-				obj->GetScenarioEditor().GetObjectSettings().SetPlayerID(playerID);
-				obj->GetScenarioEditor().GetObjectSettings().NotifyObservers();
+				const int maxPlayerID = obj->GetScenarioEditor().GetMapSettings()["PlayerData"]["item"].count();
+				const int playerID = evt.GetKeyCode() - '0';
+				if (playerID <= maxPlayerID)
+				{
+					obj->GetScenarioEditor().GetObjectSettings().SetPlayerID(playerID);
+					obj->GetScenarioEditor().GetObjectSettings().NotifyObservers();
+				}
 				return true;
 			}
 			else if (evt.GetModifiers() == wxMOD_CONTROL)
