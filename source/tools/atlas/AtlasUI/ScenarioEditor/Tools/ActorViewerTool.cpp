@@ -164,14 +164,18 @@ public:
 
 		bool OnKey(ActorViewerTool* obj, wxKeyEvent& evt, KeyEventType type)
 		{
-			if (type == KEY_DOWN && (evt.GetKeyCode() >= '0' && evt.GetKeyCode() <= '8'))
+			// (TODO: this should probably be 'char' not 'down'; but we don't get
+			// 'char' unless we return false from this function, in which case the
+			// scenario editor intercepts some other keys for itself)
+			if (type == KEY_DOWN)
 			{
-				// (TODO: this should probably be 'char' not 'down'; but we don't get
-				// 'char' unless we return false from this function, in which case the
-				// scenario editor intercepts some other keys for itself)
 				const int maxPlayerID = obj->GetScenarioEditor().GetMapSettings()["PlayerData"]["item"].count();
-				int playerID = evt.GetKeyCode() - '0';
-				if (playerID <= maxPlayerID)
+				int playerID = -1;
+				if (evt.GetKeyCode() >= '0' && evt.GetKeyCode() <= '8')
+					playerID = evt.GetKeyCode() - '0';
+				else if (evt.GetKeyCode() >= WXK_NUMPAD0 && evt.GetKeyCode() <= WXK_NUMPAD8)
+					playerID = evt.GetKeyCode() - WXK_NUMPAD0;
+				if (playerID >= 0 && playerID <= maxPlayerID)
 				{
 					obj->GetScenarioEditor().GetObjectSettings().SetPlayerID(playerID);
 					obj->GetScenarioEditor().GetObjectSettings().NotifyObservers();
