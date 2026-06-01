@@ -353,8 +353,10 @@ public:
 		sizer->Add(m_ScrolledPanel, wxSizerFlags().Proportion(1).Expand());
 		SetSizer(sizer);
 
-		m_ItemSizer = new wxGridSizer(6, 4, 0);
-		m_ScrolledPanel->SetSizer(m_ItemSizer);
+		wxSizer* wrapSizer = new wxBoxSizer(wxHORIZONTAL);
+		m_ItemSizer = new wxGridSizer(6, 5, 5);
+		wrapSizer->Add(m_ItemSizer, wxSizerFlags().Border(wxALL, 5));
+		m_ScrolledPanel->SetSizer(wrapSizer);
 	}
 
 	void OnDisplay()
@@ -391,8 +393,8 @@ public:
 			wxStaticText* label = new wxStaticText(m_ScrolledPanel, wxID_ANY, FormatTextureName(textureName), wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER);
 			label->Wrap(imageWidth);
 
-			wxImage image(imageWidth, imageHeight);
-			wxBitmapButton* button = new wxBitmapButton(m_ScrolledPanel, wxID_ANY, wxBitmap(image));
+			wxBitmap bitmap{imageWidth, imageHeight, 24};
+			wxBitmapButton* button = new wxBitmapButton(m_ScrolledPanel, wxID_ANY, bitmap);
 
 			// Store the texture name in the clientdata slot
 			button->SetClientObject(new wxStringClientData(textureName));
@@ -400,7 +402,7 @@ public:
 			wxSizer* imageSizer = new wxBoxSizer(wxVERTICAL);
 			imageSizer->Add(button, wxSizerFlags().Center());
 			imageSizer->Add(label, wxSizerFlags().Proportion(1).Center());
-			m_ItemSizer->Add(imageSizer, wxSizerFlags().Expand());
+			m_ItemSizer->Add(imageSizer);
 
 			m_PreviewButtons.emplace(textureName, PreviewButton{button, false});
 		}
@@ -501,7 +503,7 @@ public:
 
 	void OnSize(wxSizeEvent& evt)
 	{
-		int numCols = std::max(1, (int)(evt.GetSize().GetWidth() / (imageWidth + 16)));
+		int numCols = std::max(1, static_cast<int>((evt.GetSize().GetWidth() - 5) / (imageWidth + 25)));
 		m_ItemSizer->SetCols(numCols);
 		evt.Skip();
 	}
