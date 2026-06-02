@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -208,20 +208,20 @@ void SetGUIScale(float scale)
 	g_VideoMode.Rescale(scale);
 }
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
-	ScriptFunction::Register<&HasChanges>(rq, "ConfigDB_HasChanges");
-	ScriptFunction::Register<&SetChanges>(rq, "ConfigDB_SetChanges");
-	ScriptFunction::Register<&GetValue>(rq, "ConfigDB_GetValue");
-	ScriptFunction::Register<&CreateValue>(rq, "ConfigDB_CreateValue");
-	ScriptFunction::Register<&CreateValues>(rq, "ConfigDB_CreateValues");
-	ScriptFunction::Register<&RemoveValue>(rq, "ConfigDB_RemoveValue");
-	ScriptFunction::Register<&RemoveValueAndSave>(rq, "ConfigDB_RemoveValueAndSave");
-	ScriptFunction::Register<&SaveChanges>(rq, "ConfigDB_SaveChanges");
-	ScriptFunction::Register<&SaveValue>(rq, "ConfigDB_SaveValue");
-	ScriptFunction::Register<&CreateAndSaveValue>(rq, "ConfigDB_CreateAndSaveValue");
-	ScriptFunction::Register<&Reload>(rq, "ConfigDB_Reload");
-	ScriptFunction::Register<&PauseOnFocusLoss>(rq, "PauseOnFocusLoss");
-	ScriptFunction::Register<&SetGUIScale>(rq, "SetGUIScale");
+	Script::Function::Register<&HasChanges>(rq, "ConfigDB_HasChanges");
+	Script::Function::Register<&SetChanges>(rq, "ConfigDB_SetChanges");
+	Script::Function::Register<&GetValue>(rq, "ConfigDB_GetValue");
+	Script::Function::Register<&CreateValue>(rq, "ConfigDB_CreateValue");
+	Script::Function::Register<&CreateValues>(rq, "ConfigDB_CreateValues");
+	Script::Function::Register<&RemoveValue>(rq, "ConfigDB_RemoveValue");
+	Script::Function::Register<&RemoveValueAndSave>(rq, "ConfigDB_RemoveValueAndSave");
+	Script::Function::Register<&SaveChanges>(rq, "ConfigDB_SaveChanges");
+	Script::Function::Register<&SaveValue>(rq, "ConfigDB_SaveValue");
+	Script::Function::Register<&CreateAndSaveValue>(rq, "ConfigDB_CreateAndSaveValue");
+	Script::Function::Register<&Reload>(rq, "ConfigDB_Reload");
+	Script::Function::Register<&PauseOnFocusLoss>(rq, "PauseOnFocusLoss");
+	Script::Function::Register<&SetGUIScale>(rq, "SetGUIScale");
 }
 }

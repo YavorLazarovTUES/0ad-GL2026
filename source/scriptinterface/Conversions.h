@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,8 +22,8 @@
 #include "lib/debug.h"
 #include "lib/types.h"
 #include "ps/CStr.h"
-#include "scriptinterface/ScriptExceptions.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Exceptions.h"
+#include "scriptinterface/Request.h"
 
 #include <js/Array.h>
 #include <js/PropertyAndElement.h>
@@ -42,10 +42,10 @@ namespace Script
 /**
  * Convert a JS::Value to a C++ type. (This might trigger GC.)
  */
-template<typename T> bool FromJSVal(const ScriptRequest& rq, const JS::HandleValue val, T& ret);
+template<typename T> bool FromJSVal(const Request& rq, const JS::HandleValue val, T& ret);
 
 template<typename T>
-bool FromJSVal(const ScriptRequest& rq, JS::HandleValue v, std::optional<T>& out)
+bool FromJSVal(const Request& rq, JS::HandleValue v, std::optional<T>& out)
 {
 	if (v.isNullOrUndefined())
 	{
@@ -66,42 +66,42 @@ bool FromJSVal(const ScriptRequest& rq, JS::HandleValue v, std::optional<T>& out
  * The reason is a memory corruption problem that appears to be caused by a bug in Visual Studio.
  * Details here: http://www.wildfiregames.com/forum/index.php?showtopic=17289&p=285921
  */
-template<typename T> void ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret, T const& val);
+template<typename T> void ToJSVal(const Request& rq, JS::MutableHandleValue ret, T const& val);
 
 template<std::size_t N>
-void ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret, const char (&val)[N])
+void ToJSVal(const Request& rq, JS::MutableHandleValue ret, const char (&val)[N])
 {
 	ToJSVal(rq, ret, static_cast<const char*>(val));
 }
 template<std::size_t N>
-void ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret, const wchar_t (&val)[N])
+void ToJSVal(const Request& rq, JS::MutableHandleValue ret, const wchar_t (&val)[N])
 {
 	ToJSVal(rq, ret, static_cast<const wchar_t*>(val));
 }
 
 template<>
-inline void ToJSVal<JS::PersistentRootedValue>(const ScriptRequest&, JS::MutableHandleValue handle,
+inline void ToJSVal<JS::PersistentRootedValue>(const Request&, JS::MutableHandleValue handle,
 	const JS::PersistentRootedValue& a)
 {
 	handle.set(a);
 }
 
 template<>
-inline void ToJSVal<JS::Heap<JS::Value> >(const ScriptRequest&, JS::MutableHandleValue handle,
+inline void ToJSVal<JS::Heap<JS::Value> >(const Request&, JS::MutableHandleValue handle,
 	const JS::Heap<JS::Value>& a)
 {
 	handle.set(a);
 }
 
 template<>
-inline void ToJSVal<JS::RootedValue>(const ScriptRequest&, JS::MutableHandleValue handle,
+inline void ToJSVal<JS::RootedValue>(const Request&, JS::MutableHandleValue handle,
 	const JS::RootedValue& a)
 {
 	handle.set(a);
 }
 
 template <>
-inline void ToJSVal<JS::HandleValue>(const ScriptRequest&, JS::MutableHandleValue handle,
+inline void ToJSVal<JS::HandleValue>(const Request&, JS::MutableHandleValue handle,
 	const JS::HandleValue& a)
 {
 	handle.set(a);
@@ -110,7 +110,7 @@ inline void ToJSVal<JS::HandleValue>(const ScriptRequest&, JS::MutableHandleValu
 /**
  * Convert a named property of an object to a C++ type.
  */
-template<typename T> inline bool FromJSProperty(const ScriptRequest& rq, const JS::HandleValue val, const char* name, T& ret, bool strict = false)
+template<typename T> inline bool FromJSProperty(const Request& rq, const JS::HandleValue val, const char* name, T& ret, bool strict = false)
 {
 	if (!val.isObject())
 		return false;
@@ -131,7 +131,7 @@ template<typename T> inline bool FromJSProperty(const ScriptRequest& rq, const J
 	return FromJSVal(rq, value, ret);
 }
 
-template<typename T> inline void ToJSVal_vector(const ScriptRequest& rq, JS::MutableHandleValue ret, const std::vector<T>& val)
+template<typename T> inline void ToJSVal_vector(const Request& rq, JS::MutableHandleValue ret, const std::vector<T>& val)
 {
 	JS::RootedObject obj(rq.cx, JS::NewArrayObject(rq.cx, 0));
 	if (!obj)
@@ -144,15 +144,15 @@ template<typename T> inline void ToJSVal_vector(const ScriptRequest& rq, JS::Mut
 	for (u32 i = 0; i < val.size(); ++i)
 	{
 		JS::RootedValue el(rq.cx);
-		Script::ToJSVal<T>(rq, &el, val[i]);
+		ToJSVal<T>(rq, &el, val[i]);
 		JS_SetElement(rq.cx, obj, i, el);
 	}
 	ret.setObject(*obj);
 }
 
-#define FAIL(msg) STMT(ScriptException::Raise(rq, msg); return false)
+#define FAIL(msg) STMT(Exception::Raise(rq, msg); return false)
 
-template<typename T> inline bool FromJSVal_vector(const ScriptRequest& rq, JS::HandleValue v, std::vector<T>& out)
+template<typename T> inline bool FromJSVal_vector(const Request& rq, JS::HandleValue v, std::vector<T>& out)
 {
 	JS::RootedObject obj(rq.cx);
 	if (!v.isObject())
@@ -175,7 +175,7 @@ template<typename T> inline bool FromJSVal_vector(const ScriptRequest& rq, JS::H
 		if (!JS_GetElement(rq.cx, obj, i, &el))
 			FAIL("Failed to read array element");
 		T el2{};
-		if (!Script::FromJSVal<T>(rq, el, el2))
+		if (!FromJSVal<T>(rq, el, el2))
 			return false;
 		out.push_back(el2);
 	}
@@ -184,16 +184,18 @@ template<typename T> inline bool FromJSVal_vector(const ScriptRequest& rq, JS::H
 
 #undef FAIL
 
-#define JSVAL_VECTOR(T) \
-template<> void Script::ToJSVal<std::vector<T> >(const ScriptRequest& rq, JS::MutableHandleValue ret, const std::vector<T>& val) \
-{ \
-	ToJSVal_vector(rq, ret, val); \
-} \
-template<> bool Script::FromJSVal<std::vector<T> >(const ScriptRequest& rq, JS::HandleValue v, std::vector<T>& out) \
-{ \
-	return FromJSVal_vector(rq, v, out); \
-}
-
 } // namespace Script
+
+#define JSVAL_VECTOR(T) \
+namespace Script { \
+template<> void ToJSVal<std::vector<T> >(const Request& rq, JS::MutableHandleValue ret, const std::vector<T>& val) \
+{ \
+    ToJSVal_vector(rq, ret, val); \
+} \
+template<> bool FromJSVal<std::vector<T> >(const Request& rq, JS::HandleValue v, std::vector<T>& out) \
+{ \
+    return FromJSVal_vector(rq, v, out); \
+} \
+}
 
 #endif //INCLUDED_SCRIPTCONVERSIONS

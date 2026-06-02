@@ -17,7 +17,7 @@
 
 #include "precompiled.h"
 
-#include "ScriptContext.h"
+#include "Context.h"
 
 #include "js/Modules.h"
 #include "js/friend/PerformanceHint.h"
@@ -28,7 +28,7 @@
 #include "ps/ThreadUtil.h"
 #include "scriptinterface/ModuleLoader.h"
 #include "scriptinterface/Promises.h"
-#include "scriptinterface/ScriptEngine.h"
+#include "scriptinterface/Engine.h"
 
 #include <js/Context.h>
 #include <js/GCAPI.h>
@@ -102,12 +102,15 @@ void GCSliceCallbackHook(JSContext*, JS::GCProgress progress, const JS::GCDescri
 	#endif
 }
 
-ScriptContext::ScriptContext(int contextSize, uint32_t heapGrowthBytesGCTrigger):
-	m_JobQueue{std::make_unique<Script::JobQueue>()},
+namespace Script
+{
+
+Context::Context(int contextSize, uint32_t heapGrowthBytesGCTrigger):
+	m_JobQueue{std::make_unique<JobQueue>()},
 	m_ContextSize{contextSize},
 	m_HeapGrowthBytesGCTrigger{heapGrowthBytesGCTrigger}
 {
-	ENSURE(ScriptEngine::IsInitialised() && "The ScriptEngine must be initialized before constructing any ScriptContexts!");
+	ENSURE(Engine::IsInitialised() && "The Script::Engine must be initialized before constructing any ScriptContexts!");
 
 	m_cx = JS_NewContext(contextSize);
 	ENSURE(m_cx); // TODO: error handling
@@ -156,20 +159,20 @@ ScriptContext::ScriptContext(int contextSize, uint32_t heapGrowthBytesGCTrigger)
 	// See https://gitea.wildfiregames.com/0ad/0ad/issues/7714 for details.
 	js::gc::SetPerformanceHint(m_cx, js::gc::PerformanceHint::InPageLoad);
 
-	ScriptEngine::GetSingleton().RegisterContext(m_cx);
+	Engine::GetSingleton().RegisterContext(m_cx);
 
 	JS::SetJobQueue(m_cx, m_JobQueue.get());
-	JS::SetPromiseRejectionTrackerCallback(m_cx, &Script::UnhandledRejectedPromise);
+	JS::SetPromiseRejectionTrackerCallback(m_cx, &UnhandledRejectedPromise);
 
 	JSRuntime* runtime{JS_GetRuntime(m_cx)};
-	JS::SetModuleMetadataHook(runtime, &Script::ModuleLoader::MetadataHook);
-	JS::SetModuleResolveHook(runtime, &Script::ModuleLoader::ResolveHook);
-	JS::SetModuleDynamicImportHook(runtime, &Script::ModuleLoader::DynamicImportHook);
+	JS::SetModuleMetadataHook(runtime, &ModuleLoader::MetadataHook);
+	JS::SetModuleResolveHook(runtime, &ModuleLoader::ResolveHook);
+	JS::SetModuleDynamicImportHook(runtime, &ModuleLoader::DynamicImportHook);
 }
 
-ScriptContext::~ScriptContext()
+Context::~Context()
 {
-	ENSURE(ScriptEngine::IsInitialised() && "The ScriptEngine must be active (initialized and not yet shut down) when destroying a ScriptContext!");
+	ENSURE(Engine::IsInitialised() && "The Script::Engine must be active (initialized and not yet shut down) when destroying a Script::Context!");
 
 	JSRuntime* runtime{JS_GetRuntime(m_cx)};
 	JS::SetModuleDynamicImportHook(runtime, nullptr);
@@ -180,16 +183,16 @@ ScriptContext::~ScriptContext()
 	js::gc::SetPerformanceHint(m_cx, js::gc::PerformanceHint::Normal);
 
 	JS_DestroyContext(m_cx);
-	ScriptEngine::GetSingleton().UnRegisterContext(m_cx);
+	Engine::GetSingleton().UnRegisterContext(m_cx);
 }
 
-void ScriptContext::RegisterRealm(JS::Realm* realm)
+void Context::RegisterRealm(JS::Realm* realm)
 {
 	ENSURE(realm);
 	m_Realms.push_back(realm);
 }
 
-void ScriptContext::UnRegisterRealm(JS::Realm* realm)
+void Context::UnRegisterRealm(JS::Realm* realm)
 {
 	// Schedule the zone for GC, which will destroy the realm.
 	if (JS::IsIncrementalGCInProgress(m_cx))
@@ -199,7 +202,7 @@ void ScriptContext::UnRegisterRealm(JS::Realm* realm)
 }
 
 #define GC_DEBUG_PRINT 0
-void ScriptContext::MaybeIncrementalGC()
+void Context::MaybeIncrementalGC()
 {
 	PROFILE2("MaybeIncrementalGC");
 
@@ -267,7 +270,7 @@ void ScriptContext::MaybeIncrementalGC()
 	}
 }
 
-void ScriptContext::ShrinkingGC()
+void Context::ShrinkingGC()
 {
 	JS_SetGCParameter(m_cx, JSGC_INCREMENTAL_GC_ENABLED, false);
 	JS_SetGCParameter(m_cx, JSGC_PER_ZONE_GC_ENABLED, true);
@@ -277,13 +280,15 @@ void ScriptContext::ShrinkingGC()
 	JS_SetGCParameter(m_cx, JSGC_PER_ZONE_GC_ENABLED, false);
 }
 
-void ScriptContext::RunJobs()
+void Context::RunJobs()
 {
 	m_JobQueue->runJobs(m_cx);
 }
 
-void ScriptContext::PrepareZonesForIncrementalGC() const
+void Context::PrepareZonesForIncrementalGC() const
 {
 	for (JS::Realm* const& realm : m_Realms)
 		JS::PrepareZoneForGC(m_cx, js::GetRealmZone(realm));
 }
+
+} // namespace Script

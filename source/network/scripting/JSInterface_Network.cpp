@@ -36,8 +36,8 @@
 #include "ps/SavedGame.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/JSON.h"
-#include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Request.h"
 #include "scriptinterface/StructuredClone.h"
 
 #include <fmt/format.h>
@@ -51,7 +51,7 @@
 #include <utility>
 #include <vector>
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
 namespace JSI_Network
 {
@@ -159,7 +159,7 @@ CStr GetPlayerGUID()
 	return g_NetClient->GetGUID();
 }
 
-JS::Value PollNetworkClient(const ScriptInterface& guiInterface)
+JS::Value PollNetworkClient(const Script::Interface& guiInterface)
 {
 	if (!g_NetClient)
 		throw std::logic_error{"Network client not present"};
@@ -167,12 +167,12 @@ JS::Value PollNetworkClient(const ScriptInterface& guiInterface)
 	return JS::ObjectValue(*g_NetClient->GetNextGUIMessage(guiInterface));
 }
 
-void SendGameSetupMessage(const ScriptInterface& scriptInterface, JS::HandleValue attribs1)
+void SendGameSetupMessage(const Script::Interface& scriptInterface, JS::HandleValue attribs1)
 {
 	ENSURE(g_NetClient);
 
 	// TODO: This is a workaround because we need to pass a MutableHandle to a JSAPI functions somewhere (with no obvious reason).
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 	JS::RootedValue attribs(rq.cx, attribs1);
 
 	g_NetClient->SendGameSetupMessage(&attribs, scriptInterface);
@@ -192,7 +192,7 @@ void KickPlayer(const CStrW& playerName, bool ban)
 	g_NetClient->SendKickPlayerMessage(playerName, ban);
 }
 
-void SendNetworkChat(const ScriptRequest& rq, const CStrW& message, JS::HandleValue handle)
+void SendNetworkChat(const Script::Request& rq, const CStrW& message, JS::HandleValue handle)
 {
 	ENSURE(g_NetClient);
 
@@ -227,11 +227,11 @@ void ClearAllPlayerReady ()
 	g_NetClient->SendClearAllReadyMessage();
 }
 
-void StartNetworkGame(const ScriptInterface& scriptInterface, JS::HandleValue savegame, JS::HandleValue attribs1)
+void StartNetworkGame(const Script::Interface& scriptInterface, JS::HandleValue savegame, JS::HandleValue attribs1)
 {
 	ENSURE(g_NetClient);
 
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 
 	JS::RootedValue attribs(rq.cx, attribs1);
 	std::string attributesAsString{Script::StringifyJSON(rq, &attribs)};
@@ -267,7 +267,7 @@ void SendNetworkFlare(JS::HandleValue position)
 {
 	ENSURE(g_NetClient);
 
-	ScriptRequest rq(g_NetClient->GetScriptInterface());
+	Script::Request rq(g_NetClient->GetScriptInterface());
 	ENSURE(position.isObject());
 	JS::RootedObject positionObj(rq.cx, &position.toObject());
 	JS::RootedValue positionX(rq.cx);
@@ -286,26 +286,26 @@ void SendNetworkFlare(JS::HandleValue position)
 	);
 }
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
-	ScriptFunction::Register<&GetDefaultPort>(rq, "GetDefaultPort");
-	ScriptFunction::Register<&IsNetController>(rq, "IsNetController");
-	ScriptFunction::Register<&HasNetServer>(rq, "HasNetServer");
-	ScriptFunction::Register<&HasNetClient>(rq, "HasNetClient");
-	ScriptFunction::Register<&StartNetworkHost>(rq, "StartNetworkHost");
-	ScriptFunction::Register<&StartNetworkJoin>(rq, "StartNetworkJoin");
-	ScriptFunction::Register<&StartNetworkJoinLobby>(rq, "StartNetworkJoinLobby");
-	ScriptFunction::Register<&DisconnectNetworkGame>(rq, "DisconnectNetworkGame");
-	ScriptFunction::Register<&GetPlayerGUID>(rq, "GetPlayerGUID");
-	ScriptFunction::Register<&PollNetworkClient>(rq, "PollNetworkClient");
-	ScriptFunction::Register<&SendGameSetupMessage>(rq, "SendGameSetupMessage");
-	ScriptFunction::Register<&AssignNetworkPlayer>(rq, "AssignNetworkPlayer");
-	ScriptFunction::Register<&KickPlayer>(rq, "KickPlayer");
-	ScriptFunction::Register<&SendNetworkChat>(rq, "SendNetworkChat");
-	ScriptFunction::Register<&SendNetworkReady>(rq, "SendNetworkReady");
-	ScriptFunction::Register<&ClearAllPlayerReady>(rq, "ClearAllPlayerReady");
-	ScriptFunction::Register<&StartNetworkGame>(rq, "StartNetworkGame");
-	ScriptFunction::Register<&SetTurnLength>(rq, "SetTurnLength");
-	ScriptFunction::Register<&SendNetworkFlare>(rq, "SendNetworkFlare");
+	Script::Function::Register<&GetDefaultPort>(rq, "GetDefaultPort");
+	Script::Function::Register<&IsNetController>(rq, "IsNetController");
+	Script::Function::Register<&HasNetServer>(rq, "HasNetServer");
+	Script::Function::Register<&HasNetClient>(rq, "HasNetClient");
+	Script::Function::Register<&StartNetworkHost>(rq, "StartNetworkHost");
+	Script::Function::Register<&StartNetworkJoin>(rq, "StartNetworkJoin");
+	Script::Function::Register<&StartNetworkJoinLobby>(rq, "StartNetworkJoinLobby");
+	Script::Function::Register<&DisconnectNetworkGame>(rq, "DisconnectNetworkGame");
+	Script::Function::Register<&GetPlayerGUID>(rq, "GetPlayerGUID");
+	Script::Function::Register<&PollNetworkClient>(rq, "PollNetworkClient");
+	Script::Function::Register<&SendGameSetupMessage>(rq, "SendGameSetupMessage");
+	Script::Function::Register<&AssignNetworkPlayer>(rq, "AssignNetworkPlayer");
+	Script::Function::Register<&KickPlayer>(rq, "KickPlayer");
+	Script::Function::Register<&SendNetworkChat>(rq, "SendNetworkChat");
+	Script::Function::Register<&SendNetworkReady>(rq, "SendNetworkReady");
+	Script::Function::Register<&ClearAllPlayerReady>(rq, "ClearAllPlayerReady");
+	Script::Function::Register<&StartNetworkGame>(rq, "StartNetworkGame");
+	Script::Function::Register<&SetTurnLength>(rq, "SetTurnLength");
+	Script::Function::Register<&SendNetworkFlare>(rq, "SendNetworkFlare");
 }
 }

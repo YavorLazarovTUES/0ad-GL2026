@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -132,21 +132,21 @@ namespace JSI_Sound
 
 #endif
 
-	void RegisterScriptFunctions(const ScriptRequest& rq)
+	void RegisterScriptFunctions(const Script::Request& rq)
 	{
-		ScriptFunction::Register<&StartMusic>(rq, "StartMusic");
-		ScriptFunction::Register<&StopMusic>(rq, "StopMusic");
-		ScriptFunction::Register<&ClearPlaylist>(rq, "ClearPlaylist");
-		ScriptFunction::Register<&AddPlaylistItem>(rq, "AddPlaylistItem");
-		ScriptFunction::Register<&StartPlaylist>(rq, "StartPlaylist");
-		ScriptFunction::Register<&PlayMusic>(rq, "PlayMusic");
-		ScriptFunction::Register<&PlayUISound>(rq, "PlayUISound");
-		ScriptFunction::Register<&PlayAmbientSound>(rq, "PlayAmbientSound");
-		ScriptFunction::Register<&MusicPlaying>(rq, "MusicPlaying");
-		ScriptFunction::Register<&SetMasterGain>(rq, "SetMasterGain");
-		ScriptFunction::Register<&SetMusicGain>(rq, "SetMusicGain");
-		ScriptFunction::Register<&SetAmbientGain>(rq, "SetAmbientGain");
-		ScriptFunction::Register<&SetActionGain>(rq, "SetActionGain");
-		ScriptFunction::Register<&SetUIGain>(rq, "SetUIGain");
+		Script::Function::Register<&StartMusic>(rq, "StartMusic");
+		Script::Function::Register<&StopMusic>(rq, "StopMusic");
+		Script::Function::Register<&ClearPlaylist>(rq, "ClearPlaylist");
+		Script::Function::Register<&AddPlaylistItem>(rq, "AddPlaylistItem");
+		Script::Function::Register<&StartPlaylist>(rq, "StartPlaylist");
+		Script::Function::Register<&PlayMusic>(rq, "PlayMusic");
+		Script::Function::Register<&PlayUISound>(rq, "PlayUISound");
+		Script::Function::Register<&PlayAmbientSound>(rq, "PlayAmbientSound");
+		Script::Function::Register<&MusicPlaying>(rq, "MusicPlaying");
+		Script::Function::Register<&SetMasterGain>(rq, "SetMasterGain");
+		Script::Function::Register<&SetMusicGain>(rq, "SetMusicGain");
+		Script::Function::Register<&SetAmbientGain>(rq, "SetAmbientGain");
+		Script::Function::Register<&SetActionGain>(rq, "SetActionGain");
+		Script::Function::Register<&SetUIGain>(rq, "SetUIGain");
 	}
 }

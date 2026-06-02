@@ -32,9 +32,9 @@
 #include "ps/Filesystem.h"
 #include "ps/Loader.h"
 #include "ps/XML/Xeromyces.h"
+#include "scriptinterface/Interface.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpObstructionManager.h"
 #include "simulation2/components/ICmpPathfinder.h"
@@ -164,7 +164,7 @@ public:
 		sim2.ResetState();
 
 		JS::RootedValue attribs(sim2.GetScriptInterface().GetGeneralJSContext());
-		Script::CreateObject(ScriptRequest(sim2.GetScriptInterface()), &attribs);
+		Script::CreateObject(Script::Request(sim2.GetScriptInterface()), &attribs);
 		sim2.SetInitAttributes(attribs);
 
 		std::unique_ptr<CMapReader> mapReader = std::make_unique<CMapReader>();
@@ -281,7 +281,7 @@ public:
 		sim2.ResetState();
 
 		JS::RootedValue attribs(sim2.GetScriptInterface().GetGeneralJSContext());
-		Script::CreateObject(ScriptRequest(sim2.GetScriptInterface()), &attribs);
+		Script::CreateObject(Script::Request(sim2.GetScriptInterface()), &attribs);
 		sim2.SetInitAttributes(attribs);
 
 		std::unique_ptr<CMapReader> mapReader = std::make_unique<CMapReader>();
@@ -341,7 +341,7 @@ public:
 		sim2.ResetState();
 
 		JS::RootedValue attribs(sim2.GetScriptInterface().GetGeneralJSContext());
-		Script::CreateObject(ScriptRequest(sim2.GetScriptInterface()), &attribs);
+		Script::CreateObject(Script::Request(sim2.GetScriptInterface()), &attribs);
 		sim2.SetInitAttributes(attribs);
 
 		std::unique_ptr<CMapReader> mapReader = std::make_unique<CMapReader>();

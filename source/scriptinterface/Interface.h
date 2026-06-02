@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -15,15 +15,15 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef INCLUDED_SCRIPTINTERFACE
-#define INCLUDED_SCRIPTINTERFACE
+#ifndef INCLUDED_SCRIPT_INTERFACE
+#define INCLUDED_SCRIPT_INTERFACE
 
 #include "lib/code_annotation.h"
 #include "lib/types.h"
 #include "ps/Errors.h"
-#include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptExceptions.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Exceptions.h"
+#include "scriptinterface/Request.h"
 
 #include <functional>
 #include <js/CallArgs.h>
@@ -40,14 +40,15 @@
 
 class JSObject;
 class Path;
-class ScriptContext;
+namespace Script { class Context; }
 namespace Script { class ModuleLoader; }
+namespace Script { struct Interface_impl; }
 namespace boost { namespace random { class rand48; } }
 struct JSClass;
 struct JSContext;
 struct JSFunctionSpec;
 struct JSPropertySpec;
-struct ScriptInterface_impl;
+
 
 ERROR_GROUP(Scripting);
 ERROR_TYPE(Scripting, SetupFailed);
@@ -74,66 +75,70 @@ using VfsPath = Path;
 
 // Using a global object for the context is a workaround until Simulation, AI, etc,
 // use their own threads and also their own contexts.
-extern thread_local std::shared_ptr<ScriptContext> g_ScriptContext;
+extern thread_local std::shared_ptr<Script::Context> g_ScriptContext;
 
 /**
  * Abstraction around a SpiderMonkey JS::Realm.
  *
  * Thread-safety:
  * - May be used in non-main threads.
- * - Each ScriptInterface must be created, used, and destroyed, all in a single thread
+ * - Each Script::Interface must be created, used, and destroyed, all in a single thread
  *   (it must never be shared between threads).
  */
-class ScriptInterface
-{
-	NONCOPYABLE(ScriptInterface);
 
-	friend class ScriptRequest;
+namespace Script
+{
+
+class Interface
+{
+	NONCOPYABLE(Interface);
+
+	friend class Request;
 
 public:
 
 	/**
 	 * Constructor.
-	 * @param nativeScopeName Name of global object that functions (via ScriptFunction::Register) will
+	 * @param nativeScopeName Name of global object that functions (via Script::Function::Register) will
 	 *   be placed into, as a scoping mechanism; typically "Engine"
 	 * @param debugName Name of this interface for CScriptStats purposes.
 	 * @param context ScriptContext to use when initializing this interface.
 	 */
-	ScriptInterface(const char* nativeScopeName, const char* debugName, ScriptContext& context,
+	Interface(const char* nativeScopeName, const char* debugName, Context& context,
 		std::function<bool(const VfsPath&)> allowModule = {});
 
 	template<typename Context>
-	ScriptInterface(const char* nativeScopeName, const char* debugName, Context&& context,
+	Interface(const char* nativeScopeName, const char* debugName, Context&& context,
 		std::function<bool(const VfsPath&)> allowModule = {}) :
-		ScriptInterface{nativeScopeName, debugName, *context, std::move(allowModule)}
+		Interface{nativeScopeName, debugName, *context, std::move(allowModule)}
 	{
-		static_assert(std::is_lvalue_reference_v<Context>, "`ScriptInterface` doesn't take ownership "
+		static_assert(std::is_lvalue_reference_v<Context>, "`Interface` doesn't take ownership "
 			"of the context.");
 	}
 
 	/**
 	 * Alternate constructor. This creates the new Realm in the same Compartment as the neighbor scriptInterface.
 	 * This means that data can be freely exchanged between these two script interfaces without cloning.
-	 * @param nativeScopeName Name of global object that functions (via ScriptFunction::Register) will
+	 * @param nativeScopeName Name of global object that functions (via Script::Function::Register) will
 	 *   be placed into, as a scoping mechanism; typically "Engine"
 	 * @param debugName Name of this interface for CScriptStats purposes.
 	 * @param scriptInterface 'Neighbor' scriptInterface to share a compartment with.
 	 * @param allowModule A predicate deciding wheter to import the given
 	 *	module.
 	 */
-	ScriptInterface(const char* nativeScopeName, const char* debugName, const ScriptInterface& neighbor,
+	Interface(const char* nativeScopeName, const char* debugName, const Interface& neighbor,
 		std::function<bool(const VfsPath&)> allowModule = {});
 
-	~ScriptInterface();
+	~Interface();
 
 	struct CmptPrivate
 	{
-		friend class ScriptInterface;
+		friend class Interface;
 	public:
-		static const ScriptInterface& GetScriptInterface(JSContext* cx);
+		static const Interface& GetScriptInterface(JSContext* cx);
 		static void* GetCBData(JSContext* cx);
 	protected:
-		ScriptInterface* pScriptInterface; // the ScriptInterface object the compartment belongs to
+		Interface* pScriptInterface; // the Interface object the compartment belongs to
 		void* pCBData; // meant to be used as the "this" object for callback functions
 	};
 
@@ -143,7 +148,7 @@ public:
 	 * Convert the CmptPrivate callback data to T*
 	 */
 	template <typename T>
-	static T* ObjectFromCBData(const ScriptRequest& rq)
+	static T* ObjectFromCBData(const Request& rq)
 	{
 		static_assert(!std::is_same_v<void, T>);
 		return static_cast<T*>(ObjectFromCBData<void>(rq));
@@ -153,22 +158,22 @@ public:
 	 * Variant for the function wrapper.
 	 */
 	template <typename T>
-	static T* ObjectFromCBData(const ScriptRequest& rq, JS::CallArgs&)
+	static T* ObjectFromCBData(const Request& rq, JS::CallArgs&)
 	{
 		return ObjectFromCBData<T>(rq);
 	}
 
-	Script::ModuleLoader& GetModuleLoader() const;
+	ModuleLoader& GetModuleLoader() const;
 
 	/**
 	 * GetGeneralJSContext returns the context without starting a GC request and without
-	 * entering the ScriptInterface compartment. It should only be used in specific situations,
+	 * entering the Interface compartment. It should only be used in specific situations,
 	 * for instance when initializing a persistent rooted.
-	 * If you need the compartmented context of the ScriptInterface, you should create a
-	 * ScriptInterface::Request and use the context from that.
+	 * If you need the compartmented context of the Interface, you should create a
+	 * Interface::Request and use the context from that.
 	 */
 	JSContext* GetGeneralJSContext() const;
-	ScriptContext& GetContext() const;
+	Context& GetContext() const;
 
 	/**
 	 * Load global scripts that most script interfaces need,
@@ -207,7 +212,7 @@ public:
 	 * @param name - Name of the property.
 	 * @param out The object or null.
 	 */
-	static bool GetGlobalProperty(const ScriptRequest& rq, const std::string& name, JS::MutableHandleValue out);
+	static bool GetGlobalProperty(const Request& rq, const std::string& name, JS::MutableHandleValue out);
 
 	bool SetPrototype(JS::HandleValue obj, JS::HandleValue proto);
 
@@ -242,7 +247,7 @@ public:
 	template<typename T> bool Eval(const char* code, T& out) const;
 
 	/**
-	 * Calls the random number generator assigned to this ScriptInterface instance and returns the generated number.
+	 * Calls the random number generator assigned to this Interface instance and returns the generated number.
 	 */
 	bool MathRandom(double& nbr) const;
 
@@ -264,12 +269,12 @@ public:
 	 * Retrieve the private data field of a JSObject.
 	 */
 	template <typename T>
-	static T* GetPrivate(const ScriptRequest& rq, JS::HandleObject thisobj)
+	static T* GetPrivate(const Request& rq, JS::HandleObject thisobj)
 	{
 		T* value = JS::GetMaybePtrFromReservedSlot<T>(thisobj, JSObjectReservedSlots::PRIVATE);
 
 		if (value == nullptr)
-			ScriptException::Raise(rq, "Private data of the given object is null!");
+			Exception::Raise(rq, "Private data of the given object is null!");
 
 		return value;
 	}
@@ -279,11 +284,11 @@ public:
 	 * If an error occurs, GetPrivate will report it with the according stack.
 	 */
 	template <typename T>
-	static T* GetPrivate(const ScriptRequest& rq, JS::CallArgs& callArgs)
+	static T* GetPrivate(const Request& rq, JS::CallArgs& callArgs)
 	{
 		if (!callArgs.thisv().isObject())
 		{
-			ScriptException::Raise(rq, "Cannot retrieve private JS object data because from a non-object value!");
+			Exception::Raise(rq, "Cannot retrieve private JS object data because from a non-object value!");
 			return nullptr;
 		}
 
@@ -291,7 +296,7 @@ public:
 		T* value = JS::GetMaybePtrFromReservedSlot<T>(thisObj, JSObjectReservedSlots::PRIVATE);
 
 		if (value == nullptr)
-			ScriptException::Raise(rq, "Private data of the given object is null!");
+			Exception::Raise(rq, "Private data of the given object is null!");
 
 		return value;
 	}
@@ -309,33 +314,35 @@ private:
 	CmptPrivate m_CmptPrivate;
 
 	// Take care to keep this declaration before heap rooted members. Destructors of heap rooted
-	// members have to be called before the custom destructor of ScriptInterface_impl.
-	std::unique_ptr<ScriptInterface_impl> m;
+	// members have to be called before the custom destructor of Interface_impl.
+	std::unique_ptr<Interface_impl> m;
 
 	std::unordered_map<std::string, CustomType> m_CustomObjectTypes;
 };
 
+} // namespace Script
+
 // Explicitly instantiate void* as that is used for the generic template,
 // and we want to define it in the .cpp file.
-template <> void* ScriptInterface::ObjectFromCBData(const ScriptRequest& rq);
+template <> void* Script::Interface::ObjectFromCBData(const Script::Request& rq);
 
 template<typename T>
-bool ScriptInterface::SetGlobal(const char* name, const T& value, bool replace, bool constant, bool enumerate)
+bool Script::Interface::SetGlobal(const char* name, const T& value, bool replace, bool constant, bool enumerate)
 {
-	ScriptRequest rq(this);
+	Script::Request rq(this);
 	JS::RootedValue val(rq.cx);
 	Script::ToJSVal(rq, &val, value);
 	return SetGlobal_(name, val, replace, constant, enumerate);
 }
 
 template<typename T>
-bool ScriptInterface::Eval(const char* code, T& ret) const
+bool Script::Interface::Eval(const char* code, T& ret) const
 {
-	ScriptRequest rq(this);
+	Script::Request rq(this);
 	JS::RootedValue rval(rq.cx);
 	if (!Eval(code, &rval))
 		return false;
 	return Script::FromJSVal(rq, rval, ret);
 }
 
-#endif // INCLUDED_SCRIPTINTERFACE
+#endif // INCLUDED_SCRIPT_INTERFACE

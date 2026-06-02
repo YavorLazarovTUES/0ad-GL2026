@@ -31,7 +31,7 @@
 #include "ps/CStr.h"
 #include "ps/Util.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptExceptions.h"
+#include "scriptinterface/Exceptions.h"
 #include "third_party/encryption/pkcs5_pbkdf2.h"
 
 #include <js/RootingAPI.h>
@@ -41,8 +41,8 @@
 #include <stdexcept>
 #include <string>
 
-class ScriptInterface;
 namespace JS { class CallArgs; }
+namespace Script { class Interface; }
 
 namespace JSI_Lobby
 {
@@ -107,7 +107,7 @@ void StopXmppClient()
 ////////////////////////////////////////////////
 ////////////////////////////////////////////////
 
-XmppClient* XmppGetter(const ScriptRequest&, JS::CallArgs&)
+XmppClient* XmppGetter(const Script::Request&, JS::CallArgs&)
 {
 	if (!g_XmppClient)
 	{
@@ -117,7 +117,7 @@ XmppClient* XmppGetter(const ScriptRequest&, JS::CallArgs&)
 	return g_XmppClient;
 }
 
-void SendRegisterGame(const ScriptInterface& scriptInterface, JS::HandleValue data)
+void SendRegisterGame(const Script::Interface& scriptInterface, JS::HandleValue data)
 {
 	if (!g_XmppClient)
 		throw std::logic_error{"Cannot call SendRegisterGame without an initialized XmppClient!"};
@@ -133,7 +133,7 @@ void SendRegisterGame(const ScriptInterface& scriptInterface, JS::HandleValue da
 }
 
 // Unlike other functions, this one just returns Undefined if XmppClient isn't initialised.
-JS::Value GuiPollNewMessages(const ScriptInterface& scriptInterface)
+JS::Value GuiPollNewMessages(const Script::Interface& scriptInterface)
 {
 	if (!g_XmppClient)
 		return JS::UndefinedValue();
@@ -186,18 +186,18 @@ std::string EncryptPassword(const std::string& password, const std::string& user
 
 #endif
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
 	// Lobby functions
-	ScriptFunction::Register<&HasXmppClient>(rq, "HasXmppClient");
-	ScriptFunction::Register<&SetRankedGame>(rq, "SetRankedGame");
+	Script::Function::Register<&HasXmppClient>(rq, "HasXmppClient");
+	Script::Function::Register<&SetRankedGame>(rq, "SetRankedGame");
 #if CONFIG2_LOBBY // Allow the lobby to be disabled
-	ScriptFunction::Register<&StartXmppClient>(rq, "StartXmppClient");
-	ScriptFunction::Register<&StartRegisterXmppClient>(rq, "StartRegisterXmppClient");
-	ScriptFunction::Register<&StopXmppClient>(rq, "StopXmppClient");
+	Script::Function::Register<&StartXmppClient>(rq, "StartXmppClient");
+	Script::Function::Register<&StartRegisterXmppClient>(rq, "StartRegisterXmppClient");
+	Script::Function::Register<&StopXmppClient>(rq, "StopXmppClient");
 
 #define REGISTER_XMPP(func, name) \
-	ScriptFunction::Register<&XmppClient::func, &XmppGetter>(rq, name)
+	Script::Function::Register<&XmppClient::func, &XmppGetter>(rq, name)
 
 	REGISTER_XMPP(connect, "ConnectXmppClient");
 	REGISTER_XMPP(disconnect, "DisconnectXmppClient");
@@ -205,7 +205,7 @@ void RegisterScriptFunctions(const ScriptRequest& rq)
 	REGISTER_XMPP(SendIqGetBoardList, "SendGetBoardList");
 	REGISTER_XMPP(SendIqGetProfile, "SendGetProfile");
 	REGISTER_XMPP(SendIqGameReport, "SendGameReport");
-	ScriptFunction::Register<&SendRegisterGame>(rq, "SendRegisterGame");
+	Script::Function::Register<&SendRegisterGame>(rq, "SendRegisterGame");
 	REGISTER_XMPP(SendIqUnregisterGame, "SendUnregisterGame");
 	REGISTER_XMPP(SendIqChangeStateGame, "SendChangeStateGame");
 	REGISTER_XMPP(GUIGetPlayerList, "GetPlayerList");
@@ -213,7 +213,7 @@ void RegisterScriptFunctions(const ScriptRequest& rq)
 	REGISTER_XMPP(GUIGetBoardList, "GetBoardList");
 	REGISTER_XMPP(GUIGetProfile, "GetProfile");
 
-	ScriptFunction::Register<&GuiPollNewMessages>(rq, "LobbyGuiPollNewMessages");
+	Script::Function::Register<&GuiPollNewMessages>(rq, "LobbyGuiPollNewMessages");
 	REGISTER_XMPP(GuiPollHistoricMessages, "LobbyGuiPollHistoricMessages");
 	REGISTER_XMPP(GuiPollHasPlayerListUpdate, "LobbyGuiPollHasPlayerListUpdate");
 	REGISTER_XMPP(SendMUCMessage, "LobbySendMessage");
@@ -231,7 +231,7 @@ void RegisterScriptFunctions(const ScriptRequest& rq)
 	REGISTER_XMPP(GetSubject, "LobbyGetRoomSubject");
 #undef REGISTER_XMPP
 
-	ScriptFunction::Register<&EncryptPassword>(rq, "EncryptPassword");
+	Script::Function::Register<&EncryptPassword>(rq, "EncryptPassword");
 #endif // CONFIG2_LOBBY
 }
 }

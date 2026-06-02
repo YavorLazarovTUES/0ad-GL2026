@@ -20,7 +20,7 @@
 #include "maths/Fixed.h"
 #include "maths/FixedVector2D.h"
 #include "ps/XML/Xeromyces.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/components/ICmpObstruction.h"
 #include "simulation2/components/ICmpObstructionManager.h"
 #include "simulation2/helpers/Position.h"

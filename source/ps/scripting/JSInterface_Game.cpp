@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -35,7 +35,7 @@
 #include "ps/Replay.h"
 #include "ps/World.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 #include "scriptinterface/StructuredClone.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/system/TurnManager.h"
@@ -47,11 +47,11 @@
 #include <stdexcept>
 #include <string>
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
 namespace JSI_Game
 {
-void StartGame(const ScriptInterface& guiInterface, JS::HandleValue attribs, int playerID, bool storeReplay)
+void StartGame(const Script::Interface& guiInterface, JS::HandleValue attribs, int playerID, bool storeReplay)
 {
 	ENSURE(!g_NetServer);
 	ENSURE(!g_NetClient);
@@ -61,7 +61,7 @@ void StartGame(const ScriptInterface& guiInterface, JS::HandleValue attribs, int
 
 	// Convert from GUI script context to sim script context/
 	CSimulation2* sim = g_Game->GetSimulation2();
-	ScriptRequest rqSim(sim->GetScriptInterface());
+	Script::Request rqSim(sim->GetScriptInterface());
 
 	JS::RootedValue gameAttribs(rqSim.cx, Script::CloneValueFromOtherCompartment(sim->GetScriptInterface(), guiInterface, attribs));
 
@@ -193,22 +193,22 @@ void DumpTerrainMipmap()
 	LOGMESSAGERENDER("Terrain mipmap written to '%s'", realPath.string8());
 }
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
-	ScriptFunction::Register<&StartGame>(rq, "StartGame");
-	ScriptFunction::Register<&Script_EndGame>(rq, "EndGame");
-	ScriptFunction::Register<&GetPlayerID>(rq, "GetPlayerID");
-	ScriptFunction::Register<&SetPlayerID>(rq, "SetPlayerID");
-	ScriptFunction::Register<&SetViewedPlayer>(rq, "SetViewedPlayer");
-	ScriptFunction::Register<&GetSimRate>(rq, "GetSimRate");
-	ScriptFunction::Register<&SetSimRate>(rq, "SetSimRate");
-	ScriptFunction::Register<&GetPendingTurns>(rq, "GetPendingTurns");
-	ScriptFunction::Register<&IsPaused>(rq, "IsPaused");
-	ScriptFunction::Register<&SetPaused>(rq, "SetPaused");
-	ScriptFunction::Register<&IsVisualReplay>(rq, "IsVisualReplay");
-	ScriptFunction::Register<&GetCurrentReplayDirectory>(rq, "GetCurrentReplayDirectory");
-	ScriptFunction::Register<&EnableTimeWarpRecording>(rq, "EnableTimeWarpRecording");
-	ScriptFunction::Register<&RewindTimeWarp>(rq, "RewindTimeWarp");
-	ScriptFunction::Register<&DumpTerrainMipmap>(rq, "DumpTerrainMipmap");
+	Script::Function::Register<&StartGame>(rq, "StartGame");
+	Script::Function::Register<&Script_EndGame>(rq, "EndGame");
+	Script::Function::Register<&GetPlayerID>(rq, "GetPlayerID");
+	Script::Function::Register<&SetPlayerID>(rq, "SetPlayerID");
+	Script::Function::Register<&SetViewedPlayer>(rq, "SetViewedPlayer");
+	Script::Function::Register<&GetSimRate>(rq, "GetSimRate");
+	Script::Function::Register<&SetSimRate>(rq, "SetSimRate");
+	Script::Function::Register<&GetPendingTurns>(rq, "GetPendingTurns");
+	Script::Function::Register<&IsPaused>(rq, "IsPaused");
+	Script::Function::Register<&SetPaused>(rq, "SetPaused");
+	Script::Function::Register<&IsVisualReplay>(rq, "IsVisualReplay");
+	Script::Function::Register<&GetCurrentReplayDirectory>(rq, "GetCurrentReplayDirectory");
+	Script::Function::Register<&EnableTimeWarpRecording>(rq, "EnableTimeWarpRecording");
+	Script::Function::Register<&RewindTimeWarp>(rq, "RewindTimeWarp");
+	Script::Function::Register<&DumpTerrainMipmap>(rq, "DumpTerrainMipmap");
 }
 }

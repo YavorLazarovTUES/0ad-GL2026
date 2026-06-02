@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -41,10 +41,10 @@
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/ModuleLoader.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/helpers/MapEdgeTiles.h"
 #include "simulation2/system/Component.h"
 
@@ -78,7 +78,7 @@ class CMapGenerationCallbacks
 public:
 	// Only the constructor and the destructor are called by C++.
 
-	CMapGenerationCallbacks(const StopToken stopToken, ScriptInterface& scriptInterface,
+	CMapGenerationCallbacks(const StopToken stopToken, Script::Interface& scriptInterface,
 		const u16 flags) :
 		m_StopToken{stopToken},
 		m_ScriptInterface{scriptInterface}
@@ -92,8 +92,8 @@ public:
 		// Set initial seed, callback data.
 		// Expose functions, globals and classes relevant to the map scripts.
 #define REGISTER_MAPGEN_FUNC(func) \
-	ScriptFunction::Register<&CMapGenerationCallbacks::func, \
-		ScriptInterface::ObjectFromCBData<CMapGenerationCallbacks>>(rq, #func, flags);
+	Script::Function::Register<&CMapGenerationCallbacks::func, \
+		Script::Interface::ObjectFromCBData<CMapGenerationCallbacks>>(rq, #func, flags);
 
 		// VFS
 		JSI_VFS::RegisterScriptFunctions_ReadOnlySimulationMaps(m_ScriptInterface, flags);
@@ -102,7 +102,7 @@ public:
 		m_ScriptInterface.LoadGlobalScripts();
 
 		// File loading
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 		REGISTER_MAPGEN_FUNC(LoadLibrary);
 		REGISTER_MAPGEN_FUNC(LoadHeightmapImage);
 		REGISTER_MAPGEN_FUNC(LoadMapTerrain);
@@ -200,7 +200,7 @@ private:
 			return JS::UndefinedValue();
 		}
 
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 		JS::RootedValue returnValue(rq.cx);
 		Script::ToJSVal(rq, &returnValue, heightmap);
 		return returnValue;
@@ -213,7 +213,7 @@ private:
 	 */
 	JS::Value LoadMapTerrain(const VfsPath& filename)
 	{
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 
 		if (!VfsFileExists(filename))
 		{
@@ -332,7 +332,7 @@ private:
 	/**
 	 * Provides the script context.
 	 */
-	ScriptInterface& m_ScriptInterface;
+	Script::Interface& m_ScriptInterface;
 
 	/**
 	 * Currently loaded script librarynames.
@@ -347,15 +347,15 @@ private:
 
 bool MapGenerationInterruptCallback(JSContext* cx)
 {
-	return !ScriptInterface::ObjectFromCBData<CMapGenerationCallbacks>(
-		ScriptInterface::CmptPrivate::GetScriptInterface(cx))->m_StopToken.IsStopRequested();
+	return !Script::Interface::ObjectFromCBData<CMapGenerationCallbacks>(
+		Script::Interface::CmptPrivate::GetScriptInterface(cx))->m_StopToken.IsStopRequested();
 }
 } // anonymous namespace
 
 Script::StructuredClone RunMapGenerationScript(const StopToken stopToken, std::atomic<int>& progress,
-	ScriptInterface& scriptInterface, const VfsPath& script, const std::string& settings, const u16 flags)
+	Script::Interface& scriptInterface, const VfsPath& script, const std::string& settings, const u16 flags)
 {
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 
 	// Parse settings
 	JS::RootedValue settingsVal(rq.cx);
@@ -421,7 +421,7 @@ Script::StructuredClone RunMapGenerationScript(const StopToken stopToken, std::a
 
 	LOGMESSAGE("Run RMS generator");
 	JS::RootedValue ns{rq.cx, JS::ObjectValue(*nsAsObject)};
-	JS::RootedValue map{rq.cx, ScriptFunction::RunGenerator(rq, ns, GENERATOR_NAME, settingsVal,
+	JS::RootedValue map{rq.cx, Script::Function::RunGenerator(rq, ns, GENERATOR_NAME, settingsVal,
 		[&](const JS::HandleValue value)
 		{
 			// When the task is started, `progress` is only mutated by this thread.
@@ -440,6 +440,6 @@ Script::StructuredClone RunMapGenerationScript(const StopToken stopToken, std::a
 		})};
 
 	JS::RootedValue exportedMap{rq.cx};
-	const bool exportSuccess{ScriptFunction::Call(rq, map, "MakeExportable", &exportedMap)};
+	const bool exportSuccess{Script::Function::Call(rq, map, "MakeExportable", &exportedMap)};
 	return Script::WriteStructuredClone(rq, exportSuccess ? exportedMap : map);
 }

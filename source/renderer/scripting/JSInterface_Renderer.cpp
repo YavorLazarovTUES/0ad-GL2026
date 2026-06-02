@@ -78,17 +78,17 @@ void SetPBRBrightness(const float value)
 }
 
 #define REGISTER_BOOLEAN_SCRIPT_SETTING(NAME) \
-ScriptFunction::Register<&Get##NAME##Enabled>(rq, "Renderer_Get" #NAME "Enabled"); \
-ScriptFunction::Register<&Set##NAME##Enabled>(rq, "Renderer_Set" #NAME "Enabled");
+Script::Function::Register<&Get##NAME##Enabled>(rq, "Renderer_Get" #NAME "Enabled"); \
+Script::Function::Register<&Set##NAME##Enabled>(rq, "Renderer_Set" #NAME "Enabled");
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
-	ScriptFunction::Register<&GetRenderPath>(rq, "Renderer_GetRenderPath");
-	ScriptFunction::Register<&TextureExists>(rq, "TextureExists");
-	ScriptFunction::Register<&GetRenderDebugMode>(rq, "Renderer_GetRenderDebugMode");
-	ScriptFunction::Register<&SetRenderDebugMode>(rq, "Renderer_SetRenderDebugMode");
-	ScriptFunction::Register<&GetPBRBrightness>(rq, "Renderer_GetPBRBrightness");
-	ScriptFunction::Register<&SetPBRBrightness>(rq, "Renderer_SetPBRBrightness");
+	Script::Function::Register<&GetRenderPath>(rq, "Renderer_GetRenderPath");
+	Script::Function::Register<&TextureExists>(rq, "TextureExists");
+	Script::Function::Register<&GetRenderDebugMode>(rq, "Renderer_GetRenderDebugMode");
+	Script::Function::Register<&SetRenderDebugMode>(rq, "Renderer_SetRenderDebugMode");
+	Script::Function::Register<&GetPBRBrightness>(rq, "Renderer_GetPBRBrightness");
+	Script::Function::Register<&SetPBRBrightness>(rq, "Renderer_SetPBRBrightness");
 	REGISTER_BOOLEAN_SCRIPT_SETTING(CutsceneMode);
 	REGISTER_BOOLEAN_SCRIPT_SETTING(DisplayFrustum);
 	REGISTER_BOOLEAN_SCRIPT_SETTING(DisplayShadowsFrustum);

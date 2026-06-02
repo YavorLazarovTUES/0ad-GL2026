@@ -30,7 +30,7 @@
 #include "ps/Input.h"
 #include "ps/VideoMode.h"
 #include "renderer/Renderer.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/components/ICmpSoundManager.h"
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Entity.h"

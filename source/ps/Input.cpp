@@ -24,8 +24,8 @@
 #include "ps/Profile.h"
 #include "ps/TouchInput.h"
 #include "scriptinterface/JSON.h"
-#include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Request.h"
 
 #include <utility>
 

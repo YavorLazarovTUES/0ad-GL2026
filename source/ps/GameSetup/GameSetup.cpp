@@ -82,11 +82,11 @@
 #include "renderer/SceneRenderer.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
-#include "scriptinterface/ScriptStats.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
+#include "scriptinterface/Stats.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/scripting/JSInterface_Simulation.h"
 #include "simulation2/system/Component.h"
@@ -139,7 +139,7 @@ ERROR_TYPE(System, SDLInitFailed);
 ERROR_TYPE(System, VmodeFailed);
 ERROR_TYPE(System, RequiredExtensionsMissing);
 
-thread_local std::shared_ptr<ScriptContext> g_ScriptContext;
+thread_local std::shared_ptr<Script::Context> g_ScriptContext;
 
 bool g_InDevelopmentCopy;
 bool g_CheckedIfInDevelopmentCopy = false;
@@ -237,7 +237,7 @@ void InitVfs(const CmdLineArgs& args)
 }
 
 
-static void InitPs(bool setup_gui, const CStrW& gui_page, ScriptInterface* srcScriptInterface, JS::HandleValue initData)
+static void InitPs(bool setup_gui, const CStrW& gui_page, Script::Interface* srcScriptInterface, JS::HandleValue initData)
 {
 	g_Console->Init();
 	LoadHotkeys(g_ConfigDB);
@@ -528,7 +528,7 @@ bool Init(const CmdLineArgs& args, int flags)
 	new CProfileViewer;
 	new CProfileManager;	// before any script code
 
-	g_ScriptStatsTable = new CScriptStatsTable;
+	g_ScriptStatsTable = new Script::CScriptStatsTable;
 	g_ProfileViewer.AddRootTable(g_ScriptStatsTable);
 
 	// Set up the console early, so that debugging
@@ -543,7 +543,7 @@ bool Init(const CmdLineArgs& args, int flags)
 	// their own threads and also their own contexts.
 	const int contextSize = 384 * 1024 * 1024;
 	const int heapGrowthBytesGCTrigger = 12 * 1024 * 1024;
-	g_ScriptContext = std::make_shared<ScriptContext>(contextSize, heapGrowthBytesGCTrigger);
+	g_ScriptContext = std::make_shared<Script::Context>(contextSize, heapGrowthBytesGCTrigger);
 
 	// On the first Init (INIT_MODS), check for command-line arguments
 	// or use the default mods from the config and enable those.
@@ -551,7 +551,7 @@ bool Init(const CmdLineArgs& args, int flags)
 	// to avoid overwriting the newly selected mods.
 	if (flags & INIT_MODS)
 	{
-		ScriptInterface modInterface("Engine", "Mod", g_ScriptContext);
+		Script::Interface modInterface("Engine", "Mod", g_ScriptContext);
 		g_Mods.UpdateAvailableMods(modInterface);
 		std::vector<CStr> mods;
 		if (args.Has("mod"))
@@ -623,8 +623,8 @@ bool Init(const CmdLineArgs& args, int flags)
 }
 
 [[nodiscard]] std::unique_ptr<InputHandlers> InitGraphics(const CmdLineArgs& args, int flags,
-	const std::vector<CStr>& installedMods, ScriptContext& scriptContext,
-	ScriptInterface& scriptInterface)
+	const std::vector<CStr>& installedMods, Script::Context& scriptContext,
+	Script::Interface& scriptInterface)
 {
 	const bool setup_vmode = (flags & INIT_HAVE_VMODE) == 0;
 
@@ -678,7 +678,7 @@ bool Init(const CmdLineArgs& args, int flags)
 		{
 			const bool setup_gui = ((flags & INIT_NO_GUI) == 0);
 
-			ScriptRequest rq{g_GUI->GetScriptInterface()};
+			Script::Request rq{g_GUI->GetScriptInterface()};
 			JS::RootedValue data(rq.cx);
 			Script::CreateObject(rq, &data, "isStartup", true);
 			if (!installedMods.empty())
@@ -766,8 +766,8 @@ bool Autostart(const CmdLineArgs& args)
 		return false;
 
 	// Create some scriptinterface to store the js values for the settings.
-	ScriptInterface scriptInterface("Engine", "Game Setup", g_ScriptContext);
-	ScriptRequest rq(scriptInterface);
+	Script::Interface scriptInterface("Engine", "Game Setup", g_ScriptContext);
+	Script::Request rq(scriptInterface);
 
 	// We use the javascript gameSettings to handle options, but that requires running JS.
 	// Since we don't want to use the full Gui manager, we load an entrypoint script
@@ -775,7 +775,7 @@ bool Autostart(const CmdLineArgs& args)
 
 	// TODO: this essentially duplicates the CGUI logic to load directory or scripts.
 	std::unordered_set<VfsPath> templateCache;
-	const auto autostartLoadScript = [&templateCache](const ScriptInterface& scriptInterface,
+	const auto autostartLoadScript = [&templateCache](const Script::Interface& scriptInterface,
 		const VfsPath& path)
 	{
 		if (!std::get<1>(templateCache.insert(path)))
@@ -792,7 +792,7 @@ bool Autostart(const CmdLineArgs& args)
 			scriptInterface.LoadGlobalScriptFile(path);
 	};
 
-	const auto loadScriptCallback = ScriptFunction::Register(rq, "LoadScript", autostartLoadScript);
+	const auto loadScriptCallback = Script::Function::Register(rq, "LoadScript", autostartLoadScript);
 	// Load the entire folder to allow mods to extend the entrypoint without copying the whole file.
 	autostartLoadScript(scriptInterface, VfsPath(L"autostart/"));
 
@@ -813,7 +813,7 @@ bool Autostart(const CmdLineArgs& args)
 		}
 	};
 
-	std::optional<ScriptFunction::StatefulCallback<GetTemplate>> getTemplateCallback;
+	std::optional<Script::Function::StatefulCallback<GetTemplate>> getTemplateCallback;
 	if (args.Has("autostart-nonvisual"))
 		getTemplateCallback.emplace(rq, "GetTemplate", GetTemplate{});
 	else
@@ -838,7 +838,7 @@ bool Autostart(const CmdLineArgs& args)
 
 	JS::RootedValue resultValue{rq.cx};
 	JS::RootedValue global(rq.cx, rq.globalValue());
-	if (!ScriptFunction::Call(rq, global,
+	if (!Script::Function::Call(rq, global,
 		args.Has("autostart-client") ? "autostartClient" : "autostartHost", &resultValue,
 		cmdLineArgs, args.Has("autostart-host")) && !resultValue.isObject())
 	{
@@ -885,8 +885,8 @@ bool AutostartVisualReplay(const std::string& replayFile)
 	g_Game->SetPlayerID(-1);
 	g_Game->StartVisualReplay(replayFile);
 
-	ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	Script::Interface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+	Script::Request rq(scriptInterface);
 	JS::RootedValue attrs(rq.cx, g_Game->GetSimulation2()->GetInitAttributes());
 
 	JS::RootedValue playerAssignments(rq.cx);
@@ -910,8 +910,8 @@ bool AutostartVisualReplay(const std::string& replayFile)
 
 void CancelLoad(const CStrW& message)
 {
-	std::shared_ptr<ScriptInterface> pScriptInterface = g_GUI->GetActiveGUI()->GetScriptInterface();
-	ScriptRequest rq(pScriptInterface);
+	std::shared_ptr<Script::Interface> pScriptInterface = g_GUI->GetActiveGUI()->GetScriptInterface();
+	Script::Request rq(pScriptInterface);
 
 	JS::RootedValue global(rq.cx, rq.globalValue());
 
@@ -920,7 +920,7 @@ void CancelLoad(const CStrW& message)
 	if (g_GUI &&
 	    g_GUI->GetPageCount() &&
 		Script::HasProperty(rq, global, "cancelOnLoadGameError"))
-		ScriptFunction::CallVoid(rq, global, "cancelOnLoadGameError", message);
+		Script::Function::CallVoid(rq, global, "cancelOnLoadGameError", message);
 }
 
 bool InDevelopmentCopy()

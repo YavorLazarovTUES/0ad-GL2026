@@ -64,7 +64,7 @@ CDevice::CDevice()
 
 CDevice::~CDevice() = default;
 
-void CDevice::Report(const ScriptRequest& rq, JS::HandleValue settings)
+void CDevice::Report(const Script::Request& rq, JS::HandleValue settings)
 {
 	Script::SetProperty(rq, settings, "name", "dummy");
 }

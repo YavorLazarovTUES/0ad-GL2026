@@ -48,7 +48,7 @@ extern CGame *g_Game;
 #include "maths/Vector3D.h"
 #include "ps/Errors.h"
 #include "ps/XMB/XMBData.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "soundmanager/ISoundManager.h"
 #include "soundmanager/data/SoundData.h"
 

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -28,8 +28,8 @@
 #include "ps/Errors.h"
 #include "ps/Filesystem.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptExceptions.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Exceptions.h"
+#include "scriptinterface/Request.h"
 
 #include <js/Exception.h>
 #include <js/JSON.h>
@@ -38,18 +38,18 @@
 #include <sstream>
 #include <string>
 
-bool Script::ParseJSON(const ScriptRequest& rq, const std::string& string_utf8, JS::MutableHandleValue out)
+bool Script::ParseJSON(const Script::Request& rq, const std::string& string_utf8, JS::MutableHandleValue out)
 {
 	std::wstring attrsW = wstring_from_utf8(string_utf8);
 	std::u16string string(attrsW.begin(), attrsW.end());
 	if (JS_ParseJSON(rq.cx, string.c_str(), (u32)string.size(), out))
 		return true;
 
-	ScriptException::CatchPending(rq);
+	Script::Exception::CatchPending(rq);
 	return false;
 }
 
-void Script::ReadJSONFile(const ScriptRequest& rq, const VfsPath& path, JS::MutableHandleValue out)
+void Script::ReadJSONFile(const Script::Request& rq, const VfsPath& path, JS::MutableHandleValue out)
 {
 	if (!VfsFileExists(path))
 	{
@@ -93,13 +93,13 @@ struct Stringifier
 
 // JS_Stringify takes a mutable object because ToJSON may arbitrarily mutate the value.
 // TODO: it'd be nice to have a non-mutable variant.
-std::string Script::StringifyJSON(const ScriptRequest& rq, JS::MutableHandleValue obj, bool indent)
+std::string Script::StringifyJSON(const Script::Request& rq, JS::MutableHandleValue obj, bool indent)
 {
 	Stringifier str;
 	JS::RootedValue indentVal(rq.cx, indent ? JS::Int32Value(2) : JS::UndefinedValue());
 	if (!JS_Stringify(rq.cx, obj, nullptr, indentVal, &Stringifier::callback, &str))
 	{
-		ScriptException::CatchPending(rq);
+		Script::Exception::CatchPending(rq);
 		return std::string();
 	}
 
@@ -107,7 +107,7 @@ std::string Script::StringifyJSON(const ScriptRequest& rq, JS::MutableHandleValu
 }
 
 
-std::string Script::ToString(const ScriptRequest& rq, JS::MutableHandleValue obj, bool pretty)
+std::string Script::ToString(const Script::Request& rq, JS::MutableHandleValue obj, bool pretty)
 {
 	if (obj.isUndefined())
 		return "(void 0)";
@@ -130,6 +130,6 @@ std::string Script::ToString(const ScriptRequest& rq, JS::MutableHandleValue obj
 	// so fall back to obj.toSource()
 
 	std::wstring source = L"(error)";
-	ScriptFunction::Call(rq, obj, "toSource", source);
+	Script::Function::Call(rq, obj, "toSource", source);
 	return utf8_from_wstring(source);
 }

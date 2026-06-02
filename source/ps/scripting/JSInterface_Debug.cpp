@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -100,14 +100,14 @@ std::wstring GetBuildVersion(bool longerHash = false)
 	return buildVersion;
 }
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
-	ScriptFunction::Register<&GetMicroseconds>(rq, "GetMicroseconds");
-	ScriptFunction::Register<&Crash>(rq, "Crash");
-	ScriptFunction::Register<&DebugWarn>(rq, "DebugWarn");
-	ScriptFunction::Register<&DisplayErrorDialog>(rq, "DisplayErrorDialog");
-	ScriptFunction::Register<&GetBuildDate>(rq, "GetBuildDate");
-	ScriptFunction::Register<&GetBuildTimestamp>(rq, "GetBuildTimestamp");
-	ScriptFunction::Register<&GetBuildVersion>(rq, "GetBuildVersion");
+	Script::Function::Register<&GetMicroseconds>(rq, "GetMicroseconds");
+	Script::Function::Register<&Crash>(rq, "Crash");
+	Script::Function::Register<&DebugWarn>(rq, "DebugWarn");
+	Script::Function::Register<&DisplayErrorDialog>(rq, "DisplayErrorDialog");
+	Script::Function::Register<&GetBuildDate>(rq, "GetBuildDate");
+	Script::Function::Register<&GetBuildTimestamp>(rq, "GetBuildTimestamp");
+	Script::Function::Register<&GetBuildVersion>(rq, "GetBuildVersion");
 }
 }

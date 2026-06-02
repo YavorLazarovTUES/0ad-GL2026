@@ -37,10 +37,10 @@
 #include "ps/containers/StaticVector.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "scriptinterface/StructuredClone.h"
 #include "simulation2/system/Component.h"
 
@@ -90,7 +90,7 @@ static Status ReloadChangedFileCB(void* param, const VfsPath& path)
 	return static_cast<CGUIManager*>(param)->ReloadChangedFile(path);
 }
 
-CGUIManager::CGUIManager(ScriptContext& scriptContext, ScriptInterface& scriptInterface) :
+CGUIManager::CGUIManager(Script::Context& scriptContext, Script::Interface& scriptInterface) :
 	m_ScriptContext{scriptContext},
 	m_ScriptInterface{scriptInterface},
 	m_InputHandler{g_VideoMode.m_InputManager, Input::Slot::GUI, {*this}}
@@ -116,7 +116,7 @@ size_t CGUIManager::GetPageCount() const
 	return m_PageStack.size();
 }
 
-void CGUIManager::SwitchPage(const CStrW& pageName, const ScriptInterface* srcScriptInterface, JS::HandleValue initData)
+void CGUIManager::SwitchPage(const CStrW& pageName, const Script::Interface* srcScriptInterface, JS::HandleValue initData)
 {
 	// The page stack is cleared (including the script context where initData came from),
 	// therefore we have to clone initData.
@@ -124,7 +124,7 @@ void CGUIManager::SwitchPage(const CStrW& pageName, const ScriptInterface* srcSc
 	Script::StructuredClone initDataClone;
 	if (!initData.isUndefined())
 	{
-		ScriptRequest rq(srcScriptInterface);
+		Script::Request rq(srcScriptInterface);
 		initDataClone = Script::WriteStructuredClone(rq, initData);
 	}
 
@@ -165,14 +165,14 @@ CGUIManager::SGUIPage::SGUIPage(const CStrW& pageName, const Script::StructuredC
 {
 }
 
-void CGUIManager::SGUIPage::LoadPage(ScriptContext& scriptContext)
+void CGUIManager::SGUIPage::LoadPage(Script::Context& scriptContext)
 {
 	// If we're hotloading then try to grab some data from the previous page
 	Script::StructuredClone hotloadData;
 	if (gui)
 	{
-		std::shared_ptr<ScriptInterface> scriptInterface = gui->GetScriptInterface();
-		ScriptRequest rq(scriptInterface);
+		std::shared_ptr<Script::Interface> scriptInterface = gui->GetScriptInterface();
+		Script::Request rq(scriptInterface);
 		JS::RootedValue hotloadDataVal(rq.cx, gui->GetHotloadData(rq));
 		hotloadData = Script::WriteStructuredClone(rq, hotloadDataVal);
 	}
@@ -180,7 +180,7 @@ void CGUIManager::SGUIPage::LoadPage(ScriptContext& scriptContext)
 	g_VideoMode.ResetCursor();
 	inputs.clear();
 	gui.reset(new CGUI(scriptContext));
-	const ScriptRequest rq{gui->GetScriptInterface()};
+	const Script::Request rq{gui->GetScriptInterface()};
 
 	for (const char* name : {START_ATLAS, OPEN_REQUEST})
 	{
@@ -267,7 +267,7 @@ void CGUIManager::SGUIPage::LoadPage(ScriptContext& scriptContext)
 
 JS::Value CGUIManager::SGUIPage::GetPromise()
 {
-	const ScriptRequest rq{gui->GetScriptInterface()};
+	const Script::Request rq{gui->GetScriptInterface()};
 	if (receivingPromise == nullptr)
 	{
 		receivingPromise = std::make_shared<JS::PersistentRootedObject>(rq.cx,
@@ -285,7 +285,7 @@ std::optional<CGUIManager::SGUIPage::CloseResult> CGUIManager::SGUIPage::MaybeCl
 	// Make sure we unfocus anything on the current page.
 	gui->SendFocusMessage(GUIM_LOST_FOCUS);
 
-	const ScriptRequest rq{gui->GetScriptInterface()};
+	const Script::Request rq{gui->GetScriptInterface()};
 	JS::RootedValue arg{rq.cx, JS::GetPromiseResult(*sendingPromise)};
 	const bool rejected{JS::GetPromiseState(*sendingPromise) == JS::PromiseState::Rejected};
 
@@ -327,8 +327,8 @@ void CGUIManager::SGUIPage::Refocus(const Close& result)
 {
 	ENSURE(receivingPromise);
 
-	std::shared_ptr<ScriptInterface> scriptInterface = gui->GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	std::shared_ptr<Script::Interface> scriptInterface = gui->GetScriptInterface();
+	Script::Request rq(scriptInterface);
 
 	JS::RootedObject globalObj(rq.cx, rq.glob);
 
@@ -379,10 +379,10 @@ Input::Reaction CGUIManager::HandleEvent(const SDL_Event& ev)
 
 	{
 		PROFILE("handleInputBeforeGui");
-		ScriptRequest rq(*top()->GetScriptInterface());
+		Script::Request rq(*top()->GetScriptInterface());
 
 		JS::RootedValue global(rq.cx, rq.globalValue());
-		if (ScriptFunction::Call(rq, global, "handleInputBeforeGui", handled, ev, top()->FindObjectUnderMouse()))
+		if (Script::Function::Call(rq, global, "handleInputBeforeGui", handled, ev, top()->FindObjectUnderMouse()))
 			if (handled)
 				return Input::Reaction::HANDLED;
 	}
@@ -396,11 +396,11 @@ Input::Reaction CGUIManager::HandleEvent(const SDL_Event& ev)
 
 	{
 		// We can't take the following lines out of this scope because top() may be another gui page than it was when calling handleInputBeforeGui!
-		ScriptRequest rq(*top()->GetScriptInterface());
+		Script::Request rq(*top()->GetScriptInterface());
 		JS::RootedValue global(rq.cx, rq.globalValue());
 
 		PROFILE("handleInputAfterGui");
-		if (ScriptFunction::Call(rq, global, "handleInputAfterGui", handled, ev))
+		if (Script::Function::Call(rq, global, "handleInputAfterGui", handled, ev))
 			if (handled)
 				return Input::Reaction::HANDLED;
 	}
@@ -435,7 +435,7 @@ std::optional<bool> CGUIManager::TickObjects()
 
 	for (const SGUIPage& p : pageStack)
 	{
-		const ScriptRequest rq{p.gui->GetScriptInterface()};
+		const Script::Request rq{p.gui->GetScriptInterface()};
 		JS::RootedObject newSendingPromise{rq.cx, p.gui->TickObjects(rq, p.initData,
 			utf8_from_wstring(p.m_Name))};
 		if (newSendingPromise)
@@ -503,8 +503,8 @@ const CParamNode& CGUIManager::GetTemplate(const std::string& templateName)
 
 void CGUIManager::DisplayLoadProgress(int percent, const wchar_t* pending_task)
 {
-	const ScriptInterface& scriptInterface = *(GetActiveGUI()->GetScriptInterface());
-	ScriptRequest rq(scriptInterface);
+	const Script::Interface& scriptInterface = *(GetActiveGUI()->GetScriptInterface());
+	Script::Request rq(scriptInterface);
 
 	JS::RootedValueVector paramData(rq.cx);
 

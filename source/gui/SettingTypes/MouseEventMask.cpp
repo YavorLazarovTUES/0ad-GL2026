@@ -32,7 +32,7 @@
 #include "ps/CStr.h"
 #include "ps/CacheLoader.h"
 #include "ps/Filesystem.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
 
 #include <cmath>
 #include <cstddef>
@@ -63,12 +63,12 @@ CGUIMouseEventMask::~CGUIMouseEventMask()
 {
 }
 
-void CGUIMouseEventMask::ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue Value)
+void CGUIMouseEventMask::ToJSVal(const Script::Request& rq, JS::MutableHandleValue Value)
 {
 	Script::ToJSVal(rq, Value, m_Spec);
 }
 
-bool CGUIMouseEventMask::DoFromJSVal(const ScriptRequest& rq, JS::HandleValue value)
+bool CGUIMouseEventMask::DoFromJSVal(const Script::Request& rq, JS::HandleValue value)
 {
 	CStrW spec;
 	if (!Script::FromJSVal(rq, value, spec))

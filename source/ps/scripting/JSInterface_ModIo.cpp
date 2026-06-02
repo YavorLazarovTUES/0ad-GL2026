@@ -25,7 +25,7 @@
 #include "ps/ModIo.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
@@ -39,7 +39,7 @@ namespace JS { class CallArgs; }
 
 namespace JSI_ModIo
 {
-ModIo* ModIoGetter(const ScriptRequest&, JS::CallArgs&)
+ModIo* ModIoGetter(const Script::Request&, JS::CallArgs&)
 {
 	if (!g_ModIo)
 	{
@@ -60,7 +60,7 @@ void StartGetGameId()
 }
 
 // TODO: could provide a FromJSVal for ModIoModData
-JS::Value GetMods(const ScriptRequest& rq)
+JS::Value GetMods(const Script::Request& rq)
 {
 	if (!g_ModIo)
 	{
@@ -105,7 +105,7 @@ const std::map<DownloadProgressStatus, std::string> statusStrings = {
 };
 
 // TODO: could provide a FromJSVal for DownloadProgressData
-JS::Value GetDownloadProgress(const ScriptRequest& rq)
+JS::Value GetDownloadProgress(const Script::Request& rq)
 {
 	if (!g_ModIo)
 	{
@@ -125,14 +125,14 @@ JS::Value GetDownloadProgress(const ScriptRequest& rq)
 	return progressData;
 }
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
-	ScriptFunction::Register<&StartGetGameId>(rq, "ModIoStartGetGameId");
-	ScriptFunction::Register<&ModIo::StartListMods, &ModIoGetter>(rq, "ModIoStartListMods");
-	ScriptFunction::Register<&ModIo::StartDownloadMod, &ModIoGetter>(rq, "ModIoStartDownloadMod");
-	ScriptFunction::Register<&ModIo::AdvanceRequest, &ModIoGetter>(rq, "ModIoAdvanceRequest");
-	ScriptFunction::Register<&ModIo::CancelRequest, &ModIoGetter>(rq, "ModIoCancelRequest");
-	ScriptFunction::Register<&GetMods>(rq, "ModIoGetMods");
-	ScriptFunction::Register<&GetDownloadProgress>(rq, "ModIoGetDownloadProgress");
+	Script::Function::Register<&StartGetGameId>(rq, "ModIoStartGetGameId");
+	Script::Function::Register<&ModIo::StartListMods, &ModIoGetter>(rq, "ModIoStartListMods");
+	Script::Function::Register<&ModIo::StartDownloadMod, &ModIoGetter>(rq, "ModIoStartDownloadMod");
+	Script::Function::Register<&ModIo::AdvanceRequest, &ModIoGetter>(rq, "ModIoAdvanceRequest");
+	Script::Function::Register<&ModIo::CancelRequest, &ModIoGetter>(rq, "ModIoCancelRequest");
+	Script::Function::Register<&GetMods>(rq, "ModIoGetMods");
+	Script::Function::Register<&GetDownloadProgress>(rq, "ModIoGetDownloadProgress");
 }
 }

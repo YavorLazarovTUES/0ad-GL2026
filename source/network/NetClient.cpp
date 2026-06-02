@@ -39,8 +39,8 @@
 #include "ps/Profile.h"
 #include "ps/Threading.h"
 #include "scriptinterface/JSON.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/system/TurnManager.h"
 
@@ -364,17 +364,17 @@ void CNetClient::CheckServerConnection()
 	}
 }
 
-JSObject* CNetClient::GetNextGUIMessage(const ScriptInterface& guiInterface)
+JSObject* CNetClient::GetNextGUIMessage(const Script::Interface& guiInterface)
 {
 	Unregister(nullptr);
-	const ScriptRequest rq{guiInterface};
+	const Script::Request rq{guiInterface};
 	m_GuiMessagePoll.emplace(GuiPollData{guiInterface, {rq.cx, JS::NewPromiseObject(rq.cx, nullptr)}});
 
 	FetchMessage();
 	return m_GuiMessagePoll.value().promise;
 }
 
-void CNetClient::Unregister(const ScriptInterface* guiInterface)
+void CNetClient::Unregister(const Script::Interface* guiInterface)
 {
 	if (!m_GuiMessagePoll.has_value() ||
 		(guiInterface && &m_GuiMessagePoll.value().interface != guiInterface))
@@ -382,7 +382,7 @@ void CNetClient::Unregister(const ScriptInterface* guiInterface)
 		return;
 	}
 	auto& [interface, promise] = m_GuiMessagePoll.value();
-	const ScriptRequest oldRq{interface};
+	const Script::Request oldRq{interface};
 	JS::ResolvePromise(oldRq.cx, promise, JS::UndefinedHandleValue);
 	m_GuiMessagePoll.reset();
 }
@@ -395,7 +395,7 @@ void CNetClient::FetchMessage()
 		return;
 	}
 
-	const ScriptRequest rq{m_GuiMessagePoll.value().interface};
+	const Script::Request rq{m_GuiMessagePoll.value().interface};
 	JS::RootedValue message{rq.cx};
 	Script::ReadStructuredClone(rq, std::move(m_GuiMessageQueue.front()), &message);
 	m_GuiMessageQueue.pop_front();
@@ -405,7 +405,7 @@ void CNetClient::FetchMessage()
 
 std::string CNetClient::TestReadGuiMessages()
 {
-	ScriptRequest rq(GetScriptInterface());
+	Script::Request rq(GetScriptInterface());
 
 	std::string r;
 	while (true)
@@ -422,14 +422,14 @@ std::string CNetClient::TestReadGuiMessages()
 	return r;
 }
 
-const ScriptInterface& CNetClient::GetScriptInterface()
+const Script::Interface& CNetClient::GetScriptInterface()
 {
 	return m_Game->GetSimulation2()->GetScriptInterface();
 }
 
 void CNetClient::PostPlayerAssignmentsToScript()
 {
-	ScriptRequest rq(GetScriptInterface());
+	Script::Request rq(GetScriptInterface());
 
 	JS::RootedValue newAssignments(rq.cx);
 	Script::CreateObject(rq, &newAssignments);
@@ -491,7 +491,7 @@ void CNetClient::HandleDisconnect(u32 reason)
 	SetCurrState(NCS_UNCONNECTED);
 }
 
-void CNetClient::SendGameSetupMessage(JS::MutableHandleValue attrs, const ScriptInterface& scriptInterface)
+void CNetClient::SendGameSetupMessage(JS::MutableHandleValue attrs, const Script::Interface& scriptInterface)
 {
 	CGameSetupMessage gameSetup(scriptInterface);
 	gameSetup.m_Data = attrs;
@@ -836,8 +836,8 @@ bool CNetClient::OnGameStart(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 
 	CGameStartMessage* message = static_cast<CGameStartMessage*>(event->GetParamRef());
 
-	const ScriptInterface& scriptInterface{client->m_Game->GetSimulation2()->GetScriptInterface()};
-	ScriptRequest rq{scriptInterface};
+	const Script::Interface& scriptInterface{client->m_Game->GetSimulation2()->GetScriptInterface()};
+	Script::Request rq{scriptInterface};
 	JS::RootedValue initAttribs{rq.cx};
 	Script::ParseJSON(rq, message->m_InitAttributes, &initAttribs);
 
@@ -851,8 +851,8 @@ bool CNetClient::OnSavedGameStart(CNetClient* client, CFsmEvent<CNetMessage*>* e
 	ENSURE(event->GetType() == static_cast<uint>(NMT_SAVED_GAME_START));
 	CGameSavedStartMessage* message{static_cast<CGameSavedStartMessage*>(event->GetParamRef())};
 
-	const ScriptInterface& scriptInterface{client->m_Game->GetSimulation2()->GetScriptInterface()};
-	ScriptRequest rq{scriptInterface};
+	const Script::Interface& scriptInterface{client->m_Game->GetSimulation2()->GetScriptInterface()};
+	Script::Request rq{scriptInterface};
 	const std::shared_ptr<JS::RootedValue> initAttribs{std::make_shared<JS::RootedValue>(rq.cx)};
 	Script::ParseJSON(rq, message->m_InitAttributes, &*initAttribs);
 
@@ -1058,8 +1058,8 @@ bool CNetClient::OnFlare(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 
 	CFlareMessage* message = static_cast<CFlareMessage*>(event->GetParamRef());
 
-	const ScriptInterface& scriptInterface = client->m_Game->GetSimulation2()->GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	const Script::Interface& scriptInterface = client->m_Game->GetSimulation2()->GetScriptInterface();
+	Script::Request rq(scriptInterface);
 	JS::RootedValue position(rq.cx);
 	Script::CreateObject(
 		rq, &position,

@@ -34,8 +34,8 @@
 #include "ps/VideoMode.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
-#include "scriptinterface/ScriptForward.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ForwardDeclarations.h"
+#include "scriptinterface/Interface.h"
 #include "tools/atlas/GameInterface/ActorViewer.h"
 #include "tools/atlas/GameInterface/CommandProc.h"
 #include "tools/atlas/GameInterface/GameLoop.h"
@@ -74,7 +74,7 @@ const int g_InitFlags = INIT_HAVE_VMODE | INIT_NO_GUI;
 // This isn't used directly. When it's emplaced and when it's reset it does mutate `g_Logger`.
 std::optional<FileLogger> g_FileLogger;
 
-std::optional<ScriptInterface> g_ScriptInterface;
+std::optional<Script::Interface> g_ScriptInterface;
 std::unique_ptr<InputHandlers> g_InputHandlers;
 }
 

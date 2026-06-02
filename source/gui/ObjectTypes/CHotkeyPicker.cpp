@@ -26,8 +26,8 @@
 #include "lib/timer.h"
 #include "ps/CLogger.h"
 #include "ps/KeyName.h"
-#include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Request.h"
 
 #include <SDL_events.h>
 #include <SDL_mouse.h>
@@ -43,13 +43,13 @@ const CStr CHotkeyPicker::EventNameCombination = "Combination";
 const CStr CHotkeyPicker::EventNameKeyChange = "KeyChange";
 
 // Don't send the scancode, JS doesn't care.
-template<> void Script::ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret, const CHotkeyPicker::Key& val)
+template<> void Script::ToJSVal(const Script::Request& rq, JS::MutableHandleValue ret, const CHotkeyPicker::Key& val)
 {
 	Script::ToJSVal(rq, ret, val.scancodeName);
 }
 
 // Unused, but JSVAL_VECTOR requires it.
-template<> bool Script::FromJSVal(const ScriptRequest&, const JS::HandleValue, CHotkeyPicker::Key&)
+template<> bool Script::FromJSVal(const Script::Request&, const JS::HandleValue, CHotkeyPicker::Key&)
 {
 	LOGWARNING("FromJSVal<CHotkeyPicker>: Not implemented");
 	return false;
@@ -65,7 +65,7 @@ CHotkeyPicker::CHotkeyPicker(CGUI& pGUI) : IGUIObject(pGUI), m_TimeToCombination
 
 void CHotkeyPicker::FireEvent(const CStr& event)
 {
-	ScriptRequest rq(*m_pGUI.GetScriptInterface());
+	Script::Request rq(*m_pGUI.GetScriptInterface());
 
 	JS::RootedValueArray<1> args(rq.cx);
 	JS::RootedValue keys(rq.cx);

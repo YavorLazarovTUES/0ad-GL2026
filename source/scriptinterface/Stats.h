@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -15,8 +15,8 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef INCLUDED_SCRIPTSTATS
-#define INCLUDED_SCRIPTSTATS
+#ifndef INCLUDED_SCRIPT_STATS
+#define INCLUDED_SCRIPT_STATS
 
 #include "lib/code_annotation.h"
 #include "ps/CStr.h"
@@ -27,7 +27,9 @@
 #include <utility>
 #include <vector>
 
-class ScriptInterface;
+namespace Script { class Interface; }
+
+namespace Script {
 
 class CScriptStatsTable : public AbstractProfileTable
 {
@@ -35,8 +37,8 @@ class CScriptStatsTable : public AbstractProfileTable
 public:
 	CScriptStatsTable();
 
-	void Add(const ScriptInterface* scriptInterface, const std::string& title);
-	void Remove(const ScriptInterface* scriptInterface);
+	void Add(const Interface* scriptInterface, const std::string& title);
+	void Remove(const Interface* scriptInterface);
 
 	CStr GetName() override;
 	CStr GetTitle() override;
@@ -46,12 +48,14 @@ public:
 	AbstractProfileTable* GetChild(size_t row) override;
 
 private:
-	std::vector<std::pair<const ScriptInterface*, std::string> > m_ScriptInterfaces;
+	std::vector<std::pair<const Interface*, std::string> > m_ScriptInterfaces;
 	std::vector<ProfileColumn> m_ColumnDescriptions;
 };
 
+}
+
 // To simplify the UI we want to use a single table for all script interfaces,
 // so just make it a global that they can all add themselves to
-extern CScriptStatsTable* g_ScriptStatsTable;
+extern Script::CScriptStatsTable* g_ScriptStatsTable;
 
-#endif // INCLUDED_SCRIPTSTATS
+#endif // INCLUDED_SCRIPT_STATS

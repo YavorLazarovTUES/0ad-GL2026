@@ -36,8 +36,8 @@
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Request.h"
 
 #include <algorithm>
 #include <array>
@@ -56,7 +56,7 @@
 #include <string_view>
 #include <system_error>
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
 namespace JSI_VFS
 {
@@ -119,11 +119,11 @@ bool PathRestrictionMet(const std::wstring& filePath)
 // state held across multiple BuildDirEntListCB calls; init by BuildDirEntList.
 struct BuildDirEntListState
 {
-	const ScriptRequest& rq;
+	const Script::Request& rq;
 	JS::PersistentRootedObject filename_array;
 	int cur_idx;
 
-	BuildDirEntListState(const ScriptRequest& rq)
+	BuildDirEntListState(const Script::Request& rq)
 		: rq(rq),
 		filename_array(rq.cx),
 		cur_idx(0)
@@ -150,7 +150,7 @@ static Status BuildDirEntListCB(const VfsPath& pathname, const CFileInfo&, uintp
 //   filter_string: default "" matches everything; otherwise, see vfs_next_dirent.
 //   recurse: should subdirectories be included in the search? default false.
 template<auto& restriction>
-JS::Value BuildDirEntList(const ScriptRequest& rq, const std::wstring& path, const std::wstring& filterStr,
+JS::Value BuildDirEntList(const Script::Request& rq, const std::wstring& path, const std::wstring& filterStr,
 	bool recurse)
 {
 	if (!PathRestrictionMet<restriction>(path))
@@ -190,7 +190,7 @@ unsigned int GetFileSize(const std::wstring& filename)
 
 // Return file contents in a string. Assume file is UTF-8 encoded text.
 template<auto& restriction>
-JS::Value ReadFile(const ScriptRequest& rq, const std::wstring& filename)
+JS::Value ReadFile(const Script::Request& rq, const std::wstring& filename)
 {
 	if (!PathRestrictionMet<restriction>(filename))
 		return JS::NullValue();
@@ -212,7 +212,7 @@ JS::Value ReadFile(const ScriptRequest& rq, const std::wstring& filename)
 
 // Return file contents as an array of lines. Assume file is UTF-8 encoded text.
 template<auto& restriction>
-JS::Value ReadFileLines(const ScriptRequest& rq, const std::wstring& filename)
+JS::Value ReadFileLines(const Script::Request& rq, const std::wstring& filename)
 {
 	if (!PathRestrictionMet<restriction>(filename))
 		return JS::NullValue();
@@ -247,9 +247,9 @@ JS::Value ReadFileLines(const ScriptRequest& rq, const std::wstring& filename)
 
 // Return file contents parsed as a JS Object
 template<auto& restriction>
-JS::Value ReadJSONFile(const ScriptInterface& scriptInterface, const std::wstring& filePath)
+JS::Value ReadJSONFile(const Script::Interface& scriptInterface, const std::wstring& filePath)
 {
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 	if (!PathRestrictionMet<restriction>(filePath))
 		return JS::NullValue();
 
@@ -260,10 +260,10 @@ JS::Value ReadJSONFile(const ScriptInterface& scriptInterface, const std::wstrin
 
 // Save given JS Object to a JSON file
 template<auto& restriction>
-void WriteJSONFile(const ScriptInterface& scriptInterface, const std::wstring& filePath,
+void WriteJSONFile(const Script::Interface& scriptInterface, const std::wstring& filePath,
 	JS::HandleValue val1)
 {
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 	if (!PathRestrictionMet<restriction>(filePath))
 		return;
 
@@ -301,32 +301,32 @@ bool DeleteCampaignSave(const CStrW& filePath)
 	return !ec;
 }
 
-void RegisterScriptFunctions_ReadWriteAnywhere(const ScriptRequest& rq,
+void RegisterScriptFunctions_ReadWriteAnywhere(const Script::Request& rq,
 	const u16 flags /*= JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT */)
 {
-	ScriptFunction::Register<&BuildDirEntList<PathRestriction::GUI>>(rq, "ListDirectoryFiles", flags);
-	ScriptFunction::Register<&FileExists<PathRestriction::GUI>>(rq, "FileExists", flags);
-	ScriptFunction::Register<&GetFileSize>(rq, "GetFileSize", flags);
-	ScriptFunction::Register<&ReadFile<PathRestriction::GUI>>(rq, "ReadFile", flags);
-	ScriptFunction::Register<&ReadFileLines<PathRestriction::GUI>>(rq, "ReadFileLines", flags);
-	ScriptFunction::Register<&ReadJSONFile<PathRestriction::GUI>>(rq, "ReadJSONFile", flags);
-	ScriptFunction::Register<&WriteJSONFile<PathRestriction::GUI>>(rq, "WriteJSONFile", flags);
-	ScriptFunction::Register<&DeleteCampaignSave>(rq, "DeleteCampaignSave", flags);
+	Script::Function::Register<&BuildDirEntList<PathRestriction::GUI>>(rq, "ListDirectoryFiles", flags);
+	Script::Function::Register<&FileExists<PathRestriction::GUI>>(rq, "FileExists", flags);
+	Script::Function::Register<&GetFileSize>(rq, "GetFileSize", flags);
+	Script::Function::Register<&ReadFile<PathRestriction::GUI>>(rq, "ReadFile", flags);
+	Script::Function::Register<&ReadFileLines<PathRestriction::GUI>>(rq, "ReadFileLines", flags);
+	Script::Function::Register<&ReadJSONFile<PathRestriction::GUI>>(rq, "ReadJSONFile", flags);
+	Script::Function::Register<&WriteJSONFile<PathRestriction::GUI>>(rq, "WriteJSONFile", flags);
+	Script::Function::Register<&DeleteCampaignSave>(rq, "DeleteCampaignSave", flags);
 }
 
-void RegisterScriptFunctions_ReadOnlySimulation(const ScriptRequest& rq,
+void RegisterScriptFunctions_ReadOnlySimulation(const Script::Request& rq,
 	const u16 flags /*= JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT */)
 {
-	ScriptFunction::Register<&BuildDirEntList<PathRestriction::SIMULATION>>(rq, "ListDirectoryFiles", flags);
-	ScriptFunction::Register<&FileExists<PathRestriction::SIMULATION>>(rq, "FileExists", flags);
-	ScriptFunction::Register<&ReadJSONFile<PathRestriction::SIMULATION>>(rq, "ReadJSONFile", flags);
+	Script::Function::Register<&BuildDirEntList<PathRestriction::SIMULATION>>(rq, "ListDirectoryFiles", flags);
+	Script::Function::Register<&FileExists<PathRestriction::SIMULATION>>(rq, "FileExists", flags);
+	Script::Function::Register<&ReadJSONFile<PathRestriction::SIMULATION>>(rq, "ReadJSONFile", flags);
 }
 
-void RegisterScriptFunctions_ReadOnlySimulationMaps(const ScriptRequest& rq,
+void RegisterScriptFunctions_ReadOnlySimulationMaps(const Script::Request& rq,
 	const u16 flags /*= JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT */)
 {
-	ScriptFunction::Register<&BuildDirEntList<PathRestriction::MAPS>>(rq, "ListDirectoryFiles", flags);
-	ScriptFunction::Register<&FileExists<PathRestriction::MAPS>>(rq, "FileExists", flags);
-	ScriptFunction::Register<&ReadJSONFile<PathRestriction::MAPS>>(rq, "ReadJSONFile", flags);
+	Script::Function::Register<&BuildDirEntList<PathRestriction::MAPS>>(rq, "ListDirectoryFiles", flags);
+	Script::Function::Register<&FileExists<PathRestriction::MAPS>>(rq, "FileExists", flags);
+	Script::Function::Register<&ReadJSONFile<PathRestriction::MAPS>>(rq, "ReadJSONFile", flags);
 }
 }

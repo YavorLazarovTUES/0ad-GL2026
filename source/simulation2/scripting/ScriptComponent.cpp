@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -27,49 +27,49 @@
 
 #include <string>
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
-CComponentTypeScript::CComponentTypeScript(const ScriptInterface& scriptInterface, JS::HandleValue instance) :
+CComponentTypeScript::CComponentTypeScript(const Script::Interface& scriptInterface, JS::HandleValue instance) :
 	m_ScriptInterface(scriptInterface), m_Instance(instance)
 {}
 
 void CComponentTypeScript::Init(CComponentManager& cmpMgr, const CParamNode& paramNode, entity_id_t ent)
 {
 	cmpMgr.RegisterTrace(ent, m_Instance);
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 	Script::SetProperty(rq, GetInstance(), "entity", (int)ent, true, false);
 	Script::SetProperty(rq, GetInstance(), "template", paramNode, true, false);
-	ScriptFunction::CallVoid(rq, GetInstance(), "Init");
+	Script::Function::CallVoid(rq, GetInstance(), "Init");
 }
 
 void CComponentTypeScript::Deinit()
 {
-	ScriptRequest rq(m_ScriptInterface);
-	ScriptFunction::CallVoid(rq, GetInstance(), "Deinit");
+	Script::Request rq(m_ScriptInterface);
+	Script::Function::CallVoid(rq, GetInstance(), "Deinit");
 }
 
 bool CComponentTypeScript::HasMessageHandler(const CMessage& msg, const bool global)
 {
-	const ScriptRequest rq(m_ScriptInterface);
+	const Script::Request rq(m_ScriptInterface);
 	return Script::HasProperty(rq, GetInstance(), global ? msg.GetScriptGlobalHandlerName() :
 		msg.GetScriptHandlerName());
 }
 
 void CComponentTypeScript::HandleMessage(const CMessage& msg, bool global)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 
 	const char* name = global ? msg.GetScriptGlobalHandlerName() : msg.GetScriptHandlerName();
 
 	JS::RootedValue msgVal(rq.cx, msg.ToJSValCached(rq));
 
-	if (!ScriptFunction::CallVoid(rq, GetInstance(), name, msgVal))
+	if (!Script::Function::CallVoid(rq, GetInstance(), name, msgVal))
 		LOGERROR("Script message handler %s failed", name);
 }
 
 void CComponentTypeScript::Serialize(ISerializer& serialize)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 
 	try
 	{
@@ -91,7 +91,7 @@ void CComponentTypeScript::Deserialize(CComponentManager& cmpMgr, const CParamNo
 {
 	cmpMgr.RegisterTrace(ent, m_Instance);
 
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 
 	Script::SetProperty(rq, GetInstance(), "entity", (int)ent, true, false);
 	Script::SetProperty(rq, GetInstance(), "template", paramNode, true, false);

@@ -26,8 +26,8 @@
 
 class CmdLineArgs;
 class Paths;
-class ScriptContext;
-class ScriptInterface;
+namespace Script { class Context; }
+namespace Script { class Interface; }
 
 /**
  * initialize global modules that are be needed before Init.
@@ -80,8 +80,8 @@ using InputHandlers = std::queue<Input::Handler<Input::Reaction(&)(const SDL_Eve
  * `ShutdownNetworkAndUI` has to be called later.
  */
 [[nodiscard]] std::unique_ptr<InputHandlers> InitGraphics(const CmdLineArgs& args, int flags,
-	const std::vector<CStr>& installedMods, ScriptContext& scriptContext,
-	ScriptInterface& scriptInterface);
+	const std::vector<CStr>& installedMods, Script::Context& scriptContext,
+	Script::Interface& scriptInterface);
 
 /**
  * `ShutdownNetworkAndUI` has to be called later.

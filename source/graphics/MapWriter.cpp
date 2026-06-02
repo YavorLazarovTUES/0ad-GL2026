@@ -44,7 +44,7 @@
 #include "renderer/PostprocManager.h"
 #include "renderer/SkyManager.h"
 #include "renderer/WaterManager.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpCinemaManager.h"
 #include "simulation2/components/ICmpGarrisonHolder.h"

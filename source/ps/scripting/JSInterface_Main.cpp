@@ -37,7 +37,7 @@
 #include "ps/Globals.h"
 #include "ps/Util.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 #include "tools/atlas/GameInterface/GameLoop.h"
 
 #include <js/RootingAPI.h>
@@ -45,7 +45,7 @@
 #include <js/Value.h>
 #include <string>
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
 extern void QuitEngine(int exitStatus);
 
@@ -76,9 +76,9 @@ std::wstring GetMatchID()
 	return ps_generate_guid().FromUTF8();
 }
 
-JS::Value LoadMapSettings(const ScriptInterface& scriptInterface, const VfsPath& pathname)
+JS::Value LoadMapSettings(const Script::Interface& scriptInterface, const VfsPath& pathname)
 {
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 
 	CMapSummaryReader reader;
 
@@ -134,18 +134,18 @@ std::string CalculateMD5(const std::string& input)
 	return Hexify(digest, MD5::DIGESTSIZE);
 }
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
-	ScriptFunction::Register<&QuitEngine>(rq, "Exit");
-	ScriptFunction::Register<&AtlasIsAvailable>(rq, "AtlasIsAvailable");
-	ScriptFunction::Register<&IsAtlasRunning>(rq, "IsAtlasRunning");
-	ScriptFunction::Register<&OpenURL>(rq, "OpenURL");
-	ScriptFunction::Register<&GetSystemUsername>(rq, "GetSystemUsername");
-	ScriptFunction::Register<&GetMatchID>(rq, "GetMatchID");
-	ScriptFunction::Register<&LoadMapSettings>(rq, "LoadMapSettings");
-	ScriptFunction::Register<&GetFps>(rq, "GetFPS");
-	ScriptFunction::Register<&GetTextSize>(rq, "GetTextSize");
-	ScriptFunction::Register<&GetTextWidth>(rq, "GetTextWidth");
-	ScriptFunction::Register<&CalculateMD5>(rq, "CalculateMD5");
+	Script::Function::Register<&QuitEngine>(rq, "Exit");
+	Script::Function::Register<&AtlasIsAvailable>(rq, "AtlasIsAvailable");
+	Script::Function::Register<&IsAtlasRunning>(rq, "IsAtlasRunning");
+	Script::Function::Register<&OpenURL>(rq, "OpenURL");
+	Script::Function::Register<&GetSystemUsername>(rq, "GetSystemUsername");
+	Script::Function::Register<&GetMatchID>(rq, "GetMatchID");
+	Script::Function::Register<&LoadMapSettings>(rq, "LoadMapSettings");
+	Script::Function::Register<&GetFps>(rq, "GetFPS");
+	Script::Function::Register<&GetTextSize>(rq, "GetTextSize");
+	Script::Function::Register<&GetTextWidth>(rq, "GetTextWidth");
+	Script::Function::Register<&CalculateMD5>(rq, "CalculateMD5");
 }
 }

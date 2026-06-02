@@ -24,7 +24,7 @@
 #include "ps/CStr.h"
 #include "ps/VideoMode.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "scriptinterface/StructuredClone.h"
 #include "simulation2/system/Component.h"
 
@@ -38,7 +38,7 @@ namespace JSI_GUIManager
 // Note that the initData argument may only contain clonable data.
 // Functions aren't supported for example!
 // It returns a promise.
-JS::Value OpenChildPage(const ScriptRequest& rq, const std::wstring& name, JS::HandleValue initData)
+JS::Value OpenChildPage(const Script::Request& rq, const std::wstring& name, JS::HandleValue initData)
 {
 	return g_GUI->OpenChildPage(name, Script::WriteStructuredClone(rq, initData));
 }
@@ -64,17 +64,17 @@ CParamNode GetTemplate(const std::string& templateName)
 }
 
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
-	ScriptFunction::Register<&OpenChildPage>(rq, "OpenChildPage");
-	ScriptFunction::Register<&SetCursor>(rq, "SetCursor");
-	ScriptFunction::Register<&ResetCursor>(rq, "ResetCursor");
-	ScriptFunction::Register<&TemplateExists>(rq, "TemplateExists");
-	ScriptFunction::Register<&GetTemplate>(rq, "GetTemplate");
+	Script::Function::Register<&OpenChildPage>(rq, "OpenChildPage");
+	Script::Function::Register<&SetCursor>(rq, "SetCursor");
+	Script::Function::Register<&ResetCursor>(rq, "ResetCursor");
+	Script::Function::Register<&TemplateExists>(rq, "TemplateExists");
+	Script::Function::Register<&GetTemplate>(rq, "GetTemplate");
 
-	ScriptFunction::Register<&CGUI::TryFindObjectByName, &ScriptInterface::ObjectFromCBData<CGUI>>(rq, "TryGetGUIObjectByName");
-	ScriptFunction::Register<&CGUI::FindObjectByName, &ScriptInterface::ObjectFromCBData<CGUI>>(rq, "GetGUIObjectByName");
-	ScriptFunction::Register<&CGUI::SetGlobalHotkey, &ScriptInterface::ObjectFromCBData<CGUI>>(rq, "SetGlobalHotkey");
-	ScriptFunction::Register<&CGUI::UnsetGlobalHotkey, &ScriptInterface::ObjectFromCBData<CGUI>>(rq, "UnsetGlobalHotkey");
+	Script::Function::Register<&CGUI::TryFindObjectByName, &Script::Interface::ObjectFromCBData<CGUI>>(rq, "TryGetGUIObjectByName");
+	Script::Function::Register<&CGUI::FindObjectByName, &Script::Interface::ObjectFromCBData<CGUI>>(rq, "GetGUIObjectByName");
+	Script::Function::Register<&CGUI::SetGlobalHotkey, &Script::Interface::ObjectFromCBData<CGUI>>(rq, "SetGlobalHotkey");
+	Script::Function::Register<&CGUI::UnsetGlobalHotkey, &Script::Interface::ObjectFromCBData<CGUI>>(rq, "UnsetGlobalHotkey");
 }
 }

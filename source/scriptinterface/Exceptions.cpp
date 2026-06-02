@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@
 
 #include "precompiled.h"
 
-#include "ScriptExceptions.h"
+#include "Exceptions.h"
 
 #include "lib/code_annotation.h"
 #include "lib/debug.h"
@@ -26,8 +26,8 @@
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Request.h"
 
 #include <cstdarg>
 #include <js/CharacterEncoding.h>
@@ -39,12 +39,14 @@
 #include <sstream>
 #include <string>
 
-bool ScriptException::IsPending(const ScriptRequest& rq)
+namespace Script {
+
+bool Exception::IsPending(const Request& rq)
 {
 	return JS_IsExceptionPending(rq.cx);
 }
 
-bool ScriptException::CatchPending(const ScriptRequest& rq)
+bool Exception::CatchPending(const Request& rq)
 {
 	if (!JS_IsExceptionPending(rq.cx))
 		return false;
@@ -63,7 +65,7 @@ bool ScriptException::CatchPending(const ScriptRequest& rq)
 	if (!excn.isObject())
 	{
 		CStr error;
-		Script::FromJSVal(rq, excn, error);
+		FromJSVal(rq, excn, error);
 		LOGERROR("JavaScript error: %s", error);
 		return true;
 	}
@@ -74,7 +76,7 @@ bool ScriptException::CatchPending(const ScriptRequest& rq)
 	if (!report)
 	{
 		CStr error;
-		Script::FromJSVal(rq, excn, error);
+		FromJSVal(rq, excn, error);
 		LOGERROR("JavaScript error: %s", error);
 		return true;
 	}
@@ -95,7 +97,7 @@ bool ScriptException::CatchPending(const ScriptRequest& rq)
 	if (!stackVal.isNull())
 	{
 		std::string stackText;
-		ScriptFunction::Call(rq, stackVal, "toString", stackText);
+		Script::Function::Call(rq, stackVal, "toString", stackText);
 
 		std::istringstream stream(stackText);
 		for (std::string line; std::getline(stream, line);)
@@ -106,7 +108,7 @@ bool ScriptException::CatchPending(const ScriptRequest& rq)
 	return true;
 }
 
-void ScriptException::Raise(const ScriptRequest& rq, const char* format, ...)
+void Exception::Raise(const Request& rq, const char* format, ...)
 {
 	va_list ap;
 	va_start(ap, format);
@@ -117,3 +119,5 @@ void ScriptException::Raise(const ScriptRequest& rq, const char* format, ...)
 	// Rather annoyingly, there are no va_list versions of this function, hence the preformatting above.
 	JS_ReportErrorUTF8(rq.cx, "%s", buffer);
 }
+
+} // namespace Script
