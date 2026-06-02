@@ -48,11 +48,11 @@
 #include <wx/chartype.h>
 #include <wx/checkbox.h>
 #include <wx/choice.h>
+#include <wx/choicebk.h>
 #include <wx/clntdata.h>
 #include <wx/colour.h>
 #include <wx/gdicmn.h>
 #include <wx/image.h>
-#include <wx/notebook.h>
 #include <wx/object.h>
 #include <wx/panel.h>
 #include <wx/scrolwin.h>
@@ -546,13 +546,14 @@ BEGIN_EVENT_TABLE(TextureNotebookPage, wxPanel)
 END_EVENT_TABLE();
 
 
-class TextureNotebook : public wxNotebook
+class TextureNotebook : public wxChoicebook
 {
 public:
 	TextureNotebook(ScenarioEditor& scenarioEditor, wxWindow *parent)
-		: wxNotebook(parent, wxID_ANY/*, wxDefaultPosition, wxDefaultSize, wxNB_FIXEDWIDTH*/),
+		: wxChoicebook(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxCHB_TOP),
 		  m_ScenarioEditor(scenarioEditor)
 	{
+		GetChoiceCtrl()->SetMaxSize(wxSize{300, 100});
 	}
 
 	void LoadTerrain()
@@ -607,8 +608,8 @@ private:
 	DECLARE_EVENT_TABLE();
 };
 
-BEGIN_EVENT_TABLE(TextureNotebook, wxNotebook)
-	EVT_NOTEBOOK_PAGE_CHANGED(wxID_ANY, TextureNotebook::OnPageChanged)
+BEGIN_EVENT_TABLE(TextureNotebook, wxChoicebook)
+	EVT_CHOICEBOOK_PAGE_CHANGED(wxID_ANY, TextureNotebook::OnPageChanged)
 END_EVENT_TABLE();
 
 //////////////////////////////////////////////////////////////////////////
