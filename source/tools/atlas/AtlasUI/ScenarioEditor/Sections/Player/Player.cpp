@@ -42,7 +42,6 @@
 #include <wx/choice.h>
 #include <wx/choicebk.h>
 #include <wx/clntdata.h>
-#include <wx/collpane.h>
 #include <wx/colour.h>
 #include <wx/colourdata.h>
 #include <wx/debug.h>
@@ -250,9 +249,6 @@ public:
 
 			// TODO: possibly have advanced panel where each player's diplomacy can be set?
 			// Advanced panel
-			/*wxCollapsiblePane* advPane = new wxCollapsiblePane(this, wxID_ANY, _("Advanced"));
-			wxWindow* pane = advPane->GetPane();
-			diplomacySizer->Add(advPane, 0, wxGROW | wxALL, 2);*/
 
 			sizer->Add(diplomacySizer, wxSizerFlags().Expand().Border(wxTOP, 10));
 		}
@@ -999,19 +995,6 @@ PlayerSidebar::PlayerSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarCo
 	scrollSizer->Add(m_PlayerSettingsCtrl, wxSizerFlags().Expand());
 }
 
-void PlayerSidebar::OnCollapse(wxCollapsiblePaneEvent& WXUNUSED(evt))
-{
-	Freeze();
-
-	// Toggling the collapsing doesn't seem to update the sidebar layout
-	// automatically, so do it explicitly here
-	Layout();
-
-	Refresh(); // fixes repaint glitch on Windows
-
-	Thaw();
-}
-
 void PlayerSidebar::OnFirstDisplay()
 {
 	// We do this here becase messages are used which requires simulation to be init'd
@@ -1032,7 +1015,3 @@ void PlayerSidebar::OnMapReload()
 		m_PlayerSettingsCtrl->ReadFromEngine();
 	}
 }
-
-BEGIN_EVENT_TABLE(PlayerSidebar, Sidebar)
-	EVT_COLLAPSIBLEPANE_CHANGED(wxID_ANY, PlayerSidebar::OnCollapse)
-END_EVENT_TABLE();

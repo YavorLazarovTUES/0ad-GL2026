@@ -27,7 +27,6 @@ class PlayerSettingsControl;
 class ScenarioEditor;
 class wxButton;
 class wxChoice;
-class wxCollapsiblePaneEvent;
 class wxSpinCtrl;
 class wxTextCtrl;
 class wxWindow;
@@ -47,11 +46,7 @@ protected:
 private:
 	PlayerSettingsControl* m_PlayerSettingsCtrl;
 
-	void OnCollapse(wxCollapsiblePaneEvent& evt);
-
 	bool m_Loaded;
-
-	DECLARE_EVENT_TABLE();
 };
 
 // Controls present on each player page

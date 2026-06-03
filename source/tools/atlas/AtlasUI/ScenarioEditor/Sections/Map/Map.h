@@ -21,7 +21,6 @@
 
 class MapSettingsControl;
 class ScenarioEditor;
-class wxCollapsiblePaneEvent;
 class wxWindow;
 
 class MapSidebar : public Sidebar
@@ -37,7 +36,6 @@ protected:
 private:
 	MapSettingsControl* m_MapSettingsCtrl;
 
-	void OnCollapse(wxCollapsiblePaneEvent& evt);
 	void OnOpenPlayerPanel(wxCommandEvent& evt);
 	void OnRandomScript(wxCommandEvent& evt);
 	void OnRandomReseed(wxCommandEvent& evt);

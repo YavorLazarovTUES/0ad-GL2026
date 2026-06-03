@@ -45,7 +45,6 @@
 #include <wx/checkbox.h>
 #include <wx/choice.h>
 #include <wx/clntdata.h>
-#include <wx/collpane.h>
 #include <wx/debug.h>
 #include <wx/gdicmn.h>
 #include <wx/log.h>
@@ -569,19 +568,6 @@ MapSidebar::MapSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContaine
 	}
 }
 
-void MapSidebar::OnCollapse(wxCollapsiblePaneEvent& WXUNUSED(evt))
-{
-	Freeze();
-
-	// Toggling the collapsing doesn't seem to update the sidebar layout
-	// automatically, so do it explicitly here
-	Layout();
-
-	Refresh(); // fixes repaint glitch on Windows
-
-	Thaw();
-}
-
 void MapSidebar::OnFirstDisplay()
 {
 	// We do this here becase messages are used which requires simulation to be init'd
@@ -860,7 +846,6 @@ void MapSidebar::OnResizeMap(wxCommandEvent& WXUNUSED(evt))
 }
 
 BEGIN_EVENT_TABLE(MapSidebar, Sidebar)
-	EVT_COLLAPSIBLEPANE_CHANGED(wxID_ANY, MapSidebar::OnCollapse)
 	EVT_BUTTON(ID_SimPlay, MapSidebar::OnSimPlay)
 	EVT_BUTTON(ID_SimFast, MapSidebar::OnSimPlay)
 	EVT_BUTTON(ID_SimSlow, MapSidebar::OnSimPlay)
@@ -871,4 +856,4 @@ BEGIN_EVENT_TABLE(MapSidebar, Sidebar)
 	EVT_BUTTON(ID_ResizeMap, MapSidebar::OnResizeMap)
 	EVT_BUTTON(ID_OpenPlayerPanel, MapSidebar::OnOpenPlayerPanel)
 	EVT_CHOICE(ID_RandomScript, MapSidebar::OnRandomScript)
-END_EVENT_TABLE();
+END_EVENT_TABLE()
