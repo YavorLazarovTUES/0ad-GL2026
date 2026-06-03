@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -30,10 +30,11 @@ class ObjectSidebar : public Sidebar
 public:
 	ObjectSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContainer, wxWindow* bottomBarContainer);
 	~ObjectSidebar();
+
 	void FilterObjects();
 
 protected:
-	virtual void OnFirstDisplay();
+	void OnFirstDisplay() override;
 
 private:
 	void OnToolChange(ITool* tool);

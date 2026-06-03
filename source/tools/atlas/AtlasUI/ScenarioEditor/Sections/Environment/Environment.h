@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -30,16 +30,18 @@ class EnvironmentSidebar : public Sidebar
 public:
 	EnvironmentSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContainer, wxWindow* bottomBarContainer);
 
-	void OnPickWaterHeight(wxCommandEvent& evt);
-	virtual void OnMapReload();
-	virtual void RecomputeWaterData(wxCommandEvent& evt);
+	void OnMapReload() override;
 
 	void UpdateEnvironmentSettings();
 
 protected:
-	virtual void OnFirstDisplay();
+	void OnFirstDisplay() override;
 
 private:
+	void OnPickWaterHeight(wxCommandEvent& evt);
+
+	void RecomputeWaterData(wxCommandEvent& evt);
+
 	VariableListBox* m_PostEffectList;
 	VariableListBox* m_SkyList;
 	VariableListBox* m_WaterTypeList;

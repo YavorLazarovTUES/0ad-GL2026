@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
 * This file is part of 0 A.D.
 *
 * 0 A.D. is free software: you can redistribute it and/or modify
@@ -32,17 +32,18 @@ class CinemaSidebar : public Sidebar
 public:
 	CinemaSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContainer, wxWindow* bottomBarContainer);
 
-	virtual void OnMapReload();
-	virtual void OnTogglePathsDrawing(wxCommandEvent& evt);
-	virtual void OnAddPath(wxCommandEvent& evt);
-	virtual void OnDeletePath(wxCommandEvent& evt);
+	void OnMapReload() override;
+
+protected:
+	void OnFirstDisplay() override;
+
+private:
+	void OnTogglePathsDrawing(wxCommandEvent& evt);
+	void OnAddPath(wxCommandEvent& evt);
+	void OnDeletePath(wxCommandEvent& evt);
 
 	void ReloadPathList();
 
-protected:
-	virtual void OnFirstDisplay();
-
-private:
 	wxScrolledWindow* scrolledWindow;
 	wxCheckBox* m_DrawPath;
 	wxListBox* m_PathList;
