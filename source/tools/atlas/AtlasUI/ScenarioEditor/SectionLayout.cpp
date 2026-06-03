@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -271,14 +271,6 @@ void SidebarButton::OnClick(wxCommandEvent& WXUNUSED(event))
 
 //////////////////////////////////////////////////////////////////////////
 
-SectionLayout::SectionLayout()
-{
-}
-
-SectionLayout::~SectionLayout()
-{
-}
-
 void SectionLayout::SetWindow(wxWindow* window)
 {
 	m_HorizSplitter = new SnapSplitterWindow(
@@ -299,9 +291,6 @@ void SectionLayout::SetCanvas(wxWindow* canvas)
 
 void SectionLayout::Build(ScenarioEditor& scenarioEditor)
 {
-	// TODO: wxWidgets bug (http://sourceforge.net/tracker/index.php?func=detail&aid=1298803&group_id=9863&atid=109863)
-	// - pressing menu keys (e.g. alt+f) with notebook tab focussed causes application to freeze
-
 	m_SidebarBook = new SidebarBook(m_HorizSplitter, m_VertSplitter);
 	Sidebar* sidebar;
 
@@ -330,7 +319,7 @@ void SectionLayout::Build(ScenarioEditor& scenarioEditor)
 
 void SectionLayout::SelectPage(const wxString& classname)
 {
-	std::map<std::wstring, int>::iterator it = m_PageMappings.find((std::wstring)classname.wc_str());
+	std::map<std::wstring, int>::iterator it = m_PageMappings.find(classname.ToStdWstring());
 	if (it != m_PageMappings.end())
 		m_SidebarBook->SetSelection(it->second);
 }
