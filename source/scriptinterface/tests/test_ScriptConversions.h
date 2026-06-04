@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -213,7 +213,7 @@ public:
 
 		float f = 0;
 		JS::RootedValue testNANVal(rq.cx);
-		Script::ToJSVal(rq, &testNANVal, NAN);
+		Script::ToJSVal(rq, &testNANVal, std::numeric_limits<float>::quiet_NaN());
 		TS_ASSERT(Script::FromJSVal(rq, testNANVal, f));
 		TS_ASSERT(std::isnan(f));
 	}

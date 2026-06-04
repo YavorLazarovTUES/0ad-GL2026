@@ -54,17 +54,4 @@
 
 int setenv(const char* envname, const char* envval, int overwrite);
 
-
-//
-// <math.h>
-//
-
-// (missing on MSVC)
-#ifndef INFINITY
-#define INFINITY					(std::numeric_limits<float>::infinity())
-#endif
-#ifndef NAN
-#define NAN							(std::numeric_limits<float>::quiet_NaN())
-#endif
-
 #endif	// #ifndef INCLUDED_WPOSIX
