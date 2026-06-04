@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -23,6 +23,7 @@
 #include "maths/Vector3D.h"
 
 #include <cmath>
+#include <numbers>
 #include <random>
 
 class TestMatrix : public CxxTest::TestSuite
@@ -285,7 +286,7 @@ public:
 
 		for (int j = 0; j < 16; ++j)
 		{
-			float a = 2 * M_PI * distribution01(m_Engine) - M_PI;
+			float a = 2 * std::numbers::pi * distribution01(m_Engine) - std::numbers::pi;
 			m.SetYRotation(a);
 			TS_ASSERT_DELTA(m.GetYRotation(), a, m_Epsilon);
 		}

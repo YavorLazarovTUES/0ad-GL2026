@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -63,6 +63,7 @@
 #include <cmath>
 #include <cstddef>
 #include <map>
+#include <numbers>
 #include <string>
 #include <utility>
 
@@ -307,7 +308,7 @@ void CMapWriter::WriteXML(const VfsPath& filename,
 			CVector3D in = pCamera->GetOrientation().GetIn();
 			// Convert to spherical coordinates
 			float rotation = atan2(in.X, in.Z);
-			float declination = atan2(sqrt(in.X*in.X + in.Z*in.Z), in.Y) - static_cast<float>(M_PI / 2);
+			float declination = atan2(sqrt(in.X*in.X + in.Z*in.Z), in.Y) - std::numbers::pi_v<float> / 2.f;
 
 			{
 				XMLWriter_Element rotationTag(xmlMapFile, "Rotation");

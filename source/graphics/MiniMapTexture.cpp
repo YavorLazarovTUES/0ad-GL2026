@@ -72,6 +72,7 @@
 #include <cmath>
 #include <cstdint>
 #include <iterator>
+#include <numbers>
 #include <utility>
 
 namespace
@@ -282,8 +283,8 @@ CMiniMapTexture::CMiniMapTexture(Renderer::Backend::IDevice* device, CSimulation
 			m_InstanceAttributePosition.GetIterator<float[2]>();
 		for (size_t segment = 0; segment < numberOfCircleSegments; ++segment)
 		{
-			const float currentAngle = static_cast<float>(segment) / numberOfCircleSegments * 2.0f * M_PI;
-			const float nextAngle = static_cast<float>(segment + 1) / numberOfCircleSegments * 2.0f * M_PI;
+			const float currentAngle = static_cast<float>(segment) / numberOfCircleSegments * 2.0f * std::numbers::pi_v<float>;
+			const float nextAngle = static_cast<float>(segment + 1) / numberOfCircleSegments * 2.0f * std::numbers::pi_v<float>;
 
 			(*attributePosition)[0] = 0.0f;
 			(*attributePosition)[1] = 0.0f;

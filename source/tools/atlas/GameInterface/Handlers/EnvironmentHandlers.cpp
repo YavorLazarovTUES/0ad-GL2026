@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -42,6 +42,7 @@
 #include "tools/atlas/GameInterface/SharedTypes.h"
 
 #include <cmath>
+#include <numbers>
 #include <string>
 #include <vector>
 
@@ -69,8 +70,8 @@ sEnvironmentSettings GetSettings()
 #undef COLOR
 
 	float sunrotation = g_LightEnv.GetRotation();
-	if (sunrotation > (float)M_PI)
-		sunrotation -= (float)M_PI*2;
+	if (sunrotation > std::numbers::pi_v<float>)
+		sunrotation -= 2.f * std::numbers::pi_v<float>;
 	s.sunrotation = sunrotation;
 	s.sunelevation = g_LightEnv.GetElevation();
 

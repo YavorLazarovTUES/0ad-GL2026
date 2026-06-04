@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -43,6 +43,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numbers>
 #include <set>
 #include <string>
 #include <utility>
@@ -748,7 +749,7 @@ public:
 
 		pos.Y += GetConstructionProgressOffset(pos);
 
-		m.RotateY(rotY + (float)M_PI);
+		m.RotateY(rotY + std::numbers::pi_v<float>);
 		m.Translate(pos);
 
 		return m;
@@ -808,14 +809,14 @@ public:
 			{
 				float rotYSpeed = m_RotYSpeed.ToFloat();
 				float delta = rotY - m_InterpolatedRotY;
-				// Wrap delta to -M_PI..M_PI
-				delta = fmodf(delta + (float)M_PI, 2*(float)M_PI); // range -2PI..2PI
-				if (delta < 0) delta += 2*(float)M_PI; // range 0..2PI
-				delta -= (float)M_PI; // range -M_PI..M_PI
+				// Wrap delta to -PI..PI
+				delta = fmodf(delta + std::numbers::pi_v<float>, 2.f * std::numbers::pi_v<float>); // range -2PI..2PI
+				if (delta < 0) delta += 2.f * std::numbers::pi_v<float>; // range 0..2PI
+				delta -= std::numbers::pi_v<float>; // range -PI..PI
 				// Clamp to max rate
 				float deltaClamped = Clamp(delta, -rotYSpeed*msgData.deltaSimTime, +rotYSpeed*msgData.deltaSimTime);
 				// Calculate new orientation, in a peculiar way in order to make sure the
-				// result gets close to m_orientation (rather than being n*2*M_PI out)
+				// result gets close to m_orientation (rather than being n*2*PI out)
 				m_InterpolatedRotY = rotY + deltaClamped - delta;
 
 				// update the visual XZ rotation

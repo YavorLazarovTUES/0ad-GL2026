@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -58,6 +58,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <numbers>
 #include <string>
 #include <utility>
 
@@ -262,7 +263,7 @@ void SkyManager::RenderSky(
 	// each skymap, is in the direction of the sun from our light
 	// environment.
 	CMatrix3D rotate;
-	rotate.SetYRotation(M_PI + g_Renderer.GetSceneRenderer().GetLightEnv().GetRotation());
+	rotate.SetYRotation(std::numbers::pi_v<float> + g_Renderer.GetSceneRenderer().GetLightEnv().GetRotation());
 
 	const CMatrix3D transform = camera.GetViewProjection() * translate * rotate * scale;
 	deviceCommandContext->SetUniform(

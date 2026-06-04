@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -29,6 +29,7 @@
 #include <algorithm>
 #include <cmath>
 #include <list>
+#include <numbers>
 #include <vector>
 #include <wx/defs.h>
 #include <wx/event.h>
@@ -56,7 +57,7 @@ class ActorViewerTool : public StateDrivenTool<ActorViewerTool>
 
 public:
 	ActorViewerTool() :
-		m_Distance(20.f), m_Angle(0.f), m_Elevation((float)M_PI / 6.f),
+		m_Distance(20.f), m_Angle(0.f), m_Elevation(std::numbers::pi_v<float> / 6.f),
 		m_LastIsValid(false)
 	{
 	}
@@ -132,12 +133,12 @@ public:
 				obj->m_LastX = evt.GetX();
 				obj->m_LastY = evt.GetY();
 
-				obj->m_Angle += dx * M_PI/256.f * ScenarioEditor::GetSpeedModifier();
+				obj->m_Angle += dx * std::numbers::pi_v<float> / 256.f * ScenarioEditor::GetSpeedModifier();
 
 				if (evt.ButtonIsDown(wxMOUSE_BTN_LEFT))
 					obj->m_Distance += dy / 8.f * ScenarioEditor::GetSpeedModifier();
 				else // evt.ButtonIsDown(wxMOUSE_BTN_RIGHT))
-					obj->m_Elevation += dy * M_PI/256.f * ScenarioEditor::GetSpeedModifier();
+					obj->m_Elevation += dy * std::numbers::pi_v<float> / 256.f * ScenarioEditor::GetSpeedModifier();
 
 				camera_changed = true;
 			}

@@ -51,6 +51,7 @@
 #include <cmath>
 #include <cstddef>
 #include <mutex>
+#include <numbers>
 #include <queue>
 
 namespace
@@ -975,7 +976,8 @@ void VertexPathfinderDebugOverlay::DebugRenderGraph(const CSimContext& simContex
 											   m_DebugOverlayShortPathLines.back(), true);
 		else
 			SimRender::ConstructClosedArcOnGround(simContext, x, z, 0.5f,
-												  a0 * ((float)M_PI*2.0f), a1 * ((float)M_PI*2.0f),
+												  a0 * (2.0f * std::numbers::pi_v<float>),
+												  a1 * (2.0f * std::numbers::pi_v<float>),
 												  m_DebugOverlayShortPathLines.back(), true);
 	}
 

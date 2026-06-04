@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -32,6 +32,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <numbers>
 #include <optional>
 #include <string>
 #include <vector>
@@ -413,7 +414,7 @@ public:
 		             ent4z = fixed::Zero(),
 		             ent4w = fixed::FromInt(1),
 		             ent4h = fixed::FromInt(1);
-		entity_angle_t ent4a = fixed::FromDouble(M_PI/3);
+		entity_angle_t ent4a = fixed::FromDouble(std::numbers::pi / 3.);
 
 		cmp->AddStaticShape(ent4, ent4x, ent4z, ent4a, ent4w, ent4h, ICmpObstructionManager::FLAG_BLOCK_PATHFINDING, ent4g1, ent4g2);
 		cmp->SetStaticControlGroup(shape1, ent1g1, ent1g2_new);
@@ -470,7 +471,7 @@ public:
 		// Collision-test a shape that is perfectly adjacent to shape3. This should be counted as a hit according to
 		// the code at the time of writing.
 
-		entity_angle_t ent4a = fixed::FromDouble(M_PI); // rotated 180 degrees, should not affect collision test
+		entity_angle_t ent4a = fixed::FromDouble(std::numbers::pi); // rotated 180 degrees, should not affect collision test
 		entity_pos_t ent4w = fixed::FromInt(2),
 		             ent4h = fixed::FromInt(1),
 		             ent4x = ent3x + ent3c + ent4w/2, // make ent4 adjacent to ent3

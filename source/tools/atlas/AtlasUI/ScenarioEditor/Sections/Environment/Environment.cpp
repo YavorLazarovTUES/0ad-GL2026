@@ -32,6 +32,7 @@
 #include <cmath>
 #include <cstddef>
 #include <list>
+#include <numbers>
 #include <string>
 #include <vector>
 #include <wx/arrstr.h>
@@ -267,7 +268,7 @@ EnvironmentSidebar::EnvironmentSidebar(
 	waterSizer->Add(new VariableSliderBox(
 		waterBox, _("Water murkiness"), g_EnvironmentSettings.watermurkiness, 0.f, 1.f), wxSizerFlags().Expand());
 	waterSizer->Add(new VariableSliderBox(
-		waterBox, _("Wind angle"), g_EnvironmentSettings.windangle, -static_cast<float>(M_PI), static_cast<float>(M_PI)), wxSizerFlags().Expand());
+		waterBox, _("Wind angle"), g_EnvironmentSettings.windangle, -std::numbers::pi_v<float>, std::numbers::pi_v<float>), wxSizerFlags().Expand());
 	waterSizer->Add(new VariableColorBox(
 		waterBox, _("Water color"), g_EnvironmentSettings.watercolor), wxSizerFlags().Expand());
 	waterSizer->Add(new VariableColorBox(
@@ -286,9 +287,9 @@ EnvironmentSidebar::EnvironmentSidebar(
 	sunBoxSizer->Add(sunSizer, wxSizerFlags().Expand().Border(wxALL, 5));
 
 	sunSizer->Add(new VariableSliderBox(
-		sunBox, _("Sun rotation"), g_EnvironmentSettings.sunrotation, -static_cast<float>(M_PI), static_cast<float>(M_PI)), wxSizerFlags().Expand());
+		sunBox, _("Sun rotation"), g_EnvironmentSettings.sunrotation, -std::numbers::pi_v<float>, std::numbers::pi_v<float>), wxSizerFlags().Expand());
 	sunSizer->Add(new VariableSliderBox(
-		sunBox, _("Sun elevation"), g_EnvironmentSettings.sunelevation, -static_cast<float>(M_PI) / 2.0f, static_cast<float>(M_PI) / 2.0f), wxSizerFlags().Expand());
+		sunBox, _("Sun elevation"), g_EnvironmentSettings.sunelevation, -std::numbers::pi_v<float> / 2.0f, std::numbers::pi_v<float> / 2.0f), wxSizerFlags().Expand());
 	sunSizer->Add(new VariableSliderBox(
 		sunBox, _("Sun overbrightness"), g_EnvironmentSettings.sunoverbrightness, 1.0f, 3.0f), wxSizerFlags().Expand());
 	sunSizer->Add(new LightControl(

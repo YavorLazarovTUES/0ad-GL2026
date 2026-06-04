@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -28,6 +28,7 @@
 #include <cmath>
 #include <ctime>
 #include <list>
+#include <numbers>
 #include <random>
 #include <string>
 #include <wx/chartype.h>
@@ -39,7 +40,7 @@
 
 using AtlasMessage::Position;
 
-static float g_DefaultAngle = (float)(M_PI*3.0/4.0);
+static float g_DefaultAngle = std::numbers::pi_v<float> * 3.f / 4.f;
 
 class PlaceObject : public StateDrivenTool<PlaceObject>
 {
@@ -150,7 +151,7 @@ public:
 	{
 		if (m_RotationDirection)
 		{
-			float speed = M_PI/2.f * ScenarioEditor::GetSpeedModifier(); // radians per second
+			float speed = std::numbers::pi_v<float> / 2.f * ScenarioEditor::GetSpeedModifier(); // radians per second
 			g_DefaultAngle += (m_RotationDirection * dt * speed);
 			SendObjectMsg(true);
 		}

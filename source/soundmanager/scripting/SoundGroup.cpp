@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -54,6 +54,7 @@ extern CGame *g_Game;
 
 #include <AL/al.h>
 #include <cmath>
+#include <numbers>
 #include <utility>
 
 constexpr ALfloat DEFAULT_ROLLOFF = 0.5f;
@@ -123,7 +124,7 @@ void CSoundGroup::SetDefaultValues()
 	m_MinDist = CConfigDB::GetIfInitialised("sound.mindistance", 1.f);
 	m_MaxDist = CConfigDB::GetIfInitialised("sound.maxdistance", 350.f);
 	// This is more than the default camera FOV: for now, our soundscape is not realistic anyways.
-	m_MaxStereoAngle = CConfigDB::GetIfInitialised("sound.maxstereoangle", static_cast<float>(M_PI / 6));
+	m_MaxStereoAngle = CConfigDB::GetIfInitialised("sound.maxstereoangle", std::numbers::pi_v<float> / 6.f);
 }
 
 CSoundGroup::CSoundGroup()

@@ -600,7 +600,7 @@ bool TerrainRenderer::RenderFancyWater(
 	// TODO: check that this rotates in the right direction.
 	CMatrix3D skyBoxRotation;
 	skyBoxRotation.SetIdentity();
-	skyBoxRotation.RotateY(M_PI + lightEnv.GetRotation());
+	skyBoxRotation.RotateY(std::numbers::pi_v<float> + lightEnv.GetRotation());
 	deviceCommandContext->SetUniform(
 		fancyWaterShader->GetBindingSlot(str_skyBoxRot),
 		skyBoxRotation.AsFloatArray());

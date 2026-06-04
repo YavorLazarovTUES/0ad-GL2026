@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -23,6 +23,7 @@
 #include "maths/Vector3D.h"
 
 #include <cmath>
+#include <numbers>
 
 #define TS_ASSERT_VEC_DELTA(v, x, y, z, delta) \
 	TS_ASSERT_DELTA(v.X, x, delta); \
@@ -107,7 +108,7 @@ public:
 		CBoundingBoxAligned aabb(CVector3D(3, -1.5f, -1.5f), CVector3D(7, 1.5f, 1.5f));
 
 		CMatrix3D rotation;
-		rotation.SetZRotation(float(M_PI)/2.f);
+		rotation.SetZRotation(std::numbers::pi_v<float> / 2.f);
 
 		CBoundingBoxOriented result;
 		aabb.Transform(rotation, result);
@@ -128,7 +129,7 @@ public:
 		CMatrix3D rotate;
 		CMatrix3D translateBack;
 		translate.SetTranslation(-2.f, 0, 0);
-		rotate.SetZRotation(-float(M_PI)/4.f);
+		rotate.SetZRotation(-std::numbers::pi_v<float> / 4.f);
 		translateBack.SetTranslation(2.f, 0, 0);
 
 		CMatrix3D transform;

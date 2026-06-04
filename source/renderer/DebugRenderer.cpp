@@ -40,6 +40,7 @@
 
 #include <array>
 #include <cmath>
+#include <numbers>
 
 void CDebugRenderer::Initialize()
 {
@@ -156,9 +157,9 @@ void CDebugRenderer::DrawCircle(
 	constexpr size_t segments = 16;
 	for (size_t idx = 0; idx <= segments; ++idx)
 	{
-		const float angle = M_PI * 2.0f * idx / segments;
+		const float angle = std::numbers::pi_v<float> * 2.0f * idx / segments;
 		const CVector3D offset = cameraUp * sin(angle) - cameraLeft * cos(angle);
-		const float nextAngle = M_PI * 2.0f * (idx + 1) / segments;
+		const float nextAngle = std::numbers::pi_v<float> * 2.0f * (idx + 1) / segments;
 		const CVector3D nextOffset = cameraUp * sin(nextAngle) - cameraLeft * cos(nextAngle);
 		ADD(origin)
 		ADD(origin + offset * radius)

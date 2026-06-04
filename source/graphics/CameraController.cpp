@@ -44,7 +44,7 @@
 
 #include <SDL_events.h>
 #include <algorithm>
-#include <cmath>
+#include <numbers>
 #include <functional>
 #include <string>
 
@@ -258,7 +258,7 @@ void CCameraController::Update(const float deltaRealTime)
 				cmpPosition->GetInterpolatedPosition2D(frameOffset, x, z, angle);
 				float height = 4.f;
 				m_Camera.m_Orientation.SetIdentity();
-				m_Camera.m_Orientation.RotateX(static_cast<float>(M_PI) / 24.f);
+				m_Camera.m_Orientation.RotateX(std::numbers::pi_v<float> / 24.f);
 				m_Camera.m_Orientation.RotateY(angle);
 				m_Camera.m_Orientation.Translate(pos.X, pos.Y + height, pos.Z);
 
@@ -305,7 +305,7 @@ void CCameraController::Update(const float deltaRealTime)
 	if (m_ConstrainCamera)
 	{
 		if (m_BirdsEyeView)
-			m_RotateX.ClampSmoothly(static_cast<float>(M_PI_2), static_cast<float>(M_PI_2));
+			m_RotateX.ClampSmoothly(std::numbers::pi_v<float> / 2.f, std::numbers::pi_v<float> / 2.f);
 		else
 			m_RotateX.ClampSmoothly(DEGTORAD(m_ViewRotateXMin), DEGTORAD(m_ViewRotateXMax));
 	}
@@ -423,7 +423,7 @@ void CCameraController::Update(const float deltaRealTime)
 	}
 	*/
 
-	m_RotateY.Wrap(-static_cast<float>(M_PI), static_cast<float>(M_PI));
+	m_RotateY.Wrap(-std::numbers::pi_v<float>, std::numbers::pi_v<float>);
 
 	// Update the camera matrix
 	SetCameraProjection();
@@ -567,7 +567,7 @@ void CCameraController::ResetCameraAngleZoom()
 void CCameraController::ToggleBirdsEyeView()
 {
 	m_BirdsEyeView = !m_BirdsEyeView;
-	float angle = m_BirdsEyeView ? M_PI / 2 : DEGTORAD(m_ViewRotateXDefault);
+	float angle = m_BirdsEyeView ? std::numbers::pi_v<float> / 2.f : DEGTORAD(m_ViewRotateXDefault);
 	m_RotateX.SetValueSmoothly(angle);
 }
 

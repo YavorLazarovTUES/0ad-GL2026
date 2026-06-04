@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -63,6 +63,7 @@
 #include <cmath>
 #include <cstddef>
 #include <map>
+#include <numbers>
 #include <queue>
 #include <string>
 #include <type_traits>
@@ -747,7 +748,7 @@ void CCmpTerritoryManager::Interpolate(float frameTime, float /*frameOffset*/)
 		if (m_BoundaryLines[i].blinking)
 		{
 			CColor c = m_BoundaryLines[i].color;
-			c.a *= 0.2f + 0.8f * fabsf((float)cos(m_AnimTime * M_PI)); // TODO: should let artists tweak this
+			c.a *= 0.2f + 0.8f * fabsf(static_cast<float>(cos(m_AnimTime * std::numbers::pi))); // TODO: should let artists tweak this
 			m_BoundaryLines[i].overlay.m_Color = c;
 		}
 	}

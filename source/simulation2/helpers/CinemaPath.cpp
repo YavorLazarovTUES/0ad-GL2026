@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -29,6 +29,7 @@
 #include "ps/CStr.h"
 
 #include <cmath>
+#include <numbers>
 #include <string>
 #include <vector>
 
@@ -196,7 +197,7 @@ float CCinemaPath::EaseCircle(float t) const
 
 float CCinemaPath::EaseSine(float t) const
 {
-	t = 1.0f - cos(t * (float)M_PI/2);
+	t = 1.0f - cos(t * std::numbers::pi_v<float> / 2.f);
 	if (m_GrowthCount > 1.0f)
 	{
 		--m_GrowthCount;

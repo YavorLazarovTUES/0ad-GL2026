@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,6 +24,7 @@
 #include "maths/Vector3D.h"
 
 #include <cmath>
+#include <numbers>
 
 const float EPSILON=0.0001f;
 
@@ -136,13 +137,13 @@ CVector3D CQuaternion::ToEulerAngles()
 	if (test > (.5f-EPSILON)*unit)
 	{ // singularity at north pole
 		heading = 2 * atan2( m_V.X, m_W);
-		attitude = (float)M_PI/2;
+		attitude = std::numbers::pi_v<float> / 2.f;
 		bank = 0;
 	}
 	else if (test < (-.5f+EPSILON)*unit)
 	{ // singularity at south pole
 		heading = -2 * atan2(m_V.X, m_W);
-		attitude = -(float)M_PI/2;
+		attitude = -std::numbers::pi_v<float> / 2.f;
 		bank = 0;
 	}
 	else

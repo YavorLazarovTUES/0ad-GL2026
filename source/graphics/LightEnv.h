@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -104,14 +104,14 @@ private:
 
 	/**
 	* Height of sun above the horizon, in radians.
-	* For example, an elevation of M_PI/2 means the sun is straight up.
+	* For example, an elevation of PI/2 means the sun is straight up.
 	*/
 	float m_Elevation;
 
 	/**
 	* Direction of sun on the compass, in radians.
 	* For example, a rotation of zero means the sun is in the direction (0,0,-1)
-	* and a rotation of M_PI/2 means the sun is in the direction (1,0,0) (not taking
+	* and a rotation of PI/2 means the sun is in the direction (1,0,0) (not taking
 	* elevation into account).
 	*/
 	float m_Rotation;

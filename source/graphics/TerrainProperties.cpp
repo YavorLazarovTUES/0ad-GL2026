@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -36,13 +36,14 @@
 #include <boost/token_functions.hpp>
 #include <boost/tokenizer.hpp>
 #include <cmath>
+#include <numbers>
 #include <string>
 
 CTerrainProperties::CTerrainProperties(CTerrainPropertiesPtr parent):
 	m_pParent(parent),
 	m_BaseColor(0),
 	m_HasBaseColor(false),
-	m_TextureAngle((float)M_PI / 4.f),
+	m_TextureAngle(std::numbers::pi_v<float> / 4.f),
 	m_TextureSize(32.f)
 {
 	if (m_pParent)

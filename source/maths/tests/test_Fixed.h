@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <numbers>
 
 class TestFixed : public CxxTest::TestSuite
 {
@@ -254,10 +255,10 @@ public:
 	void test_Atan2()
 	{
 		// Special cases from atan2 man page:
-		TS_ASSERT_DELTA(atan2_approx(fixed::FromInt(0), fixed::FromInt(-1)).ToDouble(), M_PI, 0.01);
+		TS_ASSERT_DELTA(atan2_approx(fixed::FromInt(0), fixed::FromInt(-1)).ToDouble(), std::numbers::pi, 0.01);
 		TS_ASSERT_EQUALS(atan2_approx(fixed::FromInt(0), fixed::FromInt(+1)).ToDouble(), 0);
-		TS_ASSERT_DELTA(atan2_approx(fixed::FromInt(-1), fixed::FromInt(0)).ToDouble(), -M_PI_2, 0.01);
-		TS_ASSERT_DELTA(atan2_approx(fixed::FromInt(+1), fixed::FromInt(0)).ToDouble(), +M_PI_2, 0.01);
+		TS_ASSERT_DELTA(atan2_approx(fixed::FromInt(-1), fixed::FromInt(0)).ToDouble(), -std::numbers::pi / 2., 0.01);
+		TS_ASSERT_DELTA(atan2_approx(fixed::FromInt(+1), fixed::FromInt(0)).ToDouble(), +std::numbers::pi / 2., 0.01);
 		TS_ASSERT_EQUALS(atan2_approx(fixed::FromInt(0), fixed::FromInt(0)).ToDouble(), 0);
 
 		// Test that it approximately matches libc's atan2
@@ -308,15 +309,15 @@ public:
 		TS_ASSERT_DELTA(s.ToDouble(), 0.0, 0.00005);
 		TS_ASSERT_EQUALS(c, fixed::FromInt(-1));
 
-		sincos_approx(fixed::FromDouble(M_PI*2.0), s, c);
+		sincos_approx(fixed::FromDouble(std::numbers::pi * 2.0), s, c);
 		TS_ASSERT_DELTA(s.ToDouble(), 0.0, 0.0001);
 		TS_ASSERT_DELTA(c.ToDouble(), 1.0, 0.0001);
 
-		sincos_approx(fixed::FromDouble(M_PI*100.0), s, c);
+		sincos_approx(fixed::FromDouble(std::numbers::pi * 100.0), s, c);
 		TS_ASSERT_DELTA(s.ToDouble(), 0.0, 0.004);
 		TS_ASSERT_DELTA(c.ToDouble(), 1.0, 0.004);
 
-		sincos_approx(fixed::FromDouble(M_PI*-100.0), s, c);
+		sincos_approx(fixed::FromDouble(std::numbers::pi * -100.0), s, c);
 		TS_ASSERT_DELTA(s.ToDouble(), 0.0, 0.004);
 		TS_ASSERT_DELTA(c.ToDouble(), 1.0, 0.004);
 
