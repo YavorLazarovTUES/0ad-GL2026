@@ -329,7 +329,7 @@ void EnvironmentSidebar::OnFirstDisplay()
 	qry_effects.Post();
 	m_PostEffectList->SetChoices(*qry_effects.posteffects);
 
-	UpdateEnvironmentSettings();
+	UpdateEnvironmentSettings(false);
 }
 
 void EnvironmentSidebar::OnMapReload()
@@ -342,13 +342,17 @@ void EnvironmentSidebar::RecomputeWaterData(wxCommandEvent& WXUNUSED(evt))
 	POST_COMMAND(RecalculateWaterData, (0.0f));
 }
 
-void EnvironmentSidebar::UpdateEnvironmentSettings()
+void EnvironmentSidebar::UpdateEnvironmentSettings(bool sendToEngine)
 {
 	AtlasMessage::qGetEnvironmentSettings qry_env;
 	qry_env.Post();
 	g_EnvironmentSettings = qry_env.settings;
 
-	g_EnvironmentSettings.NotifyObservers();
+	if (sendToEngine)
+		g_EnvironmentSettings.NotifyObservers();
+	else
+		g_EnvironmentSettings.NotifyObserversExcept(m_Conn);
+
 }
 
 void EnvironmentSidebar::OnPickWaterHeight(wxCommandEvent& WXUNUSED(evt))

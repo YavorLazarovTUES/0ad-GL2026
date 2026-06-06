@@ -856,9 +856,6 @@ void PlayerSettingsControl::ReadFromEngine()
 			++playerDefs;
 	}
 
-	// Send default properties to engine, since they might not be set
-	SendToEngine();
-
 	m_InGUIUpdate = false;
 }
 

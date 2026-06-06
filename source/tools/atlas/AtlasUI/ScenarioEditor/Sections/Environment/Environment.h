@@ -31,7 +31,7 @@ public:
 
 	void OnMapReload() override;
 
-	void UpdateEnvironmentSettings();
+	void UpdateEnvironmentSettings(bool sendToEngine = true);
 
 protected:
 	void OnFirstDisplay() override;
