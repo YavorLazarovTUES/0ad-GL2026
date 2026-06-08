@@ -626,7 +626,7 @@ std::unique_ptr<CDevice> CDevice::Create(SDL_Window* window)
 	device->m_SamplerManager = std::make_unique<CSamplerManager>(device.get());
 
 	device->m_SubmitScheduler = CSubmitScheduler::Create(
-		device.get(), device->m_GraphicsQueueFamilyIndex, device->m_GraphicsQueue);
+		device.get(), device->m_GraphicsQueue);
 	if (!device->m_SubmitScheduler)
 		return nullptr;
 
@@ -742,7 +742,10 @@ std::unique_ptr<ISwapChain> CDevice::CreateSwapChain(
 	if (window)
 		SDL_Vulkan_GetDrawableSize(window, &surfaceDrawableWidth, &surfaceDrawableHeight);
 	return CSwapChain::Create(
-		this, m_SubmitScheduler.get(), name, m_Surface, surfaceDrawableWidth, surfaceDrawableHeight,
+		this, m_SubmitScheduler.get(),
+		m_GraphicsQueueFamilyIndex, m_GraphicsQueue,
+		name, m_Surface,
+		surfaceDrawableWidth, surfaceDrawableHeight,
 		vsync, std::move(oldSwapChain));
 }
 

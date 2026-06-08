@@ -54,6 +54,7 @@ namespace Vulkan
 // static
 std::unique_ptr<CSwapChain> CSwapChain::Create(
 	CDevice* device, CSubmitScheduler* submitScheduler,
+	const uint32_t queueFamilyIndex, VkQueue queue,
 	const char* name, VkSurfaceKHR surface,
 	int surfaceDrawableWidth, int surfaceDrawableHeight,
 	const bool vsync, std::unique_ptr<ISwapChain> oldSwapChain)
@@ -200,6 +201,7 @@ std::unique_ptr<CSwapChain> CSwapChain::Create(
 	std::unique_ptr<CSwapChain> swapChain(new CSwapChain());
 	swapChain->m_Device = device;
 	swapChain->m_SubmitScheduler = submitScheduler;
+	swapChain->m_Queue = queue;
 
 	RETURN_NULLPTR_IF_NOT_VK_SUCCESS(vkCreateSwapchainKHR(
 		device->GetVkDevice(), &swapChainCreateInfo, nullptr, &swapChain->m_SwapChain));
@@ -279,6 +281,25 @@ std::unique_ptr<CSwapChain> CSwapChain::Create(
 		swapChain->m_SubmitSemaphores.emplace_back(semaphore);
 	}
 
+	swapChain->m_AcquireCommandContext = CRingCommandContext::Create(
+		device, NUMBER_OF_FRAMES_IN_FLIGHT, queueFamilyIndex, *submitScheduler);
+	if (!swapChain->m_AcquireCommandContext)
+		return nullptr;
+	swapChain->m_PresentCommandContext = CRingCommandContext::Create(
+		device, NUMBER_OF_FRAMES_IN_FLIGHT, queueFamilyIndex, *submitScheduler);
+	if (!swapChain->m_PresentCommandContext)
+		return nullptr;
+
+	swapChain->m_DebugWaitIdleBeforeAcquire = g_ConfigDB.Get(
+		"renderer.backend.vulkan.debugwaitidlebeforeacquire",
+		swapChain->m_DebugWaitIdleBeforeAcquire);
+	swapChain->m_DebugWaitIdleBeforePresent = g_ConfigDB.Get(
+		"renderer.backend.vulkan.debugwaitidlebeforepresent",
+		swapChain->m_DebugWaitIdleBeforePresent);
+	swapChain->m_DebugWaitIdleAfterPresent = g_ConfigDB.Get(
+		"renderer.backend.vulkan.debugwaitidleafterpresent",
+		swapChain->m_DebugWaitIdleAfterPresent);
+
 	swapChain->m_IsValid = true;
 
 	return swapChain;
@@ -331,7 +352,17 @@ bool CSwapChain::AcquireNextBackbuffer()
 		m_SubmitScheduler->WaitUntilFree(frameObject.submitHandle);
 	}
 
-	return m_SubmitScheduler->AcquireNextImage(*this, frameObject.acquireImageSemaphore);
+	if (m_DebugWaitIdleBeforeAcquire)
+		vkDeviceWaitIdle(m_Device->GetVkDevice());
+
+	if (!AcquireNextImage())
+		return false;
+	SubmitCommandsAfterAcquireNextImage(*m_AcquireCommandContext);
+
+	m_SubmitScheduler->EnqueueWaitOnNextSubmit(
+		frameObject.acquireImageSemaphore, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+	m_AcquireCommandContext->Flush();
+	return true;
 }
 
 void CSwapChain::Present()
@@ -342,7 +373,20 @@ void CSwapChain::Present()
 
 	PROFILE3("Present");
 	FrameObject& frameObject{m_FrameObjects[m_FrameID % m_FrameObjects.size()]};
-	frameObject.submitHandle = m_SubmitScheduler->Present(*this, m_SubmitSemaphores[m_CurrentImageIndex]);
+
+	SubmitCommandsBeforePresent(*m_PresentCommandContext);
+	m_SubmitScheduler->EnqueueSignalOnNextSubmit(m_SubmitSemaphores[m_CurrentImageIndex]);
+	m_PresentCommandContext->Flush();
+	frameObject.submitHandle = m_SubmitScheduler->Flush();
+
+	if (m_DebugWaitIdleBeforePresent)
+		vkDeviceWaitIdle(m_Device->GetVkDevice());
+
+	Present(m_SubmitSemaphores[m_CurrentImageIndex], m_Queue);
+
+	if (m_DebugWaitIdleAfterPresent)
+		vkDeviceWaitIdle(m_Device->GetVkDevice());
+
 	m_Device->OnPresent();
 	++m_FrameID;
 }

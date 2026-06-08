@@ -24,7 +24,6 @@
 #include "ps/ConfigDB.h"
 #include "renderer/backend/vulkan/Device.h"
 #include "renderer/backend/vulkan/RingCommandContext.h"
-#include "renderer/backend/vulkan/SwapChain.h"
 #include "renderer/backend/vulkan/Utilities.h"
 
 #include <cstddef>
@@ -40,7 +39,7 @@ namespace Vulkan
 {
 
 std::unique_ptr<CSubmitScheduler> CSubmitScheduler::Create(
-	CDevice* device, const uint32_t queueFamilyIndex, VkQueue queue)
+	CDevice* device, VkQueue queue)
 {
 	std::unique_ptr<CSubmitScheduler> submitScheduler{new CSubmitScheduler{device, queue}};
 
@@ -57,26 +56,6 @@ std::unique_ptr<CSubmitScheduler> CSubmitScheduler::Create(
 			device->GetVkDevice(), &fenceCreateInfo, nullptr, &fence));
 		submitScheduler->m_Fences.push_back({fence, INVALID_SUBMIT_HANDLE});
 	}
-
-	submitScheduler->m_AcquireCommandContext = CRingCommandContext::Create(
-		device, NUMBER_OF_FRAMES_IN_FLIGHT, queueFamilyIndex, *submitScheduler);
-	if (!submitScheduler->m_AcquireCommandContext)
-		return nullptr;
-	submitScheduler->m_PresentCommandContext = CRingCommandContext::Create(
-		device, NUMBER_OF_FRAMES_IN_FLIGHT, queueFamilyIndex, *submitScheduler);
-	if (!submitScheduler->m_PresentCommandContext)
-		return nullptr;
-
-	submitScheduler->m_DebugWaitIdleBeforeAcquire = g_ConfigDB.Get(
-		"renderer.backend.vulkan.debugwaitidlebeforeacquire",
-		submitScheduler->m_DebugWaitIdleBeforeAcquire);
-	submitScheduler->m_DebugWaitIdleBeforePresent = g_ConfigDB.Get(
-		"renderer.backend.vulkan.debugwaitidlebeforepresent",
-		submitScheduler->m_DebugWaitIdleBeforePresent);
-	submitScheduler->m_DebugWaitIdleAfterPresent = g_ConfigDB.Get(
-		"renderer.backend.vulkan.debugwaitidleafterpresent",
-		submitScheduler->m_DebugWaitIdleAfterPresent);
-
 	return submitScheduler;
 }
 
@@ -92,39 +71,6 @@ CSubmitScheduler::~CSubmitScheduler()
 	for (Fence& fence : m_Fences)
 		if (fence.value != VK_NULL_HANDLE)
 			vkDestroyFence(device, fence.value, nullptr);
-}
-
-bool CSubmitScheduler::AcquireNextImage(CSwapChain& swapChain, VkSemaphore acquireImageSemaphore)
-{
-	if (m_DebugWaitIdleBeforeAcquire)
-		vkDeviceWaitIdle(m_Device->GetVkDevice());
-
-	if (!swapChain.AcquireNextImage())
-		return false;
-	swapChain.SubmitCommandsAfterAcquireNextImage(*m_AcquireCommandContext);
-
-	m_NextWaitSemaphore = acquireImageSemaphore;
-	m_NextWaitDstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	m_AcquireCommandContext->Flush();
-	return true;
-}
-
-CSubmitScheduler::SubmitHandle CSubmitScheduler::Present(CSwapChain& swapChain, VkSemaphore submitDone)
-{
-	swapChain.SubmitCommandsBeforePresent(*m_PresentCommandContext);
-	m_NextSubmitSignalSemaphore = submitDone;
-	m_PresentCommandContext->Flush();
-	const SubmitHandle submitHandle{Flush()};
-
-	if (m_DebugWaitIdleBeforePresent)
-		vkDeviceWaitIdle(m_Device->GetVkDevice());
-
-	swapChain.Present(submitDone, m_Queue);
-
-	if (m_DebugWaitIdleAfterPresent)
-		vkDeviceWaitIdle(m_Device->GetVkDevice());
-
-	return submitHandle;
 }
 
 CSubmitScheduler::SubmitHandle CSubmitScheduler::Submit(VkCommandBuffer commandBuffer)
@@ -167,29 +113,43 @@ CSubmitScheduler::SubmitHandle CSubmitScheduler::Flush()
 
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	if (m_NextWaitSemaphore != VK_NULL_HANDLE)
+	if (!m_NextWaitSemaphores.empty())
 	{
-		submitInfo.waitSemaphoreCount = 1;
-		submitInfo.pWaitSemaphores = &m_NextWaitSemaphore;
-		submitInfo.pWaitDstStageMask = &m_NextWaitDstStageMask;
+		ENSURE(m_NextWaitSemaphores.size() == m_NextWaitDstStageMasks.size());
+		submitInfo.waitSemaphoreCount = m_NextWaitSemaphores.size();
+		submitInfo.pWaitSemaphores = m_NextWaitSemaphores.data();
+		submitInfo.pWaitDstStageMask = m_NextWaitDstStageMasks.data();
 	}
-	if (m_NextSubmitSignalSemaphore != VK_NULL_HANDLE)
+	if (!m_NextSubmitSignalSemaphores.empty())
 	{
-		submitInfo.signalSemaphoreCount = 1;
-		submitInfo.pSignalSemaphores = &m_NextSubmitSignalSemaphore;
+		submitInfo.signalSemaphoreCount = m_NextSubmitSignalSemaphores.size();
+		submitInfo.pSignalSemaphores = m_NextSubmitSignalSemaphores.data();
 	}
 	submitInfo.commandBufferCount = m_SubmittedCommandBuffers.size();
 	submitInfo.pCommandBuffers = m_SubmittedCommandBuffers.data();
 
 	ENSURE_VK_SUCCESS(vkQueueSubmit(m_Queue, 1, &submitInfo, fence.value));
 
-	m_NextWaitSemaphore = VK_NULL_HANDLE;
-	m_NextWaitDstStageMask = 0;
-	m_NextSubmitSignalSemaphore = VK_NULL_HANDLE;
+	m_NextWaitSemaphores.clear();
+	m_NextWaitDstStageMasks.clear();
+	m_NextSubmitSignalSemaphores.clear();
 
 	m_SubmittedCommandBuffers.clear();
 
 	return fence.lastUsedHandle;
+}
+
+void CSubmitScheduler::EnqueueWaitOnNextSubmit(
+	VkSemaphore semaphore, const VkPipelineStageFlags stageMask)
+{
+	m_NextWaitSemaphores.emplace_back(semaphore);
+	m_NextWaitDstStageMasks.emplace_back(stageMask);
+}
+
+void CSubmitScheduler::EnqueueSignalOnNextSubmit(
+	VkSemaphore semaphore)
+{
+	m_NextSubmitSignalSemaphores.emplace_back(semaphore);
 }
 
 } // namespace Vulkan

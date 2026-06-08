@@ -28,7 +28,6 @@
 #include <vector>
 
 namespace Renderer::Backend::Vulkan { class CRingCommandContext; }
-namespace Renderer::Backend::Vulkan { class CSwapChain; }
 
 namespace Renderer
 {
@@ -50,12 +49,8 @@ public:
 	static constexpr SubmitHandle INVALID_SUBMIT_HANDLE = 0;
 
 	static std::unique_ptr<CSubmitScheduler> Create(
-		CDevice* device, const uint32_t queueFamilyIndex, VkQueue queue);
+		CDevice* device, VkQueue queue);
 	~CSubmitScheduler();
-
-	bool AcquireNextImage(CSwapChain& swapChain, VkSemaphore acquireImageSemaphore);
-
-	SubmitHandle Present(CSwapChain& swapChain, VkSemaphore submitDone);
 
 	SubmitHandle Submit(VkCommandBuffer commandBuffer);
 
@@ -64,6 +59,12 @@ public:
 	uint32_t GetFrameID() const { return m_FrameID; }
 
 	SubmitHandle Flush();
+
+	/**
+	 * It's a caller responsibility to guarantee a semaphore lifespan.
+	 */
+	void EnqueueWaitOnNextSubmit(VkSemaphore semaphore, const VkPipelineStageFlags stageMask);
+	void EnqueueSignalOnNextSubmit(VkSemaphore semaphore);
 
 private:
 	CSubmitScheduler(CDevice* device, VkQueue queue);
@@ -90,18 +91,11 @@ private:
 	};
 	std::queue<SubmittedHandle> m_SubmittedHandles;
 
-	VkSemaphore m_NextWaitSemaphore = VK_NULL_HANDLE;
-	VkPipelineStageFlags m_NextWaitDstStageMask = 0;
-	VkSemaphore m_NextSubmitSignalSemaphore = VK_NULL_HANDLE;
+	std::vector<VkSemaphore> m_NextWaitSemaphores;
+	std::vector<VkPipelineStageFlags> m_NextWaitDstStageMasks;
+	std::vector<VkSemaphore> m_NextSubmitSignalSemaphores;
 
 	std::vector<VkCommandBuffer> m_SubmittedCommandBuffers;
-
-	std::unique_ptr<CRingCommandContext> m_AcquireCommandContext;
-	std::unique_ptr<CRingCommandContext> m_PresentCommandContext;
-
-	bool m_DebugWaitIdleBeforeAcquire = false;
-	bool m_DebugWaitIdleBeforePresent = false;
-	bool m_DebugWaitIdleAfterPresent = false;
 };
 
 } // namespace Vulkan

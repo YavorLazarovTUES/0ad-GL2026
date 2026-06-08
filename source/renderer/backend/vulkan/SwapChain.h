@@ -84,6 +84,7 @@ private:
 
 	static std::unique_ptr<CSwapChain> Create(
 		CDevice* device, CSubmitScheduler* submitScheduler,
+		const uint32_t queueFamilyIndex, VkQueue queue,
 		const char* name, VkSurfaceKHR surface,
 		int surfaceDrawableWidth, int surfaceDrawableHeight,
 		const bool vsync, std::unique_ptr<ISwapChain> oldSwapChain);
@@ -92,6 +93,7 @@ private:
 
 	CDevice* m_Device = nullptr;
 	CSubmitScheduler* m_SubmitScheduler{nullptr};
+	VkQueue m_Queue{VK_NULL_HANDLE};
 
 	bool m_IsValid = false;
 	VkSwapchainKHR m_SwapChain = VK_NULL_HANDLE;
@@ -156,6 +158,13 @@ private:
 	std::vector<SwapChainBackbuffer> m_Backbuffers;
 
 	std::unique_ptr<CTexture> m_BackbufferReadbackTexture;
+
+	std::unique_ptr<CRingCommandContext> m_AcquireCommandContext;
+	std::unique_ptr<CRingCommandContext> m_PresentCommandContext;
+
+	bool m_DebugWaitIdleBeforeAcquire = false;
+	bool m_DebugWaitIdleBeforePresent = false;
+	bool m_DebugWaitIdleAfterPresent = false;
 };
 
 } // namespace Vulkan
