@@ -15,37 +15,25 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef INCLUDED_SECTIONLAYOUT
-#define INCLUDED_SECTIONLAYOUT
+#ifndef INCLUDED_ATLAS_STYLESHEET
+#define INCLUDED_ATLAS_STYLESHEET
 
-#include <map>
-#include <string>
-
-class ScenarioEditor;
-class SidebarBook;
-class SnapSplitterWindow;
-class wxString;
-class wxWindow;
-
-class SectionLayout
+namespace Atlas::Style
 {
-public:
-	void SetWindow(wxWindow* window);
-	wxWindow* GetCanvasParent();
-	void SetCanvas(wxWindow*);
-	void Build(ScenarioEditor&);
 
-	void SelectPage(const wxString& classname);
+// Platform specific values
 
-	void OnMapReload();
-	void OnShutdown();
+#if defined(__WXGTK__)
+constexpr int BOTTOMBAR_DEFAULT_SIZE = 200;
+constexpr int SIDEBAR_DEFAULT_SIZE = 285;
+#elif defined(__WXOSX__) || defined(__WXMAC__)
+constexpr int BOTTOMBAR_DEFAULT_SIZE = 210;
+constexpr int SIDEBAR_DEFAULT_SIZE = 285;
+#else	// __MSW__
+constexpr int BOTTOMBAR_DEFAULT_SIZE = 180;
+constexpr int SIDEBAR_DEFAULT_SIZE = 235;
+#endif
 
-private:
-	SidebarBook* m_SidebarBook;
-	wxWindow* m_Canvas;
-	SnapSplitterWindow* m_HorizSplitter;
-	SnapSplitterWindow* m_VertSplitter;
-	std::map<std::wstring, int> m_PageMappings;
-};
+} // namespace Atlas::Style
 
-#endif // INCLUDED_SECTIONLAYOUT
+#endif // INCLUDED_ATLAS_STYLESHEET

@@ -28,6 +28,7 @@
 #include "tools/atlas/AtlasUI/ScenarioEditor/Sections/Object/Object.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/Sections/Player/Player.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/Sections/Terrain/Terrain.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/StyleSheet.h"
 
 #include <cstddef>
 #include <utility>
@@ -309,10 +310,10 @@ void SectionLayout::Build(ScenarioEditor& scenarioEditor)
 
 	#undef ADD_SIDEBAR
 
-	m_VertSplitter->SetDefaultSashPosition(-BOTTOMBAR_SIZE);
+	m_VertSplitter->SetDefaultSashPosition(-Atlas::Style::BOTTOMBAR_DEFAULT_SIZE);
 	m_VertSplitter->Initialize(m_Canvas);
 
-	m_HorizSplitter->SetDefaultSashPosition(SIDEBAR_SIZE);
+	m_HorizSplitter->SetDefaultSashPosition(Atlas::Style::SIDEBAR_DEFAULT_SIZE);
 	m_HorizSplitter->SplitVertically(m_SidebarBook, m_VertSplitter);
 }
 
