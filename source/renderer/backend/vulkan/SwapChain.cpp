@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,6 +25,7 @@
 #include "maths/MathUtil.h"
 #include "ps/CLogger.h"
 #include "ps/ConfigDB.h"
+#include "ps/Profile.h"
 #include "renderer/backend/ITexture.h"
 #include "renderer/backend/Sampler.h"
 #include "renderer/backend/vulkan/Device.h"
@@ -38,6 +39,7 @@
 #include <cstdio>
 #include <iterator>
 #include <limits>
+#include <SDL_video.h>
 #include <utility>
 
 namespace Renderer
@@ -51,9 +53,18 @@ namespace Vulkan
 
 // static
 std::unique_ptr<CSwapChain> CSwapChain::Create(
-	CDevice* device, VkSurfaceKHR surface, int surfaceDrawableWidth, int surfaceDrawableHeight,
-	std::unique_ptr<CSwapChain> oldSwapChain)
+	CDevice* device, CSubmitScheduler* submitScheduler,
+	const char* name, VkSurfaceKHR surface,
+	int surfaceDrawableWidth, int surfaceDrawableHeight,
+	const bool vsync, std::unique_ptr<ISwapChain> oldSwapChain)
 {
+	// It seems some drivers might not reuse the same swapchain memory. So
+	// to avoid higher memory peaks destroy the old swapchain before.
+	const bool destroyOldSwapchainBefore{
+		g_ConfigDB.Get("renderer.backend.vulkan.destroyoldswapchainbefore", false)};
+	if (destroyOldSwapchainBefore)
+		oldSwapChain.reset();
+
 	VkPhysicalDevice physicalDevice = device->GetChoosenPhysicalDevice().device;
 
 	VkSurfaceCapabilitiesKHR surfaceCapabilities{};
@@ -103,7 +114,7 @@ std::unique_ptr<CSwapChain> CSwapChain::Create(
 	{
 		return std::find(presentModes.begin(), presentModes.end(), presentMode) != presentModes.end();
 	};
-	if (g_ConfigDB.Get("vsync", true))
+	if (vsync)
 	{
 		// TODO: use the adaptive one when possible.
 		// https://gitlab.freedesktop.org/mesa/mesa/-/issues/5516
@@ -184,17 +195,16 @@ std::unique_ptr<CSwapChain> CSwapChain::Create(
 	swapChainCreateInfo.presentMode = presentMode;
 	swapChainCreateInfo.clipped = VK_TRUE;
 	if (oldSwapChain)
-		swapChainCreateInfo.oldSwapchain = oldSwapChain->GetVkSwapchain();
+		swapChainCreateInfo.oldSwapchain = oldSwapChain->As<CSwapChain>()->GetVkSwapchain();
 
 	std::unique_ptr<CSwapChain> swapChain(new CSwapChain());
 	swapChain->m_Device = device;
+	swapChain->m_SubmitScheduler = submitScheduler;
 
 	RETURN_NULLPTR_IF_NOT_VK_SUCCESS(vkCreateSwapchainKHR(
 		device->GetVkDevice(), &swapChainCreateInfo, nullptr, &swapChain->m_SwapChain));
 
-	char nameBuffer[64];
-	snprintf(nameBuffer, std::size(nameBuffer), "SwapChain: %dx%d", surfaceDrawableWidth, surfaceDrawableHeight);
-	device->SetObjectName(VK_OBJECT_TYPE_SWAPCHAIN_KHR, swapChain->m_SwapChain, nameBuffer);
+	device->SetObjectName(VK_OBJECT_TYPE_SWAPCHAIN_KHR, swapChain->m_SwapChain, name);
 
 	uint32_t imageCount = 0;
 	VkResult getSwapchainImagesResult = VK_INCOMPLETE;
@@ -227,6 +237,7 @@ std::unique_ptr<CSwapChain> CSwapChain::Create(
 
 	swapChain->m_Textures.resize(imageCount);
 	swapChain->m_Backbuffers.resize(imageCount);
+	char nameBuffer[64];
 	for (size_t index = 0; index < imageCount; ++index)
 	{
 		snprintf(nameBuffer, std::size(nameBuffer), "SwapChainImage #%zu", index);
@@ -255,6 +266,28 @@ CSwapChain::~CSwapChain()
 		vkDestroySwapchainKHR(m_Device->GetVkDevice(), m_SwapChain, nullptr);
 }
 
+IDevice* CSwapChain::GetDevice()
+{
+	return m_Device;
+}
+
+bool CSwapChain::AcquireNextBackbuffer()
+{
+	ENSURE(m_IsValid);
+
+	PROFILE3("AcquireNextBackbuffer");
+	return m_SubmitScheduler->AcquireNextImage(*this);
+}
+
+void CSwapChain::Present()
+{
+	ENSURE(m_IsValid);
+
+	PROFILE3("Present");
+	m_SubmitScheduler->Present(*this);
+	m_Device->OnPresent();
+}
+
 size_t CSwapChain::SwapChainBackbuffer::BackbufferKeyHash::operator()(const BackbufferKey& key) const
 {
 	size_t seed = 0;
@@ -273,6 +306,7 @@ CSwapChain::SwapChainBackbuffer& CSwapChain::SwapChainBackbuffer::operator=(Swap
 
 bool CSwapChain::AcquireNextImage(VkSemaphore acquireImageSemaphore)
 {
+	ENSURE(m_IsValid);
 	ENSURE(m_CurrentImageIndex == std::numeric_limits<uint32_t>::max());
 
 	const VkResult acquireResult = vkAcquireNextImageKHR(
@@ -331,6 +365,7 @@ void CSwapChain::SubmitCommandsBeforePresent(
 
 void CSwapChain::Present(VkSemaphore submitDone, VkQueue queue)
 {
+	ENSURE(m_IsValid);
 	ENSURE(m_CurrentImageIndex != std::numeric_limits<uint32_t>::max());
 
 	VkSwapchainKHR swapChains[] = {m_SwapChain};
@@ -358,12 +393,13 @@ void CSwapChain::Present(VkSemaphore submitDone, VkQueue queue)
 	m_CurrentImageIndex = std::numeric_limits<uint32_t>::max();
 }
 
-CFramebuffer* CSwapChain::GetCurrentBackbuffer(
+IFramebuffer* CSwapChain::GetCurrentBackbuffer(
 	const AttachmentLoadOp colorAttachmentLoadOp,
 	const AttachmentStoreOp colorAttachmentStoreOp,
 	const AttachmentLoadOp depthStencilAttachmentLoadOp,
 	const AttachmentStoreOp depthStencilAttachmentStoreOp)
 {
+	ENSURE(m_IsValid);
 	ENSURE(m_CurrentImageIndex != std::numeric_limits<uint32_t>::max());
 	SwapChainBackbuffer& swapChainBackbuffer =
 		m_Backbuffers[m_CurrentImageIndex];
@@ -396,6 +432,21 @@ CTexture* CSwapChain::GetCurrentBackbufferTexture()
 {
 	ENSURE(m_CurrentImageIndex != std::numeric_limits<uint32_t>::max());
 	return m_Textures[m_CurrentImageIndex].get();
+}
+
+CTexture* CSwapChain::GetOrCreateBackbufferReadbackTexture()
+{
+	ENSURE(m_IsValid);
+	if (!m_BackbufferReadbackTexture)
+	{
+		CTexture* currentBackbufferTexture{GetCurrentBackbufferTexture()};
+		m_BackbufferReadbackTexture = CTexture::CreateReadback(
+			m_Device, "BackbufferReadback",
+			currentBackbufferTexture->GetFormat(),
+			currentBackbufferTexture->GetWidth(),
+			currentBackbufferTexture->GetHeight());
+	}
+	return m_BackbufferReadbackTexture.get();
 }
 
 } // namespace Vulkan

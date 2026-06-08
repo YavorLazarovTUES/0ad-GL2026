@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,6 +19,7 @@
 #define INCLUDED_RENDERER_BACKEND_VULKAN_SWAPCHAIN
 
 #include "renderer/backend/IFramebuffer.h"
+#include "renderer/backend/ISwapChain.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -32,6 +33,7 @@
 namespace Renderer::Backend::Vulkan { class CDevice; }
 namespace Renderer::Backend::Vulkan { class CFramebuffer; }
 namespace Renderer::Backend::Vulkan { class CRingCommandContext; }
+namespace Renderer::Backend::Vulkan { class CSubmitScheduler; }
 namespace Renderer::Backend::Vulkan { class CTexture; }
 
 namespace Renderer
@@ -43,14 +45,26 @@ namespace Backend
 namespace Vulkan
 {
 
-class CSwapChain final
+class CSwapChain final : public ISwapChain
 {
 public:
-	~CSwapChain();
+	~CSwapChain() override;
+
+	IDevice* GetDevice() override;
+
+	bool IsValid() const override { return m_IsValid; }
+
+	bool AcquireNextBackbuffer() override;
+
+	IFramebuffer* GetCurrentBackbuffer(
+		const AttachmentLoadOp colorAttachmentLoadOp,
+		const AttachmentStoreOp colorAttachmentStoreOp,
+		const AttachmentLoadOp depthStencilAttachmentLoadOp,
+		const AttachmentStoreOp depthStencilAttachmentStoreOp) override;
+
+	void Present() override;
 
 	VkSwapchainKHR GetVkSwapchain() { return m_SwapChain; }
-
-	bool IsValid() const { return m_IsValid; }
 
 	bool AcquireNextImage(VkSemaphore acquireImageSemaphore);
 	void SubmitCommandsAfterAcquireNextImage(
@@ -59,13 +73,9 @@ public:
 		CRingCommandContext& commandContext);
 	void Present(VkSemaphore submitDone, VkQueue queue);
 
-	CFramebuffer* GetCurrentBackbuffer(
-		const AttachmentLoadOp colorAttachmentLoadOp,
-		const AttachmentStoreOp colorAttachmentStoreOp,
-		const AttachmentLoadOp depthStencilAttachmentLoadOp,
-		const AttachmentStoreOp depthStencilAttachmentStoreOp);
-
 	CTexture* GetCurrentBackbufferTexture();
+
+	CTexture* GetOrCreateBackbufferReadbackTexture();
 
 	CTexture* GetDepthTexture() { return m_DepthTexture.get(); }
 
@@ -73,12 +83,15 @@ private:
 	friend class CDevice;
 
 	static std::unique_ptr<CSwapChain> Create(
-		CDevice* device, VkSurfaceKHR surface, int surfaceDrawableWidth, int surfaceDrawableHeight,
-		std::unique_ptr<CSwapChain> oldSwapChain);
+		CDevice* device, CSubmitScheduler* submitScheduler,
+		const char* name, VkSurfaceKHR surface,
+		int surfaceDrawableWidth, int surfaceDrawableHeight,
+		const bool vsync, std::unique_ptr<ISwapChain> oldSwapChain);
 
 	CSwapChain();
 
 	CDevice* m_Device = nullptr;
+	CSubmitScheduler* m_SubmitScheduler{nullptr};
 
 	bool m_IsValid = false;
 	VkSwapchainKHR m_SwapChain = VK_NULL_HANDLE;
@@ -111,6 +124,8 @@ private:
 		SwapChainBackbuffer& operator=(SwapChainBackbuffer&& other);
 	};
 	std::vector<SwapChainBackbuffer> m_Backbuffers;
+
+	std::unique_ptr<CTexture> m_BackbufferReadbackTexture;
 };
 
 } // namespace Vulkan

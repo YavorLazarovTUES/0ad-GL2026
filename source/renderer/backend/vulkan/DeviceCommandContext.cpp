@@ -41,6 +41,7 @@
 #include "renderer/backend/vulkan/PipelineState.h"
 #include "renderer/backend/vulkan/RingCommandContext.h"
 #include "renderer/backend/vulkan/ShaderProgram.h"
+#include "renderer/backend/vulkan/SwapChain.h"
 #include "renderer/backend/vulkan/Texture.h"
 #include "renderer/backend/vulkan/Utilities.h"
 
@@ -677,10 +678,13 @@ void CDeviceCommandContext::EndFramebufferPass()
 }
 
 void CDeviceCommandContext::ReadbackFramebufferSync(
-	const uint32_t x, const uint32_t y, const uint32_t width, const uint32_t height,
+	ISwapChain& swapChain, const uint32_t x, const uint32_t y,
+	const uint32_t width, const uint32_t height,
 	void* data)
 {
-	CTexture* texture = m_Device->GetCurrentBackbufferTexture();
+	CSwapChain* queuedSwapChain{(&swapChain)->As<CSwapChain>()};
+	ENSURE(queuedSwapChain->IsValid());
+	CTexture* texture{queuedSwapChain->GetCurrentBackbufferTexture()};
 	if (!texture)
 	{
 		LOGERROR("Vulkan: backbuffer is unavailable.");
@@ -692,6 +696,8 @@ void CDeviceCommandContext::ReadbackFramebufferSync(
 		return;
 	}
 	m_QueuedReadbacks.emplace_back(x, y, width, height, data);
+	ENSURE(!m_QueuedReadbackSwapChain || m_QueuedReadbackSwapChain == queuedSwapChain);
+	m_QueuedReadbackSwapChain = queuedSwapChain;
 }
 
 void CDeviceCommandContext::UploadTexture(ITexture* texture, const Format dataFormat,
@@ -1056,12 +1062,14 @@ void CDeviceCommandContext::Flush()
 
 	m_IsPipelineStateDirty = true;
 
-	CTexture* backbufferReadbackTexture = m_QueuedReadbacks.empty()
-		? nullptr : m_Device->GetOrCreateBackbufferReadbackTexture();
+	CTexture* backbufferReadbackTexture{
+		!m_QueuedReadbacks.empty() && m_QueuedReadbackSwapChain && m_QueuedReadbackSwapChain->IsValid()
+			? m_QueuedReadbackSwapChain->GetOrCreateBackbufferReadbackTexture()
+			: nullptr};
 	const bool needsReadback = backbufferReadbackTexture;
 	if (needsReadback)
 	{
-		CTexture* backbufferTexture = m_Device->GetCurrentBackbufferTexture();
+		CTexture* backbufferTexture{m_QueuedReadbackSwapChain->GetCurrentBackbufferTexture()};
 
 		{
 		// We assume that the readback texture is in linear tiling.
@@ -1139,6 +1147,7 @@ void CDeviceCommandContext::Flush()
 	}
 
 	m_QueuedReadbacks.clear();
+	m_QueuedReadbackSwapChain = nullptr;
 }
 
 void CDeviceCommandContext::PreDraw()

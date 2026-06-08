@@ -24,7 +24,6 @@
 #include "lib/config2.h"
 #include "lib/debug.h"
 #include "lib/external_libraries/libsdl.h"
-#include "lib/hash.h"
 #include "lib/ogl.h"
 #include "lib/secure_crt.h"
 #include "lib/sysdep/os.h"
@@ -38,6 +37,7 @@
 #include "renderer/backend/gl/Framebuffer.h"
 #include "renderer/backend/gl/PipelineState.h"
 #include "renderer/backend/gl/ShaderProgram.h"
+#include "renderer/backend/gl/SwapChain.h"
 #include "renderer/backend/gl/Texture.h"
 #include "scriptinterface/Object.h"
 
@@ -241,7 +241,6 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 			LOGERROR("SDL_GL_CreateContext failed: '%s'", SDL_GetError());
 			return nullptr;
 		}
-		SDL_GL_GetDrawableSize(window, &device->m_SurfaceDrawableWidth, &device->m_SurfaceDrawableHeight);
 
 #if OS_WIN
 		ogl_Init(SDL_GL_GetProcAddress, wutil_GetAppHDC());
@@ -801,6 +800,27 @@ std::unique_ptr<IDeviceCommandContext> CDevice::CreateCommandContext()
 	return commandContet;
 }
 
+std::unique_ptr<ISwapChain> CDevice::CreateSwapChain(
+	[[maybe_unused]] const char* name, SDL_Window* window,
+	int surfaceDrawableWidth, int surfaceDrawableHeight,
+	const bool vsync, std::unique_ptr<ISwapChain> oldSwapChain)
+{
+	oldSwapChain.reset();
+	ENSURE(window == m_Window);
+	if (window)
+		SDL_GL_GetDrawableSize(window, &surfaceDrawableWidth, &surfaceDrawableHeight);
+	return CSwapChain::Create(
+		this, window, surfaceDrawableWidth, surfaceDrawableHeight, vsync);
+}
+
+void CDevice::WaitUntilIdle()
+{
+	// Technically we don't need to call glFinish since a driver ensures safety
+	// itself. Though it might give a hint to a driver and it might reduce a
+	// memory spike during recreating resources.
+	glFinish();
+}
+
 std::unique_ptr<IGraphicsPipelineState> CDevice::CreateGraphicsPipelineState(
 	const SGraphicsPipelineStateDesc& pipelineStateDesc)
 {
@@ -855,74 +875,6 @@ std::unique_ptr<IShaderProgram> CDevice::CreateShaderProgram(
 	const CStr& name, const CShaderDefines& defines)
 {
 	return CShaderProgram::Create(this, name, defines);
-}
-
-bool CDevice::AcquireNextBackbuffer()
-{
-	ENSURE(!m_BackbufferAcquired);
-	m_BackbufferAcquired = true;
-	return true;
-}
-
-size_t CDevice::BackbufferKeyHash::operator()(const BackbufferKey& key) const
-{
-	size_t seed = 0;
-	hash_combine(seed, std::get<0>(key));
-	hash_combine(seed, std::get<1>(key));
-	hash_combine(seed, std::get<2>(key));
-	hash_combine(seed, std::get<3>(key));
-	return seed;
-}
-
-IFramebuffer* CDevice::GetCurrentBackbuffer(
-	const AttachmentLoadOp colorAttachmentLoadOp,
-	const AttachmentStoreOp colorAttachmentStoreOp,
-	const AttachmentLoadOp depthStencilAttachmentLoadOp,
-	const AttachmentStoreOp depthStencilAttachmentStoreOp)
-{
-	const BackbufferKey key{
-		colorAttachmentLoadOp, colorAttachmentStoreOp,
-		depthStencilAttachmentLoadOp, depthStencilAttachmentStoreOp};
-	auto it = m_Backbuffers.find(key);
-	if (it == m_Backbuffers.end())
-	{
-		it = m_Backbuffers.emplace(key, CFramebuffer::CreateBackbuffer(
-			this, m_SurfaceDrawableWidth, m_SurfaceDrawableHeight,
-			colorAttachmentLoadOp, colorAttachmentStoreOp,
-			depthStencilAttachmentLoadOp, depthStencilAttachmentStoreOp)).first;
-	}
-	return it->second.get();
-}
-
-void CDevice::Present()
-{
-	ENSURE(m_BackbufferAcquired);
-	m_BackbufferAcquired = false;
-
-	if (m_Window)
-	{
-		PROFILE3("swap buffers");
-		SDL_GL_SwapWindow(m_Window);
-		ogl_WarnIfError();
-	}
-
-#if defined(NDEBUG)
-	if (!g_ConfigDB.Get("gl.checkerrorafterswap", false))
-		return;
-#endif
-	PROFILE3("error check");
-	// We have to check GL errors after SwapBuffer to avoid possible
-	// synchronizations during rendering.
-	if (GLenum err = glGetError())
-		ONCE(LOGERROR("GL error %s (0x%04x) occurred", ogl_GetErrorName(err), err));
-}
-
-void CDevice::OnWindowResize(const uint32_t width, const uint32_t height)
-{
-	ENSURE(!m_BackbufferAcquired);
-	m_Backbuffers.clear();
-	m_SurfaceDrawableWidth = width;
-	m_SurfaceDrawableHeight = height;
 }
 
 bool CDevice::IsTextureFormatSupported(const Format format) const
@@ -1081,7 +1033,7 @@ void CDevice::InsertTimestampQuery(const uint32_t handle)
 
 void CDevice::CollectStatistics(StatisticsVector& statistics) const
 {
-	statistics.emplace_back("Backbuffer count", "", static_cast<uint32_t>(m_Backbuffers.size()));
+	statistics.emplace_back("Query count", "", static_cast<uint32_t>(m_Queries.size()));
 }
 
 std::unique_ptr<IDevice> CreateDevice(SDL_Window* window)

@@ -227,11 +227,6 @@ void InvalidateFramebuffer(
 std::unique_ptr<CDeviceCommandContext> CDeviceCommandContext::Create(CDevice* device)
 {
 	std::unique_ptr<CDeviceCommandContext> deviceCommandContext(new CDeviceCommandContext(device));
-	deviceCommandContext->m_Framebuffer = device->GetCurrentBackbuffer(
-		Renderer::Backend::AttachmentLoadOp::DONT_CARE,
-		Renderer::Backend::AttachmentStoreOp::DONT_CARE,
-		Renderer::Backend::AttachmentLoadOp::DONT_CARE,
-		Renderer::Backend::AttachmentStoreOp::DONT_CARE)->As<CFramebuffer>();
 	deviceCommandContext->ResetStates();
 	return deviceCommandContext;
 }
@@ -610,12 +605,8 @@ void CDeviceCommandContext::ResetStates()
 {
 	SetGraphicsPipelineStateImpl(MakeDefaultGraphicsPipelineStateDesc(), true);
 	SetScissors(0, nullptr);
-	m_Framebuffer = m_Device->GetCurrentBackbuffer(
-		Renderer::Backend::AttachmentLoadOp::DONT_CARE,
-		Renderer::Backend::AttachmentStoreOp::DONT_CARE,
-		Renderer::Backend::AttachmentLoadOp::DONT_CARE,
-		Renderer::Backend::AttachmentStoreOp::DONT_CARE)->As<CFramebuffer>();
-	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_Framebuffer->GetHandle());
+	m_Framebuffer = nullptr;
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 	ogl_WarnIfError();
 }
 
@@ -994,26 +985,21 @@ void CDeviceCommandContext::EndFramebufferPass()
 	}
 	ENSURE(m_InsideFramebufferPass);
 	m_InsideFramebufferPass = false;
-	CFramebuffer* framebuffer = m_Device->GetCurrentBackbuffer(
-		Renderer::Backend::AttachmentLoadOp::DONT_CARE,
-		Renderer::Backend::AttachmentStoreOp::DONT_CARE,
-		Renderer::Backend::AttachmentLoadOp::DONT_CARE,
-		Renderer::Backend::AttachmentStoreOp::DONT_CARE)->As<CFramebuffer>();
-	if (framebuffer->GetHandle() != m_Framebuffer->GetHandle())
+	if (m_Framebuffer->GetHandle() != 0)
 	{
-		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, framebuffer->GetHandle());
+		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 		ogl_WarnIfError();
 	}
-	m_Framebuffer = framebuffer;
+	m_Framebuffer = nullptr;
 
 	SetGraphicsPipelineStateImpl(MakeDefaultGraphicsPipelineStateDesc(), false);
 }
 
 void CDeviceCommandContext::ReadbackFramebufferSync(
-	const uint32_t x, const uint32_t y, const uint32_t width, const uint32_t height,
+	ISwapChain&, const uint32_t x, const uint32_t y,
+	const uint32_t width, const uint32_t height,
 	void* data)
 {
-	ENSURE(m_Framebuffer);
 	glReadPixels(x, y, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
 	ogl_WarnIfError();
 }

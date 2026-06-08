@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -29,6 +29,7 @@
 
 namespace Renderer::Backend { class IComputePipelineState; }
 namespace Renderer::Backend { class IGraphicsPipelineState; }
+namespace Renderer::Backend { class ISwapChain; }
 namespace Renderer::Backend { class IVertexInputLayout; }
 namespace Renderer::Backend { enum class Format; }
 namespace Renderer::Backend::Sampler { enum class Filter; }
@@ -112,7 +113,8 @@ public:
 	 * but a client doesn't support that yet.
 	 */
 	virtual void ReadbackFramebufferSync(
-		const uint32_t x, const uint32_t y, const uint32_t width, const uint32_t height,
+		ISwapChain& swapChain, const uint32_t x, const uint32_t y,
+		const uint32_t width, const uint32_t height,
 		void* data) = 0;
 
 	virtual void UploadTexture(ITexture* texture, const Format dataFormat,

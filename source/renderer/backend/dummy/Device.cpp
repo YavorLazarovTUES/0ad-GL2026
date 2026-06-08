@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -26,6 +26,7 @@
 #include "renderer/backend/dummy/Framebuffer.h"
 #include "renderer/backend/dummy/PipelineState.h"
 #include "renderer/backend/dummy/ShaderProgram.h"
+#include "renderer/backend/dummy/SwapChain.h"
 #include "renderer/backend/dummy/Texture.h"
 #include "scriptinterface/Object.h"
 
@@ -49,8 +50,6 @@ CDevice::CDevice()
 	m_DriverInformation = "Unknown";
 	m_Extensions = {};
 
-	m_Backbuffer = CFramebuffer::Create(this);
-
 	m_Capabilities.S3TC = true;
 	m_Capabilities.computeShaders = true;
 	m_Capabilities.debugLabels = true;
@@ -73,6 +72,18 @@ void CDevice::Report(const ScriptRequest& rq, JS::HandleValue settings)
 std::unique_ptr<IDeviceCommandContext> CDevice::CreateCommandContext()
 {
 	return CDeviceCommandContext::Create(this);
+}
+
+std::unique_ptr<ISwapChain> CDevice::CreateSwapChain(
+	const char*, SDL_Window*, int, int,
+	const bool, std::unique_ptr<ISwapChain> oldSwapChain)
+{
+	oldSwapChain.reset();
+	return CSwapChain::Create(this);
+}
+
+void CDevice::WaitUntilIdle()
+{
 }
 
 std::unique_ptr<IGraphicsPipelineState> CDevice::CreateGraphicsPipelineState(
@@ -127,28 +138,6 @@ std::unique_ptr<IShaderProgram> CDevice::CreateShaderProgram(
 	const CStr&, const CShaderDefines&)
 {
 	return CShaderProgram::Create(this);
-}
-
-bool CDevice::AcquireNextBackbuffer()
-{
-	// We have nothing to acquire.
-	return true;
-}
-
-IFramebuffer* CDevice::GetCurrentBackbuffer(
-	const AttachmentLoadOp, const AttachmentStoreOp,
-	const AttachmentLoadOp, const AttachmentStoreOp)
-{
-	return m_Backbuffer.get();
-}
-
-void CDevice::Present()
-{
-	// We have nothing to present.
-}
-
-void CDevice::OnWindowResize(const uint32_t /*width*/, const uint32_t /*height*/)
-{
 }
 
 bool CDevice::IsTextureFormatSupported(const Format) const

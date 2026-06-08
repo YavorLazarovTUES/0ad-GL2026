@@ -59,6 +59,13 @@ public:
 
 	std::unique_ptr<IDeviceCommandContext> CreateCommandContext() override;
 
+	std::unique_ptr<ISwapChain> CreateSwapChain(
+		const char* name, SDL_Window* window,
+		int surfaceDrawableWidth, int surfaceDrawableHeight,
+		const bool vsync, std::unique_ptr<ISwapChain> oldSwapChain) override;
+
+	void WaitUntilIdle() override;
+
 	std::unique_ptr<IGraphicsPipelineState> CreateGraphicsPipelineState(
 		const SGraphicsPipelineStateDesc& pipelineStateDesc) override;
 
@@ -88,16 +95,6 @@ public:
 	std::unique_ptr<IShaderProgram> CreateShaderProgram(
 		const CStr& name, const CShaderDefines& defines) override;
 
-	bool AcquireNextBackbuffer() override;
-
-	IFramebuffer* GetCurrentBackbuffer(
-		const AttachmentLoadOp, const AttachmentStoreOp,
-		const AttachmentLoadOp, const AttachmentStoreOp) override;
-
-	void Present() override;
-
-	void OnWindowResize(const uint32_t width, const uint32_t height) override;
-
 	bool IsTextureFormatSupported(const Format format) const override;
 
 	bool IsFramebufferFormatSupported(const Format format) const override;
@@ -123,8 +120,6 @@ protected:
 	std::string m_Version;
 	std::string m_DriverInformation;
 	std::vector<std::string> m_Extensions;
-
-	std::unique_ptr<IFramebuffer> m_Backbuffer;
 
 	Capabilities m_Capabilities{};
 };

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -126,7 +126,7 @@ void CDeviceCommandContext::EndFramebufferPass()
 }
 
 void CDeviceCommandContext::ReadbackFramebufferSync(
-	const uint32_t, const uint32_t, const uint32_t, const uint32_t, void*)
+	ISwapChain&, const uint32_t, const uint32_t, const uint32_t, const uint32_t, void*)
 {
 }
 

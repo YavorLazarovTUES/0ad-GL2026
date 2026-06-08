@@ -635,12 +635,6 @@ std::unique_ptr<CDevice> CDevice::Create(SDL_Window* window)
 	device->m_DescriptorManager =
 		std::make_unique<CDescriptorManager>(device.get(), useDescriptorIndexing);
 
-	device->RecreateSwapChain();
-	// Currently we assume that we should have a valid swapchain on the device
-	// creation.
-	if (!device->m_SwapChain)
-		return nullptr;
-
 	device->m_Name = choosenDevice.properties.deviceName;
 	device->m_Version =
 		std::to_string(VK_API_VERSION_VARIANT(choosenDevice.properties.apiVersion)) +
@@ -677,13 +671,8 @@ CDevice::CDevice() = default;
 
 CDevice::~CDevice()
 {
-	if (m_Device)
-		vkDeviceWaitIdle(m_Device);
-
 	// The order of destroying does matter to avoid use-after-free and validation
 	// layers complaints.
-
-	m_BackbufferReadbackTexture.reset();
 
 	m_SubmitScheduler.reset();
 
@@ -695,7 +684,6 @@ CDevice::~CDevice()
 	m_RenderPassManager.reset();
 	m_SamplerManager.reset();
 	m_DescriptorManager.reset();
-	m_SwapChain.reset();
 
 	ProcessObjectToDestroyQueue(true);
 
@@ -742,6 +730,30 @@ void CDevice::Report(const ScriptRequest& rq, JS::HandleValue settings)
 
 	Script::SetProperty(rq, settings, "instance_extensions", m_InstanceExtensions);
 	Script::SetProperty(rq, settings, "validation_layers", m_ValidationLayers);
+}
+
+std::unique_ptr<ISwapChain> CDevice::CreateSwapChain(
+	const char* name, SDL_Window* window,
+	int surfaceDrawableWidth, int surfaceDrawableHeight,
+	const bool vsync, std::unique_ptr<ISwapChain> oldSwapChain)
+{
+	ENSURE(window == m_Window);
+	ENSURE(m_Window);
+	if (window)
+		SDL_Vulkan_GetDrawableSize(window, &surfaceDrawableWidth, &surfaceDrawableHeight);
+	return CSwapChain::Create(
+		this, m_SubmitScheduler.get(), name, m_Surface, surfaceDrawableWidth, surfaceDrawableHeight,
+		vsync, std::move(oldSwapChain));
+}
+
+void CDevice::WaitUntilIdle()
+{
+	vkDeviceWaitIdle(m_Device);
+
+	// Since we know there is no GPU work in progress we can free resources
+	// queued for deletion.
+	ProcessDeviceObjectToDestroyQueue(true);
+	ProcessObjectToDestroyQueue(true);
 }
 
 std::unique_ptr<IGraphicsPipelineState> CDevice::CreateGraphicsPipelineState(
@@ -813,53 +825,12 @@ std::unique_ptr<IDeviceCommandContext> CDevice::CreateCommandContext()
 	return CDeviceCommandContext::Create(this);
 }
 
-bool CDevice::AcquireNextBackbuffer()
+void CDevice::OnPresent()
 {
-	if (!IsSwapChainValid())
-	{
-		RecreateSwapChain();
-		if (!IsSwapChainValid())
-			return false;
-	}
-
-	PROFILE3("AcquireNextBackbuffer");
-	return m_SubmitScheduler->AcquireNextImage(*m_SwapChain);
-}
-
-IFramebuffer* CDevice::GetCurrentBackbuffer(
-	const AttachmentLoadOp colorAttachmentLoadOp,
-	const AttachmentStoreOp colorAttachmentStoreOp,
-	const AttachmentLoadOp depthStencilAttachmentLoadOp,
-	const AttachmentStoreOp depthStencilAttachmentStoreOp)
-{
-	return IsSwapChainValid() ? m_SwapChain->GetCurrentBackbuffer(
-		colorAttachmentLoadOp, colorAttachmentStoreOp,
-		depthStencilAttachmentLoadOp, depthStencilAttachmentStoreOp) : nullptr;
-}
-
-void CDevice::Present()
-{
-	if (!IsSwapChainValid())
-		return;
-
-	PROFILE3("Present");
-
-	m_SubmitScheduler->Present(*m_SwapChain);
-
 	ProcessObjectToDestroyQueue();
 	ProcessDeviceObjectToDestroyQueue();
 
 	++m_FrameID;
-}
-
-void CDevice::OnWindowResize(const uint32_t width, const uint32_t height)
-{
-	if (!IsSwapChainValid() ||
-	    width != m_SwapChain->GetDepthTexture()->GetWidth() ||
-	    height != m_SwapChain->GetDepthTexture()->GetHeight())
-	{
-		RecreateSwapChain();
-	}
 }
 
 bool CDevice::IsTextureFormatSupported(const Format format) const
@@ -1069,38 +1040,6 @@ std::unique_ptr<CRingCommandContext> CDevice::CreateRingCommandContext(const siz
 		this, size, m_GraphicsQueueFamilyIndex, *m_SubmitScheduler);
 }
 
-void CDevice::RecreateSwapChain()
-{
-	if (m_SwapChain)
-	{
-		vkDeviceWaitIdle(m_Device);
-
-		// It seems some drivers might not reuse the same swapchain memory. So
-		// to avoid higher memory peaks destroy the old swapchain before.
-		const bool destroyOldSwapchainBefore{
-			g_ConfigDB.Get("renderer.backend.vulkan.destroyoldswapchainbefore", false)};
-		if (destroyOldSwapchainBefore)
-			m_SwapChain.reset();
-
-		m_BackbufferReadbackTexture.reset();
-
-		// Since we know there is no GPU work in progress we can free resources
-		// queued for deletion.
-		ProcessDeviceObjectToDestroyQueue(true);
-		ProcessObjectToDestroyQueue(true);
-	}
-
-	int surfaceDrawableWidth = 0, surfaceDrawableHeight = 0;
-	SDL_Vulkan_GetDrawableSize(m_Window, &surfaceDrawableWidth, &surfaceDrawableHeight);
-	m_SwapChain = CSwapChain::Create(
-		this, m_Surface, surfaceDrawableWidth, surfaceDrawableHeight, std::move(m_SwapChain));
-}
-
-bool CDevice::IsSwapChainValid()
-{
-	return m_SwapChain && m_SwapChain->IsValid();
-}
-
 void CDevice::ProcessObjectToDestroyQueue(const bool ignoreFrameID)
 {
 	while (!m_ObjectToDestroyQueue.empty() &&
@@ -1169,27 +1108,6 @@ void CDevice::ProcessDeviceObjectToDestroyQueue(const bool ignoreFrameID)
 		GetDescriptorManager().OnBufferDestroy(m_BufferToDestroyQueue.front().second);
 		m_BufferToDestroyQueue.pop();
 	}
-}
-
-CTexture* CDevice::GetCurrentBackbufferTexture()
-{
-	return IsSwapChainValid() ? m_SwapChain->GetCurrentBackbufferTexture() : nullptr;
-}
-
-CTexture* CDevice::GetOrCreateBackbufferReadbackTexture()
-{
-	if (!IsSwapChainValid())
-		return nullptr;
-	if (!m_BackbufferReadbackTexture)
-	{
-		CTexture* currentBackbufferTexture = m_SwapChain->GetCurrentBackbufferTexture();
-		m_BackbufferReadbackTexture = CTexture::CreateReadback(
-			this, "BackbufferReadback",
-			currentBackbufferTexture->GetFormat(),
-			currentBackbufferTexture->GetWidth(),
-			currentBackbufferTexture->GetHeight());
-	}
-	return m_BackbufferReadbackTexture.get();
 }
 
 DeviceObjectUID CDevice::GenerateNextDeviceObjectUID()

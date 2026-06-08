@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -74,7 +74,8 @@ public:
 	void EndFramebufferPass() override;
 	void ClearFramebuffer(const bool color, const bool depth, const bool stencil) override;
 	void ReadbackFramebufferSync(
-		const uint32_t x, const uint32_t y, const uint32_t width, const uint32_t height,
+		ISwapChain& swapChain, const uint32_t x, const uint32_t y,
+		const uint32_t width, const uint32_t height,
 		void* data) override;
 
 	void UploadTexture(ITexture* texture, const Format dataFormat,

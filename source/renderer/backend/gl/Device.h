@@ -73,6 +73,13 @@ public:
 
 	std::unique_ptr<IDeviceCommandContext> CreateCommandContext() override;
 
+	std::unique_ptr<ISwapChain> CreateSwapChain(
+		const char* name, SDL_Window* window,
+		int surfaceDrawableWidth, int surfaceDrawableHeight,
+		const bool vsync, std::unique_ptr<ISwapChain> oldSwapChain) override;
+
+	void WaitUntilIdle() override;
+
 	std::unique_ptr<IGraphicsPipelineState> CreateGraphicsPipelineState(
 		const SGraphicsPipelineStateDesc& pipelineStateDesc) override;
 
@@ -104,18 +111,6 @@ public:
 	std::unique_ptr<IShaderProgram> CreateShaderProgram(
 		const CStr& name, const CShaderDefines& defines) override;
 
-	bool AcquireNextBackbuffer() override;
-
-	IFramebuffer* GetCurrentBackbuffer(
-		const AttachmentLoadOp colorAttachmentLoadOp,
-		const AttachmentStoreOp colorAttachmentStoreOp,
-		const AttachmentLoadOp depthStencilAttachmentLoadOp,
-		const AttachmentStoreOp depthStencilAttachmentStoreOp) override;
-
-	void Present() override;
-
-	void OnWindowResize(const uint32_t width, const uint32_t height) override;
-
 	bool UseFramebufferInvalidating() const { return m_UseFramebufferInvalidating; }
 
 	bool IsTextureFormatSupported(const Format format) const override;
@@ -144,7 +139,6 @@ private:
 
 	SDL_Window* m_Window = nullptr;
 	SDL_GLContext m_Context = nullptr;
-	int m_SurfaceDrawableWidth = 0, m_SurfaceDrawableHeight = 0;
 
 	std::string m_Name;
 	std::string m_Version;
@@ -156,19 +150,6 @@ private:
 	// it's used only as a helper for transition.
 	CDeviceCommandContext* m_ActiveCommandContext = nullptr;
 
-	using BackbufferKey = std::tuple<
-		AttachmentLoadOp, AttachmentStoreOp,
-		AttachmentLoadOp, AttachmentStoreOp>;
-	struct BackbufferKeyHash
-	{
-		size_t operator()(const BackbufferKey& key) const;
-	};
-	// We use std::unordered_map to avoid storing sizes of Attachment*Op
-	// enumerations. If it becomes a performance issue we'll replace it
-	// by an array.
-	std::unordered_map<
-		BackbufferKey, std::unique_ptr<CFramebuffer>, BackbufferKeyHash> m_Backbuffers;
-	bool m_BackbufferAcquired = false;
 	bool m_UseFramebufferInvalidating = false;
 
 	struct Query

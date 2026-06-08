@@ -84,6 +84,13 @@ public:
 
 	std::unique_ptr<IDeviceCommandContext> CreateCommandContext() override;
 
+	std::unique_ptr<ISwapChain> CreateSwapChain(
+		const char* name, SDL_Window* window,
+		int surfaceDrawableWidth, int surfaceDrawableHeight,
+		const bool vsync, std::unique_ptr<ISwapChain> oldSwapChain) override;
+
+	void WaitUntilIdle() override;
+
 	std::unique_ptr<IGraphicsPipelineState> CreateGraphicsPipelineState(
 		const SGraphicsPipelineStateDesc& pipelineStateDesc) override;
 
@@ -115,18 +122,6 @@ public:
 
 	std::unique_ptr<IShaderProgram> CreateShaderProgram(
 		const CStr& name, const CShaderDefines& defines) override;
-
-	bool AcquireNextBackbuffer() override;
-
-	IFramebuffer* GetCurrentBackbuffer(
-		const AttachmentLoadOp colorAttachmentLoadOp,
-		const AttachmentStoreOp colorAttachmentStoreOp,
-		const AttachmentLoadOp depthStencilAttachmentLoadOp,
-		const AttachmentStoreOp depthStencilAttachmentStoreOp) override;
-
-	void Present() override;
-
-	void OnWindowResize(const uint32_t width, const uint32_t height) override;
 
 	bool IsTextureFormatSupported(const Format format) const override;
 
@@ -167,6 +162,8 @@ public:
 
 	void ScheduleBufferToDestroy(const DeviceObjectUID uid);
 
+	void OnPresent();
+
 	void SetObjectName(VkObjectType type, const void* handle, const char* name)
 	{
 		SetObjectName(type, reinterpret_cast<uint64_t>(handle), name);
@@ -184,10 +181,6 @@ public:
 
 	CDescriptorManager& GetDescriptorManager() { return *m_DescriptorManager; }
 
-	CTexture* GetCurrentBackbufferTexture();
-
-	CTexture* GetOrCreateBackbufferReadbackTexture();
-
 	DeviceObjectUID GenerateNextDeviceObjectUID();
 
 	uint32_t GetFrameID() const { return m_FrameID; }
@@ -195,8 +188,6 @@ public:
 private:
 	CDevice();
 
-	void RecreateSwapChain();
-	bool IsSwapChainValid();
 	void ProcessObjectToDestroyQueue(const bool ignoreFrameID = false);
 	void ProcessDeviceObjectToDestroyQueue(const bool ignoreFrameID = false);
 
@@ -234,9 +225,6 @@ private:
 		bool submitted{};
 	};
 	std::vector<Query> m_Queries;
-
-	std::unique_ptr<CSwapChain> m_SwapChain;
-	std::unique_ptr<CTexture> m_BackbufferReadbackTexture;
 
 	uint32_t m_FrameID = 0;
 

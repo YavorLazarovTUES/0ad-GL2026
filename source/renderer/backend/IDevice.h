@@ -39,6 +39,7 @@ namespace Renderer::Backend { class IDeviceCommandContext; }
 namespace Renderer::Backend { class IFramebuffer; }
 namespace Renderer::Backend { class IGraphicsPipelineState; }
 namespace Renderer::Backend { class IShaderProgram; }
+namespace Renderer::Backend { class ISwapChain; }
 namespace Renderer::Backend { class IVertexInputLayout; }
 namespace Renderer::Backend { enum class AttachmentLoadOp; }
 namespace Renderer::Backend { enum class AttachmentStoreOp; }
@@ -50,6 +51,8 @@ namespace Renderer::Backend { struct SDepthStencilAttachment; }
 namespace Renderer::Backend { struct SGraphicsPipelineStateDesc; }
 namespace Renderer::Backend { struct SVertexAttributeFormat; }
 namespace Renderer::Backend::Sampler { struct Desc; }
+
+typedef struct SDL_Window SDL_Window;
 
 namespace Renderer
 {
@@ -77,6 +80,10 @@ public:
 		double timestampMultiplier;
 	};
 
+	/**
+	 * It's a responsibility of a device owner to make sure (via WaitUntilIdle)
+	 * that the device is available to be destroyed.
+	 */
 	virtual ~IDevice() {}
 
 	virtual Backend GetBackend() const = 0;
@@ -89,6 +96,27 @@ public:
 	virtual void Report(const ScriptRequest& rq, JS::HandleValue settings) = 0;
 
 	virtual std::unique_ptr<IDeviceCommandContext> CreateCommandContext() = 0;
+
+	/**
+	 * To be able to present something on a window it needs to create swapchain
+	 * which provides framebuffer to output rendering result. Generally it's
+	 * not allowed to have multiple swapchains for the same window.
+	 *
+	 * We use the provided surface size when the window is nullptr. It's used
+	 * in Atlas when we don't have an SDL_Window.
+	 *
+	 * @return A valid swapchain if it was created successfully else nullptr.
+	 */
+	virtual std::unique_ptr<ISwapChain> CreateSwapChain(
+		const char* name, SDL_Window* window,
+		int surfaceDrawableWidth, int surfaceDrawableHeight, const bool vsync,
+		std::unique_ptr<ISwapChain> oldSwapChain) = 0;
+
+	/**
+	 * Waits until all submitted work (via DeviceCommandContext::Flush) to
+	 * backend is completed and it's safe to release a resource like SwapChain.
+	 */
+	virtual void WaitUntilIdle() = 0;
 
 	/**
 	 * Creates a graphics pipeline state. It's a caller responsibility to
@@ -140,45 +168,6 @@ public:
 
 	virtual std::unique_ptr<IShaderProgram> CreateShaderProgram(
 		const CStr& name, const CShaderDefines& defines) = 0;
-
-	/**
-	 * Acquires a backbuffer for rendering a frame.
-	 *
-	 * @return True if it was successfully acquired and we can render to it.
-	 */
-	virtual bool AcquireNextBackbuffer() = 0;
-
-	/**
-	 * Returns a framebuffer for the current backbuffer with the required
-	 * attachment operations. It should not be called if the last
-	 * AcquireNextBackbuffer call returned false.
-	 *
-	 * It's guaranteed that for the same acquired backbuffer this function returns
-	 * a framebuffer with the same attachments and properties except load and
-	 * store operations.
-	 *
-	 * @return The last successfully acquired framebuffer that wasn't
-	 * presented.
-	 */
-	virtual IFramebuffer* GetCurrentBackbuffer(
-		const AttachmentLoadOp colorAttachmentLoadOp,
-		const AttachmentStoreOp colorAttachmentStoreOp,
-		const AttachmentLoadOp depthStencilAttachmentLoadOp,
-		const AttachmentStoreOp depthStencilAttachmentStoreOp) = 0;
-
-	/**
-	 * Presents the backbuffer to the swapchain queue to be flipped on a
-	 * screen. Should be called only if the last AcquireNextBackbuffer call
-	 * returned true.
-	 */
-	virtual void Present() = 0;
-
-	/**
-	 * Should be called on window surface resize. It's the device owner
-	 * responsibility to call that function. Shouldn't be called during
-	 * rendering to an acquired backbuffer.
-	 */
-	virtual void OnWindowResize(const uint32_t width, const uint32_t height) = 0;
 
 	virtual bool IsTextureFormatSupported(const Format format) const = 0;
 
