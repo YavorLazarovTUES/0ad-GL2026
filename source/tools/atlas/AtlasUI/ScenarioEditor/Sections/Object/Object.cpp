@@ -316,15 +316,10 @@ ObjectSidebar::ObjectSidebar(
 		bottomBarContainer,
 		scenarioEditor.GetObjectSettings(),
 		scenarioEditor.GetMapSettings(),
-		m_Impl
+		m_Impl.get()
 	);
 
 	m_Impl->m_ToolConn = scenarioEditor.GetToolManager().GetCurrentTool().RegisterObserver(0, &ObjectSidebar::OnToolChange, this);
-}
-
-ObjectSidebar::~ObjectSidebar()
-{
-	delete m_Impl;
 }
 
 void ObjectSidebar::OnToolChange(ITool* tool)

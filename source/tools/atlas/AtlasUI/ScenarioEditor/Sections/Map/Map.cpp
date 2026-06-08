@@ -124,7 +124,6 @@ class AtObjClientData : public wxClientData
 {
 public:
 	AtObjClientData(const AtObj& obj) : obj(obj) {}
-	virtual ~AtObjClientData() {}
 	AtObj GetValue() { return obj; }
 private:
 	AtObj obj;

@@ -17,6 +17,7 @@
 
 #include "tools/atlas/AtlasUI/ScenarioEditor/Sections/Common/Sidebar.h"
 
+#include <memory>
 #include <wx/event.h>
 
 class ITool;
@@ -28,7 +29,6 @@ class ObjectSidebar : public Sidebar
 {
 public:
 	ObjectSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContainer, wxWindow* bottomBarContainer);
-	~ObjectSidebar();
 
 	void FilterObjects();
 
@@ -43,7 +43,7 @@ private:
 	void OnSelectObject(wxCommandEvent& evt);
 	void OnToggleExactFilter(wxCommandEvent& evt);
 
-	ObjectSidebarImpl* m_Impl;
+	std::unique_ptr<ObjectSidebarImpl> m_Impl;
 
 	DECLARE_EVENT_TABLE();
 };
