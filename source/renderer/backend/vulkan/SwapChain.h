@@ -20,6 +20,7 @@
 
 #include "renderer/backend/IFramebuffer.h"
 #include "renderer/backend/ISwapChain.h"
+#include "renderer/backend/vulkan/SubmitScheduler.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -33,7 +34,6 @@
 namespace Renderer::Backend::Vulkan { class CDevice; }
 namespace Renderer::Backend::Vulkan { class CFramebuffer; }
 namespace Renderer::Backend::Vulkan { class CRingCommandContext; }
-namespace Renderer::Backend::Vulkan { class CSubmitScheduler; }
 namespace Renderer::Backend::Vulkan { class CTexture; }
 
 namespace Renderer
@@ -66,7 +66,7 @@ public:
 
 	VkSwapchainKHR GetVkSwapchain() { return m_SwapChain; }
 
-	bool AcquireNextImage(VkSemaphore acquireImageSemaphore);
+	bool AcquireNextImage();
 	void SubmitCommandsAfterAcquireNextImage(
 		CRingCommandContext& commandContext);
 	void SubmitCommandsBeforePresent(
@@ -102,6 +102,36 @@ private:
 	std::vector<std::unique_ptr<CTexture>> m_Textures;
 	std::unique_ptr<CTexture> m_DepthTexture;
 	VkFormat m_ImageFormat = VK_FORMAT_UNDEFINED;
+
+	uint32_t m_FrameID{0};
+
+	// We can't reuse the same acquire semaphore immediately after present
+	// because it might still be processing on GPU as vkQueuePresentKHR doesn't
+	// have to be blocking.
+	// We need to wait for the image on GPU to draw to it.
+	struct FrameObject
+	{
+		VkSemaphore acquireImageSemaphore{VK_NULL_HANDLE};
+		// We need to know when we can reuse the semaphore.
+		CSubmitScheduler::SubmitHandle submitHandle{CSubmitScheduler::INVALID_SUBMIT_HANDLE};
+	};
+	std::vector<FrameObject> m_FrameObjects;
+
+	// The number of submit semaphores should be equal to the number of images
+	// in the swapchain. We could use NUMBER_OF_FRAMES_IN_FLIGHT of objects but
+	// it might be not safe. Since vkQueuePresentKHR doesn't provide a way to
+	// tell that a semaphore was signaled.
+	//
+	// A possible situation, list of acquired indices:
+	//  0, 1, 2, 0, 1, 0, 1
+	//                     ^
+	// In theory in the end we might still have a semaphore in use for the
+	// 2nd swapchain image.
+	//
+	// See also:
+	//  https://docs.vulkan.org/guide/latest/swapchain_semaphore_reuse.html
+	// We need to present only after all submit work is done.
+	std::vector<VkSemaphore> m_SubmitSemaphores;
 
 	struct SwapChainBackbuffer
 	{

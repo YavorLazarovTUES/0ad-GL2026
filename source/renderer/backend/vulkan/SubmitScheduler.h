@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -53,9 +53,9 @@ public:
 		CDevice* device, const uint32_t queueFamilyIndex, VkQueue queue);
 	~CSubmitScheduler();
 
-	bool AcquireNextImage(CSwapChain& swapChain);
+	bool AcquireNextImage(CSwapChain& swapChain, VkSemaphore acquireImageSemaphore);
 
-	void Present(CSwapChain& swapChain);
+	SubmitHandle Present(CSwapChain& swapChain, VkSemaphore submitDone);
 
 	SubmitHandle Submit(VkCommandBuffer commandBuffer);
 
@@ -63,7 +63,7 @@ public:
 
 	uint32_t GetFrameID() const { return m_FrameID; }
 
-	void Flush();
+	SubmitHandle Flush();
 
 private:
 	CSubmitScheduler(CDevice* device, VkQueue queue);
@@ -89,17 +89,6 @@ private:
 		uint32_t fenceIndex;
 	};
 	std::queue<SubmittedHandle> m_SubmittedHandles;
-
-	// We can't reuse frame data immediately after present because it might
-	// still be processing on GPU.
-	struct FrameObject
-	{
-		// We need to wait for the image on GPU to draw to it.
-		VkSemaphore acquireImageSemaphore = VK_NULL_HANDLE;
-		// We need to present only after all submit work is done.
-		VkSemaphore submitDone = VK_NULL_HANDLE;
-	};
-	std::array<FrameObject, NUMBER_OF_FRAMES_IN_FLIGHT> m_FrameObjects;
 
 	VkSemaphore m_NextWaitSemaphore = VK_NULL_HANDLE;
 	VkPipelineStageFlags m_NextWaitDstStageMask = 0;

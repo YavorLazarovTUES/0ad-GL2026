@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -58,17 +58,6 @@ std::unique_ptr<CSubmitScheduler> CSubmitScheduler::Create(
 		submitScheduler->m_Fences.push_back({fence, INVALID_SUBMIT_HANDLE});
 	}
 
-	for (FrameObject& frameObject : submitScheduler->m_FrameObjects)
-	{
-		VkSemaphoreCreateInfo semaphoreCreateInfo{};
-		semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-		RETURN_NULLPTR_IF_NOT_VK_SUCCESS(vkCreateSemaphore(
-			device->GetVkDevice(), &semaphoreCreateInfo, nullptr, &frameObject.acquireImageSemaphore));
-
-		RETURN_NULLPTR_IF_NOT_VK_SUCCESS(vkCreateSemaphore(
-			device->GetVkDevice(), &semaphoreCreateInfo, nullptr, &frameObject.submitDone));
-	}
-
 	submitScheduler->m_AcquireCommandContext = CRingCommandContext::Create(
 		device, NUMBER_OF_FRAMES_IN_FLIGHT, queueFamilyIndex, *submitScheduler);
 	if (!submitScheduler->m_AcquireCommandContext)
@@ -103,48 +92,39 @@ CSubmitScheduler::~CSubmitScheduler()
 	for (Fence& fence : m_Fences)
 		if (fence.value != VK_NULL_HANDLE)
 			vkDestroyFence(device, fence.value, nullptr);
-
-	for (FrameObject& frameObject : m_FrameObjects)
-	{
-		if (frameObject.acquireImageSemaphore != VK_NULL_HANDLE)
-			vkDestroySemaphore(device, frameObject.acquireImageSemaphore, nullptr);
-
-		if (frameObject.submitDone != VK_NULL_HANDLE)
-			vkDestroySemaphore(device, frameObject.submitDone, nullptr);
-	}
 }
 
-bool CSubmitScheduler::AcquireNextImage(CSwapChain& swapChain)
+bool CSubmitScheduler::AcquireNextImage(CSwapChain& swapChain, VkSemaphore acquireImageSemaphore)
 {
 	if (m_DebugWaitIdleBeforeAcquire)
 		vkDeviceWaitIdle(m_Device->GetVkDevice());
 
-	FrameObject& frameObject = m_FrameObjects[m_FrameID % m_FrameObjects.size()];
-	if (!swapChain.AcquireNextImage(frameObject.acquireImageSemaphore))
+	if (!swapChain.AcquireNextImage())
 		return false;
 	swapChain.SubmitCommandsAfterAcquireNextImage(*m_AcquireCommandContext);
 
-	m_NextWaitSemaphore = frameObject.acquireImageSemaphore;
+	m_NextWaitSemaphore = acquireImageSemaphore;
 	m_NextWaitDstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	m_AcquireCommandContext->Flush();
 	return true;
 }
 
-void CSubmitScheduler::Present(CSwapChain& swapChain)
+CSubmitScheduler::SubmitHandle CSubmitScheduler::Present(CSwapChain& swapChain, VkSemaphore submitDone)
 {
-	FrameObject& frameObject = m_FrameObjects[m_FrameID % m_FrameObjects.size()];
 	swapChain.SubmitCommandsBeforePresent(*m_PresentCommandContext);
-	m_NextSubmitSignalSemaphore = frameObject.submitDone;
+	m_NextSubmitSignalSemaphore = submitDone;
 	m_PresentCommandContext->Flush();
-	Flush();
+	const SubmitHandle submitHandle{Flush()};
 
 	if (m_DebugWaitIdleBeforePresent)
 		vkDeviceWaitIdle(m_Device->GetVkDevice());
 
-	swapChain.Present(frameObject.submitDone, m_Queue);
+	swapChain.Present(submitDone, m_Queue);
 
 	if (m_DebugWaitIdleAfterPresent)
 		vkDeviceWaitIdle(m_Device->GetVkDevice());
+
+	return submitHandle;
 }
 
 CSubmitScheduler::SubmitHandle CSubmitScheduler::Submit(VkCommandBuffer commandBuffer)
@@ -172,7 +152,7 @@ void CSubmitScheduler::WaitUntilFree(const SubmitHandle handle)
 	}
 }
 
-void CSubmitScheduler::Flush()
+CSubmitScheduler::SubmitHandle CSubmitScheduler::Flush()
 {
 	ENSURE(!m_SubmittedCommandBuffers.empty());
 
@@ -208,6 +188,8 @@ void CSubmitScheduler::Flush()
 	m_NextSubmitSignalSemaphore = VK_NULL_HANDLE;
 
 	m_SubmittedCommandBuffers.clear();
+
+	return fence.lastUsedHandle;
 }
 
 } // namespace Vulkan

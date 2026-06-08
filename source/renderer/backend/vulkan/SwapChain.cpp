@@ -248,6 +248,37 @@ std::unique_ptr<CSwapChain> CSwapChain::Create(
 			swapChainCreateInfo.imageUsage, swapChainWidth, swapChainHeight);
 	}
 
+	// +1 to minimize waiting on our side instead of vkAcquireNextImageKHR.
+	for (size_t index{0}; index < NUMBER_OF_FRAMES_IN_FLIGHT + 1; ++index)
+	{
+		VkSemaphore semaphore{VK_NULL_HANDLE};
+
+		VkSemaphoreCreateInfo semaphoreCreateInfo{};
+		semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+		RETURN_NULLPTR_IF_NOT_VK_SUCCESS(vkCreateSemaphore(
+			device->GetVkDevice(), &semaphoreCreateInfo, nullptr, &semaphore));
+		snprintf(nameBuffer, std::size(nameBuffer), "SwapChainAcquireSemaphore #%zu", index);
+		device->SetObjectName(VK_OBJECT_TYPE_SEMAPHORE, semaphore, nameBuffer);
+
+		swapChain->m_FrameObjects.emplace_back(FrameObject{semaphore, CSubmitScheduler::INVALID_SUBMIT_HANDLE});
+	}
+
+	for (size_t index{0}; index < imageCount; ++index)
+	{
+		VkSemaphore semaphore{VK_NULL_HANDLE};
+
+		VkSemaphoreCreateInfo semaphoreCreateInfo{};
+		semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+		RETURN_NULLPTR_IF_NOT_VK_SUCCESS(vkCreateSemaphore(
+			device->GetVkDevice(), &semaphoreCreateInfo, nullptr, &semaphore));
+		snprintf(nameBuffer, std::size(nameBuffer), "SwapChainSubmitSemaphore #%zu", index);
+		device->SetObjectName(VK_OBJECT_TYPE_SEMAPHORE, semaphore, nameBuffer);
+
+		swapChain->m_SubmitSemaphores.emplace_back(semaphore);
+	}
+
 	swapChain->m_IsValid = true;
 
 	return swapChain;
@@ -257,13 +288,28 @@ CSwapChain::CSwapChain() = default;
 
 CSwapChain::~CSwapChain()
 {
+	VkDevice device{m_Device->GetVkDevice()};
+
 	m_Backbuffers.clear();
 
 	m_Textures.clear();
 	m_DepthTexture.reset();
 
 	if (m_SwapChain != VK_NULL_HANDLE)
-		vkDestroySwapchainKHR(m_Device->GetVkDevice(), m_SwapChain, nullptr);
+		vkDestroySwapchainKHR(device, m_SwapChain, nullptr);
+
+	for (FrameObject& frameObject : m_FrameObjects)
+	{
+		if (frameObject.submitHandle != CSubmitScheduler::INVALID_SUBMIT_HANDLE)
+			m_SubmitScheduler->WaitUntilFree(frameObject.submitHandle);
+
+		if (frameObject.acquireImageSemaphore != VK_NULL_HANDLE)
+			vkDestroySemaphore(device, frameObject.acquireImageSemaphore, nullptr);
+	}
+
+	for (VkSemaphore& semaphore : m_SubmitSemaphores)
+		if (semaphore != VK_NULL_HANDLE)
+			vkDestroySemaphore(device, semaphore, nullptr);
 }
 
 IDevice* CSwapChain::GetDevice()
@@ -276,16 +322,29 @@ bool CSwapChain::AcquireNextBackbuffer()
 	ENSURE(m_IsValid);
 
 	PROFILE3("AcquireNextBackbuffer");
-	return m_SubmitScheduler->AcquireNextImage(*this);
+
+	// We need to make sure we can reuse the semaphore.
+	FrameObject& frameObject{m_FrameObjects[m_FrameID % m_FrameObjects.size()]};
+	if (frameObject.submitHandle != CSubmitScheduler::INVALID_SUBMIT_HANDLE)
+	{
+		PROFILE3("WaitAcquireSemaphore");
+		m_SubmitScheduler->WaitUntilFree(frameObject.submitHandle);
+	}
+
+	return m_SubmitScheduler->AcquireNextImage(*this, frameObject.acquireImageSemaphore);
 }
 
 void CSwapChain::Present()
 {
 	ENSURE(m_IsValid);
+	ENSURE(m_CurrentImageIndex != std::numeric_limits<uint32_t>::max());
+	ENSURE(m_CurrentImageIndex < m_SubmitSemaphores.size());
 
 	PROFILE3("Present");
-	m_SubmitScheduler->Present(*this);
+	FrameObject& frameObject{m_FrameObjects[m_FrameID % m_FrameObjects.size()]};
+	frameObject.submitHandle = m_SubmitScheduler->Present(*this, m_SubmitSemaphores[m_CurrentImageIndex]);
 	m_Device->OnPresent();
+	++m_FrameID;
 }
 
 size_t CSwapChain::SwapChainBackbuffer::BackbufferKeyHash::operator()(const BackbufferKey& key) const
@@ -304,11 +363,12 @@ CSwapChain::SwapChainBackbuffer::SwapChainBackbuffer(SwapChainBackbuffer&& other
 
 CSwapChain::SwapChainBackbuffer& CSwapChain::SwapChainBackbuffer::operator=(SwapChainBackbuffer&& other) = default;
 
-bool CSwapChain::AcquireNextImage(VkSemaphore acquireImageSemaphore)
+bool CSwapChain::AcquireNextImage()
 {
 	ENSURE(m_IsValid);
 	ENSURE(m_CurrentImageIndex == std::numeric_limits<uint32_t>::max());
 
+	VkSemaphore acquireImageSemaphore{m_FrameObjects[m_FrameID % m_FrameObjects.size()].acquireImageSemaphore};
 	const VkResult acquireResult = vkAcquireNextImageKHR(
 		m_Device->GetVkDevice(), m_SwapChain, std::numeric_limits<uint64_t>::max(),
 		acquireImageSemaphore,
