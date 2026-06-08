@@ -42,6 +42,7 @@
 #include "ps/Pyrogenesis.h"
 #include "renderer/Renderer.h"
 #include "renderer/backend/IDevice.h"
+#include "renderer/backend/ISwapChain.h"
 #include "renderer/backend/dummy/DeviceForward.h"
 #include "renderer/backend/gl/DeviceForward.h"
 #include "renderer/backend/vulkan/DeviceForward.h"
@@ -474,9 +475,6 @@ bool CVideoMode::SetVideoMode(int w, int h, int bpp, bool fullscreen)
 			m_Window = nullptr;
 			return SetVideoMode(w, h, bpp, fullscreen);
 		}
-
-		if (isGLBackend)
-			SDL_GL_SetSwapInterval(m_ConfigVSync ? 1 : 0);
 	}
 	else
 	{
@@ -623,6 +621,14 @@ void CVideoMode::Shutdown()
 
 	m_IsFullscreen = false;
 	m_IsInitialised = false;
+
+	if (m_BackendDevice)
+	{
+		// We need to wait before we can destroy the device.
+		m_BackendDevice->WaitUntilIdle();
+	}
+
+	m_SwapChain.reset();
 	m_BackendDevice.reset();
 	if (m_Window)
 	{
@@ -672,6 +678,14 @@ bool CVideoMode::TryCreateBackendDevice(SDL_Window* window)
 		}
 		break;
 	}
+	// We don't need to wait because we don't have any swapchain in use.
+	RecreateSwapChain();
+	if (m_BackendDevice && (!m_SwapChain || !m_SwapChain->IsValid()))
+	{
+		// Currently we assume that we should have a valid swapchain on the device
+		// creation.
+		m_BackendDevice.reset();
+	}
 	return static_cast<bool>(m_BackendDevice);
 }
 
@@ -681,6 +695,45 @@ void CVideoMode::DowngradeBackendSettingAfterCreationFailure()
 	LOGERROR("Unable to create device for %s backend, switching to %s.",
 		GetBackendName(m_Backend), GetBackendName(fallback));
 	m_Backend = fallback;
+}
+
+void CVideoMode::RecreateSwapChain()
+{
+	if (m_BackendDevice)
+	{
+		char nameBuffer[64];
+		snprintf(nameBuffer, std::size(nameBuffer), "SwapChain: %dx%d", g_xres, g_yres);
+		m_SwapChain = m_BackendDevice->CreateSwapChain(
+			nameBuffer, m_Window, g_xres, g_yres, m_ConfigVSync, std::move(m_SwapChain));
+	}
+}
+
+Renderer::Backend::ISwapChain* CVideoMode::GetOrCreateSwapChain()
+{
+#if !OS_MACOSX
+	const bool vsync{g_ConfigDB.Get("vsync", false)};
+	const bool vsyncChanged{m_ConfigVSync != vsync};
+	if (vsyncChanged)
+		m_ConfigVSync = vsync;
+#else
+	// Currently there is a bug in MoltenVK which doesn't allow to recreate
+	// a swapchain with the same size (it makes it 1x1):
+	//  https://github.com/KhronosGroup/MoltenVK/pull/2722
+	const bool vsyncChanged{false};
+#endif
+	const bool shouldRecreate{
+		!m_SwapChain || !m_SwapChain->IsValid() || vsyncChanged};
+	if (shouldRecreate)
+	{
+		if (m_SwapChain)
+		{
+			// We need to wait until we can destroy the swapchain because it
+			// might be in use.
+			m_BackendDevice->WaitUntilIdle();
+		}
+		RecreateSwapChain();
+	}
+	return m_SwapChain.get();
 }
 
 bool CVideoMode::ResizeWindow(int w, int h)
@@ -810,8 +863,17 @@ void CVideoMode::UpdateRenderer(int w, int h)
 
 	SViewPort vp = { 0, 0, w, h };
 
-	if (g_VideoMode.GetBackendDevice())
-		g_VideoMode.GetBackendDevice()->OnWindowResize(w, h);
+	if (g_VideoMode.m_BackendDevice)
+	{
+		// TODO: implement freeing window size dependent resources before
+		// waiting to reduce a memory spike.
+
+		// We need to wait until we can destroy the swapchain because it
+		// might be in use.
+		g_VideoMode.m_BackendDevice->WaitUntilIdle();
+
+		g_VideoMode.RecreateSwapChain();
+	}
 
 	if (CRenderer::IsInitialised())
 		g_Renderer.Resize(w, h);

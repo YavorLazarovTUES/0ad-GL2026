@@ -37,6 +37,7 @@
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
 #include "renderer/backend/IDevice.h"
+#include "renderer/backend/ISwapChain.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpParticleManager.h"
 #include "simulation2/components/ICmpPathfinder.h"
@@ -228,7 +229,8 @@ void AtlasViewGame::Update(float realFrameLength)
 
 void AtlasViewGame::Render()
 {
-	if (!g_VideoMode.GetBackendDevice()->AcquireNextBackbuffer())
+	Renderer::Backend::ISwapChain* swapChain{g_VideoMode.GetOrCreateSwapChain()};
+	if (!swapChain || !swapChain->IsValid() || !swapChain->AcquireNextBackbuffer())
 		return;
 
 	SViewPort vp = { 0, 0, g_xres, g_yres };
@@ -239,9 +241,9 @@ void AtlasViewGame::Render()
 
 	g_Renderer.RenderFrame(false);
 	Atlas_GLSwapBuffers((void*)g_AtlasGameLoop->glCanvas);
-	// In case of atlas the device's present will do only internal stuff
+	// In case of atlas the swapchain's present will do only internal stuff
 	// without calling a real backbuffer swap.
-	g_VideoMode.GetBackendDevice()->Present();
+	swapChain->Present();
 }
 
 void AtlasViewGame::DrawCinemaPathTool(Renderer::Backend::IDeviceCommandContext& deviceCommandContext)

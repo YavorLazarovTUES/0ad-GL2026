@@ -130,8 +130,6 @@ MESSAGEHANDLER(InitGraphics)
 {
 	g_VideoMode.CreateBackendDevice(false);
 
-	g_VideoMode.GetBackendDevice()->OnWindowResize(g_xres, g_yres);
-
 	g_ScriptInterface.emplace("Engine", "GUIManager", *g_ScriptContext);
 	InitGraphics(g_AtlasGameLoop->args, g_InitFlags, {}, *g_ScriptContext, *g_ScriptInterface);
 }

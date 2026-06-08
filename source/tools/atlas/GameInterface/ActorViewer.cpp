@@ -60,6 +60,7 @@
 #include "renderer/backend/IDevice.h"
 #include "renderer/backend/IDeviceCommandContext.h"
 #include "renderer/backend/IFramebuffer.h"
+#include "renderer/backend/ISwapChain.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpAttack.h"
@@ -528,6 +529,11 @@ void ActorViewer::Render()
 {
 	// TODO: ActorViewer should reuse CRenderer code and not duplicate it.
 
+	Renderer::Backend::ISwapChain* swapChain{
+		g_VideoMode.GetOrCreateSwapChain()};
+	if (!swapChain || !swapChain->IsValid())
+		return;
+
 	CSceneRenderer& sceneRenderer = g_Renderer.GetSceneRenderer();
 
 	// Set simulation context for rendering purposes
@@ -557,7 +563,7 @@ void ActorViewer::Render()
 	sceneRenderer.PrepareScene(deviceCommandContext, m);
 
 	Renderer::Backend::IFramebuffer* backbuffer =
-		deviceCommandContext->GetDevice()->GetCurrentBackbuffer(
+		swapChain->GetCurrentBackbuffer(
 			Renderer::Backend::AttachmentLoadOp::DONT_CARE,
 			Renderer::Backend::AttachmentStoreOp::STORE,
 			Renderer::Backend::AttachmentLoadOp::CLEAR,

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,6 +24,7 @@
 
 class CStrW;
 namespace Renderer::Backend { class IDevice; }
+namespace Renderer::Backend { class ISwapChain; }
 
 typedef struct SDL_Window SDL_Window;
 
@@ -114,6 +115,13 @@ public:
 
 	Renderer::Backend::IDevice* GetBackendDevice() { return m_BackendDevice.get(); }
 
+	/**
+	 * @return A swapchain (may be invalid) if available. It's not allowed to
+	 * call the function during a frame rendering when an old swapchain is
+	 * already in use.
+	 */
+	Renderer::Backend::ISwapChain* GetOrCreateSwapChain();
+
 private:
 	void ReadConfig();
 	int GetBestBPP();
@@ -121,6 +129,12 @@ private:
 
 	bool TryCreateBackendDevice(SDL_Window* window);
 	void DowngradeBackendSettingAfterCreationFailure();
+
+	/**
+	 * Immediately recreates a swapchain. It's a caller's responsibility to
+	 * wait till the swapchain isn't in use anymore.
+	 */
+	void RecreateSwapChain();
 
 	/**
 	 * Remember whether Init has been called. (This isn't used for anything
@@ -172,6 +186,8 @@ private:
 
 	Renderer::Backend::Backend m_Backend = Renderer::Backend::Backend::GL;
 	std::unique_ptr<Renderer::Backend::IDevice> m_BackendDevice;
+	// SwapChain for the corresponding device.
+	std::unique_ptr<Renderer::Backend::ISwapChain> m_SwapChain;
 };
 
 extern CVideoMode g_VideoMode;

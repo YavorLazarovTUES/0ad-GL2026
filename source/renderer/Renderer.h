@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -36,6 +36,7 @@ class CVertexBufferManager;
 namespace PS::Memory { class LinearAllocator; }
 namespace Renderer::Backend { class IDevice; }
 namespace Renderer::Backend { class IDeviceCommandContext; }
+namespace Renderer::Backend { class ISwapChain; }
 namespace Renderer::Backend { class IVertexInputLayout; }
 namespace Renderer::Backend { struct SVertexAttributeFormat; }
 
@@ -161,7 +162,9 @@ protected:
 
 	bool ShouldRender() const;
 
-	void RenderFrameImpl(const bool renderGUI, const bool renderLogger);
+	void RenderFrameImpl(
+		Renderer::Backend::ISwapChain& swapChain,
+		const bool renderGUI, const bool renderLogger);
 	void RenderFrame2D(const bool renderGUI, const bool renderLogger);
 	void RenderScreenShot(const bool needsPresent);
 	void RenderBigScreenShot(const bool needsPresent);

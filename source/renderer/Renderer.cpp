@@ -72,6 +72,7 @@
 #include "renderer/backend/IDeviceCommandContext.h"
 #include "renderer/backend/IFramebuffer.h"
 #include "renderer/backend/IShaderProgram.h"
+#include "renderer/backend/ISwapChain.h"
 #include "tools/atlas/GameInterface/GameLoop.h"
 #include "tools/atlas/GameInterface/View.h"
 
@@ -517,29 +518,32 @@ void CRenderer::RenderFrame(const bool needsPresent)
 	}
 	else
 	{
-		if (needsPresent)
-		{
-			// In case of no acquired backbuffer we have nothing render to.
-			if (!m->device->AcquireNextBackbuffer())
-				return;
-		}
+		Renderer::Backend::ISwapChain* swapChain{g_VideoMode.GetOrCreateSwapChain()};
+		if (!swapChain || !swapChain->IsValid())
+			return;
+
+		// In case of no acquired backbuffer we have nothing render to.
+		if (needsPresent && !swapChain->AcquireNextBackbuffer())
+			return;
 
 		if (m_ShouldPreloadResourcesBeforeNextFrame)
 		{
 			m_ShouldPreloadResourcesBeforeNextFrame = false;
 			// We don't need to render logger for the preload.
-			RenderFrameImpl(true, false);
+			RenderFrameImpl(*swapChain, true, false);
 		}
 
-		RenderFrameImpl(true, true);
+		RenderFrameImpl(*swapChain, true, true);
 
 		m->deviceCommandContext->Flush();
 		if (needsPresent)
-			m->device->Present();
+			swapChain->Present();
 	}
 }
 
-void CRenderer::RenderFrameImpl(const bool renderGUI, const bool renderLogger)
+void CRenderer::RenderFrameImpl(
+	Renderer::Backend::ISwapChain& swapChain,
+	const bool renderGUI, const bool renderLogger)
 {
 	PROFILE3("render");
 
@@ -585,7 +589,7 @@ void CRenderer::RenderFrameImpl(const bool renderGUI, const bool renderLogger)
 			// We don't need to clear the color attachment of the framebuffer as the sky
 			// is going to be rendered anyway.
 			framebuffer =
-				m->deviceCommandContext->GetDevice()->GetCurrentBackbuffer(
+				swapChain.GetCurrentBackbuffer(
 					Renderer::Backend::AttachmentLoadOp::DONT_CARE,
 					Renderer::Backend::AttachmentStoreOp::STORE,
 					Renderer::Backend::AttachmentLoadOp::CLEAR,
@@ -610,7 +614,7 @@ void CRenderer::RenderFrameImpl(const bool renderGUI, const bool renderLogger)
 			postprocManager.ApplyPostproc(m->deviceCommandContext.get());
 
 			Renderer::Backend::IFramebuffer* backbuffer =
-				m->deviceCommandContext->GetDevice()->GetCurrentBackbuffer(
+				swapChain.GetCurrentBackbuffer(
 					Renderer::Backend::AttachmentLoadOp::LOAD,
 					Renderer::Backend::AttachmentStoreOp::STORE,
 					Renderer::Backend::AttachmentLoadOp::LOAD,
@@ -642,7 +646,7 @@ void CRenderer::RenderFrameImpl(const bool renderGUI, const bool renderLogger)
 				? Renderer::Backend::AttachmentLoadOp::CLEAR
 				: Renderer::Backend::AttachmentLoadOp::DONT_CARE;
 		Renderer::Backend::IFramebuffer* backbuffer =
-			m->deviceCommandContext->GetDevice()->GetCurrentBackbuffer(
+			swapChain.GetCurrentBackbuffer(
 				Renderer::Backend::AttachmentLoadOp::DONT_CARE,
 				Renderer::Backend::AttachmentStoreOp::STORE,
 				depthStencilLoadOp,
@@ -734,12 +738,6 @@ void CRenderer::RenderScreenShot(const bool needsPresent)
 	const size_t width = static_cast<size_t>(g_xres), height = static_cast<size_t>(g_yres);
 	const size_t bpp = 24;
 
-	if (needsPresent && !m->device->AcquireNextBackbuffer())
-		return;
-
-	// Hide log messages and re-render
-	RenderFrameImpl(true, false);
-
 	const size_t img_size = width * height * bpp / 8;
 	const size_t hdr_size = tex_hdr_size(filename);
 	std::shared_ptr<u8> buf;
@@ -749,10 +747,20 @@ void CRenderer::RenderScreenShot(const bool needsPresent)
 	if (t.wrap(width, height, bpp, TEX_BOTTOM_UP, buf, hdr_size) < 0)
 		return;
 
-	m->deviceCommandContext->ReadbackFramebufferSync(0, 0, width, height, img);
+	Renderer::Backend::ISwapChain* swapChain{g_VideoMode.GetOrCreateSwapChain()};
+	if (!swapChain || !swapChain->IsValid())
+		return;
+
+	if (needsPresent && !swapChain->AcquireNextBackbuffer())
+		return;
+
+	// Hide log messages and re-render
+	RenderFrameImpl(*swapChain, false, false);
+
+	m->deviceCommandContext->ReadbackFramebufferSync(*swapChain, 0, 0, width, height, img);
 	m->deviceCommandContext->Flush();
 	if (needsPresent)
-		m->device->Present();
+		swapChain->Present();
 
 	if (tex_write(&t, filename) == INFO::OK)
 	{
@@ -850,15 +858,19 @@ void CRenderer::RenderBigScreenShot(const bool needsPresent)
 			}
 			g_Game->GetView()->GetCamera()->SetProjection(projection);
 
-			if (!needsPresent || m->device->AcquireNextBackbuffer())
-			{
-				RenderFrameImpl(false, false);
+			Renderer::Backend::ISwapChain* swapChain{g_VideoMode.GetOrCreateSwapChain()};
+			if (!swapChain || !swapChain->IsValid())
+				continue;
 
-				m->deviceCommandContext->ReadbackFramebufferSync(0, 0, tileWidth, tileHeight, tileData);
+			if (!needsPresent || swapChain->AcquireNextBackbuffer())
+			{
+				RenderFrameImpl(*swapChain, false, false);
+
+				m->deviceCommandContext->ReadbackFramebufferSync(*swapChain, 0, 0, tileWidth, tileHeight, tileData);
 				m->deviceCommandContext->Flush();
 
 				if (needsPresent)
-					m->device->Present();
+					swapChain->Present();
 			}
 
 			// Copy the tile pixels into the main image
