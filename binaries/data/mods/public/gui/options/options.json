@@ -104,7 +104,7 @@
 			{
 				"type": "boolean",
 				"label": "VSync",
-				"tooltip": "Run vertical sync to fix screen tearing. REQUIRES GAME RESTART",
+				"tooltip": "Run vertical sync to fix screen tearing.",
 				"config": "vsync"
 			},
 			{
