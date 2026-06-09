@@ -53,8 +53,8 @@ class StructreePage extends ReferencePage
 		this.CivHistory.caption = this.civData[this.activeCiv].History || "";
 
 		const templateLists = this.TemplateLister.getTemplateLists(this.activeCiv);
-		this.TreeSection.draw(templateLists.structures, this.activeCiv);
 		this.TrainerSection.draw(templateLists.units, this.activeCiv);
+		this.TreeSection.draw(templateLists.structures, this.activeCiv);
 	}
 }
 
