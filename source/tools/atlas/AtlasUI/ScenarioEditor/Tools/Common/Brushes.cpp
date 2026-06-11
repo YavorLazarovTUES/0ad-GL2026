@@ -27,7 +27,6 @@
 #include <wx/arrstr.h>
 #include <wx/chartype.h>
 #include <wx/debug.h>
-#include <wx/defs.h>
 #include <wx/event.h>
 #include <wx/radiobox.h>
 #include <wx/sizer.h>

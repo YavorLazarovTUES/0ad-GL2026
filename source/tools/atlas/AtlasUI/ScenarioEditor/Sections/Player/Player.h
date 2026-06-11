@@ -19,7 +19,6 @@
 #include "tools/atlas/GameInterface/SharedMemory.h"
 
 #include <cstdlib>
-#include <wx/defs.h>
 #include <wx/dynarray.h>
 #include <wx/event.h>
 #include <wx/string.h>

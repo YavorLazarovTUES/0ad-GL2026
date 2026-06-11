@@ -37,7 +37,6 @@
 #include <wx/bmpbuttn.h>
 #include <wx/chartype.h>
 #include <wx/colour.h>
-#include <wx/defs.h>
 #include <wx/event.h>
 #include <wx/filename.h>
 #include <wx/gdicmn.h>

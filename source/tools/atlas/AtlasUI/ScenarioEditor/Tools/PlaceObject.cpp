@@ -33,7 +33,6 @@
 #include <string>
 #include <wx/chartype.h>
 #include <wx/debug.h>
-#include <wx/defs.h>
 #include <wx/event.h>
 #include <wx/object.h>
 #include <wx/string.h>

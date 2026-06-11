@@ -31,7 +31,6 @@
 #include <list>
 #include <numbers>
 #include <vector>
-#include <wx/defs.h>
 #include <wx/event.h>
 #include <wx/mousestate.h>
 #include <wx/object.h>

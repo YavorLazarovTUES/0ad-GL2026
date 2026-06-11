@@ -17,7 +17,6 @@
 
 #include "tools/atlas/AtlasUI/ScenarioEditor/Sections/Common/Sidebar.h"
 
-#include <wx/defs.h>
 #include <wx/event.h>
 
 class ScenarioEditor;

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
 * This file is part of 0 A.D.
 *
 * 0 A.D. is free software: you can redistribute it and/or modify
@@ -26,7 +26,6 @@
 #include <cstddef>
 #include <vector>
 #include <wx/chartype.h>
-#include <wx/defs.h>
 #include <wx/gdicmn.h>
 #include <wx/listctrl.h>
 #include <wx/panel.h>

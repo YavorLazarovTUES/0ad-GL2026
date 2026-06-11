@@ -38,7 +38,6 @@
 #include <wx/clipbrd.h>
 #include <wx/dataobj.h>
 #include <wx/debug.h>
-#include <wx/defs.h>
 #include <wx/event.h>
 #include <wx/gdicmn.h>
 #include <wx/object.h>
