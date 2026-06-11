@@ -25,7 +25,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <list>
 #include <wx/bitmap.h>
 #include <wx/control.h>
 #include <wx/dcclient.h>

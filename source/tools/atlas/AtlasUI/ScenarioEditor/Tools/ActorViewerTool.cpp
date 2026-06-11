@@ -28,7 +28,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <list>
 #include <numbers>
 #include <vector>
 #include <wx/event.h>

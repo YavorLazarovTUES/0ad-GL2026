@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,12 +25,11 @@
 #include "tools/atlas/AtlasUI/General/AtlasWindowCommandProc.h"
 #include "tools/atlas/AtlasUI/General/Datafile.h"
 
-#include <boost/signals2/optional_last_value.hpp>
 #include <cassert>
-#include <list>
 #include <string>
 #include <wx/artprov.h>
 #include <wx/bitmap.h>
+#include <wx/bmpbndl.h>
 #include <wx/button.h>
 #include <wx/chartype.h>
 #include <wx/config.h>

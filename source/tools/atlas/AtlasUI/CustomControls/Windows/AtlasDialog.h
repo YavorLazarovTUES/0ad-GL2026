@@ -25,7 +25,6 @@
 #include <wx/event.h>
 #include <wx/object.h>
 
-class wxClassInfo;
 class wxPanel;
 class wxSize;
 class wxString;

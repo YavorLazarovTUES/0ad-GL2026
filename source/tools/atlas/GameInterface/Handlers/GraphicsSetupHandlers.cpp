@@ -21,7 +21,6 @@
 
 #include "gui/GUIManager.h"
 #include "lib/debug.h"
-#include "lib/external_libraries/libsdl.h"
 #include "lib/input.h"
 #include "lib/sysdep/os.h"
 #include "lib/timer.h"
@@ -34,7 +33,7 @@
 #include "ps/VideoMode.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
-#include "renderer/backend/IDevice.h"
+#include "scriptinterface/ScriptForward.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "tools/atlas/GameInterface/ActorViewer.h"
 #include "tools/atlas/GameInterface/CommandProc.h"
@@ -47,6 +46,7 @@
 
 #include <SDL.h>
 #include <SDL_error.h>
+#include <SDL_events.h>
 #include <SDL_video.h>
 #include <memory>
 #include <optional>

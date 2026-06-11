@@ -34,13 +34,13 @@
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
-#include <list>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 #include <wx/arrstr.h>
 #include <wx/bitmap.h>
+#include <wx/bmpbndl.h>
 #include <wx/bmpbuttn.h>
 #include <wx/bookctrl.h>
 #include <wx/busyinfo.h>

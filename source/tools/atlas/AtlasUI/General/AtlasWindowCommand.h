@@ -26,7 +26,6 @@
 #include <wx/string.h>
 
 class IAtlasSerialiser;
-class wxClassInfo;
 
 class AtlasWindowCommand : public wxCommand
 {

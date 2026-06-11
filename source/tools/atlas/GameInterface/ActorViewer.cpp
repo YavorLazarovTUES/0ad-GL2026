@@ -57,7 +57,6 @@
 #include "renderer/SceneRenderer.h"
 #include "renderer/SkyManager.h"
 #include "renderer/WaterManager.h"
-#include "renderer/backend/IDevice.h"
 #include "renderer/backend/IDeviceCommandContext.h"
 #include "renderer/backend/IFramebuffer.h"
 #include "renderer/backend/ISwapChain.h"

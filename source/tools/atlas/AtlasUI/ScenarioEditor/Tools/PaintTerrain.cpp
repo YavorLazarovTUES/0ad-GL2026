@@ -28,7 +28,6 @@
 #include "tools/atlas/GameInterface/Shareable.h"
 #include "tools/atlas/GameInterface/SharedTypes.h"
 
-#include <list>
 #include <string>
 #include <wx/event.h>
 #include <wx/gdicmn.h>

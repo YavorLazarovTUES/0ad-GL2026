@@ -74,6 +74,7 @@
 #include <cstdint>
 #include <exception>
 #include <iterator>
+#include <js/Array.h>
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
 #include <js/Value.h>

@@ -18,7 +18,6 @@
 #include "tools/atlas/AtlasUI/ScenarioEditor/Sections/Common/Sidebar.h"
 #include "tools/atlas/GameInterface/SharedMemory.h"
 
-#include <cstdlib>
 #include <wx/dynarray.h>
 #include <wx/event.h>
 #include <wx/string.h>

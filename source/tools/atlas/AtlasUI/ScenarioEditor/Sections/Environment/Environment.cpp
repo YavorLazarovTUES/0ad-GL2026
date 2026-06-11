@@ -29,9 +29,7 @@
 #include "tools/atlas/GameInterface/Shareable.h"
 #include "tools/atlas/GameInterface/SharedTypes.h"
 
-#include <cmath>
 #include <cstddef>
-#include <list>
 #include <numbers>
 #include <string>
 #include <vector>

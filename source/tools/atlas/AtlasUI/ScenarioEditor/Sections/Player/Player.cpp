@@ -31,7 +31,7 @@
 #include "tools/atlas/GameInterface/SharedTypes.h"
 
 #include <climits>
-#include <list>
+#include <cstddef>
 #include <string>
 #include <vector>
 #include <wx/arrstr.h>

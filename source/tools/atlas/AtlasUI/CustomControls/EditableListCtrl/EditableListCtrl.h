@@ -18,6 +18,7 @@
 #ifndef INCLUDED_EDITABLELISTCTRL
 #define INCLUDED_EDITABLELISTCTRL
 
+#include "tools/atlas/AtlasObject/AtlasObject.h"
 #include "tools/atlas/AtlasUI/General/IAtlasSerialiser.h"
 
 #include <vector>
@@ -27,8 +28,6 @@
 #include <wx/toolbar.h>
 #include <wx/validate.h>
 
-class AtIter;
-class AtObj;
 class FieldEditCtrl;
 class wxPoint;
 class wxRect;

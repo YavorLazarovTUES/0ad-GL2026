@@ -20,7 +20,6 @@
 #include "MessageHandler.h"
 #include "gui/CGUI.h"
 #include "gui/GUIManager.h"
-#include "lib/external_libraries/libsdl.h"
 #include "lib/input.h"
 #include "lib/path.h"
 #include "lib/types.h"

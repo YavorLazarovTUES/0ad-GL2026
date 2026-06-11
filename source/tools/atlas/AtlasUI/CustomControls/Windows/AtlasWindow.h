@@ -22,7 +22,6 @@
 #include "tools/atlas/AtlasUI/General/AtlasWindowCommandProc.h"
 #include "tools/atlas/AtlasUI/General/IAtlasSerialiser.h"
 
-#include <boost/function.hpp>
 #include <boost/signals2/signal.hpp>
 #include <wx/event.h>
 #include <wx/filename.h>
@@ -30,7 +29,6 @@
 #include <wx/object.h>
 #include <wx/string.h>
 
-class wxClassInfo;
 class wxMenu;
 class wxMenuBar;
 class wxMenuItem;

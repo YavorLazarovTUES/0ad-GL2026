@@ -20,7 +20,6 @@
 #include <wx/validate.h>
 
 class wxButton;
-class wxClassInfo;
 class wxRect;
 class wxString;
 class wxTextCtrl;

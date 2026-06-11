@@ -25,9 +25,7 @@
 #include "tools/atlas/GameInterface/Messages.h"
 #include "tools/atlas/GameInterface/SharedTypes.h"
 
-#include <cmath>
 #include <ctime>
-#include <list>
 #include <numbers>
 #include <random>
 #include <string>

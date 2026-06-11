@@ -23,7 +23,6 @@
 #include "tools/atlas/AtlasUI/General/Observable.h"
 
 #include <cstddef>
-#include <list>
 #include <set>
 #include <wx/arrstr.h>
 #include <wx/combobox.h>

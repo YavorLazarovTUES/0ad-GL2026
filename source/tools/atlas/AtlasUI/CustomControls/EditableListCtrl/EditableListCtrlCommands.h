@@ -23,7 +23,6 @@
 #include <wx/string.h>
 
 class EditableListCtrl;
-class wxClassInfo;
 
 class EditCommand_Dialog : public AtlasWindowCommand
 {

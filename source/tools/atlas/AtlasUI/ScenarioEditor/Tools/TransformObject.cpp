@@ -31,7 +31,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <limits>
-#include <list>
 #include <string>
 #include <vector>
 #include <wx/chartype.h>

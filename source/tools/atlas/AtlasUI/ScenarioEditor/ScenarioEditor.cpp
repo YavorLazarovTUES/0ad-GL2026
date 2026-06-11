@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -40,7 +40,6 @@
 #include "tools/atlas/GameInterface/SharedTypes.h"
 
 #include <cstddef>
-#include <list>
 #include <string>
 #include <utility>
 #include <wx/busyinfo.h>

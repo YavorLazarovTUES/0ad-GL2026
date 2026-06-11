@@ -36,7 +36,6 @@
 #include "renderer/DebugRenderer.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
-#include "renderer/backend/IDevice.h"
 #include "renderer/backend/ISwapChain.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpParticleManager.h"
