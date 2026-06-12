@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -42,13 +42,6 @@
 #include <fcntl.h>
 #include <string>
 
-struct WDIR
-{
-	DIR* d;
-	wchar_t name[PATH_MAX];
-	wdirent ent;
-};
-
 #if OS_ANDROID
 
 // The Crystax NDK seems to do weird things with opendir etc.
@@ -83,36 +76,6 @@ void init_libc()
 void init_libc() { }
 
 #endif
-
-WDIR* wopendir(const OsPath& path)
-{
-	init_libc();
-	DIR* d = opendir(OsString(path).c_str());
-	if(!d)
-		return 0;
-	WDIR* wd = new WDIR;
-	wd->d = d;
-	wd->name[0] = '\0';
-	wd->ent.d_name = wd->name;
-	return wd;
-}
-
-struct wdirent* wreaddir(WDIR* wd)
-{
-	dirent* ent = readdir(wd->d);
-	if(!ent)
-		return 0;
-	wcscpy_s(wd->name, ARRAY_SIZE(wd->name), OsPath(ent->d_name).string().c_str());
-	return &wd->ent;
-}
-
-int wclosedir(WDIR* wd)
-{
-	int ret = closedir(wd->d);
-	delete wd;
-	return ret;
-}
-
 
 int wopen(const OsPath& pathname, int oflag)
 {

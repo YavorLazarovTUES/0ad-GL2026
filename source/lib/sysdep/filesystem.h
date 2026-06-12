@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -29,32 +29,6 @@
 
 #include "lib/os_path.h"
 #include "lib/posix/posix_filesystem.h"	// mode_t
-
-
-//
-// dirent.h
-//
-
-struct WDIR;
-
-struct wdirent
-{
-	// note: SUSv3 describes this as a "char array" but of unspecified size.
-	// we declare as a pointer to avoid having to copy the string.
-	wchar_t* d_name;
-};
-
-extern WDIR* wopendir(const OsPath& path);
-
-extern wdirent* wreaddir(WDIR*);
-
-// return status for the file returned by the last successful
-// wreaddir call from the given directory stream.
-// currently sets st_size, st_mode, and st_mtime; the rest are zeroed.
-// non-portable, but considerably faster than stat(). used by dir_ForEachSortedEntry.
-extern int wreaddir_stat_np(WDIR*, struct stat*);
-
-extern int wclosedir(WDIR*);
 
 
 //

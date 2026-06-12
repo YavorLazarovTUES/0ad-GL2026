@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -29,55 +29,6 @@
 #include "lib/sysdep/os/win/wposix/crt_posix.h"			// _close, _lseeki64 etc.
 
 #include <atomic>
-
-//-----------------------------------------------------------------------------
-// WDIR suballocator
-//-----------------------------------------------------------------------------
-
-// most applications only need a single WDIR at a time. we avoid expensive
-// heap allocations by reusing a single static instance. if it is already
-// in use, we allocate further instances dynamically.
-// NB: this is thread-safe due to CAS.
-
-struct WDIR	// POD
-{
-	HANDLE hFind;
-
-	WIN32_FIND_DATAW findData;	// indeterminate if hFind == INVALID_HANDLE_VALUE
-
-	// wreaddir will return the address of this member.
-	// (must be stored in WDIR to allow multiple independent
-	// wopendir/wreaddir sequences).
-	struct wdirent ent;
-
-	// used by wreaddir to skip the first FindNextFileW. (a counter is
-	// easy to test/update and also provides useful information.)
-	size_t numCalls;
-};
-
-static WDIR wdir_storage;
-static std::atomic<bool> wdir_in_use{ false };
-
-static inline WDIR* wdir_alloc()
-{
-	if(!wdir_in_use.exchange(true))	// gained ownership
-		return &wdir_storage;
-
-	// already in use (rare) - allocate from heap
-	return new WDIR;
-}
-
-static inline void wdir_free(WDIR* d)
-{
-	if(d == &wdir_storage)
-	{
-		const bool ok = wdir_in_use.exchange(false);	// relinquish ownership
-		ENSURE(ok);	// ensure it wasn't double-freed
-	}
-	else	// allocated from heap
-		delete d;
-}
-
 
 //-----------------------------------------------------------------------------
 // dirent.h
@@ -125,112 +76,6 @@ static bool IsValidDirectory(const OsPath& path)
 	// which sometimes has these attributes set.
 
 	return true;
-}
-
-// Return owning pointer or nullptr on error.
-[[nodiscard]] WDIR* wopendir(const OsPath& path)
-{
-	WinScopedPreserveLastError s;
-
-	if(!IsValidDirectory(path))
-	{
-		errno = ENOENT;
-		return 0;
-	}
-
-	WDIR* d = wdir_alloc();
-	d->numCalls = 0;
-
-	// NB: "c:\\path" only returns information about that directory;
-	// trailing slashes aren't allowed. append "\\*" to retrieve its entries.
-	OsPath searchPath = path/"*";
-
-	// (we don't defer FindFirstFileW until wreaddir because callers
-	// expect us to return 0 if directory reading will/did fail.)
-	d->hFind = FindFirstFileW(OsString(searchPath).c_str(), &d->findData);
-	if(d->hFind != INVALID_HANDLE_VALUE)
-		return d;	// success
-
-	const DWORD nativeError{GetLastError()};
-	if(nativeError == ERROR_NO_MORE_FILES)
-		return d;	// success, but directory is empty
-
-	Status status = StatusFromWin();
-
-	// release the WDIR allocated above (this is preferable to
-	// always copying the large WDIR or findData from a temporary)
-	wdir_free(d);
-
-	if(nativeError == ERROR_PATH_NOT_FOUND)
-		// TODO: This should be displayed to the user as a LOGWARNING when this code is moved to ps/
-		debug_printf("The path \"%s\" cannot be found. It is probably a dangling link "
-			"pointing to a non-existent path.\n", path.string8().c_str());
-	else
-		WARN_IF_ERR(status);
-
-	errno = ErrnoFromStatus(status);
-
-	return 0;
-}
-
-
-struct wdirent* wreaddir(WDIR* d)
-{
-	// directory is empty and d->findData is indeterminate
-	if(d->hFind == INVALID_HANDLE_VALUE)
-		return 0;
-
-	WinScopedPreserveLastError s;
-
-	// until end of directory or a valid entry was found:
-	for(;;)
-	{
-		if(d->numCalls++ != 0)	// (skip first call to FindNextFileW - see wopendir)
-		{
-			if(!FindNextFileW(d->hFind, &d->findData))
-			{
-				if(GetLastError() == ERROR_NO_MORE_FILES)
-					SetLastError(0);
-				else	// unexpected error
-					DEBUG_WARN_ERR(StatusFromWin());
-				return 0;	// end of directory or error
-			}
-		}
-
-		// only accept non-hidden and non-system entries - otherwise,
-		// callers might encounter errors when attempting to open them.
-		if((d->findData.dwFileAttributes & (FILE_ATTRIBUTE_HIDDEN|FILE_ATTRIBUTE_SYSTEM)) == 0)
-		{
-			d->ent.d_name = d->findData.cFileName;	// (NB: d_name is a pointer)
-			return &d->ent;
-		}
-	}
-}
-
-
-int wreaddir_stat_np(WDIR* d, struct stat* s)
-{
-	// NTFS stores UTC but FAT stores local times, which are incorrectly
-	// translated to UTC based on the _current_ DST settings. we no longer
-	// bother checking the filesystem, since that's either unreliable or
-	// expensive. timestamps may therefore be off after a DST transition,
-	// which means our cached files would be regenerated.
-	FILETIME* filetime = &d->findData.ftLastWriteTime;
-
-	memset(s, 0, sizeof(*s));
-	s->st_size  = (off_t)u64_from_u32(d->findData.nFileSizeHigh, d->findData.nFileSizeLow);
-	s->st_mode  = (unsigned short)((d->findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)? S_IFDIR : S_IFREG);
-	s->st_mtime = wtime_utc_filetime_to_time_t(filetime);
-	return 0;
-}
-
-
-int wclosedir(WDIR* d)
-{
-	FindClose(d->hFind);
-
-	wdir_free(d);
-	return 0;
 }
 
 
