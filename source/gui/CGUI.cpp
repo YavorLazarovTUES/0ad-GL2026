@@ -342,7 +342,14 @@ JSObject* CGUI::TickObjects(const Script::Request& rq, Script::StructuredClone i
 	if (m_LoadModuleResult.has_value() && m_LoadModuleResult->iterator->IsDone())
 	{
 		JS::RootedValue hotloadData{rq.cx, GetHotloadData(rq)};
-		m_LoadModuleResult->moduleNamespace = m_LoadModuleResult->iterator->Get();
+		try
+		{
+		      m_LoadModuleResult->moduleNamespace = m_LoadModuleResult->iterator->Get();
+		}
+		catch(const std::exception& e)
+		{
+		      LOGERROR("%s", e.what());
+		}
 		++m_LoadModuleResult->iterator;
 		sendingPromise = CallPageInit(rq, initData, hotloadData, scriptName);
 	}
