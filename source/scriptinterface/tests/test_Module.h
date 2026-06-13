@@ -172,8 +172,9 @@ public:
 		const Script::Request rq{script};
 
 		TestLogger logger;
-		TS_ASSERT_THROWS(std::ignore = script.GetModuleLoader().LoadModule(rq,
-			"import_inside_function.js"), const std::invalid_argument&);
+		auto result = script.GetModuleLoader().LoadModule(rq, "import_inside_function.js");
+		auto& front = *result.begin();
+		TS_ASSERT_THROWS(std::ignore = front.Get(), const std::invalid_argument&);
 		const std::string log{logger.GetOutput()};
 		TS_ASSERT_STR_CONTAINS(log, "import_inside_function.js line 3");
 		TS_ASSERT_STR_CONTAINS(log, "import declarations may only appear at top level of a module");
@@ -185,8 +186,9 @@ public:
 		const Script::Request rq{script};
 
 		const TestLogger _;
-		TS_ASSERT_THROWS(std::ignore = script.GetModuleLoader().LoadModule(rq, "nonexistent.js"),
-			const std::runtime_error&);
+		auto result= script.GetModuleLoader().LoadModule(rq, "nonexistent.js");
+		auto& front = *result.begin();
+		TS_ASSERT_THROWS(std::ignore = front.Get(), const std::runtime_error&);
 	}
 
 	void test_EvaluateOnce()
@@ -407,10 +409,10 @@ public:
 		const Script::Request rq{script};
 
 		TestLogger logger;
-		TS_ASSERT_THROWS(std::ignore = script.GetModuleLoader().LoadModule(rq,
-			"export_default/invalid.js"), const std::invalid_argument&);
-		const std::string log{logger.GetOutput()};
-		TS_ASSERT_STR_CONTAINS(log, "export_default/invalid.js line 1");
+		auto result = script.GetModuleLoader().LoadModule(rq, "export_default/invalid.js");
+		auto& front = *result.begin();
+		TS_ASSERT_THROWS(std::ignore = front.Get(), const std::invalid_argument&);
+		TS_ASSERT_STR_CONTAINS(logger.GetOutput(), "export_default/invalid.js line 1");
 	}
 
 	void test_ExportDefaultDoesNotWorkAround()
@@ -720,8 +722,9 @@ public:
 		Script::Interface script{"Test", "Test", g_ScriptContext};
 		const Script::Request rq{script};
 
-		TS_ASSERT_THROWS_EQUALS(std::ignore = script.GetModuleLoader().LoadModule(rq,
-			"empty.js"), const std::runtime_error& e, e.what(),
+		auto result = script.GetModuleLoader().LoadModule(rq, "empty.js");
+		auto& front = *result.begin();
+		TS_ASSERT_THROWS_EQUALS(std::ignore = front.Get(), const std::runtime_error& e, e.what(),
 			"Importing file \"empty.js\" is disallowed.");
 	}
 
@@ -730,8 +733,9 @@ public:
 		Script::Interface script{"Test", "Test", g_ScriptContext, DisallowedfilePredicate};
 		const Script::Request rq{script};
 
-		TS_ASSERT_THROWS_EQUALS(std::ignore = script.GetModuleLoader().LoadModule(rq,
-			"restriction/disallowedfile.js"), const std::runtime_error& e, e.what(),
+		auto result = script.GetModuleLoader().LoadModule(rq, "restriction/disallowedfile.js");
+		auto& front = *result.begin();
+		TS_ASSERT_THROWS_EQUALS(std::ignore = front.Get(),  const std::runtime_error& e, e.what(),
 			"Importing file \"restriction/disallowedfile.js\" is disallowed.");
 	}
 
@@ -740,8 +744,9 @@ public:
 		Script::Interface script{"Test", "Test", g_ScriptContext, DisallowedfilePredicate};
 		const Script::Request rq{script};
 		TestLogger logger;
-		TS_ASSERT_THROWS_EQUALS(std::ignore = script.GetModuleLoader().LoadModule(rq,
-			"restriction/import.js"), const std::invalid_argument& e, e.what(),
+		auto result = script.GetModuleLoader().LoadModule(rq, "restriction/import.js");
+		auto& front = *result.begin();
+		TS_ASSERT_THROWS_EQUALS(std::ignore = front.Get(), const std::invalid_argument& e, e.what(),
 			"Unable to link module.");
 		TS_ASSERT_STR_CONTAINS(logger.GetOutput(),
 			"Importing file \"restriction/disallowedfile.js\" is disallowed.");
@@ -752,8 +757,9 @@ public:
 		Script::Interface script{"Test", "Test", g_ScriptContext, DisallowedfilePredicate};
 		const Script::Request rq{script};
 		TestLogger logger;
-		TS_ASSERT_THROWS_EQUALS(std::ignore = script.GetModuleLoader().LoadModule(rq,
-			"restriction/fancy_import.js"), const std::invalid_argument& e, e.what(),
+		auto result = script.GetModuleLoader().LoadModule(rq, "restriction/fancy_import.js");
+		auto& front = *result.begin();
+		TS_ASSERT_THROWS_EQUALS(std::ignore = front.Get(), const std::invalid_argument& e, e.what(),
 			"Unable to link module.");
 		TS_ASSERT_STR_CONTAINS(logger.GetOutput(),
 			"Importing file \"restriction/disallowedfile.js\" is disallowed.");

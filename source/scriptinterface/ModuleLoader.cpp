@@ -339,16 +339,24 @@ ModuleLoader::Future::Future(const Script::Request& rq, ModuleLoader& loader, Re
 	// - Accessing values which are not yet exported results in an error. These errors might implicitly be
 	//	dropped.
 
-	JS::RootedObject mod{rq.cx, CompileModule(rq, loader.m_AllowModule, loader.m_Registry, modulePath,
-		result)};
-	JS::RootedObject promise{rq.cx, Evaluate(rq, mod)};
-	Evaluating& evaluatingStatus{std::get<Evaluating>(m_Status)};
-	evaluatingStatus.moduleNamespace = JS::GetModuleNamespace(rq.cx, mod);
+	try
+	{
+		JS::RootedObject mod{rq.cx, CompileModule(rq, loader.m_AllowModule, loader.m_Registry, modulePath,
+			result)};
+		JS::RootedObject promise{rq.cx, Evaluate(rq, mod)};
+		Evaluating& evaluatingStatus{std::get<Evaluating>(m_Status)};
+		evaluatingStatus.moduleNamespace = JS::GetModuleNamespace(rq.cx, mod);
 
-	SetReservedSlot(JS::PrivateValue(static_cast<void*>(&m_Status)));
+		SetReservedSlot(JS::PrivateValue(static_cast<void*>(&m_Status)));
 
-	if (!JS::AddPromiseReactions(rq.cx, promise, evaluatingStatus.fulfill, evaluatingStatus.reject))
-		throw std::runtime_error{"Failed adding promise reaction."};
+		if (!JS::AddPromiseReactions(rq.cx, promise, evaluatingStatus.fulfill, evaluatingStatus.reject))
+			throw std::runtime_error{"Failed adding promise reaction."};
+	}
+	catch(...)
+	{
+		if (std::holds_alternative<Evaluating>(m_Status))
+			m_Status = Rejected{std::current_exception()};
+	}
 }
 
 ModuleLoader::Future::Future(Future&& other) noexcept:
