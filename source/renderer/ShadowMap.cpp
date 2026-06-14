@@ -703,23 +703,6 @@ void ShadowMap::BindTo(
 	}
 }
 
-// Depth texture bits
-int ShadowMap::GetDepthTextureBits() const
-{
-	return m->DepthTextureBits;
-}
-
-void ShadowMap::SetDepthTextureBits(int bits)
-{
-	if (bits != m->DepthTextureBits)
-	{
-		m->Texture.reset();
-		m->Width = m->Height = 0;
-
-		m->DepthTextureBits = bits;
-	}
-}
-
 void ShadowMap::RenderDebugBounds(Renderer::Backend::IDeviceCommandContext& deviceCommandContext)
 {
 	// Render various shadow bounds:
