@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -38,7 +38,7 @@
 #include "lib/posix/posix_aio.h"	// LIO_READ, LIO_WRITE
 #include "lib/posix/posix_types.h"
 #include "lib/status.h"
-#include "lib/sysdep/filesystem.h"	// wtruncate
+#include "lib/sysdep/filesystem.h"
 #include "lib/sysdep/os.h"
 #include "lib/sysdep/rtl.h"
 #include "lib/types.h"
@@ -47,7 +47,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <fcntl.h>
+#include <filesystem>
 #include <memory>
+#include <system_error>
 
 namespace ERR
 {
@@ -332,9 +334,12 @@ static inline Status Store(const OsPath& pathname, const void* data, size_t size
 
 	RETURN_STATUS_IF_ERR(io::Run(op, p, completedHook, issueHook));
 
-	file.Close();	// (required by wtruncate)
+	file.Close();	// (required by resize_file)
 
-	RETURN_STATUS_IF_ERR(wtruncate(pathname, size));
+	std::error_code ec{};
+	std::filesystem::resize_file(pathname.string(), size, ec);
+	if (ec)
+		return StatusFromSystemError(ec);
 
 	return INFO::OK;
 }

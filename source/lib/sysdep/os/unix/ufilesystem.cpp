@@ -93,11 +93,6 @@ int wclose(int fd)
 	return close(fd);
 }
 
-int wtruncate(const OsPath& pathname, off_t length)
-{
-	return truncate(OsString(pathname).c_str(), length);
-}
-
 int wrename(const OsPath& pathnameOld, const OsPath& pathnameNew)
 {
 	return rename(OsString(pathnameOld).c_str(), OsString(pathnameNew).c_str());

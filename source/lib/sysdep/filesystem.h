@@ -57,18 +57,6 @@ extern int wclose(int fd);
 
 
 //
-// unistd.h
-//
-
-// waio requires offsets and sizes to be multiples of the sector size.
-// to allow arbitrarily sized files, we truncate them after I/O.
-// however, ftruncate cannot be used since it is also subject to the
-// sector-alignment requirement. instead, the file must be closed and
-// this function called.
-int wtruncate(const OsPath& pathname, off_t length);
-
-
-//
 // stdlib.h
 //
 

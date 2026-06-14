@@ -131,21 +131,6 @@ int wclose(int fd)
 }
 
 
-
-int wtruncate(const OsPath& pathname, off_t length)
-{
-	// (re-open the file to avoid the FILE_FLAG_NO_BUFFERING
-	// sector-alignment restriction)
-	HANDLE hFile = CreateFileW(OsString(pathname).c_str(), GENERIC_WRITE, 0, 0, OPEN_EXISTING, 0, 0);
-	ENSURE(hFile != INVALID_HANDLE_VALUE);
-	LARGE_INTEGER ofs; ofs.QuadPart = length;
-	WARN_IF_FALSE(SetFilePointerEx(hFile, ofs, 0, FILE_BEGIN));
-	WARN_IF_FALSE(SetEndOfFile(hFile));
-	WARN_IF_FALSE(CloseHandle(hFile));
-	return 0;
-}
-
-
 OsPath wrealpath(const OsPath& pathname)
 {
 	wchar_t resolved[PATH_MAX];

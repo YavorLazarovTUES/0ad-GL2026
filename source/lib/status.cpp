@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -100,6 +100,16 @@ int ErrnoFromStatus(Status status)
 	return EPERM;
 }
 
+Status StatusFromSystemError(std::error_code& ec)
+{
+	if (!ec)
+		return INFO::OK;
+	std::error_condition cond = ec.default_error_condition();
+	if (cond.category() != std::generic_category())
+		return ERR::FAIL;
+	const StatusDefinition* def = DefinitionFromErrno(cond.value());
+	return def ? def->status : ERR::FAIL;
+}
 
 Status StatusFromErrno()
 {

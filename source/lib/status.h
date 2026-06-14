@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -165,6 +165,7 @@ To summarize: +/-1SHHCC (S=subsystem, HH=header, CC=code number)
 #include "lib/types.h"
 
 #include <cstddef>
+#include <system_error>
 
 // an integral type allows defining error codes in separate headers,
 // but is not as type-safe as an enum. use Lint's 'strong type' checking
@@ -245,6 +246,11 @@ extern int ErrnoFromStatus(Status status);
  * with previous errors.
  **/
 extern Status StatusFromErrno();
+
+/**
+ * @return Status equivalent of error_code, or ERR::FAIL if there's no equivalent.
+ */
+extern Status StatusFromSystemError(std::error_code& ec);
 
 // note: other conversion routines (e.g. to/from Win32) are implemented in
 // the corresponding modules to keep this header portable.
