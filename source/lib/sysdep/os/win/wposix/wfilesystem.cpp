@@ -146,12 +146,6 @@ int wtruncate(const OsPath& pathname, off_t length)
 }
 
 
-int wrmdir(const OsPath& path)
-{
-	return _wrmdir(OsString(path).c_str());
-}
-
-
 OsPath wrealpath(const OsPath& pathname)
 {
 	wchar_t resolved[PATH_MAX];

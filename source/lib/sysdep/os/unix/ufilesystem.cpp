@@ -98,11 +98,6 @@ int wtruncate(const OsPath& pathname, off_t length)
 	return truncate(OsString(pathname).c_str(), length);
 }
 
-int wrmdir(const OsPath& path)
-{
-	return rmdir(OsString(path).c_str());
-}
-
 int wrename(const OsPath& pathnameOld, const OsPath& pathnameNew)
 {
 	return rename(OsString(pathnameOld).c_str(), OsString(pathnameNew).c_str());

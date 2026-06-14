@@ -67,8 +67,6 @@ extern int wclose(int fd);
 // this function called.
 int wtruncate(const OsPath& pathname, off_t length);
 
-int wrmdir(const OsPath& path);
-
 
 //
 // stdlib.h
