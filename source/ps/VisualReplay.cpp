@@ -42,6 +42,7 @@
 
 #include <SDL_events.h>
 #include <SDL_quit.h>
+#include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <js/Array.h>
@@ -50,6 +51,7 @@
 #include <js/Value.h>
 #include <map>
 #include <string>
+#include <system_error>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -110,7 +112,8 @@ bool VisualReplay::ReadCacheFile(const ScriptInterface& scriptInterface, JS::Mut
 	}
 
 	LOGWARNING("The replay cache file is corrupted, it will be deleted");
-	wunlink(GetCacheFilePath());
+	std::error_code ec{};
+	std::filesystem::remove(GetCacheFilePath().string(), ec);
 	return false;
 }
 
@@ -123,7 +126,8 @@ void VisualReplay::StoreCacheFile(const ScriptInterface& scriptInterface, JS::Ha
 	cacheStream << Script::StringifyJSON(rq, &replaysRooted);
 	cacheStream.close();
 
-	wunlink(GetCacheFilePath());
+	std::error_code ec{};
+	std::filesystem::remove(GetCacheFilePath().string(), ec);
 	if (RenameFile(GetTempCacheFilePath(), GetCacheFilePath()))
 		LOGERROR("Could not store the replay cache");
 }

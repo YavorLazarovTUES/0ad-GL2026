@@ -43,6 +43,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <fmt/format.h>
 #include <js/Array.h>
 #include <js/PropertyAndElement.h>
@@ -53,6 +54,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <system_error>
 
 class ScriptInterface;
 
@@ -288,11 +290,15 @@ bool DeleteCampaignSave(const CStrW& filePath)
 	OsPath realPath;
 	if (filePath.Left(16) != L"saves/campaigns/" || filePath.Right(12) != L".0adcampaign")
 		return false;
-
-	return VfsFileExists(filePath) &&
-		g_VFS->GetRealPath(filePath, realPath) == INFO::OK &&
-		g_VFS->RemoveFile(filePath) == INFO::OK &&
-		wunlink(realPath) == 0;
+	if (!VfsFileExists(filePath))
+		return false;
+	if (g_VFS->GetRealPath(filePath, realPath) != INFO::OK)
+		return false;
+	if (g_VFS->RemoveFile(filePath) != INFO::OK)
+		return false;
+	std::error_code ec;
+	std::filesystem::remove(realPath.string(), ec);
+	return !ec;
 }
 
 void RegisterScriptFunctions_ReadWriteAnywhere(const ScriptRequest& rq,

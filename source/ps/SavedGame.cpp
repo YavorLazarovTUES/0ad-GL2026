@@ -51,10 +51,12 @@
 
 #include <cstdint>
 #include <ctime>
+#include <filesystem>
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
 #include <memory>
 #include <sstream>
+#include <system_error>
 #include <utility>
 
 class ScriptInterface;
@@ -343,7 +345,9 @@ bool SavedGames::DeleteSavedGame(const std::wstring& name)
 		return false; // Error
 
 	// Delete actual file
-	if (wunlink(realpath) != 0)
+	std::error_code ec{};
+	std::filesystem::remove(realpath.string(), ec);
+	if (ec)
 		return false; // Error
 
 	// Successfully deleted file

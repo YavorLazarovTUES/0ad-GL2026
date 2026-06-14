@@ -93,15 +93,9 @@ int wclose(int fd)
 	return close(fd);
 }
 
-
 int wtruncate(const OsPath& pathname, off_t length)
 {
 	return truncate(OsString(pathname).c_str(), length);
-}
-
-int wunlink(const OsPath& pathname)
-{
-	return unlink(OsString(pathname).c_str());
 }
 
 int wrmdir(const OsPath& path)

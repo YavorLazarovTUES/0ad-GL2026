@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -49,6 +49,7 @@
 #include <boost/algorithm/string/split.hpp>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <fmt/printf.h>
 #include <initializer_list>
 #include <js/Array.h>
@@ -56,6 +57,7 @@
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
 #include <js/Value.h>
+#include <system_error>
 
 class ScriptInterface;
 
@@ -545,7 +547,9 @@ bool ModIo::ParseMods(const ScriptInterface& scriptInterface, std::string& err)
 
 void ModIo::DeleteDownloadedFile()
 {
-	if (wunlink(m_DownloadFilePath) != 0)
+	std::error_code ec{};
+	std::filesystem::remove(m_DownloadFilePath.string(), ec);
+	if (ec)
 		LOGERROR("Failed to delete temporary file.");
 	m_DownloadFilePath = OsPath();
 }

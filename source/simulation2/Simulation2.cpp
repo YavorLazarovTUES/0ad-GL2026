@@ -60,6 +60,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iomanip>
@@ -70,6 +71,7 @@
 #include <optional>
 #include <set>
 #include <sstream>
+#include <system_error>
 
 class CSimulation2Impl
 {
@@ -321,19 +323,26 @@ void CSimulation2Impl::ReportSerializationFailure(
 	const OsPath path = createDateIndexSubdirectory(psLogDir() / "serializationtest");
 	debug_printf("Writing serializationtest-data to %s\n", path.string8().c_str());
 
-	// Clean up obsolete files from previous runs
-	wunlink(path / "hash.before.a");
-	wunlink(path / "hash.before.b");
-	wunlink(path / "debug.before.a");
-	wunlink(path / "debug.before.b");
-	wunlink(path / "state.before.a");
-	wunlink(path / "state.before.b");
-	wunlink(path / "hash.after.a");
-	wunlink(path / "hash.after.b");
-	wunlink(path / "debug.after.a");
-	wunlink(path / "debug.after.b");
-	wunlink(path / "state.after.a");
-	wunlink(path / "state.after.b");
+	// Try to clean up obsolete files from previous runs.
+	constexpr auto namesToRemove{std::to_array<std::string_view>({
+		"hash.before.a",
+		"hash.before.b",
+		"debug.before.a",
+		"debug.before.b",
+		"state.before.a",
+		"state.before.b",
+		"hash.after.a",
+		"hash.after.b",
+		"debug.after.a",
+		"debug.after.b",
+		"state.after.a",
+		"state.after.b",
+	})};
+
+	const std::filesystem::path fspath{path.string()};
+	std::error_code ec{};
+	for (const std::string_view nameToRemove : namesToRemove)
+		std::filesystem::remove(fspath / nameToRemove, ec);
 
 	if (primaryStateBefore)
 		DumpSerializationTestState(*primaryStateBefore, path, L"before.a");

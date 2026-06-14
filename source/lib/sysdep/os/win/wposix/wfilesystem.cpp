@@ -146,12 +146,6 @@ int wtruncate(const OsPath& pathname, off_t length)
 }
 
 
-int wunlink(const OsPath& pathname)
-{
-	return _wunlink(OsString(pathname).c_str());
-}
-
-
 int wrmdir(const OsPath& path)
 {
 	return _wrmdir(OsString(path).c_str());
