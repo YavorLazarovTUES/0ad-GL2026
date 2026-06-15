@@ -131,15 +131,6 @@ int wclose(int fd)
 }
 
 
-OsPath wrealpath(const OsPath& pathname)
-{
-	wchar_t resolved[PATH_MAX];
-	if(!GetFullPathNameW(OsString(pathname).c_str(), PATH_MAX, resolved, 0))
-		return OsPath();
-	return resolved;
-}
-
-
 static int ErrnoFromCreateDirectory()
 {
 	switch(GetLastError())

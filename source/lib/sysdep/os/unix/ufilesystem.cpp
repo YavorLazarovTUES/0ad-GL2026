@@ -98,15 +98,6 @@ int wrename(const OsPath& pathnameOld, const OsPath& pathnameNew)
 	return rename(OsString(pathnameOld).c_str(), OsString(pathnameNew).c_str());
 }
 
-OsPath wrealpath(const OsPath& pathname)
-{
-	char resolvedBuf[PATH_MAX];
-	const char* resolved = realpath(OsString(pathname).c_str(), resolvedBuf);
-	if(!resolved)
-		return OsPath();
-	return resolved;
-}
-
 int wstat(const OsPath& pathname, struct stat* buf)
 {
 	return stat(OsString(pathname).c_str(), buf);

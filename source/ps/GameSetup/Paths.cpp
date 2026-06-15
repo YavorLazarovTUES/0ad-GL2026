@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -23,7 +23,6 @@
 #include "lib/file/file_system.h"
 #include "lib/path.h"
 #include "lib/status.h"
-#include "lib/sysdep/filesystem.h"	// wrealpath
 #include "lib/sysdep/os.h"
 #include "lib/sysdep/sysdep.h"	// sys_get_executable_name
 #include "ps/CLogger.h"
@@ -32,7 +31,9 @@
 
 #include <cerrno>
 #include <cstdlib>
+#include <filesystem>
 #include <string>
+#include <system_error>
 
 #if OS_WIN
 # include "lib/sysdep/os/win/wutil.h"	// wutil_*Path
@@ -176,10 +177,13 @@ Paths::Paths(const CmdLineArgs& args)
 	OsPath pathname = sys_ExecutablePathname();	// safe, but requires OS-specific implementation
 	if(pathname.empty())	// failed, use argv[0] instead
 	{
-		errno = 0;
-		pathname = wrealpath(argv0);
-		if(pathname.empty())
-			WARN_IF_ERR(StatusFromErrno());
+		const std::filesystem::path rpath{argv0.string()};
+		std::error_code ec{};
+		const std::filesystem::path cpath{std::filesystem::canonical(rpath, ec)};
+		if (ec)
+			LOGERROR("Failed to get absolute path of argv0, reason: %s", ec.message());
+		else
+			pathname = OsPath(cpath.wstring());
 	}
 
 	// make sure it's valid

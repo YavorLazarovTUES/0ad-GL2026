@@ -57,13 +57,6 @@ extern int wclose(int fd);
 
 
 //
-// stdlib.h
-//
-
-OsPath wrealpath(const OsPath& pathname);
-
-
-//
 // sys/stat.h
 //
 
