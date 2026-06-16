@@ -222,16 +222,10 @@ END_EVENT_TABLE();
 TerrainSidebar::TerrainSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContainer, wxWindow* bottomBarContainer) :
 	Sidebar(scenarioEditor, sidebarContainer, bottomBarContainer)
 {
-	wxSizer* scrollSizer = new wxBoxSizer(wxVERTICAL);
-	wxScrolledWindow* scrolledWindow = new wxScrolledWindow(this);
-	scrolledWindow->SetScrollRate(10, 10);
-	scrolledWindow->SetSizer(scrollSizer);
-	m_MainSizer->Add(scrolledWindow, wxSizerFlags().Proportion(1).Expand());
-
 	{
 		/////////////////////////////////////////////////////////////////////////
 		// Terrain elevation
-		wxStaticBoxSizer* sizer = new wxStaticBoxSizer(wxVERTICAL, scrolledWindow, _("Elevation tools"));
+		wxStaticBoxSizer* sizer = new wxStaticBoxSizer(wxVERTICAL, this, _("Elevation tools"));
 		wxSizer* gridSizer = new wxGridSizer(4, 5, 5);
 		gridSizer->Add(Tooltipped(new ToolButton(scenarioEditor.GetToolManager(), sizer->GetStaticBox(), _("Modify"), _T("AlterElevation"), wxSize(48, -1)),
 			_("Brush with left mouse buttons to raise terrain,\nright mouse button to lower it")), wxSizerFlags().Expand());
@@ -242,13 +236,13 @@ TerrainSidebar::TerrainSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebar
 		gridSizer->Add(Tooltipped(new ToolButton(scenarioEditor.GetToolManager(), sizer->GetStaticBox(), _("Flatten"), _T("FlattenElevation"), wxSize(48, -1)),
 			_("Brush with left mouse button to flatten terrain")), wxSizerFlags().Expand());
 		sizer->Add(gridSizer, wxSizerFlags().Expand().Border(wxALL, 5));
-		scrollSizer->Add(sizer, wxSizerFlags().Expand());
+		m_MainSizer->Add(sizer, wxSizerFlags().Expand());
 	}
 
 	{
 		/////////////////////////////////////////////////////////////////////////
 		// Terrain texture
-		wxStaticBoxSizer* sizer = new wxStaticBoxSizer(wxVERTICAL, scrolledWindow, _("Texture tools"));
+		wxStaticBoxSizer* sizer = new wxStaticBoxSizer(wxVERTICAL, this, _("Texture tools"));
 		wxSizer* gridSizer = new wxGridSizer(3, 5, 5);
 		gridSizer->Add(Tooltipped(new ToolButton(scenarioEditor.GetToolManager(), sizer->GetStaticBox(), _("Paint"), _T("PaintTerrain"), wxSize(48, -1)),
 			_("Brush with left mouse button to paint texture dominantly,\nright mouse button to paint submissively.\nShift-left-click for eyedropper tool")), wxSizerFlags().Expand());
@@ -257,26 +251,26 @@ TerrainSidebar::TerrainSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebar
 		gridSizer->Add(Tooltipped(new ToolButton(scenarioEditor.GetToolManager(), sizer->GetStaticBox(), _("Fill"), _T("FillTerrain"), wxSize(48, -1)),
 			_T("Bucket fill a patch of terrain texture with a new one")), wxSizerFlags().Expand());
 		sizer->Add(gridSizer, wxSizerFlags().Expand().Border(wxALL, 5));
-		scrollSizer->Add(sizer, wxSizerFlags().Expand().Border(wxTOP, 10));
+		m_MainSizer->Add(sizer, wxSizerFlags().Expand());
 	}
 
 	{
 		/////////////////////////////////////////////////////////////////////////
 		// Brush settings
-		wxStaticBoxSizer* sizer = new wxStaticBoxSizer(wxVERTICAL, scrolledWindow, _("Brush"));
+		wxStaticBoxSizer* sizer = new wxStaticBoxSizer(wxVERTICAL, this, _("Brush"));
 
 		m_TexturePreview = new TexturePreviewPanel(sizer->GetStaticBox());
 		sizer->Add(m_TexturePreview, wxSizerFlags(1).Expand().Border(wxALL, 5));
 
 		g_Brush_Elevation.CreateUI(sizer->GetStaticBox(), sizer);
-		scrollSizer->Add(sizer, wxSizerFlags().Expand().Border(wxTOP, 10));
+		m_MainSizer->Add(sizer, wxSizerFlags().Expand());
 	}
 
 	{
 		/////////////////////////////////////////////////////////////////////////
 		// Visualise
-		wxStaticBoxSizer* sizer = new wxStaticBoxSizer(wxVERTICAL, scrolledWindow, _("Visualise"));
-		scrollSizer->Add(sizer, wxSizerFlags().Expand().Border(wxTOP, 10));
+		wxStaticBoxSizer* sizer = new wxStaticBoxSizer(wxVERTICAL, this, _("Visualise"));
+		m_MainSizer->Add(sizer, wxSizerFlags().Expand());
 
 		wxFlexGridSizer* visSizer = new wxFlexGridSizer(2, 5, 5);
 		visSizer->AddGrowableCol(1);

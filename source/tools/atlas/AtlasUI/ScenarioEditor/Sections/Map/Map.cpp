@@ -476,21 +476,13 @@ void MapSettingsControl::SendToEngine()
 MapSidebar::MapSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContainer, wxWindow* bottomBarContainer)
 	: Sidebar(scenarioEditor, sidebarContainer, bottomBarContainer), m_SimState(SimInactive)
 {
-	wxFlexGridSizer* scrollSizer = new wxFlexGridSizer(1, 5, 5);
-	scrollSizer->AddGrowableCol(0);
-
-	wxScrolledWindow* scrolledWindow = new wxScrolledWindow(this);
-	scrolledWindow->SetScrollRate(10, 10);
-	scrolledWindow->SetSizer(scrollSizer);
-	m_MainSizer->Add(scrolledWindow, wxSizerFlags().Expand().Proportion(1));
-
-	m_MapSettingsCtrl = new MapSettingsControl(scrolledWindow, m_ScenarioEditor);
-	scrollSizer->Add(m_MapSettingsCtrl, wxSizerFlags().Expand());
+	m_MapSettingsCtrl = new MapSettingsControl(this, m_ScenarioEditor);
+	m_MainSizer->Add(m_MapSettingsCtrl, wxSizerFlags().Expand());
 
 	{
 		/////////////////////////////////////////////////////////////////////////
 		// Random map settings
-		wxStaticBoxSizer* topSizer = new wxStaticBoxSizer(wxVERTICAL, scrolledWindow, _("Random map"));
+		wxStaticBoxSizer* topSizer = new wxStaticBoxSizer(wxVERTICAL, this, _("Random map"));
 		wxStaticBox* topBox = topSizer->GetStaticBox();
 
 		wxFlexGridSizer* grid = new wxFlexGridSizer(1, 10, 10);
@@ -498,7 +490,7 @@ MapSidebar::MapSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContaine
 
 		topSizer->Add(grid, wxSizerFlags().Border(wxALL, 5).Expand());
 
-		scrollSizer->Add(topSizer, wxSizerFlags().Expand());
+		m_MainSizer->Add(topSizer, wxSizerFlags().Expand());
 
 		grid->Add(new wxChoice(topBox, ID_RandomScript), wxSizerFlags().Expand());
 
@@ -539,18 +531,18 @@ MapSidebar::MapSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContaine
 	{
 		/////////////////////////////////////////////////////////////////////////
 		// Misc tools
-		wxStaticBoxSizer* sizer = new wxStaticBoxSizer(wxVERTICAL, scrolledWindow, _("Misc tools"));
+		wxStaticBoxSizer* sizer = new wxStaticBoxSizer(wxVERTICAL, this, _("Misc tools"));
 		sizer->Add(new wxButton(sizer->GetStaticBox(), ID_ResizeMap, _("Resize/Recenter map")), wxSizerFlags().Expand().Border(wxALL, 5));
-		scrollSizer->Add(sizer, wxSizerFlags().Expand());
+		m_MainSizer->Add(sizer, wxSizerFlags().Expand());
 	}
 
 	{
 		/////////////////////////////////////////////////////////////////////////
 		// Simulation buttons
-		wxStaticBoxSizer* topSizer = new wxStaticBoxSizer(wxVERTICAL, scrolledWindow, _("Simulation test"));
+		wxStaticBoxSizer* topSizer = new wxStaticBoxSizer(wxVERTICAL, this, _("Simulation test"));
 		wxStaticBox* topBox = topSizer->GetStaticBox();
 
-		scrollSizer->Add(topSizer, wxSizerFlags().Expand());
+		m_MainSizer->Add(topSizer, wxSizerFlags().Expand());
 
 		wxGridSizer* gridSizer = new wxGridSizer(5, 5, 5);
 		gridSizer->Add(Tooltipped(new wxButton(topBox, ID_SimPlay, _("Play"), wxDefaultPosition, wxSize(48, -1)),

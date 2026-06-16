@@ -61,14 +61,8 @@ static wxWindow* Tooltipped(wxWindow* window, const wxString& tip)
 CinemaSidebar::CinemaSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContainer, wxWindow* bottomBarContainer)
 	: Sidebar(scenarioEditor, sidebarContainer, bottomBarContainer)
 {
-	wxSizer* scrollSizer = new wxBoxSizer(wxVERTICAL);
-	scrolledWindow = new wxScrolledWindow(this);
-	scrolledWindow->SetScrollRate(10, 10);
-	scrolledWindow->SetSizer(scrollSizer);
-	m_MainSizer->Add(scrolledWindow, wxSizerFlags().Proportion(1).Expand());
-
-	wxStaticBoxSizer* commonSizer = new wxStaticBoxSizer(wxVERTICAL, scrolledWindow, _T("Common settings"));
-	scrollSizer->Add(commonSizer, wxSizerFlags().Expand());
+	wxStaticBoxSizer* commonSizer = new wxStaticBoxSizer(wxVERTICAL, this, _T("Common settings"));
+	m_MainSizer->Add(commonSizer, wxSizerFlags().Expand());
 
 	wxFlexGridSizer* gridSizer = new wxFlexGridSizer(2, 5, 5);
 	gridSizer->AddGrowableCol(1);

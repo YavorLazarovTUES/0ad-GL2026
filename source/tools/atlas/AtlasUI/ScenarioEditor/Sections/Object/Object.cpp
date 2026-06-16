@@ -268,50 +268,47 @@ ObjectSidebar::ObjectSidebar(
 	: Sidebar(scenarioEditor, sidebarContainer, bottomBarContainer),
 	m_Impl(new ObjectSidebarImpl(scenarioEditor))
 {
-	wxSizer* scrollSizer = new wxBoxSizer(wxVERTICAL);
-	wxScrolledWindow* scrolledWindow = new wxScrolledWindow(this);
-	scrolledWindow->SetScrollRate(10, 10);
-	scrolledWindow->SetSizer(scrollSizer);
-	m_MainSizer->Add(scrolledWindow, wxSizerFlags().Proportion(1).Expand());
+	wxBoxSizer* topSizer = new wxBoxSizer(wxVERTICAL);
+	m_MainSizer->AddGrowableRow(0);
+	m_MainSizer->Add(topSizer, wxSizerFlags().Expand());
 
 	wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
-	sizer->Add(new wxStaticText(scrolledWindow, wxID_ANY, _("Filter")), wxSizerFlags().Align(wxALIGN_CENTER));
+	sizer->Add(new wxStaticText(this, wxID_ANY, _("Filter")), wxSizerFlags().Align(wxALIGN_CENTER));
 	sizer->AddSpacer(2);
 	sizer->Add(
 		Tooltipped(
-			new wxTextCtrl(scrolledWindow, ID_ObjectFilter),
+			new wxTextCtrl(this, ID_ObjectFilter),
 			_("Enter text to filter object list")
 		),
 		wxSizerFlags().Expand().Proportion(1)
 	);
-	scrollSizer->Add(sizer, wxSizerFlags().Expand());
-	scrollSizer->AddSpacer(3);
-	wxCheckBox* exactSearchCheckBox = new wxCheckBox(
-		scrolledWindow, ID_ObjectExactFilter, _("Exact Search"));
+	topSizer->Add(sizer, wxSizerFlags().Expand());
+	topSizer->AddSpacer(3);
+	wxCheckBox* exactSearchCheckBox = new wxCheckBox(this, ID_ObjectExactFilter, _("Exact Search"));
 	exactSearchCheckBox->SetValue(true);
-	scrollSizer->Add(Tooltipped(exactSearchCheckBox,
+	topSizer->Add(Tooltipped(exactSearchCheckBox,
 		_("Provides a search with a strict string equality")));
-	scrollSizer->AddSpacer(3);
+	topSizer->AddSpacer(3);
 
 	// ------------------------------------------------------------------------------------------
 
 	wxArrayString strings;
 	strings.Add(_("Entities"));
 	strings.Add(_("Actors (all)"));
-	wxChoice* objectType = new wxChoice(scrolledWindow, ID_ObjectType, wxDefaultPosition, wxDefaultSize, strings);
+	wxChoice* objectType = new wxChoice(this, ID_ObjectType, wxDefaultPosition, wxDefaultSize, strings);
 	objectType->SetSelection(0);
-	scrollSizer->Add(objectType, wxSizerFlags().Expand());
-	scrollSizer->AddSpacer(3);
+	topSizer->Add(objectType, wxSizerFlags().Expand());
+	topSizer->AddSpacer(3);
 
 	// ------------------------------------------------------------------------------------------
 
-	m_Impl->m_ObjectListBox = new wxListBox(scrolledWindow, ID_SelectObject, wxDefaultPosition, wxDefaultSize, 0, nullptr, wxLB_SINGLE|wxLB_HSCROLL);
-	scrollSizer->Add(m_Impl->m_ObjectListBox, wxSizerFlags().Proportion(1).Expand());
-	scrollSizer->AddSpacer(3);
+	m_Impl->m_ObjectListBox = new wxListBox(this, ID_SelectObject, wxDefaultPosition, wxDefaultSize, 0, nullptr, wxLB_SINGLE|wxLB_HSCROLL);
+	topSizer->Add(m_Impl->m_ObjectListBox, wxSizerFlags().Proportion(1).Expand());
+	topSizer->AddSpacer(3);
 
 	// ------------------------------------------------------------------------------------------
 
-	scrollSizer->Add(new wxButton(scrolledWindow, ID_ToggleViewer, _("Switch to Actor Viewer")), wxSizerFlags().Expand());
+	topSizer->Add(new wxButton(this, ID_ToggleViewer, _("Switch to Actor Viewer")), wxSizerFlags().Expand());
 
 	// ------------------------------------------------------------------------------------------
 

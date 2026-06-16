@@ -19,14 +19,22 @@
 
 #include "Sidebar.h"
 
+#include "tools/atlas/AtlasUI/ScenarioEditor/StyleSheet.h"
+
 #include <cstddef>
 #include <wx/sizer.h>
 #include <wx/window.h>
 
 Sidebar::Sidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContainer, wxWindow* WXUNUSED(bottomBarContainer))
-	: wxPanel(sidebarContainer), m_ScenarioEditor(scenarioEditor), m_BottomBar(NULL), m_AlreadyDisplayed(false)
+	: wxScrolled<wxPanel>(sidebarContainer),
+	m_ScenarioEditor(scenarioEditor),
+	m_BottomBar(nullptr),
+	m_AlreadyDisplayed(false)
 {
-	m_MainSizer = new wxBoxSizer(wxVERTICAL);
+	SetScrollRate(10, 10);
+
+	m_MainSizer = new wxFlexGridSizer(1, Atlas::Style::SIDEBAR_MAINLAOYOUT_VGAP, 0);
+	m_MainSizer->AddGrowableCol(0);
 	SetSizer(m_MainSizer);
 }
 

@@ -237,22 +237,13 @@ EnvironmentSidebar::EnvironmentSidebar(
 	ScenarioEditor& scenarioEditor, wxWindow* sidebarContainer, wxWindow* bottomBarContainer)
 	: Sidebar(scenarioEditor, sidebarContainer, bottomBarContainer)
 {
-	wxSizer* scrollSizer = new wxBoxSizer(wxVERTICAL);
-	wxScrolledWindow* scrolledWindow = new wxScrolledWindow(this);
-	scrolledWindow->SetScrollRate(10, 10);
-	scrolledWindow->SetSizer(scrollSizer);
-	m_MainSizer->Add(scrolledWindow,  wxSizerFlags().Proportion(1).Expand());
-
-	wxFlexGridSizer* gridSizer = new wxFlexGridSizer(1, 10, 10);
-	gridSizer->AddGrowableCol(0);
-	scrollSizer->Add(gridSizer, wxSizerFlags().Expand());
-
-	wxStaticBoxSizer* waterBoxSizer = new wxStaticBoxSizer(wxVERTICAL, scrolledWindow, _T("Water settings"));
+	wxStaticBoxSizer* waterBoxSizer = new wxStaticBoxSizer(wxVERTICAL, this, _T("Water settings"));
 	wxStaticBox* waterBox = waterBoxSizer->GetStaticBox();
-	gridSizer->Add(waterBoxSizer, wxSizerFlags().Expand());
+	m_MainSizer->Add(waterBoxSizer, wxSizerFlags().Expand());
 	wxFlexGridSizer* waterSizer = new wxFlexGridSizer(1, 10, 10);
 	waterSizer->AddGrowableCol(0);
 	waterBoxSizer->Add(waterSizer, wxSizerFlags().Expand().Border(wxALL, 5));
+
 	waterSizer->Add(new wxButton(
 		waterBox, ID_RecomputeWaterData, _("Reset Water Data")), wxSizerFlags().Expand());
 	waterSizer->Add(m_WaterTypeList = new VariableListBox(
@@ -277,9 +268,9 @@ EnvironmentSidebar::EnvironmentSidebar(
 	m_WaterTypeList->SetChoices(list);
 
 
-	wxStaticBoxSizer* sunBoxSizer = new wxStaticBoxSizer(wxVERTICAL, scrolledWindow, _T("Sun / lighting settings"));
+	wxStaticBoxSizer* sunBoxSizer = new wxStaticBoxSizer(wxVERTICAL, this, _T("Sun / lighting settings"));
 	wxStaticBox* sunBox = sunBoxSizer->GetStaticBox();
-	gridSizer->Add(sunBoxSizer, wxSizerFlags().Expand());
+	m_MainSizer->Add(sunBoxSizer, wxSizerFlags().Expand());
 	wxFlexGridSizer* sunSizer = new wxFlexGridSizer(1, 10, 10);
 	sunSizer->AddGrowableCol(0);
 	sunBoxSizer->Add(sunSizer, wxSizerFlags().Expand().Border(wxALL, 5));
@@ -305,9 +296,9 @@ EnvironmentSidebar::EnvironmentSidebar(
 	sunSizer->Add(new VariableColorBox(
 		sunBox, _("Ambient color"), g_EnvironmentSettings.ambientcolor), wxSizerFlags().Expand());
 
-	wxStaticBoxSizer* postProcBoxSizer = new wxStaticBoxSizer(wxVERTICAL, scrolledWindow, _T("Post-processing settings"));
+	wxStaticBoxSizer* postProcBoxSizer = new wxStaticBoxSizer(wxVERTICAL, this, _T("Post-processing settings"));
 	wxStaticBox* postProcBox = postProcBoxSizer->GetStaticBox();
-	gridSizer->Add(postProcBoxSizer, wxSizerFlags().Expand());
+	m_MainSizer->Add(postProcBoxSizer, wxSizerFlags().Expand());
 	wxFlexGridSizer* postProcSizer = new wxFlexGridSizer(1, 10, 10);
 	postProcSizer->AddGrowableCol(0);
 	postProcBoxSizer->Add(postProcSizer, wxSizerFlags().Expand().Border(wxALL, 5));

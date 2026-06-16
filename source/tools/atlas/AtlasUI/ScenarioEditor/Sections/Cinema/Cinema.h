@@ -43,7 +43,6 @@ private:
 
 	void ReloadPathList();
 
-	wxScrolledWindow* scrolledWindow;
 	wxCheckBox* m_DrawPath;
 	wxListBox* m_PathList;
 	wxTextCtrl* m_NewPathName;

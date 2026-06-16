@@ -985,14 +985,8 @@ void PlayerSettingsControl::SendToEngine()
 PlayerSidebar::PlayerSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContainer, wxWindow* bottomBarContainer)
 	: Sidebar(scenarioEditor, sidebarContainer, bottomBarContainer), m_Loaded(false)
 {
-	wxSizer* scrollSizer = new wxBoxSizer(wxVERTICAL);
-	wxScrolledWindow* scrolledWindow = new wxScrolledWindow(this);
-	scrolledWindow->SetScrollRate(10, 10);
-	scrolledWindow->SetSizer(scrollSizer);
-	m_MainSizer->Add(scrolledWindow, wxSizerFlags().Proportion(1).Expand());
-
-	m_PlayerSettingsCtrl = new PlayerSettingsControl(scrolledWindow, m_ScenarioEditor);
-	scrollSizer->Add(m_PlayerSettingsCtrl, wxSizerFlags().Expand());
+	m_PlayerSettingsCtrl = new PlayerSettingsControl(this, m_ScenarioEditor);
+	m_MainSizer->Add(m_PlayerSettingsCtrl, wxSizerFlags().Expand());
 }
 
 void PlayerSidebar::OnFirstDisplay()

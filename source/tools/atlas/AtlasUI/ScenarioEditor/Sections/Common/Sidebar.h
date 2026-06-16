@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,12 +19,13 @@
 #define INCLUDED_SIDEBAR
 
 #include <wx/panel.h>
+#include <wx/scrolwin.h>
 
 class ScenarioEditor;
-class wxSizer;
+class wxFlexGridSizer;
 class wxWindow;
 
-class Sidebar : public wxPanel
+class Sidebar : public wxScrolled<wxPanel>
 {
 public:
 	Sidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContainer, wxWindow* bottomBarContainer);
@@ -41,7 +42,10 @@ public:
 protected:
 	ScenarioEditor& m_ScenarioEditor;
 
-	wxSizer* m_MainSizer; // vertical box sizer, used by most sidebars
+	/*
+	 * Single colum wxFlexGridSizer, used to evenly space the top panels.
+	 */
+	wxFlexGridSizer* m_MainSizer;
 
 	wxWindow* m_BottomBar; // window that goes at the bottom of the screen; may be NULL
 
