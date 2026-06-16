@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -38,40 +38,26 @@
 #include "lib/os_path.h"
 #include "lib/path.h"
 #include "lib/posix/posix_filesystem.h"
-#include "lib/sysdep/filesystem.h"
 
-#include <cerrno>
+#include <filesystem>
 #include <string>
+#include <system_error>
 
-static Status CreateDirectory(const OsPath& path)
+static Status CreateDirectory(const OsPath& dirpath)
 {
-	{
-		const mode_t mode = S_IRWXU; // 0700 as prescribed by XDG basedir
-		const int ret = wmkdir(path, mode);
-		if(ret == 0)	// success
-			return INFO::OK;
-	}
+	const std::filesystem::path path{dirpath.string()};
+	std::error_code ec{};
 
-	// Failed because the directory already exists.
-	// Return 'success' to attach the existing directory.
-	if(errno == EEXIST)
-	{
-		// But first ensure it's really a directory
-		// (otherwise, a file is "in the way" and needs to be deleted).
-		struct stat s;
-		const int ret = wstat(path, &s);
-		ENSURE(ret == 0);	// (wmkdir said it existed)
-		ENSURE(S_ISDIR(s.st_mode));
+    if (std::filesystem::is_directory(path))
 		return INFO::OK;
-	}
 
-	if (errno == EACCES)
-		return ERR::FILE_ACCESS;
+	std::filesystem::create_directory(path, ec);
+	if (ec)
+		return StatusFromSystemError(ec);
 
-	// unexpected failure
-	debug_printf("wmkdir failed with errno=%d\n", errno);
-	DEBUG_WARN_ERR(ERR::LOGIC);
-	WARN_RETURN(StatusFromErrno());
+	// 0700 as prescribed by XDG basedir
+	std::filesystem::permissions(path, std::filesystem::perms::owner_all, ec);
+	return StatusFromSystemError(ec);
 }
 
 

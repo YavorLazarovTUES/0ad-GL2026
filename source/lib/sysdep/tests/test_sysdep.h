@@ -37,6 +37,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cwchar>
+#include <filesystem>
 #include <string>
 
 class TestSysdep : public CxxTest::TestSuite
@@ -59,8 +60,7 @@ public:
 		// Check it's absolute
 		TSM_ASSERT(L"Path: "+path.string(), path_is_absolute(path.string().c_str()));
 		// Check the file exists
-		struct stat s;
-		TSM_ASSERT_EQUALS(L"Path: "+path.string(), wstat(path, &s), 0);
+		TS_ASSERT(std::filesystem::is_regular_file(path.string()));
 	}
 
 private:

@@ -60,8 +60,6 @@ extern int wclose(int fd);
 // sys/stat.h
 //
 
-int wstat(const OsPath& pathname, struct stat* buf);
-
 int wmkdir(const OsPath& path, mode_t mode);
 
 #endif	// #ifndef INCLUDED_SYSDEP_FILESYSTEM

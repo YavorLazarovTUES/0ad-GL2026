@@ -160,9 +160,3 @@ int wmkdir(const OsPath& path, mode_t)
 
 	return 0;
 }
-
-
-int wstat(const OsPath& pathname, struct stat* buf)
-{
-	return _wstat64(OsString(pathname).c_str(), buf);
-}
