@@ -97,8 +97,3 @@ int wrename(const OsPath& pathnameOld, const OsPath& pathnameNew)
 {
 	return rename(OsString(pathnameOld).c_str(), OsString(pathnameNew).c_str());
 }
-
-int wmkdir(const OsPath& path, mode_t mode)
-{
-	return mkdir(OsString(path).c_str(), mode);
-}

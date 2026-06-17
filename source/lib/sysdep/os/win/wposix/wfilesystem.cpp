@@ -129,34 +129,3 @@ int wclose(int fd)
 		return _close(fd);
 	return 0;
 }
-
-
-static int ErrnoFromCreateDirectory()
-{
-	switch(GetLastError())
-	{
-	case ERROR_ALREADY_EXISTS:
-		return EEXIST;
-	case ERROR_PATH_NOT_FOUND:
-		return ENOENT;
-	case ERROR_ACCESS_DENIED:
-		return EACCES;
-	case ERROR_WRITE_PROTECT:
-		return EROFS;
-	case ERROR_DIRECTORY:
-		return ENOTDIR;
-	default:
-		return 0;
-	}
-}
-
-int wmkdir(const OsPath& path, mode_t)
-{
-	if(!CreateDirectoryW(OsString(path).c_str(), (LPSECURITY_ATTRIBUTES)NULL))
-	{
-		errno = ErrnoFromCreateDirectory();
-		return -1;
-	}
-
-	return 0;
-}

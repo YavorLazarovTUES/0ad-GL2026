@@ -55,11 +55,4 @@ extern int wopen(const OsPath& pathname, int oflag);
 extern int wopen(const OsPath& pathname, int oflag, mode_t mode);
 extern int wclose(int fd);
 
-
-//
-// sys/stat.h
-//
-
-int wmkdir(const OsPath& path, mode_t mode);
-
 #endif	// #ifndef INCLUDED_SYSDEP_FILESYSTEM
