@@ -21,63 +21,13 @@
  */
 
 #include "precompiled.h"
+
 #include "lib/sysdep/filesystem.h"
 
 #include "lib/debug.h"
 #include "lib/sysdep/os/win/wutil.h"	// StatusFromWin
 #include "lib/sysdep/os/win/wposix/waio.h"	// waio_reopen
 #include "lib/sysdep/os/win/wposix/crt_posix.h"			// _close, _lseeki64 etc.
-
-#include <atomic>
-
-//-----------------------------------------------------------------------------
-// dirent.h
-//-----------------------------------------------------------------------------
-
-static const long _1e7 = 10000000;
-
-// hectonanoseconds between Windows and POSIX epoch
-static const u64 posix_epoch_hns = 0x019DB1DED53E8000;
-
-// this function avoids the pitfall of casting FILETIME* to u64*,
-// which is not safe due to differing alignment guarantees!
-// on some platforms, that would result in an exception.
-static u64 u64_from_FILETIME(const FILETIME* ft)
-{
-    return u64_from_u32(ft->dwHighDateTime, ft->dwLowDateTime);
-}
-
-// convert UTC FILETIME to seconds-since-1970 UTC:
-// we just have to subtract POSIX epoch and scale down to units of seconds.
-//
-// note: RtlTimeToSecondsSince1970 isn't officially documented,
-// so don't use that.
-static time_t wtime_utc_filetime_to_time_t(FILETIME* ft)
-{
-    u64 hns = u64_from_FILETIME(ft);
-    u64 s = (hns - posix_epoch_hns) / _1e7;
-    return static_cast<time_t>(s & 0xFFFFFFFF);
-}
-
-static bool IsValidDirectory(const OsPath& path)
-{
-	const DWORD fileAttributes = GetFileAttributesW(OsString(path).c_str());
-
-	// path not found
-	if(fileAttributes == INVALID_FILE_ATTRIBUTES)
-		return false;
-
-	// not a directory
-	if((fileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
-		return false;
-
-	// NB: no longer reject hidden or system attributes since
-	// wsnd's add_oal_dlls_in_dir opens the Windows system directory,
-	// which sometimes has these attributes set.
-
-	return true;
-}
-
 
 //-----------------------------------------------------------------------------
 // fcntl.h
