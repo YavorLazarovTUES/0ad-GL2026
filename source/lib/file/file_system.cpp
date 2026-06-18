@@ -62,20 +62,6 @@ bool FileExists(const OsPath& pathname)
 }
 
 
-u64 FileSize(const OsPath& pathname)
-{
-	try
-	{
-		return static_cast<u64>(std::filesystem::file_size(pathname.string()));
-	}
-	catch (std::filesystem::filesystem_error& err)
-	{
-		debug_printf("FileSize: failed to get filesize for '%s', reason: %s\n", pathname.string8().c_str(), err.what());
-	}
-	return 0;
-}
-
-
 Status GetFileInfo(const OsPath& pathname, CFileInfo* pPtrInfo)
 {
 	try

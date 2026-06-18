@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -37,9 +37,6 @@
 
 bool DirectoryExists(const OsPath& path);
 bool FileExists(const OsPath& pathname);
-
-u64 FileSize(const OsPath& pathname);
-
 
 // (bundling size and mtime avoids a second expensive call to stat())
 class CFileInfo
