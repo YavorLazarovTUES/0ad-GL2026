@@ -23,6 +23,7 @@
 #include "tools/atlas/AtlasUI/General/Observable.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/ScenarioEditor.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/Sections/Common/Sidebar.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/StyleSheet.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/Brushes.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/MiscState.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/Tools.h"
@@ -235,7 +236,7 @@ TerrainSidebar::TerrainSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebar
 			_("Brush with left mouse button to smooth terrain,\nright mouse button to roughen it")), wxSizerFlags().Expand());
 		gridSizer->Add(Tooltipped(new ToolButton(scenarioEditor.GetToolManager(), sizer->GetStaticBox(), _("Flatten"), _T("FlattenElevation"), wxSize(48, -1)),
 			_("Brush with left mouse button to flatten terrain")), wxSizerFlags().Expand());
-		sizer->Add(gridSizer, wxSizerFlags().Expand().Border(wxALL, 5));
+		sizer->Add(gridSizer, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 		m_MainSizer->Add(sizer, wxSizerFlags().Expand());
 	}
 
@@ -250,7 +251,7 @@ TerrainSidebar::TerrainSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebar
 			_("Replace all of a terrain texture with a new one")), wxSizerFlags().Expand());
 		gridSizer->Add(Tooltipped(new ToolButton(scenarioEditor.GetToolManager(), sizer->GetStaticBox(), _("Fill"), _T("FillTerrain"), wxSize(48, -1)),
 			_T("Bucket fill a patch of terrain texture with a new one")), wxSizerFlags().Expand());
-		sizer->Add(gridSizer, wxSizerFlags().Expand().Border(wxALL, 5));
+		sizer->Add(gridSizer, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 		m_MainSizer->Add(sizer, wxSizerFlags().Expand());
 	}
 
@@ -260,7 +261,7 @@ TerrainSidebar::TerrainSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebar
 		wxStaticBoxSizer* sizer = new wxStaticBoxSizer(wxVERTICAL, this, _("Brush"));
 
 		m_TexturePreview = new TexturePreviewPanel(sizer->GetStaticBox());
-		sizer->Add(m_TexturePreview, wxSizerFlags(1).Expand().Border(wxALL, 5));
+		sizer->Add(m_TexturePreview, wxSizerFlags(1).Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 
 		g_Brush_Elevation.CreateUI(sizer->GetStaticBox(), sizer);
 		m_MainSizer->Add(sizer, wxSizerFlags().Expand());
@@ -274,7 +275,7 @@ TerrainSidebar::TerrainSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebar
 
 		wxFlexGridSizer* visSizer = new wxFlexGridSizer(2, 5, 5);
 		visSizer->AddGrowableCol(1);
-		sizer->Add(visSizer, wxSizerFlags().Expand().Border(wxALL, 5));
+		sizer->Add(visSizer, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 
 		wxArrayString defaultChoices;
 		defaultChoices.Add(_("(none)"));

@@ -24,6 +24,7 @@
 #include "tools/atlas/AtlasUI/General/Observable.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/ScenarioEditor.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/Sections/Common/Sidebar.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/StyleSheet.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/Tools.h"
 #include "tools/atlas/GameInterface/MessagePasser.h"
 #include "tools/atlas/GameInterface/Messages.h"
@@ -143,7 +144,8 @@ public:
 
 		Freeze();
 
-		wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
+		wxFlexGridSizer* sizer = new wxFlexGridSizer(1, 10, 10);
+		sizer->AddGrowableCol(0);
 		SetSizer(sizer);
 
 		{
@@ -179,8 +181,8 @@ public:
 				_("Select AI")), wxSizerFlags(1).Expand().Align(wxALIGN_RIGHT));
 			m_Controls.ai = aiChoice;
 
-			playerInfoSizer->Add(gridSizer, wxSizerFlags(1).Expand().Border(wxALL, 5));
-			sizer->Add(playerInfoSizer, wxSizerFlags().Expand().Border(wxTOP, 5));
+			playerInfoSizer->Add(gridSizer, wxSizerFlags(1).Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
+			sizer->Add(playerInfoSizer, wxSizerFlags().Expand());
 		}
 
 		{
@@ -225,8 +227,8 @@ public:
 				_("Population limit for this player")), wxSizerFlags().Expand());
 			m_Controls.pop = popCtrl;
 
-			resourceSizer->Add(gridSizer, wxSizerFlags(1).Expand().Border(wxALL, 5));
-			sizer->Add(resourceSizer, wxSizerFlags().Expand().Border(wxTOP, 10));
+			resourceSizer->Add(gridSizer, wxSizerFlags(1).Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
+			sizer->Add(resourceSizer, wxSizerFlags().Expand());
 		}
 		{
 			/////////////////////////////////////////////////////////////////////////
@@ -245,12 +247,12 @@ public:
 			teamCtrl->Append(_T("4"));
 			boxSizer->Add(teamCtrl);
 			m_Controls.team = teamCtrl;
-			diplomacySizer->Add(boxSizer, wxSizerFlags().Expand().Border(wxALL, 5));
+			diplomacySizer->Add(boxSizer, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 
 			// TODO: possibly have advanced panel where each player's diplomacy can be set?
 			// Advanced panel
 
-			sizer->Add(diplomacySizer, wxSizerFlags().Expand().Border(wxTOP, 10));
+			sizer->Add(diplomacySizer, wxSizerFlags().Expand());
 		}
 
 		{
@@ -269,9 +271,9 @@ public:
 			cameraClear->Enable(false);
 			gridSizer->Add(Tooltipped(cameraClear,
 				_("Clear player camera")), wxSizerFlags().Expand());
-			cameraSizer->Add(gridSizer, wxSizerFlags().Expand().Border(wxALL, 5));
+			cameraSizer->Add(gridSizer, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 
-			sizer->Add(cameraSizer, wxSizerFlags().Expand().Border(wxTOP, 10));
+			sizer->Add(cameraSizer, wxSizerFlags().Expand());
 		}
 
 		Layout();
@@ -592,16 +594,29 @@ PlayerSettingsControl::PlayerSettingsControl(wxWindow* parent, ScenarioEditor& s
 	wxStaticBox* topBox = topSizer->GetStaticBox();
 	SetSizer(topSizer);
 
-	wxBoxSizer* boxSizer = new wxBoxSizer(wxHORIZONTAL);
-	boxSizer->Add(new wxStaticText(topBox, wxID_ANY, _("Num players")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
-	boxSizer->AddSpacer(10);
-	wxSpinCtrl* numPlayersSpin = new wxSpinCtrl(topBox, ID_NumPlayers, wxEmptyString, wxDefaultPosition, wxSize(40, -1));
-	numPlayersSpin->SetValue(MAX_NUM_PLAYERS);
-	numPlayersSpin->SetRange(1, MAX_NUM_PLAYERS);
-	boxSizer->Add(numPlayersSpin);
-	topSizer->Add(boxSizer, wxSizerFlags().Expand().Proportion(0).Border(wxALL, 5));
-	m_Players = new PlayerNotebook(topBox);
-	topSizer->Add(m_Players, wxSizerFlags().Expand().Proportion(1).Border(wxALL, 5));
+	wxFlexGridSizer* gridSizer = new wxFlexGridSizer(1, 10, 10);
+	gridSizer->AddGrowableCol(0);
+	topSizer->Add(gridSizer, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
+
+	{
+		wxBoxSizer* boxSizer = new wxBoxSizer(wxHORIZONTAL);
+    	boxSizer->Add(new wxStaticText(topBox, wxID_ANY, _("Num players")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
+
+    	boxSizer->AddSpacer(10);
+
+		wxSpinCtrl* numPlayersSpin = new wxSpinCtrl(topBox, ID_NumPlayers, wxEmptyString, wxDefaultPosition, wxSize(40, -1));
+		numPlayersSpin->SetValue(MAX_NUM_PLAYERS);
+		numPlayersSpin->SetRange(1, MAX_NUM_PLAYERS);
+		boxSizer->Add(numPlayersSpin);
+
+		gridSizer->Add(boxSizer);
+	}
+
+	{
+		m_Players = new PlayerNotebook(topBox);
+
+		gridSizer->Add(m_Players, wxSizerFlags().Expand());
+	}
 
 	m_InGUIUpdate = false;
 }

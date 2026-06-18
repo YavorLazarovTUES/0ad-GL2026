@@ -25,6 +25,7 @@
 #include "tools/atlas/AtlasUI/General/Observable.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/ScenarioEditor.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/Sections/Common/Sidebar.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/StyleSheet.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/Tools.h"
 #include "tools/atlas/GameInterface/MessagePasser.h"
 #include "tools/atlas/GameInterface/Messages.h"
@@ -184,7 +185,7 @@ void MapSettingsControl::CreateWidgets()
 	wxFlexGridSizer* grid = new wxFlexGridSizer(1, 5, 5);
 	grid->AddGrowableCol(0);
 
-	topSizer->Add(grid, wxSizerFlags().Border(wxALL, 5).Expand());
+	topSizer->Add(grid, wxSizerFlags().Border(wxALL, Atlas::Style::STATICBOX_PADDING).Expand());
 
 	/////////////////////////////////////////////////////////////////////////
 	// Map settings
@@ -232,7 +233,7 @@ void MapSettingsControl::CreateWidgets()
 		CREATE_CHECKBOX(victoryConditionSizer->GetStaticBox(), vcGridSizer, title, "Select " + title + " victory condition.", index);
 	}
 
-	victoryConditionSizer->Add(vcGridSizer, wxSizerFlags().Border(wxALL, 5));
+	victoryConditionSizer->Add(vcGridSizer, wxSizerFlags().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 	grid->Add(victoryConditionSizer, wxSizerFlags().Expand());
 
 	//sizer->AddSpacer(5);
@@ -245,7 +246,7 @@ void MapSettingsControl::CreateWidgets()
 	CREATE_CHECKBOX(keywordsBox, kwGridSizer, "New", "If checked, the map will appear in the list of new maps", ID_MapKW_New);
 	CREATE_CHECKBOX(keywordsBox, kwGridSizer, "Trigger", "If checked, the map will appear in the list of maps with trigger scripts", ID_MapKW_Trigger);
 
-	keywordsSizer->Add(kwGridSizer, wxSizerFlags().Border(wxALL, 5));
+	keywordsSizer->Add(kwGridSizer, wxSizerFlags().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 	grid->Add(keywordsSizer, wxSizerFlags().Expand());
 }
 
@@ -488,7 +489,7 @@ MapSidebar::MapSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContaine
 		wxFlexGridSizer* grid = new wxFlexGridSizer(1, 10, 10);
 		grid->AddGrowableCol(0);
 
-		topSizer->Add(grid, wxSizerFlags().Border(wxALL, 5).Expand());
+		topSizer->Add(grid, wxSizerFlags().Border(wxALL, Atlas::Style::STATICBOX_PADDING).Expand());
 
 		m_MainSizer->Add(topSizer, wxSizerFlags().Expand());
 
@@ -532,7 +533,7 @@ MapSidebar::MapSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContaine
 		/////////////////////////////////////////////////////////////////////////
 		// Misc tools
 		wxStaticBoxSizer* sizer = new wxStaticBoxSizer(wxVERTICAL, this, _("Misc tools"));
-		sizer->Add(new wxButton(sizer->GetStaticBox(), ID_ResizeMap, _("Resize/Recenter map")), wxSizerFlags().Expand().Border(wxALL, 5));
+		sizer->Add(new wxButton(sizer->GetStaticBox(), ID_ResizeMap, _("Resize/Recenter map")), wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 		m_MainSizer->Add(sizer, wxSizerFlags().Expand());
 	}
 
@@ -555,7 +556,7 @@ MapSidebar::MapSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContaine
 			_("Pause the simulation")), wxSizerFlags().Expand());
 		gridSizer->Add(Tooltipped(new wxButton(topBox, ID_SimReset, _("Reset"), wxDefaultPosition, wxSize(48, -1)),
 			_("Reset the editor to initial state")), wxSizerFlags().Expand());
-		topSizer->Add(gridSizer, wxSizerFlags().Expand().Border(wxALL, 5));
+		topSizer->Add(gridSizer, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 		UpdateSimButtons();
 	}
 }

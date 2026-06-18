@@ -21,6 +21,7 @@
 
 #include "tools/atlas/AtlasUI/ScenarioEditor/ScenarioEditor.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/Sections/Common/Sidebar.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/StyleSheet.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/Tools.h"
 #include "tools/atlas/GameInterface/Messages.h"
 #include "tools/atlas/GameInterface/Shareable.h"
@@ -64,21 +65,22 @@ CinemaSidebar::CinemaSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarCo
 	wxStaticBoxSizer* commonSizer = new wxStaticBoxSizer(wxVERTICAL, this, _T("Common settings"));
 	m_MainSizer->Add(commonSizer, wxSizerFlags().Expand());
 
-	wxFlexGridSizer* gridSizer = new wxFlexGridSizer(2, 5, 5);
-	gridSizer->AddGrowableCol(1);
+	wxFlexGridSizer* gridSizer = new wxFlexGridSizer(1, 5, 5);
+	gridSizer->AddGrowableCol(0);
 
 	gridSizer->Add(Tooltipped(m_DrawPath = new wxCheckBox(commonSizer->GetStaticBox(), ID_PathsDrawing, _("Draw all paths")),
 		_("Display every cinematic path added to the map")));
 
-	commonSizer->Add(gridSizer, wxSizerFlags().Expand());
+	commonSizer->Add(gridSizer, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 
 	// Paths list panel
 	wxStaticBoxSizer* pathsBoxSizer = new wxStaticBoxSizer(wxVERTICAL, commonSizer->GetStaticBox(), _T("Paths"));
 	wxStaticBox* pathsBox = pathsBoxSizer->GetStaticBox();
-	commonSizer->Add(pathsBoxSizer, wxSizerFlags().Proportion(1).Expand().Border(wxALL, 5));
+	gridSizer->Add(pathsBoxSizer, wxSizerFlags().Proportion(1).Expand());
+
 	wxFlexGridSizer* pathsSizer = new wxFlexGridSizer(1, 5, 5);
 	pathsSizer->AddGrowableCol(0);
-	pathsBoxSizer->Add(pathsSizer, wxSizerFlags().Expand().Border(wxALL, 5));
+	pathsBoxSizer->Add(pathsSizer, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 
 	pathsSizer->Add(m_PathList = new wxListBox(pathsBox, ID_PathsList, wxDefaultPosition, wxDefaultSize, 0, NULL, wxLB_SINGLE | wxLB_SORT), wxSizerFlags().Proportion(1).Expand());
 	commonSizer->AddSpacer(3);

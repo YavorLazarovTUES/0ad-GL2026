@@ -24,6 +24,7 @@
 #include "tools/atlas/AtlasUI/ScenarioEditor/ScenarioEditor.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/Sections/Common/Sidebar.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/Sections/Environment/LightControl.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/StyleSheet.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/Tools.h"
 #include "tools/atlas/GameInterface/Messages.h"
 #include "tools/atlas/GameInterface/Shareable.h"
@@ -71,7 +72,7 @@ public:
 		SetSizer(m_Sizer);
 
 		m_Slider = new wxSlider(m_Sizer->GetStaticBox(), -1, 0, 0, range);
-		m_Sizer->Add(m_Slider, wxSizerFlags().Expand().Border(wxALL, 5));
+		m_Sizer->Add(m_Slider, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 	}
 
 	void OnSettingsChange(const AtlasMessage::sEnvironmentSettings& WXUNUSED(env))
@@ -118,7 +119,7 @@ public:
 		m_Combo = new wxComboBox(
 			m_Sizer->GetStaticBox(), -1, wxEmptyString, wxDefaultPosition, wxDefaultSize,
 			wxArrayString(), wxCB_READONLY),
-		m_Sizer->Add(m_Combo, wxSizerFlags().Expand().Border(wxALL, 5));
+		m_Sizer->Add(m_Combo, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 	}
 
 	void SetChoices(const std::vector<std::wstring>& choices)
@@ -173,7 +174,7 @@ public:
 		SetSizer(m_Sizer);
 
 		m_Button = new wxButton(m_Sizer->GetStaticBox(), -1);
-		m_Sizer->Add(m_Button, wxSizerFlags().Expand().Border(wxALL, 5));
+		m_Sizer->Add(m_Button, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 	}
 
 	void OnSettingsChange(const AtlasMessage::sEnvironmentSettings& WXUNUSED(env))
@@ -242,7 +243,7 @@ EnvironmentSidebar::EnvironmentSidebar(
 	m_MainSizer->Add(waterBoxSizer, wxSizerFlags().Expand());
 	wxFlexGridSizer* waterSizer = new wxFlexGridSizer(1, 10, 10);
 	waterSizer->AddGrowableCol(0);
-	waterBoxSizer->Add(waterSizer, wxSizerFlags().Expand().Border(wxALL, 5));
+	waterBoxSizer->Add(waterSizer, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 
 	waterSizer->Add(new wxButton(
 		waterBox, ID_RecomputeWaterData, _("Reset Water Data")), wxSizerFlags().Expand());
@@ -273,7 +274,7 @@ EnvironmentSidebar::EnvironmentSidebar(
 	m_MainSizer->Add(sunBoxSizer, wxSizerFlags().Expand());
 	wxFlexGridSizer* sunSizer = new wxFlexGridSizer(1, 10, 10);
 	sunSizer->AddGrowableCol(0);
-	sunBoxSizer->Add(sunSizer, wxSizerFlags().Expand().Border(wxALL, 5));
+	sunBoxSizer->Add(sunSizer, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 
 	sunSizer->Add(new VariableSliderBox(
 		sunBox, _("Sun rotation"), g_EnvironmentSettings.sunrotation, -std::numbers::pi_v<float>, std::numbers::pi_v<float>), wxSizerFlags().Expand());
@@ -301,7 +302,7 @@ EnvironmentSidebar::EnvironmentSidebar(
 	m_MainSizer->Add(postProcBoxSizer, wxSizerFlags().Expand());
 	wxFlexGridSizer* postProcSizer = new wxFlexGridSizer(1, 10, 10);
 	postProcSizer->AddGrowableCol(0);
-	postProcBoxSizer->Add(postProcSizer, wxSizerFlags().Expand().Border(wxALL, 5));
+	postProcBoxSizer->Add(postProcSizer, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 
 	postProcSizer->Add(m_PostEffectList = new VariableListBox(
 		postProcBox, _("Post Effect"), g_EnvironmentSettings.posteffect), wxSizerFlags().Expand());

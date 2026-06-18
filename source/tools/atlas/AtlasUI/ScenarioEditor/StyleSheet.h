@@ -27,14 +27,17 @@ namespace Atlas::Style
 constexpr int BOTTOMBAR_DEFAULT_SIZE = 200;
 constexpr int SIDEBAR_DEFAULT_SIZE = 285;
 constexpr int SIDEBAR_MAINLAOYOUT_VGAP = 10;
+constexpr int STATICBOX_PADDING = 5;
 #elif defined(__WXOSX__) || defined(__WXMAC__)
 constexpr int BOTTOMBAR_DEFAULT_SIZE = 210;
 constexpr int SIDEBAR_DEFAULT_SIZE = 285;
 constexpr int SIDEBAR_MAINLAOYOUT_VGAP = 5;
+constexpr int STATICBOX_PADDING = 0;
 #else	// __MSW__
 constexpr int BOTTOMBAR_DEFAULT_SIZE = 180;
 constexpr int SIDEBAR_DEFAULT_SIZE = 235;
 constexpr int SIDEBAR_MAINLAOYOUT_VGAP = 5;
+constexpr int STATICBOX_PADDING = 0;
 #endif
 
 } // namespace Atlas::Style
