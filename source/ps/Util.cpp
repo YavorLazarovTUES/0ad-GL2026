@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -34,6 +34,7 @@
 #include "ps/Pyrogenesis.h"
 
 #include <ctime>
+#include <filesystem>
 #include <iomanip>
 #include <memory>
 #include <sstream>
@@ -107,7 +108,7 @@ OsPath createDateIndexSubdirectory(const OsPath& parentDir)
 		sprintf_s(directory, ARRAY_SIZE(directory), "%04d-%02d-%02d_%04d", now->tm_year+1900, now->tm_mon+1, now->tm_mday, ++i);
 		path = parentDir / CStr(directory);
 
-		if (DirectoryExists(path) || FileExists(path))
+		if (DirectoryExists(path) || std::filesystem::is_regular_file(path.string()))
 			continue;
 
 		if (CreateDirectories(path, 0700, ++tries > maxTries) == INFO::OK)

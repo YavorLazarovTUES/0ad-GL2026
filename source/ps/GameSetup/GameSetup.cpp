@@ -105,6 +105,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <ctime>
+#include <filesystem>
 #include <fmt/format.h>
 #include <fstream>
 #include <js/CallArgs.h>
@@ -877,7 +878,7 @@ bool Autostart(const CmdLineArgs& args)
 
 bool AutostartVisualReplay(const std::string& replayFile)
 {
-	if (!FileExists(OsPath(replayFile)))
+	if (!std::filesystem::is_regular_file(replayFile))
 		return false;
 
 	g_Game = new CGame(false);

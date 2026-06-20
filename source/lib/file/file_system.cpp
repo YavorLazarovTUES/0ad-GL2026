@@ -48,20 +48,6 @@ bool DirectoryExists(const OsPath& path)
 }
 
 
-bool FileExists(const OsPath& pathname)
-{
-	try
-	{
-		return std::filesystem::is_regular_file(pathname.string());
-	}
-	catch (std::filesystem::filesystem_error& err)
-	{
-		debug_printf("FileExists: failed to check if file '%s' exists, reason: %s\n", pathname.string8().c_str(), err.what());
-	}
-	return false;
-}
-
-
 Status GetFileInfo(const OsPath& pathname, CFileInfo* pPtrInfo)
 {
 	try

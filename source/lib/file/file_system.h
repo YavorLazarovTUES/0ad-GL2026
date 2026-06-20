@@ -36,7 +36,6 @@
 #include <vector>
 
 bool DirectoryExists(const OsPath& path);
-bool FileExists(const OsPath& pathname);
 
 // (bundling size and mtime avoids a second expensive call to stat())
 class CFileInfo

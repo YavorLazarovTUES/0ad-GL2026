@@ -84,7 +84,7 @@ bool VisualReplay::StartVisualReplay(const OsPath& directory)
 
 	const OsPath replayFile = VisualReplay::GetDirectoryPath() / directory / L"commands.txt";
 
-	if (!FileExists(replayFile))
+	if (!std::filesystem::is_regular_file(replayFile.string()))
 		return false;
 
 	g_Game = new CGame(false);
@@ -93,7 +93,7 @@ bool VisualReplay::StartVisualReplay(const OsPath& directory)
 
 bool VisualReplay::ReadCacheFile(const ScriptInterface& scriptInterface, JS::MutableHandleObject cachedReplaysObject)
 {
-	if (!FileExists(GetCacheFilePath()))
+	if (!std::filesystem::is_regular_file(GetCacheFilePath().string()))
 		return false;
 
 	std::ifstream cacheStream(OsString(GetCacheFilePath()));
@@ -192,7 +192,7 @@ JS::HandleObject VisualReplay::ReloadReplayCache(const ScriptInterface& scriptIn
 		{
 			if (compareFiles)
 			{
-				if (!FileExists(replayFile))
+				if (!std::filesystem::is_regular_file(replayFile.string()))
 					continue;
 				CFileInfo fileInfo;
 				GetFileInfo(replayFile, &fileInfo);
@@ -208,7 +208,7 @@ JS::HandleObject VisualReplay::ReloadReplayCache(const ScriptInterface& scriptIn
 			JS::RootedValue replayData(rq.cx, LoadReplayData(scriptInterface, directory));
 			if (replayData.isNull())
 			{
-				if (!FileExists(replayFile))
+				if (!std::filesystem::is_regular_file(replayFile.string()))
 					continue;
 				CFileInfo fileInfo;
 				GetFileInfo(replayFile, &fileInfo);
@@ -363,7 +363,7 @@ JS::Value VisualReplay::LoadReplayData(const ScriptInterface& scriptInterface, c
 	// The directory argument must not be constant, otherwise concatenating will fail
 	const OsPath replayFile = GetDirectoryPath() / directory / L"commands.txt";
 
-	if (!FileExists(replayFile))
+	if (!std::filesystem::is_regular_file(replayFile.string()))
 		return JS::NullValue();
 
 	// Get file size and modification date
@@ -461,7 +461,7 @@ JS::Value VisualReplay::GetReplayAttributes(const ScriptInterface& scriptInterfa
 
 	// Return empty object if file doesn't exist
 	const OsPath replayFile = GetDirectoryPath() / directoryName / L"commands.txt";
-	if (!FileExists(replayFile))
+	if (!std::filesystem::is_regular_file(replayFile.string()))
 		return attribs;
 
 	// Open file
@@ -500,7 +500,7 @@ bool VisualReplay::HasReplayMetadata(const OsPath& directoryName)
 {
 	const OsPath filePath(GetDirectoryPath() / directoryName / L"metadata.json");
 
-	if (!FileExists(filePath))
+	if (!std::filesystem::is_regular_file(filePath.string()))
 		return false;
 
 	CFileInfo fileInfo;

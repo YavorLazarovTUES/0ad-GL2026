@@ -187,7 +187,7 @@ Paths::Paths(const CmdLineArgs& args)
 	}
 
 	// make sure it's valid
-	if(!FileExists(pathname))
+	if(!std::filesystem::is_regular_file(pathname.string()))
 	{
 		LOGERROR("Cannot find executable (expected at '%s')", pathname.string8());
 		WARN_IF_ERR(StatusFromErrno());

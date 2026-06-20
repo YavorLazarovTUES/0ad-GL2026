@@ -98,6 +98,7 @@ that of Atlas depending on commandline parameters.
 #include <cstdlib>
 #include <ctime>
 #include <exception>
+#include <filesystem>
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
 #include <js/Value.h>
@@ -549,7 +550,7 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 
 	if (isVisualReplay || isNonVisualReplay)
 	{
-		if (!FileExists(replayFile))
+		if (!std::filesystem::is_regular_file(replayFile.string()))
 		{
 			debug_printf("ERROR: The requested replay file '%s' does not exist!\n", replayFile.string8().c_str());
 			return;
@@ -570,7 +571,7 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 			debug_printf("Skipping file '%s' which does not have a mod file extension.\n", modPath.string8().c_str());
 			continue;
 		}
-		if (!FileExists(modPath))
+		if (!std::filesystem::is_regular_file(modPath.string()))
 		{
 			debug_printf("ERROR: The mod file '%s' does not exist!\n", modPath.string8().c_str());
 			continue;
