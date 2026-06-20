@@ -1,6 +1,7 @@
 #version 430
 
 #include "common/compute.h"
+#include "common/tone_mapper.h"
 
 BEGIN_DRAW_TEXTURES
 	TEXTURE_2D(0, inTex)
@@ -13,14 +14,6 @@ BEGIN_DRAW_UNIFORMS
 END_DRAW_UNIFORMS
 
 STORAGE_2D(0, rgba8, outTex);
-
-vec3 applyTonemapper(vec3 color)
-{
-	float whitePoint = 10.0;
-	// Extendend Reinhard:
-	// https://www-old.cs.utah.edu/docs/techreports/2002/pdf/UUCS-02-001.pdf
-	return color * (vec3(1.0) + color / (whitePoint * whitePoint)) / (vec3(1.0) + color);
-}
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 void main()
