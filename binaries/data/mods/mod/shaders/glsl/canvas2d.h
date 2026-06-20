@@ -6,9 +6,9 @@ END_DRAW_TEXTURES
 
 BEGIN_DRAW_UNIFORMS
 	UNIFORM(vec4, transform)
-	UNIFORM(vec2, translation)
 	UNIFORM(vec4, colorAdd)
 	UNIFORM(vec4, colorMul)
+	UNIFORM(vec2, translation)
 	UNIFORM(float, grayscaleFactor)
 END_DRAW_UNIFORMS
 
