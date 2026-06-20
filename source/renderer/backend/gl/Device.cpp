@@ -918,10 +918,12 @@ bool CDevice::IsTextureFormatSupported(const Format format) const
 		supported = m_Capabilities.S3TC;
 		break;
 
+#if !CONFIG2_GLES
 	case Format::R16G16B16A16_SFLOAT:
 	case Format::R32G32B32A32_SFLOAT:
-		supported = m_Capabilities.computeShaders && m_Capabilities.storage && GLAD_GL_ARB_texture_float;
+		supported = GLAD_GL_ARB_texture_float;
 		break;
+#endif
 
 	default:
 		break;
@@ -942,7 +944,7 @@ bool CDevice::IsFramebufferFormatSupported(const Format format) const
 		break;
 	case Format::R16G16B16A16_SFLOAT:
 	case Format::R32G32B32A32_SFLOAT:
-		supported = m_Capabilities.computeShaders && m_Capabilities.storage && GLAD_GL_ARB_texture_float;
+		supported = GLAD_GL_ARB_texture_float;
 		break;
 #endif
 	case Format::R8G8B8A8_UNORM:
