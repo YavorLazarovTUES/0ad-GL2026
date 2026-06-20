@@ -273,7 +273,18 @@ CParticleEmitterType::CParticleEmitterType(const VfsPath& path, CParticleManager
 
 	// Upper bound on number of particles depends on maximum rate and lifetime
 	m_MaxLifetime = m_Variables[VAR_LIFETIME]->Max(*this);
-	m_MaxParticles = ceil(m_Variables[VAR_EMISSIONRATE]->Max(*this) * m_MaxLifetime);
+	const uint32_t maximumNumberOfParticles{
+		static_cast<uint32_t>(ceil(m_Variables[VAR_EMISSIONRATE]->Max(*this) * m_MaxLifetime))};
+	constexpr uint16_t maximumSupportedNumberOfParticles{
+		std::numeric_limits<uint16_t>::max() / 6};
+	if (maximumNumberOfParticles > maximumSupportedNumberOfParticles)
+	{
+		LOGERROR("Too many particles per particle system: '%s' (%u/%u)",
+			path.string8(), maximumNumberOfParticles, maximumSupportedNumberOfParticles);
+		m_MaxParticles = maximumSupportedNumberOfParticles;
+	}
+	else
+		m_MaxParticles = maximumNumberOfParticles;
 
 
 	// Compute the worst-case bounds of all possible particles,
