@@ -190,7 +190,6 @@ void CPostprocManager::Initialize()
 void CPostprocManager::InitializePBR()
 {
 	const bool PBRSupported{
-		m_Device->GetCapabilities().computeShaders &&
 		m_Device->IsFramebufferFormatSupported(Renderer::Backend::Format::R16G16B16A16_SFLOAT)};
 	if (!PBRSupported)
 	{
@@ -216,9 +215,18 @@ void CPostprocManager::InitializePBR()
 			LOGWARNING("%s is unsupported", framebufferFormatName);
 	}
 
-	m_ResolvePBRComputeTech = g_Renderer.GetShaderManager().LoadEffect(str_compute_resolve_pbr);
-	if (m_ResolvePBRComputeTech)
-		m_PBREnabled = true;
+	if (m_Device->GetCapabilities().computeShaders)
+	{
+		m_ResolvePBRComputeTech = g_Renderer.GetShaderManager().LoadEffect(str_compute_resolve_pbr);
+		if (m_ResolvePBRComputeTech)
+			m_PBREnabled = true;
+	}
+	else
+	{
+		m_ResolvePBRTech = g_Renderer.GetShaderManager().LoadEffect(str_resolve_pbr);
+		if (m_ResolvePBRTech)
+			m_PBREnabled = true;
+	}
 }
 
 void CPostprocManager::Resize()
@@ -1006,34 +1014,64 @@ void CPostprocManager::ResolvePBR(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
 	ENSURE(m_PBREnabled);
-	ENSURE(m_ResolvePBRComputeTech);
 
 	GPU_SCOPED_LABEL(deviceCommandContext, "Resolve PBR");
 
-	Renderer::Backend::IShaderProgram* shaderProgram{m_ResolvePBRComputeTech->GetShader()};
+	const std::array<float, 4> screenSize{{
+		static_cast<float>(m_Width), static_cast<float>(m_Height),
+		1.0f / static_cast<float>(m_Width), 1.0f / static_cast<float>(m_Height)}};
+	// Mapping [0.0, 1.0] to [-2.0, 2.0].
+	const float exposure{
+		std::exp2f((g_RenderingOptions.GetPBRBrightness() - 0.5f) * 4.0f)};
 
 	Renderer::Backend::ITexture* source{m_PBROutputTexture.get()};
-	Renderer::Backend::ITexture* destination{m_ColorTex1.get()};
 
-	const std::array<float, 4> screenSize{{
-			static_cast<float>(m_Width), static_cast<float>(m_Height),
-			1.0f / static_cast<float>(m_Width), 1.0f / static_cast<float>(m_Height)}};
+	if (m_ResolvePBRComputeTech)
+	{
+		Renderer::Backend::IShaderProgram* shaderProgram{m_ResolvePBRComputeTech->GetShader()};
 
-	constexpr uint32_t threadGroupWorkRegionDim{8};
-	const uint32_t dispatchGroupCountX{DivideRoundUp(m_Width, threadGroupWorkRegionDim)};
-	const uint32_t dispatchGroupCountY{DivideRoundUp(m_Height, threadGroupWorkRegionDim)};
+		Renderer::Backend::ITexture* destination{m_ColorTex1.get()};
 
-	deviceCommandContext->BeginComputePass();
-	deviceCommandContext->SetComputePipelineState(
-		m_ResolvePBRComputeTech->GetComputePipelineState());
-	deviceCommandContext->SetUniform(shaderProgram->GetBindingSlot(str_screenSize), screenSize);
-	// Mapping [0.0, 1.0] to [-2.0, 2.0].
-	deviceCommandContext->SetUniform(shaderProgram->GetBindingSlot(str_exposure),
-		std::exp2f((g_RenderingOptions.GetPBRBrightness() - 0.5f) * 4.0f));
-	deviceCommandContext->SetTexture(shaderProgram->GetBindingSlot(str_inTex), source);
-	deviceCommandContext->SetStorageTexture(shaderProgram->GetBindingSlot(str_outTex), destination);
-	deviceCommandContext->Dispatch(dispatchGroupCountX, dispatchGroupCountY, 1);
-	deviceCommandContext->EndComputePass();
+		constexpr uint32_t threadGroupWorkRegionDim{8};
+		const uint32_t dispatchGroupCountX{DivideRoundUp(m_Width, threadGroupWorkRegionDim)};
+		const uint32_t dispatchGroupCountY{DivideRoundUp(m_Height, threadGroupWorkRegionDim)};
+
+		deviceCommandContext->BeginComputePass();
+		deviceCommandContext->SetComputePipelineState(
+			m_ResolvePBRComputeTech->GetComputePipelineState());
+		deviceCommandContext->SetUniform(shaderProgram->GetBindingSlot(str_screenSize), screenSize);
+		deviceCommandContext->SetUniform(shaderProgram->GetBindingSlot(str_exposure), exposure);
+		deviceCommandContext->SetTexture(shaderProgram->GetBindingSlot(str_inTex), source);
+		deviceCommandContext->SetStorageTexture(shaderProgram->GetBindingSlot(str_outTex), destination);
+		deviceCommandContext->Dispatch(dispatchGroupCountX, dispatchGroupCountY, 1);
+		deviceCommandContext->EndComputePass();
+	}
+	else
+	{
+		ENSURE(m_ResolvePBRTech);
+		Renderer::Backend::IShaderProgram* shaderProgram{m_ResolvePBRTech->GetShader()};
+
+		Renderer::Backend::IFramebuffer* framebuffer{m_PingFramebuffer.get()};
+		deviceCommandContext->BeginFramebufferPass(framebuffer);
+
+		Renderer::Backend::IDeviceCommandContext::Rect viewportRect{};
+		viewportRect.width = framebuffer->GetWidth();
+		viewportRect.height = framebuffer->GetHeight();
+		deviceCommandContext->SetViewports(1, &viewportRect);
+
+		deviceCommandContext->SetGraphicsPipelineState(
+			m_ResolvePBRTech->GetGraphicsPipelineState());
+		deviceCommandContext->BeginPass();
+
+		deviceCommandContext->SetUniform(shaderProgram->GetBindingSlot(str_screenSize), screenSize);
+		deviceCommandContext->SetUniform(shaderProgram->GetBindingSlot(str_exposure), exposure);
+		deviceCommandContext->SetTexture(shaderProgram->GetBindingSlot(str_inTex), source);
+
+		DrawFullscreenQuad(m_VertexInputLayout, deviceCommandContext);
+
+		deviceCommandContext->EndPass();
+		deviceCommandContext->EndFramebufferPass();
+	}
 }
 
 void CPostprocManager::RecalculateSize(const uint32_t width, const uint32_t height)

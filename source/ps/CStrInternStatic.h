@@ -142,6 +142,7 @@ X(refractionMap)
 X(refractionMatrix)
 X(renderedTex)
 X(repeatScale)
+X(resolve_pbr)
 X2(sans_10, "sans-10");
 X(saturation)
 X(screenSize)

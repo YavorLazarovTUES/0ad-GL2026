@@ -189,6 +189,7 @@ private:
 	CStrW m_PostProcEffect;
 	CShaderTechniquePtr m_PostProcTech;
 
+	CShaderTechniquePtr m_ResolvePBRTech;
 	CShaderTechniquePtr m_ResolvePBRComputeTech;
 
 	CStr m_SharpName;
