@@ -164,7 +164,7 @@ public:
 	CParticleEmitterTypePtr m_Type;
 
 	/// Whether this emitter is still emitting new particles
-	bool m_Active;
+	bool m_Active{true};
 
 	CVector3D m_Pos;
 	CQuaternion m_Rot;
@@ -172,10 +172,11 @@ public:
 	std::map<std::string, float> m_EntityVariables;
 
 	std::vector<SParticle> m_Particles;
-	size_t m_NextParticleIdx;
+	uint32_t m_NextParticleIdx{0};
+	uint32_t m_NumberOfVisibleParticles{0};
 
 	float m_LastUpdateTime;
-	float m_EmissionRoundingError;
+	float m_EmissionRoundingError{0.0f};
 
 private:
 	/// Bounding box of the current particle center points

@@ -76,8 +76,7 @@ struct ParticleClosestInFrontCompare
 } // anonymous namespace
 
 CParticleEmitter::CParticleEmitter(const CParticleEmitterTypePtr& type) :
-	m_Type(type), m_Active(true), m_NextParticleIdx(0), m_EmissionRoundingError(0.f),
-	m_LastUpdateTime(type->m_Manager.GetCurrentTime()),
+	m_Type(type), m_LastUpdateTime(type->m_Manager.GetCurrentTime()),
 	m_IndexArray(Renderer::Backend::IBuffer::Usage::TRANSFER_DST),
 	m_VertexArray(Renderer::Backend::IBuffer::Type::VERTEX,
 		Renderer::Backend::IBuffer::Usage::DYNAMIC | Renderer::Backend::IBuffer::Usage::TRANSFER_DST),
@@ -205,13 +204,17 @@ void CParticleEmitter::UpdateArrayData(int frameNumber)
 		}
 	}
 
+	m_NumberOfVisibleParticles = 0;
+
 	const std::span<SParticle> particles{
 		m_Type->m_SortMode == CParticleEmitterType::SortMode::UNSPECIFIED ?
 			std::span<SParticle>{m_Particles} : std::span<SParticle>{sortedParticles}};
 	for (const SParticle& particle : particles)
 	{
-		// TODO: for more efficient rendering, maybe we should replace this with
-		// a degenerate quad if alpha is 0
+		if (particle.age > particle.maxAge || particle.color.A == 0)
+			continue;
+
+		++m_NumberOfVisibleParticles;
 
 		bounds += particle.pos;
 
@@ -319,7 +322,7 @@ void CParticleEmitter::Bind(
 void CParticleEmitter::RenderArray(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
-	if (m_Particles.empty())
+	if (m_NumberOfVisibleParticles == 0)
 		return;
 
 	const uint32_t stride = m_VertexArray.GetStride();
@@ -331,10 +334,10 @@ void CParticleEmitter::RenderArray(
 		0, m_VertexArray.GetBuffer(), firstVertexOffset);
 	deviceCommandContext->SetIndexBuffer(m_IndexArray.GetBuffer());
 
-	deviceCommandContext->DrawIndexed(m_IndexArray.GetOffset(), m_Particles.size() * 6, 0);
+	deviceCommandContext->DrawIndexed(m_IndexArray.GetOffset(), m_NumberOfVisibleParticles * 6, 0);
 
 	g_Renderer.GetStats().m_DrawCalls++;
-	g_Renderer.GetStats().m_Particles += m_Particles.size();
+	g_Renderer.GetStats().m_Particles += m_NumberOfVisibleParticles;
 }
 
 void CParticleEmitter::Unattach(const CParticleEmitterPtr& self)
