@@ -49,7 +49,8 @@ public:
 	virtual CCamera& GetCamera() = 0;
 	virtual CSimulation2* GetSimulation2() { return NULL; }
 	virtual entity_id_t GetEntityId(AtlasMessage::ObjectID obj) { return (entity_id_t)obj; }
-	virtual bool WantsHighFramerate() { return false; }
+	virtual bool GetSmoothFramerate() const { return false; }
+	virtual void SetSmoothFramerate(const bool) {}
 	virtual void SetEnabled(bool /*enabled*/) {}
 
 	virtual void SetParam(const std::wstring& name, bool value);
@@ -96,7 +97,8 @@ public:
 	virtual void DrawOverlays(CCanvas2D& canvas);
 	virtual CCamera& GetCamera();
 	virtual CSimulation2* GetSimulation2();
-	virtual bool WantsHighFramerate();
+	virtual bool GetSmoothFramerate() const;
+	virtual void SetSmoothFramerate(const bool enabled);
 
 	virtual void SetParam(const std::wstring& name, bool value);
 	virtual void SetParam(const std::wstring& name, float value);
@@ -112,6 +114,7 @@ public:
 private:
 	float m_SpeedMultiplier;
 	bool m_IsTesting;
+	bool m_SmoothFramerate{false};
 	std::map<std::wstring, SimState*> m_SavedStates;
 	std::string m_DisplayPassability;
 
@@ -139,7 +142,8 @@ public:
 	virtual CCamera& GetCamera();
 	virtual CSimulation2* GetSimulation2();
 	virtual entity_id_t GetEntityId(AtlasMessage::ObjectID obj);
-	virtual bool WantsHighFramerate();
+	virtual bool GetSmoothFramerate() const;
+	virtual void SetSmoothFramerate(const bool enabled);
 	virtual void SetEnabled(bool enabled);
 
 	virtual void SetParam(const std::wstring& name, bool value);
@@ -151,6 +155,7 @@ public:
 
 private:
 	float m_SpeedMultiplier;
+	bool m_SmoothFramerate{false};
 	CCamera m_Camera;
 	ActorViewer* m_ActorViewer;
 };

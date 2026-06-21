@@ -268,7 +268,7 @@ QUERYHANDLER(RenderLoop)
 	if (CProfileManager::IsInitialised())
 		g_Profiler.Frame();
 
-	msg->wantHighFPS = g_AtlasGameLoop->view->WantsHighFramerate();
+	msg->smoothFramerate = g_AtlasGameLoop->view->GetSmoothFramerate();
 }
 
 //////////////////////////////////////////////////////////////////////////

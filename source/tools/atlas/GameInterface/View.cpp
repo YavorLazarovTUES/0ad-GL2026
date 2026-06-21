@@ -118,12 +118,17 @@ entity_id_t AtlasViewActor::GetEntityId(AtlasMessage::ObjectID)
 	return m_ActorViewer->GetEntity();
 }
 
-bool AtlasViewActor::WantsHighFramerate()
+bool AtlasViewActor::GetSmoothFramerate() const
 {
 	if (m_SpeedMultiplier != 0.f)
 		return true;
 
-	return false;
+	return m_SmoothFramerate;
+}
+
+void AtlasViewActor::SetSmoothFramerate(const bool enabled)
+{
+	m_SmoothFramerate = enabled;
 }
 
 void AtlasViewActor::SetEnabled(bool enabled)
@@ -335,7 +340,7 @@ CCamera& AtlasViewGame::GetCamera()
 	return *g_Game->GetView()->GetCamera();
 }
 
-bool AtlasViewGame::WantsHighFramerate()
+bool AtlasViewGame::GetSmoothFramerate() const
 {
 	if (g_Game->GetView()->GetCinema()->IsPlaying())
 		return true;
@@ -343,7 +348,12 @@ bool AtlasViewGame::WantsHighFramerate()
 	if (m_SpeedMultiplier != 0.f)
 		return true;
 
-	return false;
+	return m_SmoothFramerate;
+}
+
+void AtlasViewGame::SetSmoothFramerate(const bool enabled)
+{
+	m_SmoothFramerate = enabled;
 }
 
 void AtlasViewGame::SetSpeedMultiplier(float speed)

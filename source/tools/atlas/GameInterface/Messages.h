@@ -59,6 +59,10 @@ MESSAGE(RenderEnable,
 		((int, view)) // eRenderView
 		);
 
+MESSAGE(SetSmoothFramerate,
+		((bool, enabled))
+		);
+
 // SetViewParam: used for hints to the renderer, e.g. to set wireframe mode;
 // unrecognised param names are ignored
 MESSAGE(SetViewParamB,
@@ -155,7 +159,7 @@ MESSAGE(ResizeScreen,
 		);
 
 QUERY(RenderLoop, ,
-	  ((bool, wantHighFPS))
+	  ((bool, smoothFramerate))
 	  ((double, timeSinceActivity))
 	  );
 

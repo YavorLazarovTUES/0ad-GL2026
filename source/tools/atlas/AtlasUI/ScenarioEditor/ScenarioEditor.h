@@ -65,6 +65,7 @@ public:
 	void OnMediaPlayer(wxCommandEvent& event);
 	void OnJavaScript(wxCommandEvent& event);
 	void OnCameraReset(wxCommandEvent& event);
+	void OnSmoothFramerate(wxCommandEvent& event);
 	void OnDumpState(wxCommandEvent& event);
 	void OnSelectedObjectsChange(const std::vector<AtlasMessage::ObjectID>& selectedObjects);
 

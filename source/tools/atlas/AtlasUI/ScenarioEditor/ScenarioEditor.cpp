@@ -376,6 +376,7 @@ enum
 	ID_BigScreenshot,
 	ID_JavaScript,
 	ID_CameraReset,
+	ID_SmoothFramerate,
 	ID_DumpState,
 	ID_DumpBinaryState,
 
@@ -408,6 +409,7 @@ BEGIN_EVENT_TABLE(ScenarioEditor, wxFrame)
 	EVT_MENU(ID_BigScreenshot, ScenarioEditor::OnScreenshot)
 	EVT_MENU(ID_JavaScript, ScenarioEditor::OnJavaScript)
 	EVT_MENU(ID_CameraReset, ScenarioEditor::OnCameraReset)
+	EVT_MENU(ID_SmoothFramerate, ScenarioEditor::OnSmoothFramerate)
 	EVT_MENU(ID_DumpState, ScenarioEditor::OnDumpState)
 	EVT_MENU(ID_DumpBinaryState, ScenarioEditor::OnDumpState)
 
@@ -523,6 +525,7 @@ ScenarioEditor::ScenarioEditor(wxWindow* parent)
 		menuMisc->Append(ID_BigScreenshot, _("Big screenshot"));
 		menuMisc->Append(ID_JavaScript, _("&JS console"));
 		menuMisc->Append(ID_CameraReset, _("&Reset camera"));
+		menuMisc->AppendCheckItem(ID_SmoothFramerate, _("Smooth framerate"));
 
 		wxMenu *menuSS = new wxMenu;
 		menuMisc->AppendSubMenu(menuSS, _("Si&mulation state"));
@@ -727,7 +730,7 @@ void ScenarioEditor::OnTimer(wxTimerEvent& evt)
 	{
 		AtlasMessage::qRenderLoop qryRenderLoop;
 		qryRenderLoop.Post();
-		if (!qryRenderLoop.wantHighFPS &&
+		if (!qryRenderLoop.smoothFramerate &&
 			qryRenderLoop.timeSinceActivity > 1.0 && g_Timer.GetTime() - last_wx_user_activity > 1.0)
 			m_RenderTimer.Start(TIMER_RENDER_SLOW_INTERVAL); // save CPU/GPU when activity is lower.
 		else
@@ -984,6 +987,11 @@ void ScenarioEditor::OnJavaScript(wxCommandEvent& WXUNUSED(event))
 void ScenarioEditor::OnCameraReset(wxCommandEvent& WXUNUSED(event))
 {
 	POST_MESSAGE(CameraReset, ());
+}
+
+void ScenarioEditor::OnSmoothFramerate(wxCommandEvent& event)
+{
+	POST_MESSAGE(SetSmoothFramerate, (event.IsChecked()));
 }
 
 void ScenarioEditor::OnDumpState(wxCommandEvent& event)

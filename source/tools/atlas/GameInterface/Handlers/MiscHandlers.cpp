@@ -100,6 +100,12 @@ MESSAGEHANDLER(SimPlay)
 	AtlasView::GetView_Game()->SetTesting(msg->simTest);
 }
 
+MESSAGEHANDLER(SetSmoothFramerate)
+{
+	AtlasView::GetView_Game()->SetSmoothFramerate(msg->enabled);
+	AtlasView::GetView_Actor()->SetSmoothFramerate(msg->enabled);
+}
+
 MESSAGEHANDLER(JavaScript)
 {
 	g_GUI->GetActiveGUI()->GetScriptInterface()->LoadGlobalScript(L"Atlas", *msg->command);
