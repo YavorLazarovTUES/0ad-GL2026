@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,7 +24,6 @@
 #include "lib/code_annotation.h"
 #include "lib/debug.h"
 #include "lib/file/io/io.h"
-#include "lib/posix/posix_types.h"
 #include "maths/MathUtil.h"
 #include "ps/CLogger.h"
 
@@ -81,7 +80,6 @@ public:
 	VorbisBufferAdapter(const std::shared_ptr<u8>& buffer, size_t size)
 		: m_Buffer(buffer)
 		, m_Size(size)
-		, m_Offset(0)
 	{
 	}
 
@@ -89,8 +87,8 @@ public:
 	{
 		VorbisBufferAdapter* adapter{static_cast<VorbisBufferAdapter*>(context)};
 
-		const off_t sizeRequested{static_cast<off_t>(numItems * itemSize)};
-		const off_t sizeRemaining{adapter->m_Size - adapter->m_Offset};
+		const ogg_int64_t sizeRequested{static_cast<ogg_int64_t>(numItems * itemSize)};
+		const ogg_int64_t sizeRemaining{adapter->m_Size - adapter->m_Offset};
 		const size_t sizeToRead{static_cast<size_t>(std::min(sizeRequested, sizeRemaining))};
 
 		std::copy_n(
@@ -107,7 +105,7 @@ public:
 	{
 		VorbisBufferAdapter* adapter{static_cast<VorbisBufferAdapter*>(context)};
 
-		off_t origin{0};
+		ogg_int64_t origin{0};
 		switch(whence)
 		{
 		case SEEK_SET:
@@ -122,7 +120,7 @@ public:
 			NODEFAULT;
 		}
 
-		adapter->m_Offset = Clamp(static_cast<off_t>(origin + offset), static_cast<off_t>(0), adapter->m_Size);
+		adapter->m_Offset = Clamp<ogg_int64_t>(origin + offset, 0, adapter->m_Size);
 		return 0;
 	}
 
@@ -141,8 +139,8 @@ public:
 
 private:
 	std::shared_ptr<u8> m_Buffer;
-	off_t m_Size;
-	off_t m_Offset;
+	ogg_int64_t m_Size;
+	ogg_int64_t m_Offset{0};
 };
 
 
