@@ -80,6 +80,8 @@ CParticleEmitter::CParticleEmitter(const CParticleEmitterTypePtr& type) :
 	m_IndexArray(Renderer::Backend::IBuffer::Usage::TRANSFER_DST),
 	m_VertexArray(Renderer::Backend::IBuffer::Type::VERTEX,
 		Renderer::Backend::IBuffer::Usage::DYNAMIC | Renderer::Backend::IBuffer::Usage::TRANSFER_DST),
+	m_VertexUVArray(Renderer::Backend::IBuffer::Type::VERTEX,
+		Renderer::Backend::IBuffer::Usage::TRANSFER_DST),
 	m_LastFrameNumber(-1)
 {
 	// If we should start with particles fully emitted, pretend that we
@@ -97,9 +99,6 @@ CParticleEmitter::CParticleEmitter(const CParticleEmitterTypePtr& type) :
 	m_AttributePos.format = Renderer::Backend::Format::R32G32B32_SFLOAT;
 	m_VertexArray.AddAttribute(&m_AttributePos);
 
-	m_AttributeUV.format = Renderer::Backend::Format::R32G32_SFLOAT;
-	m_VertexArray.AddAttribute(&m_AttributeUV);
-
 	m_AttributeColor.format = Renderer::Backend::Format::R8G8B8A8_UNORM;
 	m_VertexArray.AddAttribute(&m_AttributeColor);
 
@@ -111,6 +110,32 @@ CParticleEmitter::CParticleEmitter(const CParticleEmitterTypePtr& type) :
 
 	m_VertexArray.SetNumberOfVertices(m_Type->m_MaxParticles * 4);
 	m_VertexArray.Layout();
+
+	m_AttributeUV.format = Renderer::Backend::Format::R32G32_SFLOAT;
+	m_VertexUVArray.AddAttribute(&m_AttributeUV);
+
+	m_VertexUVArray.SetNumberOfVertices(m_Type->m_MaxParticles * 4);
+	m_VertexUVArray.Layout();
+
+	VertexArrayIterator<float[2]> attrUV = m_AttributeUV.GetIterator<float[2]>();
+	for (uint32_t index{0}; index < m_Type->m_MaxParticles; ++index)
+	{
+		(*attrUV)[0] = 1;
+		(*attrUV)[1] = 0;
+		++attrUV;
+		(*attrUV)[0] = 0;
+		(*attrUV)[1] = 0;
+		++attrUV;
+		(*attrUV)[0] = 0;
+		(*attrUV)[1] = 1;
+		++attrUV;
+		(*attrUV)[0] = 1;
+		(*attrUV)[1] = 1;
+		++attrUV;
+	}
+
+	m_VertexUVArray.Upload();
+	m_VertexUVArray.FreeBackingStore();
 
 	m_IndexArray.SetNumberOfVertices(m_Type->m_MaxParticles * 6);
 	m_IndexArray.Layout();
@@ -129,21 +154,21 @@ CParticleEmitter::CParticleEmitter(const CParticleEmitterTypePtr& type) :
 
 	const uint32_t stride = m_VertexArray.GetStride();
 	const std::array<Renderer::Backend::SVertexAttributeFormat, 5> attributes{{
+		{Renderer::Backend::VertexAttributeStream::UV0,
+			m_AttributeUV.format, m_AttributeUV.offset, m_VertexUVArray.GetStride(),
+			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0},
 		{Renderer::Backend::VertexAttributeStream::POSITION,
 			m_AttributePos.format, m_AttributePos.offset, stride,
-			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0},
+			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 1},
 		{Renderer::Backend::VertexAttributeStream::COLOR,
 			m_AttributeColor.format, m_AttributeColor.offset, stride,
-			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0},
-		{Renderer::Backend::VertexAttributeStream::UV0,
-			m_AttributeUV.format, m_AttributeUV.offset, stride,
-			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0},
+			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 1},
 		{Renderer::Backend::VertexAttributeStream::UV1,
 			m_AttributeAxisX.format, m_AttributeAxisX.offset, stride,
-			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0},
+			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 1},
 		{Renderer::Backend::VertexAttributeStream::UV2,
 			m_AttributeAxisY.format, m_AttributeAxisY.offset, stride,
-			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0},
+			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 1},
 	}};
 	m_VertexInputLayout = g_Renderer.GetVertexInputLayout(attributes);
 }
@@ -167,7 +192,6 @@ void CParticleEmitter::UpdateArrayData(int frameNumber)
 	// Regenerate the vertex array data:
 
 	VertexArrayIterator<CVector3D> attrPos = m_AttributePos.GetIterator<CVector3D>();
-	VertexArrayIterator<float[2]> attrUV = m_AttributeUV.GetIterator<float[2]>();
 	VertexArrayIterator<SColor4ub> attrColor = m_AttributeColor.GetIterator<SColor4ub>();
 	VertexArrayIterator<CVector4D> attrAxisX = m_AttributeAxisX.GetIterator<CVector4D>();
 	VertexArrayIterator<CVector4D> attrAxisY = m_AttributeAxisY.GetIterator<CVector4D>();
@@ -216,19 +240,6 @@ void CParticleEmitter::UpdateArrayData(int frameNumber)
 		*attrPos++ = particle.pos;
 		*attrPos++ = particle.pos;
 
-		(*attrUV)[0] = 1;
-		(*attrUV)[1] = 0;
-		++attrUV;
-		(*attrUV)[0] = 0;
-		(*attrUV)[1] = 0;
-		++attrUV;
-		(*attrUV)[0] = 0;
-		(*attrUV)[1] = 1;
-		++attrUV;
-		(*attrUV)[0] = 1;
-		(*attrUV)[1] = 1;
-		++attrUV;
-
 		SColor4ub color{particle.color};
 
 		// Special case: If the blending depends on the source color, not the source alpha,
@@ -270,12 +281,14 @@ void CParticleEmitter::UpdateArrayData(int frameNumber)
 void CParticleEmitter::PrepareForRendering()
 {
 	m_VertexArray.PrepareForRendering();
+	m_VertexUVArray.PrepareForRendering();
 }
 
 void CParticleEmitter::UploadData(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
 	m_VertexArray.UploadIfNeeded(deviceCommandContext);
+	m_VertexUVArray.UploadIfNeeded(deviceCommandContext);
 }
 
 void CParticleEmitter::Bind(
@@ -309,7 +322,10 @@ void CParticleEmitter::RenderArray(
 	deviceCommandContext->SetVertexInputLayout(m_VertexInputLayout);
 
 	deviceCommandContext->SetVertexBuffer(
-		0, m_VertexArray.GetBuffer(), firstVertexOffset);
+		0, m_VertexUVArray.GetBuffer(),
+		m_VertexUVArray.GetStride() * m_VertexUVArray.GetOffset());
+	deviceCommandContext->SetVertexBuffer(
+		1, m_VertexArray.GetBuffer(), firstVertexOffset);
 	deviceCommandContext->SetIndexBuffer(m_IndexArray.GetBuffer());
 
 	deviceCommandContext->DrawIndexed(m_IndexArray.GetOffset(), m_NumberOfVisibleParticles * 6, 0);

@@ -186,9 +186,10 @@ private:
 
 	VertexArray m_VertexArray;
 	VertexArray::Attribute m_AttributePos;
-	VertexArray::Attribute m_AttributeUV;
 	VertexArray::Attribute m_AttributeColor;
 	VertexArray::Attribute m_AttributeAxisX, m_AttributeAxisY;
+	VertexArray m_VertexUVArray;
+	VertexArray::Attribute m_AttributeUV;
 
 	Renderer::Backend::IVertexInputLayout* m_VertexInputLayout = nullptr;
 
