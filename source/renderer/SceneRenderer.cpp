@@ -83,7 +83,7 @@ class CSceneRenderer::Internals
 	NONCOPYABLE(Internals);
 public:
 	Internals(Renderer::Backend::IDevice* device)
-		: waterManager(device), shadow(device)
+		: waterManager(device), particleManager(*device), shadow(device)
 	{
 	}
 

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -31,10 +31,12 @@
 class CFrustum;
 class SceneCollector;
 
+namespace Renderer::Backend { class IDevice; }
+
 class CParticleManager
 {
 public:
-	CParticleManager();
+	CParticleManager(Renderer::Backend::IDevice& device);
 	~CParticleManager();
 
 	CParticleEmitterTypePtr LoadEmitterType(const VfsPath& path);
@@ -58,15 +60,19 @@ public:
 
 	Status ReloadChangedFile(const VfsPath& path);
 
+	bool ShouldUseInstancing() const { return m_UseInstancing; }
+
 	/// Random number generator shared between all particle emitters.
 	std::mt19937 m_RNG;
 
 private:
-	float m_CurrentTime;
+	float m_CurrentTime{0.0f};
 
 	std::list<CParticleEmitterPtr> m_UnattachedEmitters;
 
 	std::unordered_map<VfsPath, CParticleEmitterTypePtr> m_EmitterTypes;
+
+	bool m_UseInstancing{false};
 };
 
 #endif // INCLUDED_PARTICLEMANAGER

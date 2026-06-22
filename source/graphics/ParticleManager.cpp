@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,6 +21,7 @@
 
 #include "ps/Filesystem.h"
 #include "ps/Profile.h"
+#include "renderer/backend/IDevice.h"
 #include "renderer/Scene.h"
 
 #include <cstddef>
@@ -36,8 +37,8 @@ static Status ReloadChangedFileCB(void* param, const VfsPath& path)
 	return static_cast<CParticleManager*>(param)->ReloadChangedFile(path);
 }
 
-CParticleManager::CParticleManager() :
-	m_CurrentTime(0.f)
+CParticleManager::CParticleManager(Renderer::Backend::IDevice& device)
+	: m_UseInstancing{device.GetCapabilities().instancing}
 {
 	RegisterFileReloadFunc(ReloadChangedFileCB, this);
 }

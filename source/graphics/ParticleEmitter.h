@@ -194,6 +194,7 @@ private:
 	Renderer::Backend::IVertexInputLayout* m_VertexInputLayout = nullptr;
 
 	int m_LastFrameNumber;
+	bool m_UseInstancing{false};
 };
 
 /**

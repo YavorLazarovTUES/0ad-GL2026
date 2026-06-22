@@ -82,7 +82,7 @@ CParticleEmitter::CParticleEmitter(const CParticleEmitterTypePtr& type) :
 		Renderer::Backend::IBuffer::Usage::DYNAMIC | Renderer::Backend::IBuffer::Usage::TRANSFER_DST),
 	m_VertexUVArray(Renderer::Backend::IBuffer::Type::VERTEX,
 		Renderer::Backend::IBuffer::Usage::TRANSFER_DST),
-	m_LastFrameNumber(-1)
+	m_LastFrameNumber(-1), m_UseInstancing{type->m_Manager.ShouldUseInstancing()}
 {
 	// If we should start with particles fully emitted, pretend that we
 	// were created in the past so the first update will produce lots of
@@ -108,17 +108,17 @@ CParticleEmitter::CParticleEmitter(const CParticleEmitterTypePtr& type) :
 	m_AttributeAxisY.format = Renderer::Backend::Format::R32G32B32A32_SFLOAT;
 	m_VertexArray.AddAttribute(&m_AttributeAxisY);
 
-	m_VertexArray.SetNumberOfVertices(m_Type->m_MaxParticles * 4);
+	m_VertexArray.SetNumberOfVertices(m_UseInstancing ? m_Type->m_MaxParticles : m_Type->m_MaxParticles * 4);
 	m_VertexArray.Layout();
 
 	m_AttributeUV.format = Renderer::Backend::Format::R32G32_SFLOAT;
 	m_VertexUVArray.AddAttribute(&m_AttributeUV);
 
-	m_VertexUVArray.SetNumberOfVertices(m_Type->m_MaxParticles * 4);
+	m_VertexUVArray.SetNumberOfVertices(m_UseInstancing ? 4 : m_Type->m_MaxParticles * 4);
 	m_VertexUVArray.Layout();
 
 	VertexArrayIterator<float[2]> attrUV = m_AttributeUV.GetIterator<float[2]>();
-	for (uint32_t index{0}; index < m_Type->m_MaxParticles; ++index)
+	for (uint32_t index{0}; index < (m_UseInstancing ? 1u : m_Type->m_MaxParticles); ++index)
 	{
 		(*attrUV)[0] = 1;
 		(*attrUV)[1] = 0;
@@ -137,10 +137,10 @@ CParticleEmitter::CParticleEmitter(const CParticleEmitterTypePtr& type) :
 	m_VertexUVArray.Upload();
 	m_VertexUVArray.FreeBackingStore();
 
-	m_IndexArray.SetNumberOfVertices(m_Type->m_MaxParticles * 6);
+	m_IndexArray.SetNumberOfVertices(m_UseInstancing ? 6 : m_Type->m_MaxParticles * 6);
 	m_IndexArray.Layout();
 	VertexArrayIterator<u16> index = m_IndexArray.GetIterator();
-	for (u16 i = 0; i < m_Type->m_MaxParticles; ++i)
+	for (u16 i = 0; i < (m_UseInstancing ? 1 : m_Type->m_MaxParticles); ++i)
 	{
 		*index++ = i*4 + 0;
 		*index++ = i*4 + 1;
@@ -152,23 +152,27 @@ CParticleEmitter::CParticleEmitter(const CParticleEmitterTypePtr& type) :
 	m_IndexArray.Upload();
 	m_IndexArray.FreeBackingStore();
 
-	const uint32_t stride = m_VertexArray.GetStride();
+	const uint32_t stride{m_VertexArray.GetStride()};
+	const Renderer::Backend::VertexAttributeRate dynamicDataRate{
+		m_UseInstancing
+			? Renderer::Backend::VertexAttributeRate::PER_INSTANCE
+			: Renderer::Backend::VertexAttributeRate::PER_VERTEX};
 	const std::array<Renderer::Backend::SVertexAttributeFormat, 5> attributes{{
 		{Renderer::Backend::VertexAttributeStream::UV0,
 			m_AttributeUV.format, m_AttributeUV.offset, m_VertexUVArray.GetStride(),
 			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0},
 		{Renderer::Backend::VertexAttributeStream::POSITION,
 			m_AttributePos.format, m_AttributePos.offset, stride,
-			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 1},
+			dynamicDataRate, 1},
 		{Renderer::Backend::VertexAttributeStream::COLOR,
 			m_AttributeColor.format, m_AttributeColor.offset, stride,
-			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 1},
+			dynamicDataRate, 1},
 		{Renderer::Backend::VertexAttributeStream::UV1,
 			m_AttributeAxisX.format, m_AttributeAxisX.offset, stride,
-			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 1},
+			dynamicDataRate, 1},
 		{Renderer::Backend::VertexAttributeStream::UV2,
 			m_AttributeAxisY.format, m_AttributeAxisY.offset, stride,
-			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 1},
+			dynamicDataRate, 1},
 	}};
 	m_VertexInputLayout = g_Renderer.GetVertexInputLayout(attributes);
 }
@@ -226,51 +230,91 @@ void CParticleEmitter::UpdateArrayData(int frameNumber)
 	const std::span<SParticle> particles{
 		m_Type->m_SortMode == CParticleEmitterType::SortMode::UNSPECIFIED ?
 			std::span<SParticle>{m_Particles} : std::span<SParticle>{sortedParticles}};
-	for (const SParticle& particle : particles)
+
+	if (m_UseInstancing)
 	{
-		if (particle.age > particle.maxAge || particle.color.A == 0)
-			continue;
-
-		++m_NumberOfVisibleParticles;
-
-		bounds += particle.pos;
-
-		*attrPos++ = particle.pos;
-		*attrPos++ = particle.pos;
-		*attrPos++ = particle.pos;
-		*attrPos++ = particle.pos;
-
-		SColor4ub color{particle.color};
-
-		// Special case: If the blending depends on the source color, not the source alpha,
-		// then pre-multiply by the alpha. (This is kind of a hack.)
-		if (m_Type->m_BlendMode == CParticleEmitterType::BlendMode::OVERLAY ||
-			m_Type->m_BlendMode == CParticleEmitterType::BlendMode::MULTIPLY)
+		for (const SParticle& particle : particles)
 		{
-			color.R = (color.R * color.A) / 255;
-			color.G = (color.G * color.A) / 255;
-			color.B = (color.B * color.A) / 255;
+			if (particle.age > particle.maxAge || particle.color.A == 0)
+				continue;
+
+			++m_NumberOfVisibleParticles;
+
+			bounds += particle.pos;
+
+			*attrPos++ = particle.pos;
+
+			SColor4ub color{particle.color};
+
+			// Special case: If the blending depends on the source color, not the source alpha,
+			// then pre-multiply by the alpha. (This is kind of a hack.)
+			if (m_Type->m_BlendMode == CParticleEmitterType::BlendMode::OVERLAY ||
+				m_Type->m_BlendMode == CParticleEmitterType::BlendMode::MULTIPLY)
+			{
+				color.R = (color.R * color.A) / 255;
+				color.G = (color.G * color.A) / 255;
+				color.B = (color.B * color.A) / 255;
+			}
+
+			*attrColor++ = color;
+
+			const CVector4D axisXAndSize{
+				particle.axisX.X, particle.axisX.Y, particle.axisX.Z, particle.size};
+			const CVector4D axisYAndAngle{
+				particle.axisY.X, particle.axisY.Y, particle.axisY.Z, particle.angle};
+
+			*attrAxisX++ = axisXAndSize;
+			*attrAxisY++ = axisYAndAngle;
 		}
+	}
+	else
+	{
+		for (const SParticle& particle : particles)
+		{
+			if (particle.age > particle.maxAge || particle.color.A == 0)
+				continue;
 
-		*attrColor++ = color;
-		*attrColor++ = color;
-		*attrColor++ = color;
-		*attrColor++ = color;
+			++m_NumberOfVisibleParticles;
 
-		const CVector4D axisXAndSize{
-			particle.axisX.X, particle.axisX.Y, particle.axisX.Z, particle.size};
-		const CVector4D axisYAndAngle{
-			particle.axisY.X, particle.axisY.Y, particle.axisY.Z, particle.angle};
+			bounds += particle.pos;
 
-		*attrAxisX++ = axisXAndSize;
-		*attrAxisX++ = axisXAndSize;
-		*attrAxisX++ = axisXAndSize;
-		*attrAxisX++ = axisXAndSize;
+			*attrPos++ = particle.pos;
+			*attrPos++ = particle.pos;
+			*attrPos++ = particle.pos;
+			*attrPos++ = particle.pos;
 
-		*attrAxisY++ = axisYAndAngle;
-		*attrAxisY++ = axisYAndAngle;
-		*attrAxisY++ = axisYAndAngle;
-		*attrAxisY++ = axisYAndAngle;
+			SColor4ub color{particle.color};
+
+			// Special case: If the blending depends on the source color, not the source alpha,
+			// then pre-multiply by the alpha. (This is kind of a hack.)
+			if (m_Type->m_BlendMode == CParticleEmitterType::BlendMode::OVERLAY ||
+				m_Type->m_BlendMode == CParticleEmitterType::BlendMode::MULTIPLY)
+			{
+				color.R = (color.R * color.A) / 255;
+				color.G = (color.G * color.A) / 255;
+				color.B = (color.B * color.A) / 255;
+			}
+
+			*attrColor++ = color;
+			*attrColor++ = color;
+			*attrColor++ = color;
+			*attrColor++ = color;
+
+			const CVector4D axisXAndSize{
+				particle.axisX.X, particle.axisX.Y, particle.axisX.Z, particle.size};
+			const CVector4D axisYAndAngle{
+				particle.axisY.X, particle.axisY.Y, particle.axisY.Z, particle.angle};
+
+			*attrAxisX++ = axisXAndSize;
+			*attrAxisX++ = axisXAndSize;
+			*attrAxisX++ = axisXAndSize;
+			*attrAxisX++ = axisXAndSize;
+
+			*attrAxisY++ = axisYAndAngle;
+			*attrAxisY++ = axisYAndAngle;
+			*attrAxisY++ = axisYAndAngle;
+			*attrAxisY++ = axisYAndAngle;
+		}
 	}
 
 	m_ParticleBounds = bounds;
@@ -328,7 +372,10 @@ void CParticleEmitter::RenderArray(
 		1, m_VertexArray.GetBuffer(), firstVertexOffset);
 	deviceCommandContext->SetIndexBuffer(m_IndexArray.GetBuffer());
 
-	deviceCommandContext->DrawIndexed(m_IndexArray.GetOffset(), m_NumberOfVisibleParticles * 6, 0);
+	if (m_UseInstancing)
+		deviceCommandContext->DrawIndexedInstanced(m_IndexArray.GetOffset(), 6, 0, m_NumberOfVisibleParticles, 0);
+	else
+		deviceCommandContext->DrawIndexed(m_IndexArray.GetOffset(), m_NumberOfVisibleParticles * 6, 0);
 
 	g_Renderer.GetStats().m_DrawCalls++;
 	g_Renderer.GetStats().m_Particles += m_NumberOfVisibleParticles;
