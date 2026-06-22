@@ -97,19 +97,16 @@ CParticleEmitter::CParticleEmitter(const CParticleEmitterTypePtr& type) :
 	m_AttributePos.format = Renderer::Backend::Format::R32G32B32_SFLOAT;
 	m_VertexArray.AddAttribute(&m_AttributePos);
 
-	m_AttributeAxis.format = Renderer::Backend::Format::R32G32_SFLOAT;
-	m_VertexArray.AddAttribute(&m_AttributeAxis);
-
 	m_AttributeUV.format = Renderer::Backend::Format::R32G32_SFLOAT;
 	m_VertexArray.AddAttribute(&m_AttributeUV);
 
 	m_AttributeColor.format = Renderer::Backend::Format::R8G8B8A8_UNORM;
 	m_VertexArray.AddAttribute(&m_AttributeColor);
 
-	m_AttributeAxisX.format = Renderer::Backend::Format::R32G32B32_SFLOAT;
+	m_AttributeAxisX.format = Renderer::Backend::Format::R32G32B32A32_SFLOAT;
 	m_VertexArray.AddAttribute(&m_AttributeAxisX);
 
-	m_AttributeAxisY.format = Renderer::Backend::Format::R32G32B32_SFLOAT;
+	m_AttributeAxisY.format = Renderer::Backend::Format::R32G32B32A32_SFLOAT;
 	m_VertexArray.AddAttribute(&m_AttributeAxisY);
 
 	m_VertexArray.SetNumberOfVertices(m_Type->m_MaxParticles * 4);
@@ -131,7 +128,7 @@ CParticleEmitter::CParticleEmitter(const CParticleEmitterTypePtr& type) :
 	m_IndexArray.FreeBackingStore();
 
 	const uint32_t stride = m_VertexArray.GetStride();
-	const std::array<Renderer::Backend::SVertexAttributeFormat, 6> attributes{{
+	const std::array<Renderer::Backend::SVertexAttributeFormat, 5> attributes{{
 		{Renderer::Backend::VertexAttributeStream::POSITION,
 			m_AttributePos.format, m_AttributePos.offset, stride,
 			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0},
@@ -142,12 +139,9 @@ CParticleEmitter::CParticleEmitter(const CParticleEmitterTypePtr& type) :
 			m_AttributeUV.format, m_AttributeUV.offset, stride,
 			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0},
 		{Renderer::Backend::VertexAttributeStream::UV1,
-			m_AttributeAxis.format, m_AttributeAxis.offset, stride,
-			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0},
-		{Renderer::Backend::VertexAttributeStream::UV2,
 			m_AttributeAxisX.format, m_AttributeAxisX.offset, stride,
 			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0},
-		{Renderer::Backend::VertexAttributeStream::UV3,
+		{Renderer::Backend::VertexAttributeStream::UV2,
 			m_AttributeAxisY.format, m_AttributeAxisY.offset, stride,
 			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0},
 	}};
@@ -173,11 +167,10 @@ void CParticleEmitter::UpdateArrayData(int frameNumber)
 	// Regenerate the vertex array data:
 
 	VertexArrayIterator<CVector3D> attrPos = m_AttributePos.GetIterator<CVector3D>();
-	VertexArrayIterator<float[2]> attrAxis = m_AttributeAxis.GetIterator<float[2]>();
 	VertexArrayIterator<float[2]> attrUV = m_AttributeUV.GetIterator<float[2]>();
 	VertexArrayIterator<SColor4ub> attrColor = m_AttributeColor.GetIterator<SColor4ub>();
-	VertexArrayIterator<CVector3D> attrAxisX = m_AttributeAxisX.GetIterator<CVector3D>();
-	VertexArrayIterator<CVector3D> attrAxisY = m_AttributeAxisY.GetIterator<CVector3D>();
+	VertexArrayIterator<CVector4D> attrAxisX = m_AttributeAxisX.GetIterator<CVector4D>();
+	VertexArrayIterator<CVector4D> attrAxisY = m_AttributeAxisY.GetIterator<CVector4D>();
 
 	ENSURE(m_Particles.size() <= m_Type->m_MaxParticles);
 
@@ -223,26 +216,6 @@ void CParticleEmitter::UpdateArrayData(int frameNumber)
 		*attrPos++ = particle.pos;
 		*attrPos++ = particle.pos;
 
-		// Compute corner offsets, split into sin/cos components so the vertex
-		// shader can multiply by the camera-right (or left?) and camera-up vectors
-		// to get rotating billboards:
-
-		float s = sin(particle.angle) * particle.size * 0.5f;
-		float c = cos(particle.angle) * particle.size * 0.5f;
-
-		(*attrAxis)[0] = c;
-		(*attrAxis)[1] = s;
-		++attrAxis;
-		(*attrAxis)[0] = s;
-		(*attrAxis)[1] = -c;
-		++attrAxis;
-		(*attrAxis)[0] = -c;
-		(*attrAxis)[1] = -s;
-		++attrAxis;
-		(*attrAxis)[0] = -s;
-		(*attrAxis)[1] = c;
-		++attrAxis;
-
 		(*attrUV)[0] = 1;
 		(*attrUV)[1] = 0;
 		++attrUV;
@@ -273,15 +246,20 @@ void CParticleEmitter::UpdateArrayData(int frameNumber)
 		*attrColor++ = color;
 		*attrColor++ = color;
 
-		*attrAxisX++ = particle.axisX;
-		*attrAxisX++ = particle.axisX;
-		*attrAxisX++ = particle.axisX;
-		*attrAxisX++ = particle.axisX;
+		const CVector4D axisXAndSize{
+			particle.axisX.X, particle.axisX.Y, particle.axisX.Z, particle.size};
+		const CVector4D axisYAndAngle{
+			particle.axisY.X, particle.axisY.Y, particle.axisY.Z, particle.angle};
 
-		*attrAxisY++ = particle.axisY;
-		*attrAxisY++ = particle.axisY;
-		*attrAxisY++ = particle.axisY;
-		*attrAxisY++ = particle.axisY;
+		*attrAxisX++ = axisXAndSize;
+		*attrAxisX++ = axisXAndSize;
+		*attrAxisX++ = axisXAndSize;
+		*attrAxisX++ = axisXAndSize;
+
+		*attrAxisY++ = axisYAndAngle;
+		*attrAxisY++ = axisYAndAngle;
+		*attrAxisY++ = axisYAndAngle;
+		*attrAxisY++ = axisYAndAngle;
 	}
 
 	m_ParticleBounds = bounds;

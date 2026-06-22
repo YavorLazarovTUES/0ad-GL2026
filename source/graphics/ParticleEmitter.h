@@ -186,7 +186,6 @@ private:
 
 	VertexArray m_VertexArray;
 	VertexArray::Attribute m_AttributePos;
-	VertexArray::Attribute m_AttributeAxis;
 	VertexArray::Attribute m_AttributeUV;
 	VertexArray::Attribute m_AttributeColor;
 	VertexArray::Attribute m_AttributeAxisX, m_AttributeAxisY;
