@@ -147,7 +147,7 @@ MESSAGEHANDLER(SmoothZoom)
 
 MESSAGEHANDLER(RotateAround)
 {
-	if (!g_Game || g_Game->GetView()->GetCinema()->IsPlaying())
+	if (!g_Game || g_Game->GetView()->GetCinema()->IsPlaying() || g_BirdEyeView)
 		return;
 
 	static CVector3D focusPos;
