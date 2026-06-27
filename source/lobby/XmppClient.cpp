@@ -111,7 +111,8 @@ gloox::Client CreateClient(const bool regOpt, const std::string& username, const
 		return gloox::Client{servername};
 
 	// Generate a unique, unpredictable resource to allow multiple 0 A.D. instances to connect to the lobby.
-	gloox::JID clientJid(username + "@" + servername + "/0ad-" + ps_generate_guid());
+	static const CStr guid{ps_generate_guid()};
+	gloox::JID clientJid(username + "@" + servername + "/0ad-" + guid);
 	return gloox::Client{clientJid, password};
 }
 
