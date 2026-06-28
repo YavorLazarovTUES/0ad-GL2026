@@ -100,17 +100,17 @@ public:
 	{
 	}
 
-	virtual float Compute(CParticleEmitterType&, CParticleEmitter&)
+	float Compute(CParticleEmitterType&, CParticleEmitter&) override
 	{
 		return m_Value;
 	}
 
-	virtual float Min(CParticleEmitterType&)
+	float Min(CParticleEmitterType&) override
 	{
 		return m_Value;
 	}
 
-	virtual float Max(CParticleEmitterType&)
+	float Max(CParticleEmitterType&) override
 	{
 		return m_Value;
 	}
@@ -130,17 +130,17 @@ public:
 	{
 	}
 
-	virtual float Compute(CParticleEmitterType& type, CParticleEmitter&)
+	float Compute(CParticleEmitterType& type, CParticleEmitter&) override
 	{
 		return std::uniform_real_distribution<float>(m_Min, m_Max)(type.m_Manager.m_RNG);
 	}
 
-	virtual float Min(CParticleEmitterType&)
+	float Min(CParticleEmitterType&) override
 	{
 		return m_Min;
 	}
 
-	virtual float Max(CParticleEmitterType&)
+	float Max(CParticleEmitterType&) override
 	{
 		return m_Max;
 	}
@@ -162,17 +162,17 @@ public:
 	{
 	}
 
-	virtual float Compute(CParticleEmitterType& type, CParticleEmitter&)
+	float Compute(CParticleEmitterType& type, CParticleEmitter&) override
 	{
 		return type.m_Variables[m_From]->LastValue();
 	}
 
-	virtual float Min(CParticleEmitterType& type)
+	float Min(CParticleEmitterType& type) override
 	{
 		return type.m_Variables[m_From]->Min(type);
 	}
 
-	virtual float Max(CParticleEmitterType& type)
+	float Max(CParticleEmitterType& type) override
 	{
 		return type.m_Variables[m_From]->Max(type);
 	}
@@ -193,17 +193,17 @@ public:
 	{
 	}
 
-	virtual float Compute(CParticleEmitterType&, CParticleEmitter& emitter)
+	float Compute(CParticleEmitterType&, CParticleEmitter& emitter) override
 	{
 		return std::min(m_Max, emitter.m_EntityVariables[m_From] * m_Mul);
 	}
 
-	virtual float Min(CParticleEmitterType&)
+	float Min(CParticleEmitterType&) override
 	{
 		return 0.f;
 	}
 
-	virtual float Max(CParticleEmitterType&)
+	float Max(CParticleEmitterType&) override
 	{
 		return m_Max;
 	}
@@ -245,7 +245,7 @@ public:
 	{
 	}
 
-	virtual void Evaluate(std::vector<SParticle>& particles, float dt)
+	void Evaluate(std::vector<SParticle>& particles, float dt) override
 	{
 		CVector3D dv = m_Accel * dt;
 
@@ -253,7 +253,7 @@ public:
 			particles[i].velocity += dv;
 	}
 
-	virtual CVector3D Max()
+	CVector3D Max() override
 	{
 		return m_Accel;
 	}
