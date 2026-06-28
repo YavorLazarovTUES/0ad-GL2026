@@ -381,12 +381,6 @@ void CParticleEmitter::RenderArray(
 	g_Renderer.GetStats().m_Particles += m_NumberOfVisibleParticles;
 }
 
-void CParticleEmitter::Unattach(const CParticleEmitterPtr& self)
-{
-	m_Active = false;
-	m_Type->m_Manager.AddUnattachedEmitter(self);
-}
-
 void CParticleEmitter::AddParticle(const SParticle& particle)
 {
 	if (m_NextParticleIdx >= m_Particles.size())
@@ -410,7 +404,7 @@ CModelParticleEmitter::CModelParticleEmitter(const CParticleEmitterTypePtr& type
 
 CModelParticleEmitter::~CModelParticleEmitter()
 {
-	m_Emitter->Unattach(m_Emitter);
+	m_Type->m_Manager.AddUnattachedEmitter(std::move(m_Emitter));
 }
 
 void CModelParticleEmitter::SetEntityVariable(const std::string& name, float value)

@@ -43,7 +43,11 @@ public:
 
 	/**
 	 * Tell the manager to handle rendering of an emitter that is no longer
-	 * attached to a unit.
+	 * attached to a unit. After the call the emitter becomes inactive.
+	 *
+	 * This should be called before dropping the emitter so that the manager
+	 * will carry on rendering (until all particles have dissipated)
+	 * even when it's no longer attached to a model.
 	 */
 	void AddUnattachedEmitter(const CParticleEmitterPtr& emitter);
 

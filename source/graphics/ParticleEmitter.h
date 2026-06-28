@@ -150,15 +150,6 @@ public:
 	void RenderArray(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
 
-	/**
-	 * Stop this emitter emitting new particles, and pass responsibility for rendering
-	 * to the CParticleManager. This should be called before dropping the last std::shared_ptr
-	 * to this object so that it will carry on rendering (until all particles have dissipated)
-	 * even when it's no longer attached to a model.
-	 * @param self the std::shared_ptr you're about to drop
-	 */
-	void Unattach(const CParticleEmitterPtr& self);
-
 	void SetEntityVariable(const std::string& name, float value);
 
 	CParticleEmitterTypePtr m_Type;

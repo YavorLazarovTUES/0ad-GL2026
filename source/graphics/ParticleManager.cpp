@@ -61,6 +61,7 @@ CParticleEmitterTypePtr CParticleManager::LoadEmitterType(const VfsPath& path)
 
 void CParticleManager::AddUnattachedEmitter(const CParticleEmitterPtr& emitter)
 {
+	emitter->m_Active = false;
 	m_UnattachedEmitters.push_back(emitter);
 }
 
