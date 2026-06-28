@@ -102,15 +102,15 @@ private:
 	/**
 	 * Update the state of an emitter's particles, by a potentially long time @p dt.
 	 */
-	void UpdateEmitter(CParticleEmitter& emitter, float dt);
+	void UpdateEmitter(CParticleEmitter& emitter, float dt) const;
 
 	/**
 	 * Update the state of an emitter's particles, by a short time @p dt that can
 	 * be computed in a single step.
 	 */
-	void UpdateEmitterStep(CParticleEmitter& emitter, float dt);
+	void UpdateEmitterStep(CParticleEmitter& emitter, float dt) const;
 
-	CBoundingBoxAligned CalculateBounds(CVector3D emitterPos, CBoundingBoxAligned emittedBounds);
+	CBoundingBoxAligned CalculateBounds(CVector3D emitterPos, CBoundingBoxAligned emittedBounds) const;
 
 	CTexturePtr m_Texture;
 

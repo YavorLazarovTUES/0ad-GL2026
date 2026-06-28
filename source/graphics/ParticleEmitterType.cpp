@@ -74,16 +74,16 @@ public:
 	 * Returns the minimum value that Evaluate might ever return,
 	 * for computing bounds.
 	 */
-	virtual float Min(CParticleEmitterType& type) = 0;
+	virtual float Min(const CParticleEmitterType& type) = 0;
 
 	/**
 	 * Returns the maximum value that Evaluate might ever return,
 	 * for computing bounds.
 	 */
-	virtual float Max(CParticleEmitterType& type) = 0;
+	virtual float Max(const CParticleEmitterType& type) = 0;
 
 protected:
-	virtual float Compute(CParticleEmitterType& type, CParticleEmitter& emitter) = 0;
+	virtual float Compute(const CParticleEmitterType& type, const CParticleEmitter& emitter) = 0;
 
 private:
 	float m_LastValue;
@@ -100,17 +100,17 @@ public:
 	{
 	}
 
-	float Compute(CParticleEmitterType&, CParticleEmitter&) override
+	float Compute(const CParticleEmitterType&, const CParticleEmitter&) override
 	{
 		return m_Value;
 	}
 
-	float Min(CParticleEmitterType&) override
+	float Min(const CParticleEmitterType&) override
 	{
 		return m_Value;
 	}
 
-	float Max(CParticleEmitterType&) override
+	float Max(const CParticleEmitterType&) override
 	{
 		return m_Value;
 	}
@@ -130,17 +130,17 @@ public:
 	{
 	}
 
-	float Compute(CParticleEmitterType& type, CParticleEmitter&) override
+	float Compute(const CParticleEmitterType& type, const CParticleEmitter&) override
 	{
 		return std::uniform_real_distribution<float>(m_Min, m_Max)(type.m_Manager.m_RNG);
 	}
 
-	float Min(CParticleEmitterType&) override
+	float Min(const CParticleEmitterType&) override
 	{
 		return m_Min;
 	}
 
-	float Max(CParticleEmitterType&) override
+	float Max(const CParticleEmitterType&) override
 	{
 		return m_Max;
 	}
@@ -162,17 +162,17 @@ public:
 	{
 	}
 
-	float Compute(CParticleEmitterType& type, CParticleEmitter&) override
+	float Compute(const CParticleEmitterType& type, const CParticleEmitter&) override
 	{
 		return type.m_Variables[m_From]->LastValue();
 	}
 
-	float Min(CParticleEmitterType& type) override
+	float Min(const CParticleEmitterType& type) override
 	{
 		return type.m_Variables[m_From]->Min(type);
 	}
 
-	float Max(CParticleEmitterType& type) override
+	float Max(const CParticleEmitterType& type) override
 	{
 		return type.m_Variables[m_From]->Max(type);
 	}
@@ -193,17 +193,20 @@ public:
 	{
 	}
 
-	float Compute(CParticleEmitterType&, CParticleEmitter& emitter) override
+	float Compute(const CParticleEmitterType&, const CParticleEmitter& emitter) override
 	{
-		return std::min(m_Max, emitter.m_EntityVariables[m_From] * m_Mul);
+		float value{0.0f};
+		if (auto it{emitter.m_EntityVariables.find(m_From)}; it != emitter.m_EntityVariables.end())
+			value = it->second;
+		return std::min(m_Max, value * m_Mul);
 	}
 
-	float Min(CParticleEmitterType&) override
+	float Min(const CParticleEmitterType&) override
 	{
 		return 0.f;
 	}
 
-	float Max(CParticleEmitterType&) override
+	float Max(const CParticleEmitterType&) override
 	{
 		return m_Max;
 	}
@@ -550,7 +553,7 @@ bool CParticleEmitterType::LoadXML(const VfsPath& path)
 	return true;
 }
 
-void CParticleEmitterType::UpdateEmitter(CParticleEmitter& emitter, float dt)
+void CParticleEmitterType::UpdateEmitter(CParticleEmitter& emitter, float dt) const
 {
 	// If dt is very large, we should do the update in multiple small
 	// steps to prevent all the particles getting clumped together at
@@ -571,7 +574,7 @@ void CParticleEmitterType::UpdateEmitter(CParticleEmitter& emitter, float dt)
 	UpdateEmitterStep(emitter, dt);
 }
 
-void CParticleEmitterType::UpdateEmitterStep(CParticleEmitter& emitter, float dt)
+void CParticleEmitterType::UpdateEmitterStep(CParticleEmitter& emitter, float dt) const
 {
 	ENSURE(emitter.m_Type.get() == this);
 
@@ -678,7 +681,7 @@ void CParticleEmitterType::UpdateEmitterStep(CParticleEmitter& emitter, float dt
 	}
 }
 
-CBoundingBoxAligned CParticleEmitterType::CalculateBounds(CVector3D emitterPos, CBoundingBoxAligned emittedBounds)
+CBoundingBoxAligned CParticleEmitterType::CalculateBounds(CVector3D emitterPos, CBoundingBoxAligned emittedBounds) const
 {
 	CBoundingBoxAligned bounds = m_MaxBounds;
 	bounds[0] += emitterPos;
