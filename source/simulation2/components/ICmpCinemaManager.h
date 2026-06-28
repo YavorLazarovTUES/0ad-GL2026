@@ -97,7 +97,7 @@ public:
 	 * Send an update to the path currently playing for it to determine the new camera position.
 	 * Called every frame.
 	 */
-	virtual void UpdateActivePath(const float deltaRealTime, CCamera* camera) = 0;
+	virtual void UpdateActivePath(const float deltaRealTime, CCamera& camera) = 0;
 
 	/**
 	 * Get the name of the path currently playing, if any.

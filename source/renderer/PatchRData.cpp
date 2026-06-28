@@ -1380,7 +1380,7 @@ void CPatchRData::RenderSides(
 void CPatchRData::RenderPriorities(CTextRenderer& textRenderer)
 {
 	CTerrain* terrain = m_Patch->m_Parent;
-	const CCamera& camera = *(g_Game->GetView()->GetCamera());
+	const CCamera& camera{g_Game->GetView()->GetCamera()};
 
 	for (ssize_t j = 0; j < PATCH_SIZE; ++j)
 	{

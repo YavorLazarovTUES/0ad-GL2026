@@ -133,7 +133,7 @@ void CTouchInput::OnFingerMotion(int id, int x, int y)
 		{
 			m_State = STATE_PANNING;
 
-			const CCamera& camera = *(g_Game->GetView()->GetCamera());
+			const CCamera& camera{g_Game->GetView()->GetCamera()};
 			m_PanFocus = camera.GetWorldCoordinates(m_FirstTouchPos.X, m_FirstTouchPos.Y, true);
 			m_PanDist = (m_PanFocus - camera.GetOrientation().GetTranslation()).Y;
 		}
@@ -141,7 +141,7 @@ void CTouchInput::OnFingerMotion(int id, int x, int y)
 
 	if (m_State == STATE_PANNING && id == 0)
 	{
-		CCamera& camera = *(g_Game->GetView()->GetCamera());
+		CCamera& camera{g_Game->GetView()->GetCamera()};
 		auto [origin, dir] = camera.BuildCameraRay(x, y);
 		dir *= m_PanDist / dir.Y;
 		camera.GetOrientation().Translate(m_PanFocus - dir - origin);
@@ -154,7 +154,7 @@ void CTouchInput::OnFingerMotion(int id, int x, int y)
 		float newDist = (m_Pos[id] - m_Pos[1 - id]).Length();
 		float zoomDist = (newDist - oldDist) * -0.005f * m_PanDist;
 
-		CCamera& camera = *(g_Game->GetView()->GetCamera());
+		CCamera& camera{g_Game->GetView()->GetCamera()};
 		CVector3D dir{camera.BuildCameraRay(m_Pos[0].X, m_Pos[0].Y).direction};
 		dir *= zoomDist;
 		camera.GetOrientation().Translate(dir);

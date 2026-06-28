@@ -113,7 +113,7 @@ void CCinemaPath::SetTimescale(fixed scale)
 	m_Timescale = scale;
 }
 
-void CCinemaPath::MoveToPointAt(float t, float nodet, const CVector3D& startRotation, CCamera* camera) const
+void CCinemaPath::MoveToPointAt(float t, float nodet, const CVector3D& startRotation, CCamera& camera) const
 {
 	t = (this->*DistModePtr)(t);
 
@@ -122,9 +122,9 @@ void CCinemaPath::MoveToPointAt(float t, float nodet, const CVector3D& startRota
 	if (m_LookAtTarget)
 	{
 		if (m_TimeElapsed <= m_TargetSpline.MaxDistance.ToFloat())
-			camera->LookAt(pos, m_TargetSpline.GetPosition(m_TimeElapsed / m_TargetSpline.MaxDistance.ToFloat()), CVector3D(0, 1, 0));
+			camera.LookAt(pos, m_TargetSpline.GetPosition(m_TimeElapsed / m_TargetSpline.MaxDistance.ToFloat()), CVector3D(0, 1, 0));
 		else
-			camera->LookAt(pos, m_TargetSpline.GetAllNodes().back().Position, CVector3D(0, 1, 0));
+			camera.LookAt(pos, m_TargetSpline.GetAllNodes().back().Position, CVector3D(0, 1, 0));
 	}
 	else
 	{
@@ -134,11 +134,11 @@ void CCinemaPath::MoveToPointAt(float t, float nodet, const CVector3D& startRota
 		end.FromEulerAngles(DEGTORAD(nodeRotation.X), DEGTORAD(nodeRotation.Y), DEGTORAD(nodeRotation.Z));
 		start.Slerp(start, end, nodet);
 
-		camera->m_Orientation.SetIdentity();
-		camera->m_Orientation.Rotate(start);
-		camera->m_Orientation.Translate(pos);
+		camera.m_Orientation.SetIdentity();
+		camera.m_Orientation.Rotate(start);
+		camera.m_Orientation.Translate(pos);
 	}
-	camera->UpdateFrustum();
+	camera.UpdateFrustum();
 }
 
 // Distortion mode functions
@@ -236,7 +236,7 @@ bool CCinemaPath::Validate()
 	return false;
 }
 
-bool CCinemaPath::Play(const float deltaRealTime, CCamera* camera)
+bool CCinemaPath::Play(const float deltaRealTime, CCamera& camera)
 {
 	m_TimeElapsed += m_Timescale.ToFloat() * deltaRealTime;
 	if (!Validate())

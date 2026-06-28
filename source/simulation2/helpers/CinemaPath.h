@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -62,7 +62,7 @@ public:
 	CCinemaPath(const CCinemaData& data, const TNSpline& spline, const TNSpline& targetSpline);
 
 	// Sets camera position to calculated point on spline
-	void MoveToPointAt(float t, float nodet, const CVector3D& startRotation, CCamera* camera) const;
+	void MoveToPointAt(float t, float nodet, const CVector3D& startRotation, CCamera& camera) const;
 
 	// Distortion mode functions-change how ratio is passed to distortion style functions
 	float EaseIn(float t) const;
@@ -108,7 +108,7 @@ public:
 	 * @param deltaRealTime Elapsed real time since the last frame.
 	 * @param camera An affected camera
 	 */
-	bool Play(const float deltaRealTime, CCamera* camera);
+	bool Play(const float deltaRealTime, CCamera& camera);
 
 	/**
 	 * Validate the path

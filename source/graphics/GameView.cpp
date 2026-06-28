@@ -191,9 +191,9 @@ CObjectManager& CGameView::GetObjectManager()
 	return m->ObjectManager;
 }
 
-CCamera* CGameView::GetCamera()
+CCamera& CGameView::GetCamera()
 {
-	return &m->ViewCamera;
+	return m->ViewCamera;
 }
 
 CCinemaManager* CGameView::GetCinema()
@@ -304,7 +304,7 @@ void CGameView::Update(const float deltaRealTime)
 {
 	m->MiniMapTexture.Update(deltaRealTime);
 
-	m->CinemaManager.Update(deltaRealTime);
+	m->CinemaManager.Update(deltaRealTime, m->ViewCamera);
 	if (m->CinemaManager.IsPlaying())
 		return;
 	// If camera movement is being handled by the touch-input system,

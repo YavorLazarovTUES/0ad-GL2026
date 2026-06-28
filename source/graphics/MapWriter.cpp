@@ -76,7 +76,7 @@ CMapWriter::CMapWriter()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // SaveMap: try to save the current map to the given file
 void CMapWriter::SaveMap(const VfsPath& pathname, CTerrain* pTerrain, WaterManager* pWaterMan,
-	SkyManager* pSkyMan, CLightEnv* pLightEnv, CCamera* pCamera, CCinemaManager*,
+	SkyManager* pSkyMan, CLightEnv* pLightEnv, const CCamera& camera, CCinemaManager*,
 	CPostprocManager* pPostproc, CSimulation2* pSimulation2)
 {
 	CFilePacker packer(FILE_VERSION, "PSMP");
@@ -96,7 +96,7 @@ void CMapWriter::SaveMap(const VfsPath& pathname, CTerrain* pTerrain, WaterManag
 	}
 
 	VfsPath pathnameXML = pathname.ChangeExtension(L".xml");
-	WriteXML(pathnameXML, pWaterMan, pSkyMan, pLightEnv, pCamera, pPostproc, pSimulation2);
+	WriteXML(pathnameXML, pWaterMan, pSkyMan, pLightEnv, camera, pPostproc, pSimulation2);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -204,7 +204,7 @@ void CMapWriter::PackTerrain(CFilePacker& packer, CTerrain* pTerrain)
 
 void CMapWriter::WriteXML(const VfsPath& filename,
 						  WaterManager* pWaterMan, SkyManager* pSkyMan,
-						  CLightEnv* pLightEnv, CCamera* pCamera,
+						  CLightEnv* pLightEnv, const CCamera& camera,
 						  CPostprocManager* pPostproc,
 						  CSimulation2* pSimulation2)
 {
@@ -299,13 +299,13 @@ void CMapWriter::WriteXML(const VfsPath& filename,
 			XMLWriter_Element cameraTag(xmlMapFile, "Camera");
 			{
 				XMLWriter_Element positionTag(xmlMapFile, "Position");
-				CVector3D pos = pCamera->GetOrientation().GetTranslation();
+				const CVector3D pos{camera.GetOrientation().GetTranslation()};
 				positionTag.Attribute("x", pos.X);
 				positionTag.Attribute("y", pos.Y);
 				positionTag.Attribute("z", pos.Z);
 			}
 
-			CVector3D in = pCamera->GetOrientation().GetIn();
+			const CVector3D in{camera.GetOrientation().GetIn()};
 			// Convert to spherical coordinates
 			float rotation = atan2(in.X, in.Z);
 			float declination = atan2(sqrt(in.X*in.X + in.Z*in.Z), in.Y) - std::numbers::pi_v<float> / 2.f;

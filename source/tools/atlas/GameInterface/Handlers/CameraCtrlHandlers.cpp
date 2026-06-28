@@ -49,7 +49,7 @@ MESSAGEHANDLER(CameraReset)
 	if (!g_Game || g_Game->GetView()->GetCinema()->IsPlaying())
 		return;
 
-	CVector3D focus = g_Game->GetView()->GetCamera()->GetFocus();
+	CVector3D focus = g_Game->GetView()->GetCamera().GetFocus();
 
 	CVector3D target;
 	if (!g_Game->GetWorld()->GetTerrain().IsOnMap(focus.X, focus.Z))
@@ -95,7 +95,7 @@ MESSAGEHANDLER(Scroll)
 	static CVector3D targetPos;
 	static float targetDistance = 0.f;
 
-	CMatrix3D& camera = g_Game->GetView()->GetCamera()->m_Orientation;
+	CMatrix3D& camera = g_Game->GetView()->GetCamera().m_Orientation;
 
 	static CVector3D lastCameraPos = camera.GetTranslation();
 
@@ -124,10 +124,10 @@ MESSAGEHANDLER(Scroll)
 	{
 		float x, y;
 		msg->pos->GetScreenSpace(x, y);
-		auto [origin, dir] = g_Game->GetView()->GetCamera()->BuildCameraRay((int)x, (int)y);
+		auto [origin, dir] = g_Game->GetView()->GetCamera().BuildCameraRay((int)x, (int)y);
 		dir *= targetDistance;
 		camera.Translate(targetPos - dir - origin);
-		g_Game->GetView()->GetCamera()->UpdateFrustum();
+		g_Game->GetView()->GetCamera().UpdateFrustum();
 	}
 	else
 	{
@@ -152,7 +152,7 @@ MESSAGEHANDLER(RotateAround)
 	static CVector3D focusPos;
 	static float lastX = 0.f, lastY = 0.f;
 
-	CMatrix3D& camera = g_Game->GetView()->GetCamera()->m_Orientation;
+	CMatrix3D& camera = g_Game->GetView()->GetCamera().m_Orientation;
 
 	if (msg->type == eRotateAroundType::FROM)
 	{
@@ -186,7 +186,7 @@ MESSAGEHANDLER(RotateAround)
 		camera._21 = 0.f; // (_21 = Y component returned by GetLeft())
 
 		camera.Translate(focusPos + offset);
-		g_Game->GetView()->GetCamera()->UpdateFrustum();
+		g_Game->GetView()->GetCamera().UpdateFrustum();
 
 		lastX = x;
 		lastY = y;
@@ -232,14 +232,14 @@ QUERYHANDLER(GetView)
 	if (!g_Game)
 		return;
 
-	CVector3D focus = g_Game->GetView()->GetCamera()->GetFocus();
+	CVector3D focus = g_Game->GetView()->GetCamera().GetFocus();
 	sCameraInfo info;
 
 	info.pX = focus.X;
 	info.pY = focus.Y;
 	info.pZ = focus.Z;
 
-	CQuaternion quatRot = g_Game->GetView()->GetCamera()->GetOrientation().GetRotation();
+	CQuaternion quatRot = g_Game->GetView()->GetCamera().GetOrientation().GetRotation();
 	quatRot.Normalize();
 	CVector3D rotation = quatRot.ToEulerAngles();
 
@@ -256,7 +256,7 @@ MESSAGEHANDLER(SetView)
 		return;
 
 	CGameView* view = g_Game->GetView();
-	view->ResetCameraTarget(view->GetCamera()->GetFocus());
+	view->ResetCameraTarget(view->GetCamera().GetFocus());
 
 	sCameraInfo cam = msg->info;
 

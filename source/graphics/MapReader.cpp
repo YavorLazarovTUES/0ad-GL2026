@@ -388,7 +388,7 @@ int CMapReader::ApplyData()
 	if (pGameView && cmpPlayerManager)
 	{
 		// Default to global camera (with constraints)
-		pGameView->ResetCameraTarget(pGameView->GetCamera()->GetFocus());
+		pGameView->ResetCameraTarget(pGameView->GetCamera().GetFocus());
 
 		// TODO: Starting rotation?
 		CmpPtr<ICmpPlayer> cmpPlayer(*pSimContext, cmpPlayerManager->GetPlayerByID(m_PlayerID));
@@ -867,10 +867,10 @@ void CXMLReader::ReadCamera(XMBElement parent)
 
 	if (m_MapReader.pGameView)
 	{
-		m_MapReader.pGameView->GetCamera()->m_Orientation.SetXRotation(declination);
-		m_MapReader.pGameView->GetCamera()->m_Orientation.RotateY(rotation);
-		m_MapReader.pGameView->GetCamera()->m_Orientation.Translate(translation);
-		m_MapReader.pGameView->GetCamera()->UpdateFrustum();
+		m_MapReader.pGameView->GetCamera().m_Orientation.SetXRotation(declination);
+		m_MapReader.pGameView->GetCamera().m_Orientation.RotateY(rotation);
+		m_MapReader.pGameView->GetCamera().m_Orientation.Translate(translation);
+		m_MapReader.pGameView->GetCamera().UpdateFrustum();
 	}
 }
 
@@ -1631,10 +1631,10 @@ int CMapReader::ParseCamera()
 
 	if (pGameView)
 	{
-		pGameView->GetCamera()->m_Orientation.SetXRotation(declination);
-		pGameView->GetCamera()->m_Orientation.RotateY(rotation);
-		pGameView->GetCamera()->m_Orientation.Translate(translation);
-		pGameView->GetCamera()->UpdateFrustum();
+		pGameView->GetCamera().m_Orientation.SetXRotation(declination);
+		pGameView->GetCamera().m_Orientation.RotateY(rotation);
+		pGameView->GetCamera().m_Orientation.Translate(translation);
+		pGameView->GetCamera().UpdateFrustum();
 	}
 
 	return 0;

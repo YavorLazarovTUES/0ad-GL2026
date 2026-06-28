@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -667,7 +667,7 @@ QUERYHANDLER(PickObject)
 
 	// Normally this function would be called with a player ID to check LOS,
 	//	but in Atlas the entire map is revealed, so just pass INVALID_PLAYER
-	entity_id_t ent = EntitySelection::PickEntityAtPoint(*g_Game->GetSimulation2(), *g_Game->GetView()->GetCamera(), x, y, INVALID_PLAYER, msg->selectActors);;
+	entity_id_t ent = EntitySelection::PickEntityAtPoint(*g_Game->GetSimulation2(), g_Game->GetView()->GetCamera(), x, y, INVALID_PLAYER, msg->selectActors);;
 
 	if (ent == INVALID_ENTITY)
 		msg->id = INVALID_ENTITY;
@@ -687,7 +687,7 @@ QUERYHANDLER(PickObject)
 			CFixedVector3D fixed = cmpPosition->GetPosition();
 			CVector3D centre = CVector3D(fixed.X.ToFloat(), fixed.Y.ToFloat(), fixed.Z.ToFloat());
 
-			const CVector2D screenPos{g_Game->GetView()->GetCamera()->GetScreenCoordinates(centre)};
+			const CVector2D screenPos{g_Game->GetView()->GetCamera().GetScreenCoordinates(centre)};
 
 			msg->offsetx = static_cast<int>(screenPos.X - x);
 			msg->offsety = static_cast<int>(screenPos.Y - y);
@@ -703,7 +703,7 @@ QUERYHANDLER(PickObjectsInRect)
 	msg->end->GetScreenSpace(x1, y1);
 
 	// Since owner selections are meaningless in Atlas, use INVALID_PLAYER
-	msg->ids = EntitySelection::PickEntitiesInRect(*g_Game->GetSimulation2(), *g_Game->GetView()->GetCamera(), x0, y0, x1, y1, INVALID_PLAYER, msg->selectActors);
+	msg->ids = EntitySelection::PickEntitiesInRect(*g_Game->GetSimulation2(), g_Game->GetView()->GetCamera(), x0, y0, x1, y1, INVALID_PLAYER, msg->selectActors);
 }
 
 
@@ -721,7 +721,7 @@ QUERYHANDLER(PickSimilarObjects)
 	if (cmpOwnership)
 		owner = cmpOwnership->GetOwner();
 
-	msg->ids = EntitySelection::PickSimilarEntities(*g_Game->GetSimulation2(), *g_Game->GetView()->GetCamera(), templateName, owner, false, true, true, false);
+	msg->ids = EntitySelection::PickSimilarEntities(*g_Game->GetSimulation2(), g_Game->GetView()->GetCamera(), templateName, owner, false, true, true, false);
 }
 
 MESSAGEHANDLER(ResetSelectionColor)

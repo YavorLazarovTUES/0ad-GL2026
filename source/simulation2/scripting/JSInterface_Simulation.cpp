@@ -108,22 +108,22 @@ void DumpSimState()
 
 entity_id_t PickEntityAtPoint(int x, int y)
 {
-	return EntitySelection::PickEntityAtPoint(*g_Game->GetSimulation2(), *g_Game->GetView()->GetCamera(), x, y, g_Game->GetViewedPlayerID(), false);
+	return EntitySelection::PickEntityAtPoint(*g_Game->GetSimulation2(), g_Game->GetView()->GetCamera(), x, y, g_Game->GetViewedPlayerID(), false);
 }
 
 std::vector<entity_id_t> PickPlayerEntitiesInRect(int x0, int y0, int x1, int y1, int player)
 {
-	return EntitySelection::PickEntitiesInRect(*g_Game->GetSimulation2(), *g_Game->GetView()->GetCamera(), x0, y0, x1, y1, player, false);
+	return EntitySelection::PickEntitiesInRect(*g_Game->GetSimulation2(), g_Game->GetView()->GetCamera(), x0, y0, x1, y1, player, false);
 }
 
 std::vector<entity_id_t> PickPlayerEntitiesOnScreen(int player)
 {
-	return EntitySelection::PickEntitiesInRect(*g_Game->GetSimulation2(), *g_Game->GetView()->GetCamera(), 0, 0, g_xres, g_yres, player, false);
+	return EntitySelection::PickEntitiesInRect(*g_Game->GetSimulation2(), g_Game->GetView()->GetCamera(), 0, 0, g_xres, g_yres, player, false);
 }
 
 std::vector<entity_id_t> PickNonGaiaEntitiesOnScreen()
 {
-	return EntitySelection::PickNonGaiaEntitiesInRect(*g_Game->GetSimulation2(), *g_Game->GetView()->GetCamera(), 0, 0, g_xres, g_yres, false);
+	return EntitySelection::PickNonGaiaEntitiesInRect(*g_Game->GetSimulation2(), g_Game->GetView()->GetCamera(), 0, 0, g_xres, g_yres, false);
 }
 
 std::vector<entity_id_t> GetEntitiesWithStaticObstructionOnScreen()
@@ -136,7 +136,7 @@ std::vector<entity_id_t> GetEntitiesWithStaticObstructionOnScreen()
 			return cmpObstruction->GetObstructionType() == ICmpObstruction::STATIC;
 		}
 	};
-	return EntitySelection::GetEntitiesWithComponentInRect<StaticObstructionFilter>(*g_Game->GetSimulation2(), IID_Obstruction, *g_Game->GetView()->GetCamera(), 0, 0, g_xres, g_yres);
+	return EntitySelection::GetEntitiesWithComponentInRect<StaticObstructionFilter>(*g_Game->GetSimulation2(), IID_Obstruction, g_Game->GetView()->GetCamera(), 0, 0, g_xres, g_yres);
 }
 
 JS::Value GetEdgesOfStaticObstructionsOnScreenNearTo(const Script::Interface& scriptInterface, entity_pos_t x, entity_pos_t z)
@@ -209,7 +209,7 @@ JS::Value GetEdgesOfStaticObstructionsOnScreenNearTo(const Script::Interface& sc
 
 std::vector<entity_id_t> PickSimilarPlayerEntities(const std::string& templateName, bool includeOffScreen, bool matchRank, bool allowFoundations)
 {
-	return EntitySelection::PickSimilarEntities(*g_Game->GetSimulation2(), *g_Game->GetView()->GetCamera(), templateName, g_Game->GetViewedPlayerID(), includeOffScreen, matchRank, false, allowFoundations);
+	return EntitySelection::PickSimilarEntities(*g_Game->GetSimulation2(), g_Game->GetView()->GetCamera(), templateName, g_Game->GetViewedPlayerID(), includeOffScreen, matchRank, false, allowFoundations);
 }
 
 JS::Value GetAIs(const Script::Interface& scriptInterface)

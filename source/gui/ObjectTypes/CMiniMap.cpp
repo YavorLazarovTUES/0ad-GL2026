@@ -238,7 +238,7 @@ void CMiniMap::SetCameraPositionFromMousePosition()
 
 float CMiniMap::GetAngle() const
 {
-	CVector3D cameraIn = g_Game->GetView()->GetCamera()->GetOrientation().GetIn();
+	CVector3D cameraIn = g_Game->GetView()->GetCamera().GetOrientation().GetIn();
 	return -atan2(cameraIn.X, cameraIn.Z);
 }
 
@@ -288,12 +288,12 @@ void CMiniMap::DrawViewRect(CCanvas2D& canvas) const
 	// Use the water height as a fixed base height, which should be the lowest we can go
 	const float sampleHeight = g_Renderer.GetSceneRenderer().GetWaterManager().m_WaterHeight;
 
-	const CCamera* camera = g_Game->GetView()->GetCamera();
+	const CCamera& camera{g_Game->GetView()->GetCamera()};
 	const std::array<CVector3D, 4> hitPoints = {
-		camera->GetWorldCoordinates(0, g_Renderer.GetHeight(), sampleHeight),
-		camera->GetWorldCoordinates(g_Renderer.GetWidth(), g_Renderer.GetHeight(), sampleHeight),
-		camera->GetWorldCoordinates(g_Renderer.GetWidth(), 0, sampleHeight),
-		camera->GetWorldCoordinates(0, 0, sampleHeight)
+		camera.GetWorldCoordinates(0, g_Renderer.GetHeight(), sampleHeight),
+		camera.GetWorldCoordinates(g_Renderer.GetWidth(), g_Renderer.GetHeight(), sampleHeight),
+		camera.GetWorldCoordinates(g_Renderer.GetWidth(), 0, sampleHeight),
+		camera.GetWorldCoordinates(0, 0, sampleHeight)
 	};
 
 	std::vector<CVector3D> worldSpaceLines;

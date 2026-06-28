@@ -258,7 +258,7 @@ public:
 		return m_IsPlayingPathQueue;
 	}
 
-	void UpdateActivePath(const float deltaRealTime, CCamera* camera) override
+	void UpdateActivePath(const float deltaRealTime, CCamera& camera) override
 	{
 		if (m_IsPlayingPathQueue)
 		{

@@ -150,13 +150,13 @@ float CSoundGroup::RadiansOffCenter([[maybe_unused]] const CVector3D& position,
 #if !CONFIG2_AUDIO
 	return 0.f;
 #else
-	const int screenWidth = g_Game->GetView()->GetCamera()->GetViewPort().m_Width;
-	const int screenHeight = g_Game->GetView()->GetCamera()->GetViewPort().m_Height;
+	const int screenWidth = g_Game->GetView()->GetCamera().GetViewPort().m_Width;
+	const int screenHeight = g_Game->GetView()->GetCamera().GetViewPort().m_Height;
 	const float xBufferSize = screenWidth * 0.1f;
 	const float yBufferSize = 15.f;
 	const float radianCap = m_MaxStereoAngle;
 
-	const CVector2D screenPos{g_Game->GetView()->GetCamera()->GetScreenCoordinates(position)};
+	const CVector2D screenPos{g_Game->GetView()->GetCamera().GetScreenCoordinates(position)};
 
 	onScreen = true;
 	float answer = 0.f;
@@ -225,7 +225,7 @@ void CSoundGroup::UploadPropertiesAndPlay([[maybe_unused]] size_t index,
 
 	if (!TestFlag(eOmnipresent))
 	{
-		CVector3D origin = g_Game->GetView()->GetCamera()->GetOrientation().GetTranslation();
+		CVector3D origin = g_Game->GetView()->GetCamera().GetOrientation().GetTranslation();
 		float itemDist = (position - origin).Length();
 
 		if (TestFlag(eDistanceless))

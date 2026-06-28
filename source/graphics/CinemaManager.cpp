@@ -20,7 +20,6 @@
 #include "CinemaManager.h"
 
 #include "graphics/Color.h"
-#include "graphics/GameView.h"
 #include "graphics/Terrain.h"
 #include "maths/FixedVector3D.h"
 #include "maths/NUSpline.h"
@@ -40,7 +39,7 @@
 #include <utility>
 #include <vector>
 
-void CCinemaManager::Update(const float deltaRealTime)
+void CCinemaManager::Update(const float deltaRealTime, CCamera& camera)
 {
 	CmpPtr<ICmpCinemaManager> cmpCinemaManager(g_Game->GetSimulation2()->GetSimContext().GetSystemEntity());
 	if (!cmpCinemaManager)
@@ -53,7 +52,7 @@ void CCinemaManager::Update(const float deltaRealTime)
 			g_RenderingOptions.SetSmoothLOS(false);
 			m_SmoothLosOverridden = true;
 		}
-		cmpCinemaManager->UpdateActivePath(deltaRealTime, g_Game->GetView()->GetCamera());
+		cmpCinemaManager->UpdateActivePath(deltaRealTime, camera);
 		return;
 	}
 

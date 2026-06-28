@@ -229,7 +229,7 @@ void AtlasViewGame::Update(float realFrameLength)
 
 	// Cinematic motion should be independent of simulation update, so we can
 	// preview the cinematics by themselves
-	g_Game->GetView()->GetCinema()->Update(realFrameLength);
+	g_Game->GetView()->GetCinema()->Update(realFrameLength, g_Game->GetView()->GetCamera());
 }
 
 void AtlasViewGame::Render()
@@ -241,7 +241,7 @@ void AtlasViewGame::Render()
 	SViewPort vp = { 0, 0, g_xres, g_yres };
 	CCamera& camera = GetCamera();
 	camera.SetViewPort(vp);
-	camera.SetProjectionFromCamera(*g_Game->GetView()->GetCamera());
+	camera.SetProjectionFromCamera(g_Game->GetView()->GetCamera());
 	camera.UpdateFrustum();
 
 	g_Renderer.RenderFrame(false);
@@ -337,7 +337,7 @@ void AtlasViewGame::SetParam(const std::wstring& name, const std::wstring& value
 
 CCamera& AtlasViewGame::GetCamera()
 {
-	return *g_Game->GetView()->GetCamera();
+	return g_Game->GetView()->GetCamera();
 }
 
 bool AtlasViewGame::GetSmoothFramerate() const

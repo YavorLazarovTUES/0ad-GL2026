@@ -78,7 +78,7 @@ public:
 
 	#undef DECLARE_BOOLEAN_SETTING
 
-	CCamera* GetCamera();
+	CCamera& GetCamera();
 	CCinemaManager* GetCinema();
 	CObjectManager& GetObjectManager();
 

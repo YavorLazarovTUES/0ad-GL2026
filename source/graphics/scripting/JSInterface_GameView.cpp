@@ -196,7 +196,7 @@ entity_id_t GetFollowedEntity()
 
 CFixedVector3D GetTerrainAtScreenPoint(int x, int y)
 {
-	CVector3D pos = g_Game->GetView()->GetCamera()->GetWorldCoordinates(x, y, true);
+	CVector3D pos = g_Game->GetView()->GetCamera().GetWorldCoordinates(x, y, true);
 	return CFixedVector3D(fixed::FromFloat(pos.X), fixed::FromFloat(pos.Y), fixed::FromFloat(pos.Z));
 }
 

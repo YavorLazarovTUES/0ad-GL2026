@@ -162,7 +162,7 @@ void SetCurrentPaths(const std::vector<sCinemaPath>& atlasPaths)
 QUERYHANDLER(GetCameraInfo)
 {
 	sCameraInfo info;
-	const CMatrix3D& cameraOrientation = g_Game->GetView()->GetCamera()->GetOrientation();
+	const CMatrix3D& cameraOrientation = g_Game->GetView()->GetCamera().GetOrientation();
 
 	CQuaternion quatRot = cameraOrientation.GetRotation();
 	quatRot.Normalize();
@@ -214,14 +214,14 @@ BEGIN_COMMAND(AddCinemaPath)
 		pathData.m_Mode = L"ease_inout";
 		pathData.m_Style = L"default";
 
-		CVector3D focus = g_Game->GetView()->GetCamera()->GetFocus();
+		CVector3D focus = g_Game->GetView()->GetCamera().GetFocus();
 		CFixedVector3D target(
 			fixed::FromFloat(focus.X),
 			fixed::FromFloat(focus.Y),
 			fixed::FromFloat(focus.Z)
 		);
 
-		CVector3D camera = g_Game->GetView()->GetCamera()->GetOrientation().GetTranslation();
+		CVector3D camera = g_Game->GetView()->GetCamera().GetOrientation().GetTranslation();
 		CFixedVector3D position(
 			fixed::FromFloat(camera.X),
 			fixed::FromFloat(camera.Y),
@@ -310,8 +310,8 @@ static CVector3D GetNearestPointToScreenCoords(const CVector3D& base, const CVec
 		float delta = (upper - lower) / 3.0;
 		float middle1 = lower + delta, middle2 = lower + 2.0f * delta;
 		CVector3D p1 = base + dir * middle1, p2 = base + dir * middle2;
-		const CVector2D s1{g_Game->GetView()->GetCamera()->GetScreenCoordinates(p1)};
-		const CVector2D s2{g_Game->GetView()->GetCamera()->GetScreenCoordinates(p2)};
+		const CVector2D s1{g_Game->GetView()->GetCamera().GetScreenCoordinates(p1)};
+		const CVector2D s2{g_Game->GetView()->GetCamera().GetScreenCoordinates(p2)};
 		if ((s1 - screen).Length() < (s2 - screen).Length())
 			upper = middle2;
 		else
@@ -351,7 +351,7 @@ BEGIN_COMMAND(AddPathNode)
 		TNSpline targetSpline = path.GetTargetSpline();
 		TNSpline& spline = msg->node->targetNode ? targetSpline : positionSpline;
 
-		CVector3D focus = g_Game->GetView()->GetCamera()->GetFocus();
+		CVector3D focus = g_Game->GetView()->GetCamera().GetFocus();
 		CFixedVector3D target(
 			fixed::FromFloat(focus.X),
 			fixed::FromFloat(focus.Y),
@@ -479,7 +479,7 @@ static bool isPathNodePicked(const TNSpline& spline, const CVector2D& cursor, At
 			data.Position.Y.ToFloat(),
 			data.Position.Z.ToFloat()
 		);
-		const CVector2D screenPos{g_Game->GetView()->GetCamera()->GetScreenCoordinates(position)};
+		const CVector2D screenPos{g_Game->GetView()->GetCamera().GetScreenCoordinates(position)};
 		if ((screenPos - cursor).Length() < MINIMAL_SCREEN_DISTANCE)
 		{
 			node.index = i;
@@ -524,7 +524,7 @@ QUERYHANDLER(PickPathNode)
 static bool isAxisPicked(const CVector3D& base, const CVector3D& direction, float length, const CVector2D& cursor)
 {
 	CVector3D position = GetNearestPointToScreenCoords(base, direction, cursor, 0, length);
-	const CVector2D screenPos{g_Game->GetView()->GetCamera()->GetScreenCoordinates(position)};
+	const CVector2D screenPos{g_Game->GetView()->GetCamera().GetScreenCoordinates(position)};
 	return (cursor - screenPos).Length() < MINIMAL_SCREEN_DISTANCE;
 }
 
@@ -537,7 +537,7 @@ QUERYHANDLER(PickAxis)
 	const TNSpline& spline = msg->node->targetNode ? path.GetTargetSpline() : path;
 	CFixedVector3D pos = spline.GetAllNodes()[index].Position;
 	CVector3D position(pos.X.ToFloat(), pos.Y.ToFloat(), pos.Z.ToFloat());
-	CVector3D camera = g_Game->GetView()->GetCamera()->GetOrientation().GetTranslation();
+	CVector3D camera = g_Game->GetView()->GetCamera().GetOrientation().GetTranslation();
 	float scale = (position - camera).Length() / 10.0;
 
 	CVector2D cursor;

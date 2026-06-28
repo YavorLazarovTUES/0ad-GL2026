@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -36,7 +36,7 @@ CVector3D AtlasMessage::Position::GetWorldSpace(bool floating) const
 		break;
 
 	case 1:
-		return g_Game->GetView()->GetCamera()->GetWorldCoordinates(type1.x, type1.y, floating);
+		return g_Game->GetView()->GetCamera().GetWorldCoordinates(type1.x, type1.y, floating);
 		break;
 
 	case 2:
@@ -55,7 +55,7 @@ CVector3D AtlasMessage::Position::GetWorldSpace(float h, bool floating) const
 	switch (type)
 	{
 	case 1:
-		return g_Game->GetView()->GetCamera()->GetWorldCoordinates(type1.x, type1.y, h);
+		return g_Game->GetView()->GetCamera().GetWorldCoordinates(type1.x, type1.y, h);
 
 	default:
 		return GetWorldSpace(floating);
@@ -80,7 +80,7 @@ void AtlasMessage::Position::GetScreenSpace(float& x, float& y) const
 	{
 	case 0:
 	{
-		const CVector2D screenPos{g_Game->GetView()->GetCamera()->GetScreenCoordinates(
+		const CVector2D screenPos{g_Game->GetView()->GetCamera().GetScreenCoordinates(
 			CVector3D{type0.x, type0.y, type0.x})};
 		x = screenPos.X;
 		y = screenPos.Y;

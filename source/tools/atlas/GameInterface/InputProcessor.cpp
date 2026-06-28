@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -52,11 +52,11 @@ bool InputProcessor::ProcessInput(GameLoopState* state)
 	if (! g_Game)
 		return false;
 
-	CCamera* camera = g_Game->GetView()->GetCamera();
+	CCamera& camera{g_Game->GetView()->GetCamera()};
 
-	CVector3D leftwards = camera->m_Orientation.GetLeft();
+	CVector3D leftwards = camera.m_Orientation.GetLeft();
 
-	CVector3D inwards = camera->m_Orientation.GetIn();
+	CVector3D inwards = camera.m_Orientation.GetIn();
 
 	// Calculate a vector pointing forwards, parallel to the ground
 	CVector3D forwards = inwards;
@@ -72,44 +72,44 @@ bool InputProcessor::ProcessInput(GameLoopState* state)
 
 	if (state->input.scrollSpeed[0] != 0.0f)
 	{
-		camera->m_Orientation.Translate(forwards * (input.scrollSpeed[0] * state->realFrameLength));
+		camera.m_Orientation.Translate(forwards * (input.scrollSpeed[0] * state->realFrameLength));
 		moved = true;
 	}
 
 	if (state->input.scrollSpeed[1] != 0.0f)
 	{
-		camera->m_Orientation.Translate(forwards * (-input.scrollSpeed[1] * state->realFrameLength));
+		camera.m_Orientation.Translate(forwards * (-input.scrollSpeed[1] * state->realFrameLength));
 		moved = true;
 	}
 
 	if (state->input.scrollSpeed[2] != 0.0f)
 	{
-		camera->m_Orientation.Translate(leftwards * (input.scrollSpeed[2] * state->realFrameLength));
+		camera.m_Orientation.Translate(leftwards * (input.scrollSpeed[2] * state->realFrameLength));
 		moved = true;
 	}
 
 	if (state->input.scrollSpeed[3] != 0.0f)
 	{
-		camera->m_Orientation.Translate(leftwards * (-input.scrollSpeed[3] * state->realFrameLength));
+		camera.m_Orientation.Translate(leftwards * (-input.scrollSpeed[3] * state->realFrameLength));
 		moved = true;
 	}
 
 	if (state->input.scrollSpeed[4] != 0.0f)
 	{
-		Rotate(*camera, input.scrollSpeed[4] * state->realFrameLength * g_ViewRotateScale);
+		Rotate(camera, input.scrollSpeed[4] * state->realFrameLength * g_ViewRotateScale);
 		moved = true;
 	}
 
 	if (state->input.scrollSpeed[5] != 0.0f)
 	{
-		Rotate(*camera, -input.scrollSpeed[5] * state->realFrameLength * g_ViewRotateScale);
+		Rotate(camera, -input.scrollSpeed[5] * state->realFrameLength * g_ViewRotateScale);
 		moved = true;
 	}
 
 	if (state->input.zoomDelta != 0.0f)
 	{
 		float zoom_proportion = powf(g_ViewZoomSmoothness, state->realFrameLength);
-		camera->m_Orientation.Translate(inwards * (input.zoomDelta * (1.0f - zoom_proportion)));
+		camera.m_Orientation.Translate(inwards * (input.zoomDelta * (1.0f - zoom_proportion)));
 		input.zoomDelta *= zoom_proportion;
 
 		if (fabsf(input.zoomDelta) < 0.1f)
@@ -119,7 +119,7 @@ bool InputProcessor::ProcessInput(GameLoopState* state)
 	}
 
 	if (moved)
-		camera->UpdateFrustum();
+		camera.UpdateFrustum();
 
 	return moved;
 }

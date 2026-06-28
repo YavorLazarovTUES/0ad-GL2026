@@ -18,6 +18,7 @@
 #ifndef INCLUDED_CINEMAMANAGER
 #define INCLUDED_CINEMAMANAGER
 
+class CCamera;
 class RNSpline;
 
 namespace Renderer::Backend { class IDeviceCommandContext; }
@@ -40,8 +41,9 @@ public:
 	/**
 	 * Updates CCinemManager and current path
 	 * @param deltaRealTime Elapsed real time since the last frame.
+	 * @param camera To which camera apply the current path is playing.
 	 */
-	void Update(const float deltaRealTime);
+	void Update(const float deltaRealTime, CCamera& camera);
 
 	bool GetPathsDrawing() const;
 	void SetPathsDrawing(const bool drawPath);
