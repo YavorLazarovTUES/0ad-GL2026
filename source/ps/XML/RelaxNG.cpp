@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,7 +19,6 @@
 
 #include "RelaxNG.h"
 
-#include "lib/timer.h"
 #include "lib/types.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
@@ -36,8 +35,6 @@
 #include <mutex>
 #include <type_traits>
 #include <utility>
-
-TIMER_ADD_CLIENT(xml_validation);
 
 /*
  * libxml2 leaks memory when parsing schemas: https://bugzilla.gnome.org/show_bug.cgi?id=615767
@@ -145,8 +142,6 @@ bool RelaxNGValidator::Validate(const std::string& filename, const std::string& 
 
 bool RelaxNGValidator::ValidateEncoded(const std::string& filename, const std::string& document) const
 {
-	TIMER_ACCRUE(xml_validation);
-
 	if (!m_Schema)
 	{
 		LOGERROR("RelaxNGValidator: No grammar loaded");

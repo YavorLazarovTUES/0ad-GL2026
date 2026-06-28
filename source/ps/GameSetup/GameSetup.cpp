@@ -38,7 +38,6 @@
 #include "lib/path.h"
 #include "lib/status.h"
 #include "lib/sysdep/os.h"
-#include "lib/timer.h"
 #include "lobby/XmppClient.h"
 #include "network/NetClient.h"
 #include "network/NetHost.h"
@@ -389,7 +388,6 @@ void ShutdownConfigAndSubsequent()
 	}
 
 	PROFILE2("shutdown misc");
-	timer_DisplayClientTotals();
 
 	CNetHost::Deinitialize();
 

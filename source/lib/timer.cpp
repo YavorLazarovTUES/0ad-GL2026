@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -160,83 +160,4 @@ double timer_Time()
 double timer_Resolution()
 {
 	return resolution;
-}
-
-
-//-----------------------------------------------------------------------------
-// client API
-
-// intrusive linked-list of all clients. a fixed-size limit would be
-// acceptable (since timers are added manually), but the list is easy
-// to implement and only has the drawback of exposing TimerClient to users.
-//
-// do not use std::list et al. for this! we must be callable at any time,
-// especially before NLSO ctors run or before heap init.
-static size_t numClients;
-static TimerClient* clients;
-
-
-TimerClient* timer_AddClient(TimerClient* tc, const wchar_t* description)
-{
-	tc->sum.SetToZero();
-
-	tc->description = description;
-
-	// insert at front of list
-	tc->next = clients;
-	clients = tc;
-	numClients++;
-
-	return tc;
-}
-
-
-void timer_DisplayClientTotals()
-{
-	debug_printf("TIMER TOTALS (%lu clients)\n", (unsigned long)numClients);
-	debug_printf("-----------------------------------------------------\n");
-
-	for(TimerClient* tc = clients; tc; tc = tc->next)
-	{
-		const std::string duration = tc->sum.ToString();
-		debug_printf("  %s: %s (%lux)\n", utf8_from_wstring(tc->description).c_str(), duration.c_str(), (unsigned long)tc->num_calls);
-	}
-
-	debug_printf("-----------------------------------------------------\n");
-}
-
-
-//-----------------------------------------------------------------------------
-
-std::string StringForSeconds(double seconds)
-{
-	double scale = 1e6;
-	const char* unit = " us";
-	if(seconds > 1.0)
-		scale = 1, unit = " s";
-	else if(seconds > 1e-3)
-		scale = 1e3, unit = " ms";
-
-	std::stringstream ss;
-	ss << seconds*scale;
-	ss << unit;
-	return ss.str();
-}
-
-
-std::string StringForCycles(Cycles cycles)
-{
-	double scale = 1.0;
-	const char* unit = " c";
-	if(cycles > 10000000000LL)	// 10 Gc
-		scale = 1e-9, unit = " Gc";
-	else if(cycles > 10000000)	// 10 Mc
-		scale = 1e-6, unit = " Mc";
-	else if(cycles > 10000)	// 10 kc
-		scale = 1e-3, unit = " kc";
-
-	std::stringstream ss;
-	ss << cycles*scale;
-	ss << unit;
-	return ss.str();
 }

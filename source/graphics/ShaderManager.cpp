@@ -25,7 +25,6 @@
 #include "graphics/ShaderTechnique.h"
 #include "lib/debug.h"
 #include "lib/hash.h"
-#include "lib/timer.h"
 #include "lib/utf8.h"
 #include "ps/algorithm.h"
 #include "ps/CLogger.h"
@@ -49,18 +48,12 @@
 
 #define USE_SHADER_XML_VALIDATION 1
 
-TIMER_ADD_CLIENT(tc_ShaderValidation);
-
 CShaderManager::CShaderManager(Renderer::Backend::IDevice* device)
 	: m_Device(device)
 {
 #if USE_SHADER_XML_VALIDATION
-	{
-		TIMER_ACCRUE(tc_ShaderValidation);
-
-		if (!g_Xeromyces.AddValidator(g_VFS, "shader", "shaders/program.rng"))
-			LOGERROR("CShaderManager: failed to load grammar shaders/program.rng");
-	}
+	if (!g_Xeromyces.AddValidator(g_VFS, "shader", "shaders/program.rng"))
+		LOGERROR("CShaderManager: failed to load grammar shaders/program.rng");
 #endif
 
 	// Allow hotloading of textures

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -39,7 +39,6 @@
 #include "lib/status.h"
 #include "lib/sysdep/compiler.h"
 #include "lib/tex/tex.h"
-#include "lib/timer.h"
 #include "lib/types.h"
 
 #include <csetjmp>
@@ -280,13 +279,9 @@ static void user_warning_fn(png_structp, png_const_charp warning_msg)
 	debug_printf("libpng warning: %s\n", warning_msg);
 }
 
-TIMER_ADD_CLIENT(tc_png_decode);
-
 // limitation: palette images aren't supported
 Status TexCodecPng::decode(u8* RESTRICT data, size_t size, Tex* RESTRICT t) const
 {
-	TIMER_ACCRUE(tc_png_decode);
-
 	png_infop info_ptr = 0;
 
 	// allocate PNG structures; use default stderr and longjmp error handler, use custom

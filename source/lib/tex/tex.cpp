@@ -31,7 +31,6 @@
 #include "lib/debug.h"
 #include "lib/posix/posix_types.h"
 #include "lib/tex/tex_codec.h"
-#include "lib/timer.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -274,8 +273,6 @@ static Status add_mipmaps(Tex* t, size_t w, size_t h, size_t bpp, void* newData,
 // pixel format conversion (transformation)
 //-----------------------------------------------------------------------------
 
-TIMER_ADD_CLIENT(tc_plain_transform);
-
 // handles BGR and row flipping in "plain" format (see below).
 //
 // called by codecs after they get their format-specific transforms out of
@@ -285,7 +282,6 @@ TIMER_ADD_CLIENT(tc_plain_transform);
 // somewhat optimized (loops are hoisted, cache associativity accounted for)
 static Status plain_transform(Tex* t, size_t transforms)
 {
-	TIMER_ACCRUE(tc_plain_transform);
 	CHECK_TEX(t);
 
 	// extract texture info
@@ -455,14 +451,10 @@ static Status plain_transform(Tex* t, size_t transforms)
 	return INFO::OK;
 }
 
-
-TIMER_ADD_CLIENT(tc_transform);
-
 // change the pixel format by flipping the state of all TEX_* flags
 // that are set in transforms.
 Status Tex::transform(size_t transforms)
 {
-	TIMER_ACCRUE(tc_transform);
 	CHECK_TEX(this);
 
 	const size_t target_flags = m_Flags ^ transforms;

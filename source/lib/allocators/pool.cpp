@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -30,7 +30,6 @@
 
 #include "lib/alignment.h"
 #include "lib/allocators/freelist.h"
-#include "lib/timer.h"
 #include "lib/types.h"
 
 #include <algorithm>
@@ -82,9 +81,6 @@ void TestPool()
 
 }	// namespace Allocators
 
-
-TIMER_ADD_CLIENT(tc_pool_alloc);
-
 Status pool_create(Pool* p, size_t max_size, size_t el_size)
 {
 	if(el_size == POOL_VARIABLE_ALLOCS)
@@ -121,7 +117,6 @@ bool pool_contains(const Pool* p, void* el)
 
 void* pool_alloc(Pool* p, size_t size)
 {
-	TIMER_ACCRUE(tc_pool_alloc);
 	// if pool allows variable sizes, go with the size parameter,
 	// otherwise the pool el_size setting.
 	const size_t el_size = p->el_size? p->el_size : Align<allocationAlignment>(size);

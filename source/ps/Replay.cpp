@@ -331,7 +331,6 @@ void CReplayPlayer::Replay(const int serializationtestturn, const int rejointest
 	bool ok = g_Game->GetSimulation2()->ComputeStateHash(hash, false);
 	ENSURE(ok);
 	debug_printf("# Final state: %s\n", Hexify(hash).c_str());
-	timer_DisplayClientTotals();
 
 	SAFE_DELETE(g_Game);
 

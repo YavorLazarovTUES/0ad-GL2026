@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -40,7 +40,6 @@
 #include "lib/status.h"
 #include "lib/tex/tex.h"
 #include "lib/tex/tex_internal.h"
-#include "lib/timer.h"
 #include "lib/types.h"
 
 #include <algorithm>
@@ -638,13 +637,8 @@ Status TexCodecDds::encode(Tex* RESTRICT, DynArray* RESTRICT) const
 	return INFO::TEX_CODEC_CANNOT_HANDLE;
 }
 
-
-TIMER_ADD_CLIENT(tc_dds_transform);
-
 Status TexCodecDds::transform(Tex* t, size_t transforms) const
 {
-	TIMER_ACCRUE(tc_dds_transform);
-
 	size_t mipmaps = t->m_Flags & TEX_MIPMAPS;
 	size_t dxt = t->m_Flags & TEX_DXT;
 	ENSURE(is_valid_dxt(dxt));
