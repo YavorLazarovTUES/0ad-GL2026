@@ -887,7 +887,9 @@ void CRenderer::RenderBigScreenShot(const bool needsPresent)
 					oldCamera.GetFOV(), aspectRatio, oldCamera.GetNearPlane(), oldCamera.GetFarPlane(),
 					tiles, tileX, tileY);
 			}
-			g_Game->GetView()->GetCamera().SetProjection(projection);
+			CCamera camera{g_Game->GetView()->GetCamera()};
+			camera.SetProjection(projection);
+			g_Game->GetView()->SetCamera(camera);
 
 			Renderer::Backend::ISwapChain* swapChain{g_VideoMode.GetOrCreateSwapChain()};
 			if (!swapChain || !swapChain->IsValid())
@@ -919,7 +921,7 @@ void CRenderer::RenderBigScreenShot(const bool needsPresent)
 		g_Renderer.Resize(g_xres, g_yres);
 		SViewPort vp = { 0, 0, g_xres, g_yres };
 		g_Game->GetView()->SetViewport(vp);
-		g_Game->GetView()->GetCamera().SetProjectionFromCamera(oldCamera);
+		g_Game->GetView()->SetCamera(oldCamera);
 	}
 
 	if (tex_write(&t, filename) == INFO::OK)

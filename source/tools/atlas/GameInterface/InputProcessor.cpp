@@ -52,11 +52,10 @@ bool InputProcessor::ProcessInput(GameLoopState* state)
 	if (! g_Game)
 		return false;
 
-	CCamera& camera{g_Game->GetView()->GetCamera()};
+	CCamera camera{g_Game->GetView()->GetCamera()};
 
-	CVector3D leftwards = camera.m_Orientation.GetLeft();
-
-	CVector3D inwards = camera.m_Orientation.GetIn();
+	const CVector3D leftwards{camera.m_Orientation.GetLeft()};
+	const CVector3D inwards{camera.m_Orientation.GetIn()};
 
 	// Calculate a vector pointing forwards, parallel to the ground
 	CVector3D forwards = inwards;
@@ -119,7 +118,10 @@ bool InputProcessor::ProcessInput(GameLoopState* state)
 	}
 
 	if (moved)
+	{
 		camera.UpdateFrustum();
+		g_Game->GetView()->SetCamera(camera);
+	}
 
 	return moved;
 }

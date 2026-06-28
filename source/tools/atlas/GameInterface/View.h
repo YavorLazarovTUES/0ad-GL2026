@@ -46,7 +46,8 @@ public:
 	virtual void Render() { };
 	virtual void DrawCinemaPathTool(Renderer::Backend::IDeviceCommandContext&) { };
 	virtual void DrawOverlays(CCanvas2D& /*canvas*/) { };
-	virtual CCamera& GetCamera() = 0;
+	virtual const CCamera& GetCamera() const = 0;
+	virtual void SetCamera(const CCamera& camera) = 0;
 	virtual CSimulation2* GetSimulation2() { return NULL; }
 	virtual entity_id_t GetEntityId(AtlasMessage::ObjectID obj) { return (entity_id_t)obj; }
 	virtual bool GetSmoothFramerate() const { return false; }
@@ -74,9 +75,10 @@ public:
 class AtlasViewNone : public AtlasView
 {
 public:
-	virtual CCamera& GetCamera() { return dummyCamera; }
+	virtual const CCamera& GetCamera() const { return m_DummyCamera; }
+	virtual void SetCamera(const CCamera& camera) { m_DummyCamera = camera; }
 private:
-	CCamera dummyCamera;
+	CCamera m_DummyCamera;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -95,7 +97,8 @@ public:
 	virtual void Render();
 	virtual void DrawCinemaPathTool(Renderer::Backend::IDeviceCommandContext& deviceCommandContext);
 	virtual void DrawOverlays(CCanvas2D& canvas);
-	virtual CCamera& GetCamera();
+	virtual const CCamera& GetCamera() const;
+	virtual void SetCamera(const CCamera& camera);
 	virtual CSimulation2* GetSimulation2();
 	virtual bool GetSmoothFramerate() const;
 	virtual void SetSmoothFramerate(const bool enabled);
@@ -139,7 +142,8 @@ public:
 
 	virtual void Update(float realFrameLength);
 	virtual void Render();
-	virtual CCamera& GetCamera();
+	virtual const CCamera& GetCamera() const;
+	virtual void SetCamera(const CCamera& camera);
 	virtual CSimulation2* GetSimulation2();
 	virtual entity_id_t GetEntityId(AtlasMessage::ObjectID obj);
 	virtual bool GetSmoothFramerate() const;

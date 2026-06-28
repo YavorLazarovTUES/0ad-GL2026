@@ -191,9 +191,14 @@ CObjectManager& CGameView::GetObjectManager()
 	return m->ObjectManager;
 }
 
-CCamera& CGameView::GetCamera()
+const CCamera& CGameView::GetCamera() const
 {
 	return m->ViewCamera;
+}
+
+void CGameView::SetCamera(const CCamera& camera)
+{
+	m->ViewCamera = camera;
 }
 
 CCinemaManager* CGameView::GetCinema()

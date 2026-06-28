@@ -94,18 +94,24 @@ void AtlasViewActor::Update(float realFrameLength)
 void AtlasViewActor::Render()
 {
 	SViewPort vp = { 0, 0, g_xres, g_yres };
-	CCamera& camera = GetCamera();
+	CCamera camera{GetCamera()};
 	camera.SetViewPort(vp);
 	camera.SetPerspectiveProjection(2.f, 512.f, DEGTORAD(20.f));
 	camera.UpdateFrustum();
+	SetCamera(camera);
 
 	m_ActorViewer->Render();
 	Atlas_GLSwapBuffers((void*)g_AtlasGameLoop->glCanvas);
 }
 
-CCamera& AtlasViewActor::GetCamera()
+const CCamera& AtlasViewActor::GetCamera() const
 {
 	return m_Camera;
+}
+
+void AtlasViewActor::SetCamera(const CCamera& camera)
+{
+	m_Camera = camera;
 }
 
 CSimulation2* AtlasViewActor::GetSimulation2()
@@ -229,7 +235,9 @@ void AtlasViewGame::Update(float realFrameLength)
 
 	// Cinematic motion should be independent of simulation update, so we can
 	// preview the cinematics by themselves
-	g_Game->GetView()->GetCinema()->Update(realFrameLength, g_Game->GetView()->GetCamera());
+	CCamera camera{g_Game->GetView()->GetCamera()};
+	g_Game->GetView()->GetCinema()->Update(realFrameLength, camera);
+	g_Game->GetView()->SetCamera(camera);
 }
 
 void AtlasViewGame::Render()
@@ -239,10 +247,11 @@ void AtlasViewGame::Render()
 		return;
 
 	SViewPort vp = { 0, 0, g_xres, g_yres };
-	CCamera& camera = GetCamera();
+	CCamera camera{GetCamera()};
 	camera.SetViewPort(vp);
 	camera.SetProjectionFromCamera(g_Game->GetView()->GetCamera());
 	camera.UpdateFrustum();
+	SetCamera(camera);
 
 	g_Renderer.RenderFrame(false);
 	Atlas_GLSwapBuffers((void*)g_AtlasGameLoop->glCanvas);
@@ -335,9 +344,14 @@ void AtlasViewGame::SetParam(const std::wstring& name, const std::wstring& value
 	}
 }
 
-CCamera& AtlasViewGame::GetCamera()
+const CCamera& AtlasViewGame::GetCamera() const
 {
 	return g_Game->GetView()->GetCamera();
+}
+
+void AtlasViewGame::SetCamera(const CCamera& camera)
+{
+	g_Game->GetView()->SetCamera(camera);
 }
 
 bool AtlasViewGame::GetSmoothFramerate() const

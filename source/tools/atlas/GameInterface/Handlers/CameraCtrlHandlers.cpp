@@ -95,14 +95,14 @@ MESSAGEHANDLER(Scroll)
 	static CVector3D targetPos;
 	static float targetDistance = 0.f;
 
-	CMatrix3D& camera = g_Game->GetView()->GetCamera().m_Orientation;
+	CCamera camera{g_Game->GetView()->GetCamera()};
 
-	static CVector3D lastCameraPos = camera.GetTranslation();
+	static CVector3D lastCameraPos{camera.m_Orientation.GetTranslation()};
 
 	// Ensure roughly correct motion when dragging is combined with other
 	// movements.
-	if (lastCameraPos != camera.GetTranslation())
-		targetPos += camera.GetTranslation() - lastCameraPos;
+	if (lastCameraPos != camera.m_Orientation.GetTranslation())
+		targetPos += camera.m_Orientation.GetTranslation() - lastCameraPos;
 
 	// General operation:
 	//
@@ -118,7 +118,7 @@ MESSAGEHANDLER(Scroll)
 	if (msg->type == eScrollType::FROM)
 	{
 		targetPos = msg->pos->GetWorldSpace();
-		targetDistance = (targetPos - camera.GetTranslation()).Length();
+		targetDistance = (targetPos - camera.m_Orientation.GetTranslation()).Length();
 	}
 	else if (msg->type == eScrollType::TO)
 	{
@@ -126,14 +126,15 @@ MESSAGEHANDLER(Scroll)
 		msg->pos->GetScreenSpace(x, y);
 		auto [origin, dir] = g_Game->GetView()->GetCamera().BuildCameraRay((int)x, (int)y);
 		dir *= targetDistance;
-		camera.Translate(targetPos - dir - origin);
-		g_Game->GetView()->GetCamera().UpdateFrustum();
+		camera.m_Orientation.Translate(targetPos - dir - origin);
+		camera.UpdateFrustum();
+		g_Game->GetView()->SetCamera(camera);
 	}
 	else
 	{
 		debug_warn(L"Scroll: Invalid type");
 	}
-	lastCameraPos = camera.GetTranslation();
+	lastCameraPos = camera.m_Orientation.GetTranslation();
 }
 
 MESSAGEHANDLER(SmoothZoom)
@@ -152,7 +153,7 @@ MESSAGEHANDLER(RotateAround)
 	static CVector3D focusPos;
 	static float lastX = 0.f, lastY = 0.f;
 
-	CMatrix3D& camera = g_Game->GetView()->GetCamera().m_Orientation;
+	CCamera camera{g_Game->GetView()->GetCamera()};
 
 	if (msg->type == eRotateAroundType::FROM)
 	{
@@ -169,24 +170,25 @@ MESSAGEHANDLER(RotateAround)
 		float rotY = 6.f * (x-lastX) / g_Renderer.GetWidth();
 
 		CQuaternion q0, q1;
-		q0.FromAxisAngle(camera.GetLeft(), -rotX);
+		q0.FromAxisAngle(camera.m_Orientation.GetLeft(), -rotX);
 		q1.FromAxisAngle(CVector3D(0.f, 1.f, 0.f), rotY);
 		CQuaternion q = q0*q1;
 
-		CVector3D origin = camera.GetTranslation();
+		CVector3D origin = camera.m_Orientation.GetTranslation();
 		CVector3D offset = q.Rotate(origin - focusPos);
 
-		q *= camera.GetRotation();
+		q *= camera.m_Orientation.GetRotation();
 		q.Normalize(); // to avoid things blowing up when turning upside-down, for some reason I don't understand
-		q.ToMatrix(camera);
+		q.ToMatrix(camera.m_Orientation);
 
 		// Make sure up is still pointing up, regardless of any rounding errors.
 		// (Maybe this distorts the camera in other ways, but at least the errors
 		// are far less noticeable to me.)
-		camera._21 = 0.f; // (_21 = Y component returned by GetLeft())
+		camera.m_Orientation._21 = 0.f; // (_21 = Y component returned by GetLeft())
 
-		camera.Translate(focusPos + offset);
-		g_Game->GetView()->GetCamera().UpdateFrustum();
+		camera.m_Orientation.Translate(focusPos + offset);
+		camera.UpdateFrustum();
+		g_Game->GetView()->SetCamera(camera);
 
 		lastX = x;
 		lastY = y;
@@ -200,7 +202,7 @@ MESSAGEHANDLER(RotateAround)
 MESSAGEHANDLER(LookAt)
 {
 	// TODO: different camera depending on msg->view
-	CCamera& camera = AtlasView::GetView_Actor()->GetCamera();
+	CCamera camera{AtlasView::GetView_Actor()->GetCamera()};
 
 	CVector3D tgt = msg->target->GetWorldSpace();
 	CVector3D eye = msg->pos->GetWorldSpace();
@@ -225,6 +227,8 @@ MESSAGEHANDLER(LookAt)
 	camera.m_Orientation.Translate(-eye);
 
 	camera.UpdateFrustum();
+
+	AtlasView::GetView_Actor()->SetCamera(camera);
 }
 
 QUERYHANDLER(GetView)
@@ -272,9 +276,9 @@ MESSAGEHANDLER(ToggleBirdsEyeView)
 
 	static float declination{0.f};
 
-	CCamera& camera = AtlasView::GetView_Game()->GetCamera();
-	CMatrix3D& orientation = camera.GetOrientation();
-	CVector3D focus = camera.GetFocus();
+	CCamera camera{AtlasView::GetView_Game()->GetCamera()};
+	CMatrix3D& orientation{camera.GetOrientation()};
+	const CVector3D focus{camera.GetFocus()};
 
 	if (!g_BirdEyeView)
 	{
@@ -298,6 +302,7 @@ MESSAGEHANDLER(ToggleBirdsEyeView)
 	orientation.Translate(focus + offset);
 
 	camera.UpdateFrustum();
+	g_Game->GetView()->SetCamera(camera);
 
 	g_BirdEyeView = !g_BirdEyeView;
 }

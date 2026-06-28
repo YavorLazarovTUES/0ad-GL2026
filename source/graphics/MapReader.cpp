@@ -867,10 +867,12 @@ void CXMLReader::ReadCamera(XMBElement parent)
 
 	if (m_MapReader.pGameView)
 	{
-		m_MapReader.pGameView->GetCamera().m_Orientation.SetXRotation(declination);
-		m_MapReader.pGameView->GetCamera().m_Orientation.RotateY(rotation);
-		m_MapReader.pGameView->GetCamera().m_Orientation.Translate(translation);
-		m_MapReader.pGameView->GetCamera().UpdateFrustum();
+		CCamera camera{m_MapReader.pGameView->GetCamera()};
+		camera.m_Orientation.SetXRotation(declination);
+		camera.m_Orientation.RotateY(rotation);
+		camera.m_Orientation.Translate(translation);
+		camera.UpdateFrustum();
+		m_MapReader.pGameView->SetCamera(camera);
 	}
 }
 
@@ -1631,10 +1633,12 @@ int CMapReader::ParseCamera()
 
 	if (pGameView)
 	{
-		pGameView->GetCamera().m_Orientation.SetXRotation(declination);
-		pGameView->GetCamera().m_Orientation.RotateY(rotation);
-		pGameView->GetCamera().m_Orientation.Translate(translation);
-		pGameView->GetCamera().UpdateFrustum();
+		CCamera camera{pGameView->GetCamera()};
+		camera.m_Orientation.SetXRotation(declination);
+		camera.m_Orientation.RotateY(rotation);
+		camera.m_Orientation.Translate(translation);
+		camera.UpdateFrustum();
+		pGameView->SetCamera(camera);
 	}
 
 	return 0;
