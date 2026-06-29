@@ -371,12 +371,13 @@ enum
 	ID_Paste,
 
 	ID_Wireframe,
+	ID_SmoothFramerate,
+	ID_CameraReset,
+
 	ID_MessageTrace,
 	ID_Screenshot,
 	ID_BigScreenshot,
 	ID_JavaScript,
-	ID_CameraReset,
-	ID_SmoothFramerate,
 	ID_DumpState,
 	ID_DumpBinaryState,
 
@@ -404,12 +405,13 @@ BEGIN_EVENT_TABLE(ScenarioEditor, wxFrame)
 	EVT_MENU(ID_Paste, ScenarioEditor::OnPaste)
 
 	EVT_MENU(ID_Wireframe, ScenarioEditor::OnWireframe)
+	EVT_MENU(ID_SmoothFramerate, ScenarioEditor::OnSmoothFramerate)
+	EVT_MENU(ID_CameraReset, ScenarioEditor::OnCameraReset)
+
 	EVT_MENU(ID_MessageTrace, ScenarioEditor::OnMessageTrace)
 	EVT_MENU(ID_Screenshot, ScenarioEditor::OnScreenshot)
 	EVT_MENU(ID_BigScreenshot, ScenarioEditor::OnScreenshot)
 	EVT_MENU(ID_JavaScript, ScenarioEditor::OnJavaScript)
-	EVT_MENU(ID_CameraReset, ScenarioEditor::OnCameraReset)
-	EVT_MENU(ID_SmoothFramerate, ScenarioEditor::OnSmoothFramerate)
 	EVT_MENU(ID_DumpState, ScenarioEditor::OnDumpState)
 	EVT_MENU(ID_DumpBinaryState, ScenarioEditor::OnDumpState)
 
@@ -516,16 +518,21 @@ ScenarioEditor::ScenarioEditor(wxWindow* parent)
 	GetCommandProc().Initialize();
 
 
+	wxMenu *menuView = new wxMenu{};
+	menuBar->Append(menuView, _("&View"));
+	{
+		menuView->AppendCheckItem(ID_Wireframe, _("&Wireframe"));
+		menuView->AppendCheckItem(ID_SmoothFramerate, _("Smooth framerate"));
+		menuView->Append(ID_CameraReset, _("&Reset camera"));
+	}
+
 	wxMenu *menuMisc = new wxMenu;
 	menuBar->Append(menuMisc, _("&Misc hacks"));
 	{
-		menuMisc->AppendCheckItem(ID_Wireframe, _("&Wireframe"));
 		menuMisc->AppendCheckItem(ID_MessageTrace, _("Message debug trace"));
 		menuMisc->Append(ID_Screenshot, _("&Screenshot"));
 		menuMisc->Append(ID_BigScreenshot, _("Big screenshot"));
 		menuMisc->Append(ID_JavaScript, _("&JS console"));
-		menuMisc->Append(ID_CameraReset, _("&Reset camera"));
-		menuMisc->AppendCheckItem(ID_SmoothFramerate, _("Smooth framerate"));
 
 		wxMenu *menuSS = new wxMenu;
 		menuMisc->AppendSubMenu(menuSS, _("Si&mulation state"));
