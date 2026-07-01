@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -168,9 +168,9 @@ public:
 	 */
 	void SetRoundCoordinates(const bool RoundCoordinates);
 private:
-	CStr m_SpriteName;
+	CStr m_SpriteName{};
 
-	bool m_RoundCoordinates;
+	bool m_RoundCoordinates{true};
 
 	// Stored drawing calls, for more efficient rendering
 	mutable GUIRenderer::DrawCalls m_DrawCallCache;
