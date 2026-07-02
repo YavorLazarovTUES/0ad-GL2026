@@ -22,4 +22,18 @@
   <VisualActor>
     <Actor>structures/spartans/sentry_tower.xml</Actor>
   </VisualActor>
+  <Upgrade>
+    <Tower>
+      <Requirements replace="">
+        <All>
+          <Techs datatype="tokens">phase_town</Techs>
+          <Entities>
+            <Outpost>
+              <Count>1</Count>
+            </Outpost>
+          </Entities>
+        </All>
+      </Requirements>
+    </Tower>
+  </Upgrade>
 </Entity>
