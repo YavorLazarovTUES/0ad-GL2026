@@ -25,6 +25,7 @@
       structures/{civ}/ministry
       structures/{civ}/outpost
       structures/{civ}/sentry_tower
+      structures/{civ}/sentry_tower_custom
       structures/{civ}/defense_tower
       structures/{civ}/arsenal
       structures/{civ}/academy

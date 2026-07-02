@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="template_structure_defensive_tower_sentry">
+  <Attack>
+    <Ranged>
+      <RestrictedClasses datatype="tokens">!Soldier</RestrictedClasses>
+    </Ranged>
+  </Attack>
+  <BuildingAI>
+	<DefaultArrowCount>4</DefaultArrowCount>
+    <GarrisonArrowMultiplier>0</GarrisonArrowMultiplier>
+  </BuildingAI>
+  <GarrisonHolder>
+    <List datatype="tokens"></List>
+  </GarrisonHolder>
+  <Identity>
+    <Civ>spart</Civ>
+    <GenericName>Custom Sentry Tower</GenericName>
+    <SpecificName>Pyrgidion</SpecificName>
+    <SelectionGroupName>template_structure_defensive_tower_sentry_custom</SelectionGroupName>
+    <Tooltip>Automated tower. Fires at enemy soldiers on its own.</Tooltip>
+  </Identity>
+  <VisualActor>
+    <Actor>structures/spartans/sentry_tower.xml</Actor>
+  </VisualActor>
+</Entity>

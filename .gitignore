@@ -19,6 +19,19 @@ binaries/system/pyrogenesis_dbg
 binaries/system/test
 binaries/system/test_dbg
 
+# Build files (MSVC generated binaries in binaries/system)
+# Note: some third-party .lib/.pdb/.dll files are intentionally checked in,
+# but this only affects untracked files so those stay tracked.
+binaries/system/*.exe
+binaries/system/*.dll
+binaries/system/*.lib
+binaries/system/*.exp
+binaries/system/*.ilk
+binaries/system/*.pdb
+
+# Visual Studio local workspace state
+.vs/
+
 build/workspaces/codeblocks/
 build/workspaces/gcc/
 build/workspaces/xcode3/
