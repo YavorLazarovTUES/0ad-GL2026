@@ -19,6 +19,8 @@ class CounterManager
 
 		this.addCounter("population", CounterPopulation);
 
+		this.addCounter("time", CounterTime);
+
 		this.init();
 
 		registerSimulationUpdateHandler(this.rebuild.bind(this));
