@@ -122,6 +122,22 @@ ChatMessageFormatSimulation.phase = class
 	}
 };
 
+ChatMessageFormatSimulation.upgrade = class
+{
+	parse(msg)
+	{
+		if (msg.player != g_ViewedPlayer && !g_IsObserver && !g_Players[msg.player].isMutualAlly[g_ViewedPlayer])
+			return "";
+
+		return {
+			"text": sprintf(translate("%(player)s has upgraded to a %(entityName)s."), {
+				"player": colorizePlayernameByID(msg.player),
+				"entityName": getEntityNames(GetTemplateData(msg.upgradeName, msg.player))
+			})
+		};
+	}
+};
+
 ChatMessageFormatSimulation.playerstate = class
 {
 	parse(msg)

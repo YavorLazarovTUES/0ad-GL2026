@@ -24,6 +24,7 @@
   </VisualActor>
   <Upgrade>
     <Tower>
+      <Entity>structures/spart/defense-tower_custom</Entity>
       <Requirements replace="">
         <All>
           <Techs datatype="tokens">phase_town</Techs>

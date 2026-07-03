@@ -231,6 +231,14 @@ var g_NotificationsTypes =
 			"phaseState": notification.phaseState
 		});
 	},
+	"upgrade": function(notification, player)
+	{
+		addChatMessage({
+			"type": "upgrade",
+			"player": player,
+			"upgradeName": notification.upgradeName
+		});
+	},
 	"dialog": function(notification, player)
 	{
 		if (player == Engine.GetPlayerID())

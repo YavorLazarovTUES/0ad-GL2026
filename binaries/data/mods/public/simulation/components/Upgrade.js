@@ -358,7 +358,17 @@ Upgrade.prototype.UpgradeProgress = function(data, lateness)
 	let newEntity = ChangeEntityTemplate(this.entity, this.upgrading);
 
 	if (newEntity)
+	{
 		PlaySound("upgraded", newEntity);
+
+		let cmpPlayer = QueryOwnerInterface(newEntity, IID_Player);
+		if (cmpPlayer)
+			Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface).PushNotification({
+				"type": "upgrade",
+				"players": [cmpPlayer.GetPlayerID()],
+				"upgradeName": this.upgrading
+			});
+	}
 };
 
 Engine.RegisterComponentType(IID_Upgrade, "Upgrade", Upgrade);
