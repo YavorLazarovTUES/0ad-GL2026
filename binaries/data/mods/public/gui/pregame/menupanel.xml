@@ -3,6 +3,15 @@
 
 	<object name="pgToolTip" style="TranslucentPanel" type="text" hidden="true" size="100%-313 25 100% 200" ghost="true"/>
 
+	<object name="minimizeGameButton"
+		type="button"
+		style="MinimizeGameButton"
+		size="100%-50 10 100%-10 50"
+		z="100">
+		<translatableAttribute id="caption">−</translatableAttribute>
+		<action on="Press">Engine.MinimizeWindow();</action>
+	</object>
+
 	<object name="mainMenu" type="image" style="MainMenuPanel" size="60 -2 300 100%+2" z="50">
 		<!-- Set z value explicitly to be able to click buttons for low
 			resolutions, when they might be covered by project information.

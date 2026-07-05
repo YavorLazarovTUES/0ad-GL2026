@@ -10,6 +10,16 @@
 		sprite="SubmenuPanel"
 	/>
 
+	<style name="MinimizeGameButton"
+		sprite_over="MinimizeGameButtonHover"
+		sprite_pressed="MinimizeGameButtonPressed"
+		font="sans-bold-stroke-14"
+		textcolor="white"
+		text_align="center"
+		text_valign="center"
+		sound_pressed="audio/interface/ui/ui_button_click.ogg"
+	/>
+
 	<style name="userReportPanel"
 		sprite="pgUserReportBox"
 	/>

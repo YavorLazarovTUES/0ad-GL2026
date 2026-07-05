@@ -2,6 +2,14 @@
 
 <sprites>
 
+	<sprite name="MinimizeGameButtonHover">
+		<image backcolor="0 0 0 120" size="0 0 100% 100%"/>
+	</sprite>
+
+	<sprite name="MinimizeGameButtonPressed">
+		<image backcolor="0 0 0 180" size="0 0 100% 100%"/>
+	</sprite>
+
 	<sprite name="MainMenuPanel">
 		<image texture="global/tile/stone_background.png"
 			real_texture_placement="28 0 292 264"

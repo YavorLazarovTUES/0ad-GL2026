@@ -22,6 +22,7 @@
 #include "gui/CGUI.h"
 #include "gui/GUIManager.h"
 #include "gui/ObjectBases/IGUIObject.h"
+#include "lib/external_libraries/libsdl.h"
 #include "ps/GameSetup/Config.h"
 #include "ps/VideoMode.h"
 #include "scriptinterface/FunctionWrapper.h"
@@ -64,6 +65,12 @@ void ResetCursor()
 	g_VideoMode.ResetCursor();
 }
 
+void MinimizeWindow()
+{
+	if (SDL_Window* window = g_VideoMode.GetWindow())
+		SDL_MinimizeWindow(window);
+}
+
 bool TemplateExists(const std::string& templateName)
 {
 	return g_GUI->TemplateExists(templateName);
@@ -82,6 +89,7 @@ void RegisterScriptFunctions(const ScriptRequest& rq)
 	ScriptFunction::Register<&PopGuiPage>(rq, "PopGuiPage");
 	ScriptFunction::Register<&SetCursor>(rq, "SetCursor");
 	ScriptFunction::Register<&ResetCursor>(rq, "ResetCursor");
+	ScriptFunction::Register<&MinimizeWindow>(rq, "MinimizeWindow");
 	ScriptFunction::Register<&TemplateExists>(rq, "TemplateExists");
 	ScriptFunction::Register<&GetTemplate>(rq, "GetTemplate");
 
