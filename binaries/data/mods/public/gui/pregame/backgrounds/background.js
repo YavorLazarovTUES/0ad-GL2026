@@ -59,7 +59,8 @@ export const backgrounds = {
 		{
 			"offset": (time, width) => -0.1,
 			"sprite": "background-kush1-4",
-			"tiling": true
+			"tiling": false,
+			"halign": "right"
 		}
 	],
 

@@ -29,6 +29,20 @@ class BackgroundLayer
 				"bottom": backgroundsSize.bottom
 			};
 		}
+		else if (this.layer.halign)
+		{
+			const left = ({
+				"left": 0.0,
+				"center": (backgroundsSize.right - width) / 2,
+				"right": backgroundsSize.right - width,
+			}[this.layer.halign] || 0.0) + offset;
+			this.background.size = {
+				"left": left,
+				"top": backgroundsSize.top,
+				"right": left + width,
+				"bottom": backgroundsSize.bottom
+			};
+		}
 		else
 		{
 			const right = backgroundsSize.right / 2 + offset;
