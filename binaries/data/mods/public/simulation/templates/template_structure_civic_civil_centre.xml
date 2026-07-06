@@ -149,4 +149,7 @@
   <VisualActor>
     <FoundationActor>structures/fndn_8x8.xml</FoundationActor>
   </VisualActor>
+  <CameraShake>
+    <Duration>1.5</Duration>
+  </CameraShake>
 </Entity>

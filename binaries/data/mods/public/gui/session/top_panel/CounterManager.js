@@ -48,6 +48,17 @@ class CounterManager
 		horizontallySpaceObjects("resourceCounts", this.counters.length);
 		hideRemaining("resourceCounts", this.counters.length);
 
+		// Population has a wider caption than ordinary resources. Give the
+		// following time counter enough breathing room to avoid overlap.
+		let timeCounter = this.counters.find(counter => counter.resCode == "time");
+		if (timeCounter)
+		{
+			let size = timeCounter.panel.size;
+			size.left += 24;
+			size.right += 24;
+			timeCounter.panel.size = size;
+		}
+
 		for (let counter of this.counters)
 		{
 			counter.icon.sprite = "stretched:session/icons/resources/" + counter.resCode + ".png";

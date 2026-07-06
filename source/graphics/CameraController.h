@@ -23,7 +23,9 @@
 
 class CCameraController : public ICameraController
 {
-	NONCOPYABLE(CCameraController);
+private:
+	CCameraController(const CCameraController&) = delete;
+	CCameraController& operator=(const CCameraController&) = delete;
 public:
 	CCameraController(CCamera& camera);
 	~CCameraController() override;
@@ -55,6 +57,8 @@ public:
 	{
 		m_ConstrainCamera = constrain;
 	}
+
+	void StartCameraShake(float duration) override;
 
 private:
 	CVector3D GetSmoothPivot(CCamera &camera) const;
@@ -110,6 +114,9 @@ private:
 	float m_ViewFar;
 	float m_HeightSmoothness;
 	float m_HeightMin;
+	float m_ShakeDuration = 0.0f;
+	float m_ShakeRemaining = 0.0f;
+	float m_ShakeElapsed = 0.0f;
 
 	// Camera Controls State
 	CSmoothedValue m_PosX;

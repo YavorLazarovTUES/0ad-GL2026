@@ -53,6 +53,7 @@ public:
 	virtual entity_id_t GetFollowedEntity() = 0;
 
 	virtual void Update(const float deltaRealTime) = 0;
+	virtual void StartCameraShake(float duration) = 0;
 	virtual void SetViewport(const SViewPort& vp) = 0;
 
 	virtual bool GetConstrainCamera() const = 0;

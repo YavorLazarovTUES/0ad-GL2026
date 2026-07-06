@@ -8,7 +8,20 @@ class CounterTime
 		this.count = count;
 		this.stats = stats;
 
-		
+		// The clock has its own compact layout instead of using the larger
+		// resource-icon dimensions, which collide with the elapsed-time text.
+		let iconSize = this.icon.size;
+		iconSize.left = 4;
+		iconSize.top = 3;
+		iconSize.right = 32;
+		iconSize.bottom = 31;
+		this.icon.size = iconSize;
+
+		let countSize = this.count.size;
+		countSize.left = 36;
+		countSize.right = 105;
+		this.count.size = countSize;
+
 		this.stats.caption = "";
 	}
 

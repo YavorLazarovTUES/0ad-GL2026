@@ -71,6 +71,14 @@ void RegisterScriptFunctions_Settings(const ScriptRequest& rq)
 	REGISTER_BOOLEAN_SCRIPT_SETTING(ConstrainCamera);
 }
 
+void StartCameraShake(float duration)
+{
+	if (!g_Game || !g_Game->GetView())
+		return;
+
+	g_Game->GetView()->StartCameraShake(duration);
+}
+
 #undef REGISTER_BOOLEAN_SCRIPT_SETTING
 
 JS::Value GetCameraRotation(const ScriptRequest& rq)
@@ -207,5 +215,6 @@ void RegisterScriptFunctions(const ScriptRequest& rq)
 	ScriptFunction::Register<&CameraFollowFPS>(rq, "CameraFollowFPS");
 	ScriptFunction::Register<&GetFollowedEntity>(rq, "GetFollowedEntity");
 	ScriptFunction::Register<&GetTerrainAtScreenPoint>(rq, "GetTerrainAtScreenPoint");
+	ScriptFunction::Register<&StartCameraShake>(rq, "StartCameraShake");
 }
 }

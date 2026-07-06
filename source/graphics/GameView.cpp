@@ -171,6 +171,11 @@ CGameView::~CGameView()
 	delete m;
 }
 
+void CGameView::StartCameraShake(float duration)
+{
+	m->CameraController->StartCameraShake(duration);
+}
+
 void CGameView::SetViewport(const SViewPort& vp)
 {
 	m->CameraController->SetViewport(vp);

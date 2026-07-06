@@ -101,6 +101,13 @@ CCameraController::CCameraController(CCamera& camera)
 
 CCameraController::~CCameraController() = default;
 
+void CCameraController::StartCameraShake(float duration)
+{
+	m_ShakeDuration = std::max(0.0f, duration);
+	m_ShakeRemaining = m_ShakeDuration;
+	m_ShakeElapsed = 0.0f;
+}
+
 void CCameraController::LoadConfig()
 {
 	CFG_GET_VAL("view.scroll.speed", m_ViewScrollSpeed);
@@ -402,6 +409,25 @@ void CCameraController::Update(const float deltaRealTime)
 	// Update the camera matrix
 	SetCameraProjection();
 	SetupCameraMatrixSmooth(&m_Camera.m_Orientation);
+
+	if (m_ShakeRemaining > 0.0f)
+	{
+		m_ShakeElapsed += deltaRealTime;
+		m_ShakeRemaining = std::max(0.0f, m_ShakeRemaining - deltaRealTime);
+
+		const float strength = m_ShakeDuration > 0.0f ?
+			m_ShakeRemaining / m_ShakeDuration : 0.0f;
+		// The RTS camera is usually far above the terrain, so sub-unit offsets
+		// are effectively invisible. Start with a pronounced displacement and
+		// decay it smoothly to zero over the configured duration.
+		const float amplitude = 4.0f * strength;
+
+		m_Camera.m_Orientation.Translate(
+			std::sin(m_ShakeElapsed * 53.0f) * amplitude,
+			std::sin(m_ShakeElapsed * 71.0f) * amplitude * 0.5f,
+			std::cos(m_ShakeElapsed * 47.0f) * amplitude);
+	}
+
 	m_Camera.UpdateFrustum();
 }
 

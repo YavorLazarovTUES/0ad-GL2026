@@ -316,7 +316,12 @@ var g_NotificationsTypes =
 			displayFlare(notification.position, player);
 			Engine.PlayUISound(g_FlareSound, false);
 		}
-	}
+	},
+
+	"camera-shake": function(notification, player)
+	{
+		Engine.StartCameraShake(notification.duration);
+	},
 };
 
 function registerPlayerAssignmentsChangeHandler(handler)

@@ -35,10 +35,13 @@ class CGameViewImpl;
 
 class CGameView : private Scene
 {
-	NONCOPYABLE(CGameView);
+	CGameView(const CGameView&) = delete;
+	CGameView& operator=(const CGameView&) = delete;
 public:
 	CGameView(Renderer::Backend::IDevice* device, CGame *pGame);
 	~CGameView() override;
+
+	void StartCameraShake(float duration);
 
 	void SetViewport(const SViewPort& vp);
 
