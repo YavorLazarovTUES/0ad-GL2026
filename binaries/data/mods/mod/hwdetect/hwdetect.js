@@ -166,6 +166,7 @@ function RunDetection(settings)
 	// This function should have no side effects, it should just
 	// set these output properties:
 
+	let hardwareSupported = true;
 
 	// List of warning strings to display to the user
 	// in an ugly GUI dialog box
@@ -184,7 +185,6 @@ function RunDetection(settings)
 	var disable_fancywater;
 	var enable_postproc;
 	var enable_smoothlos;
-	var override_renderpath;
 
 	// TODO: add some mechanism for setting config values
 	// (overriding default.cfg, but overridden by local.cfg)
@@ -289,23 +289,21 @@ function RunDetection(settings)
 	// r300 classic has problems with shader mode, so fall back to non-shader
 	if (os_unix && GL_RENDERER.match(/^Mesa DRI R[123]00 /))
 	{
-		override_renderpath = "fixed";
-		warnings.push("Some graphics features are disabled, due to bugs in old graphics drivers. Upgrading to a Gallium-based driver might help.");
+		hardwareSupported = false;
 	}
 
 	// https://www.wildfiregames.com/forum/index.php?showtopic=15058
 	// GF FX has poor shader performance, so fall back to non-shader
 	if (GL_RENDERER.match(/^GeForce FX /))
 	{
-		override_renderpath = "fixed";
-		disable_allwater = true;
+		hardwareSupported = false;
 	}
 
 	// https://gitea.wildfiregames.com/0ad/0ad/issues/964
 	// SiS Mirage 3 drivers apparently crash with shaders, so fall back to non-shader
 	if (os_win && GL_RENDERER.match(/^Mirage Graphics3$/))
 	{
-		override_renderpath = "fixed";
+		hardwareSupported = false;
 	}
 
 	return {
@@ -319,7 +317,7 @@ function RunDetection(settings)
 		"disable_fancywater": disable_fancywater,
 		"enable_postproc": enable_postproc,
 		"enable_smoothlos": enable_smoothlos,
-		"override_renderpath": override_renderpath,
+		"hardwareSupported": hardwareSupported,
 	};
 }
 
@@ -327,7 +325,7 @@ global.RunHardwareDetection = function(settings)
 {
 	// Currently we don't have limitations for other backends than GL.
 	if (settings.renderer_backend.name != 'gl')
-		return;
+		return true;
 
 	// print(JSON.stringify(settings, null, 1)+"\n");
 
@@ -376,6 +374,5 @@ global.RunHardwareDetection = function(settings)
 	if (output.enable_smoothlos !== undefined)
 		Engine.ConfigDB_CreateValue("hwdetect", "smoothlos", (output.enable_smoothlos).toString());
 
-	if (output.override_renderpath !== undefined)
-		Engine.ConfigDB_CreateValue("hwdetect", "renderpath", (output.override_renderpath).toString());
+	return output.hardwareSupported;
 };

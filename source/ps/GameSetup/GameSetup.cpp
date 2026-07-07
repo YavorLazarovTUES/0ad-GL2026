@@ -617,19 +617,6 @@ bool Init(const CmdLineArgs& args, int flags)
 
 	g_GUI = new CGUIManager{scriptContext, scriptInterface};
 
-
-	if (RenderPathEnum::FromString(g_ConfigDB.Get("renderpath", "default"s)) == FIXED)
-	{
-		// It doesn't make sense to continue working here, because we're not
-		// able to display anything.
-		DEBUG_DISPLAY_FATAL_ERROR(
-			L"Your graphics card doesn't appear to be fully compatible with OpenGL shaders."
-			L" The game does not support pre-shader graphics cards."
-			L" You are advised to try installing newer drivers and/or upgrade your graphics card."
-			L" For more information, please see http://www.wildfiregames.com/forum/index.php?showtopic=16734"
-		);
-	}
-
 	g_RenderingOptions.ReadConfigAndSetupHooks();
 
 	// create renderer

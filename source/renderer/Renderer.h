@@ -169,11 +169,6 @@ protected:
 	void RenderScreenShot(const bool needsPresent);
 	void RenderBigScreenShot(const bool needsPresent);
 
-	// SetRenderPath: Select the preferred render path.
-	// This may only be called before Open(), because the layout of vertex arrays and other
-	// data may depend on the chosen render path.
-	void SetRenderPath(RenderPath rp);
-
 	void ReloadShaders();
 
 	// Private data that is not needed by inline functions.

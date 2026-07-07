@@ -478,5 +478,18 @@ void RunHardwareDetection(bool writeSystemInfoBeforeDetection, Renderer::Backend
 
 	// Run the detection script:
 	JS::RootedValue global(rq.cx, rq.globalValue());
-	Script::Function::CallVoid(rq, global, "RunHardwareDetection", settings);
+	bool hardwareSupported{true};
+	Script::Function::Call(rq, global, "RunHardwareDetection", hardwareSupported, settings);
+
+	if (!hardwareSupported)
+	{
+		// It doesn't make sense to continue working here, because we're not
+		// able to display anything.
+		DEBUG_DISPLAY_FATAL_ERROR(
+			L"Your graphics card doesn't appear to be fully compatible with OpenGL shaders."
+			L" The game does not support pre-shader graphics cards."
+			L" You are advised to try installing newer drivers and/or upgrade your graphics card."
+			L" For more information, please see http://www.wildfiregames.com/forum/index.php?showtopic=16734"
+		);
+	}
 }

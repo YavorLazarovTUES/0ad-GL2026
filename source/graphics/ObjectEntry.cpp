@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -96,7 +96,7 @@ bool CObjectEntry::BuildVariation(const std::vector<const std::set<CStr>*>& comp
 					? Renderer::Backend::Sampler::AddressMode::CLAMP_TO_BORDER
 					: Renderer::Backend::Sampler::AddressMode::CLAMP_TO_EDGE);
 			CTexturePtr texture = g_Renderer.GetTextureManager().CreateTexture(textureProps);
-			// TODO: Should check which renderpath is selected and only preload the necessary textures.
+			// TODO: Should check which material is selected and only preload the necessary textures.
 			texture->Prefetch();
 			material.AddSampler(CMaterial::TextureSampler(samp.m_SamplerName, texture));
 		}
@@ -151,7 +151,7 @@ bool CObjectEntry::BuildVariation(const std::vector<const std::set<CStr>*>& comp
 		CTexturePtr texture = g_Renderer.GetTextureManager().CreateTexture(textureProps);
 		// if we've loaded this model we're probably going to render it soon, so prefetch its texture.
 		// All textures are prefetched even in the fixed pipeline, including the normal maps etc.
-		// TODO: Should check which renderpath is selected and only preload the necessary textures.
+		// TODO: Should check which material is selected and only preload the necessary textures.
 		texture->Prefetch();
 		material.AddSampler(CMaterial::TextureSampler(samp.m_SamplerName, texture));
 	}

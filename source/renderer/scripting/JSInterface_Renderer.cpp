@@ -47,11 +47,6 @@ IMPLEMENT_BOOLEAN_SCRIPT_SETTING(DisplayShadowsFrustum);
 
 #undef IMPLEMENT_BOOLEAN_SCRIPT_SETTING
 
-std::string GetRenderPath()
-{
-	return RenderPathEnum::ToString(g_RenderingOptions.GetRenderPath());
-}
-
 std::string GetRenderDebugMode()
 {
 	return RenderDebugModeEnum::ToString(g_RenderingOptions.GetRenderDebugMode()).c_str();
@@ -83,7 +78,6 @@ Script::Function::Register<&Set##NAME##Enabled>(rq, "Renderer_Set" #NAME "Enable
 
 void RegisterScriptFunctions(const Script::Request& rq)
 {
-	Script::Function::Register<&GetRenderPath>(rq, "Renderer_GetRenderPath");
 	Script::Function::Register<&TextureExists>(rq, "TextureExists");
 	Script::Function::Register<&GetRenderDebugMode>(rq, "Renderer_GetRenderDebugMode");
 	Script::Function::Register<&SetRenderDebugMode>(rq, "Renderer_SetRenderDebugMode");

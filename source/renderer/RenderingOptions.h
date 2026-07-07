@@ -33,25 +33,6 @@
 
 class CStrIntern;
 
-enum RenderPath
-{
-	// If no rendering path is configured explicitly, the renderer
-	// will choose the path when Open() is called.
-	DEFAULT,
-
-	// Classic fixed function.
-	FIXED,
-
-	// Use new GLSL system
-	SHADER
-};
-
-struct RenderPathEnum
-{
-	static RenderPath FromString(const CStr8& name);
-	static CStr8 ToString(RenderPath);
-};
-
 enum class RenderDebugMode
 {
 	NONE,
@@ -100,8 +81,6 @@ OPTION_CUSTOM_SETTER(NAME, TYPE); OPTION_GETTER(NAME, TYPE); OPTION_DEF(NAME, TY
 	OPTION_WITH_SIDE_EFFECT(Shadows, bool);
 	OPTION_WITH_SIDE_EFFECT(ShadowPCF, bool);
 	OPTION_WITH_SIDE_EFFECT(Fog, bool);
-
-	OPTION_WITH_SIDE_EFFECT(RenderPath, RenderPath);
 
 	OPTION_WITH_SIDE_EFFECT(RenderDebugMode, RenderDebugMode);
 

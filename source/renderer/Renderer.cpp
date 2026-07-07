@@ -486,9 +486,6 @@ bool CRenderer::Open(int width, int height)
 	m_Width = width;
 	m_Height = height;
 
-	// Validate the currently selected render path
-	SetRenderPath(g_RenderingOptions.GetRenderPath());
-
 	m->debugRenderer.Initialize();
 
 	if (m->postprocManager.IsEnabled())
@@ -507,24 +504,6 @@ void CRenderer::Resize(int width, int height)
 	m->postprocManager.Resize();
 
 	m->sceneRenderer.Resize(width, height);
-}
-
-void CRenderer::SetRenderPath(RenderPath rp)
-{
-	if (!m->IsOpen)
-	{
-		// Delay until Open() is called.
-		return;
-	}
-
-	// Renderer has been opened, so validate the selected renderpath
-	if (rp == RenderPath::DEFAULT)
-		rp = RenderPath::SHADER;
-
-	// TODO: remove this once capabilities have been properly extracted and the above checks have been moved elsewhere.
-	g_RenderingOptions.m_RenderPath = rp;
-
-	MakeShadersDirty();
 }
 
 bool CRenderer::ShouldRender() const

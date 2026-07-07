@@ -241,7 +241,6 @@ void CSceneRenderer::ReloadShaders([[maybe_unused]] Renderer::Backend::IDevice* 
 
 	m->Model.ModShader = LitRenderModifierPtr(new ShaderRenderModifier());
 
-	ENSURE(g_RenderingOptions.GetRenderPath() != RenderPath::FIXED);
 	m->Model.VertexRendererShader = ModelVertexRendererPtr(new CPUSkinnedModelVertexRenderer());
 	m->Model.VertexInstancingShader = ModelVertexRendererPtr(new InstancingModelRenderer());
 

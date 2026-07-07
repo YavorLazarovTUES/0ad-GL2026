@@ -59,7 +59,7 @@ typedef std::shared_ptr<ModelRenderer> ModelRendererPtr;
  * The main purpose of this class over CRenderData is to track which
  * ModelRenderer the render data belongs to (via the key that is passed
  * to the constructor). When a model changes the renderer it uses
- * (e.g. via run-time modification of the renderpath configuration),
+ * (e.g. via run-time modification of the gpu skinning configuration),
  * the old ModelRenderer's render data is supposed to be replaced by
  * the new data.
  */

@@ -60,33 +60,6 @@ private:
 	std::vector<CConfigDBHook> hooks;
 };
 
-RenderPath RenderPathEnum::FromString(const CStr8& name)
-{
-	if (name == "default")
-		return DEFAULT;
-	if (name == "fixed")
-		return FIXED;
-	if (name == "shader")
-		return SHADER;
-
-	LOGWARNING("Unknown render path %s", name.c_str());
-	return DEFAULT;
-}
-
-CStr8 RenderPathEnum::ToString(RenderPath path)
-{
-	switch (path)
-	{
-	case RenderPath::DEFAULT:
-		return "default";
-	case RenderPath::FIXED:
-		return "fixed";
-	case RenderPath::SHADER:
-		return "shader";
-	}
-	return "default"; // Silence warning about reaching end of non-void function.
-}
-
 RenderDebugMode RenderDebugModeEnum::FromString(const CStr8& name)
 {
 	if (name == str_RENDER_DEBUG_MODE_NONE.c_str())
@@ -120,7 +93,6 @@ CStrIntern RenderDebugModeEnum::ToString(RenderDebugMode mode)
 
 CRenderingOptions::CRenderingOptions() : m_ConfigHooks(new ConfigHooks())
 {
-	m_RenderPath = RenderPath::DEFAULT;
 	m_Shadows = false;
 	m_WaterEffects = false;
 	m_WaterFancyEffects = false;
@@ -148,10 +120,6 @@ CRenderingOptions::~CRenderingOptions()
 
 void CRenderingOptions::ReadConfigAndSetupHooks()
 {
-	m_ConfigHooks->Setup("renderpath", [this]() {
-		SetRenderPath(RenderPathEnum::FromString(g_ConfigDB.Get("renderpath", std::string{})));
-	});
-
 	m_ConfigHooks->Setup("shadowquality", []() {
 		if (CRenderer::IsInitialised())
 			g_Renderer.GetSceneRenderer().GetShadowMap().RecreateTexture();
@@ -299,13 +267,6 @@ void CRenderingOptions::SetFog(bool value)
 	m_Fog = value;
 	if (CRenderer::IsInitialised())
 		g_Renderer.MakeShadersDirty();
-}
-
-void CRenderingOptions::SetRenderPath(RenderPath value)
-{
-	m_RenderPath = value;
-	if (CRenderer::IsInitialised())
-		g_Renderer.SetRenderPath(m_RenderPath);
 }
 
 void CRenderingOptions::SetRenderDebugMode(RenderDebugMode value)
