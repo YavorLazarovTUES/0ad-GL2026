@@ -152,13 +152,13 @@ void CConsole::Init()
 	m_HistoryFile = L"config/console.txt";
 	LoadHistory();
 
-	UpdateScreenSize(g_xres, g_yres);
+	UpdateScreenSize(g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight());
 
 	// Calculate and store the line spacing.
 	const CFontMetrics font{CStrIntern(m_consoleFont)};
 	m_FontHeight = font.GetHeight();
 	m_FontWidth = font.GetCharacterWidth(L'C');
-	m_CharsPerPage = static_cast<size_t>(g_xres / m_FontWidth);
+	m_CharsPerPage = static_cast<size_t>(g_VideoMode.GetWindowWidth() / m_FontWidth);
 	// Fonts constains two dimensions: the full height, and the cap height.
 	// We are adding some offset to move the text up a bit, so it looks better in the console.
 	m_FontOffset = font.GetCapHeight() / 2.f;

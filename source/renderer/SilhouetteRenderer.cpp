@@ -38,6 +38,7 @@
 #include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
 #include "ps/Profile.h"
+#include "ps/VideoMode.h"
 #include "renderer/DebugRenderer.h"
 #include "renderer/Renderer.h"
 #include "renderer/Scene.h"
@@ -52,8 +53,6 @@
 #include <cstdint>
 #include <iterator>
 #include <limits>
-
-extern int g_xres, g_yres;
 
 // For debugging
 static const bool g_DisablePreciseIntersections = false;
@@ -258,9 +257,9 @@ void SilhouetteRenderer::ComputeSubmissions(const CCamera& camera)
 #if 0
 	// For debugging ray-patch intersections - casts a ton of rays and draws
 	// a sphere where they intersect
-	for (int y = 0; y < g_yres; y += 8)
+	for (int y = 0; y < g_VideoMode.GetWindowHeight(); y += 8)
 	{
-		for (int x = 0; x < g_xres; x += 8)
+		for (int x = 0; x < g_VideoMode.GetWindowWidth(); x += 8)
 		{
 			SOverlaySphere sphere;
 			sphere.m_Color = CColor(1, 0, 0, 1);
@@ -483,7 +482,7 @@ void SilhouetteRenderer::RenderDebugOverlays(
 	CMatrix3D m;
 	m.SetIdentity();
 	m.Scale(1.0f, -1.f, 1.0f);
-	m.Translate(0.0f, (float)g_yres, -1000.0f);
+	m.Translate(0.0f, static_cast<float>(g_VideoMode.GetWindowHeight()), -1000.0f);
 
 	CMatrix3D proj;
 	proj.SetOrtho(0.f, g_MaxCoord, 0.f, g_MaxCoord, -1.f, 1000.f);

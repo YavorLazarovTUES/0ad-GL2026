@@ -32,6 +32,7 @@
 #include "ps/Game.h"
 #include "ps/Globals.h"
 #include "ps/Hotkey.h"
+#include "ps/VideoMode.h"
 #include "ps/World.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
@@ -46,8 +47,6 @@
 #include <numbers>
 #include <functional>
 #include <string>
-
-extern int g_xres, g_yres;
 
 // Maximum distance outside the edge of the map that the camera's
 // focus point can be moved
@@ -105,8 +104,8 @@ CCameraController::CCameraController(CCamera& camera)
 	SViewPort vp;
 	vp.m_X = 0;
 	vp.m_Y = 0;
-	vp.m_Width = g_xres;
-	vp.m_Height = g_yres;
+	vp.m_Width = g_VideoMode.GetWindowWidth();
+	vp.m_Height = g_VideoMode.GetWindowHeight();
 	m_Camera.SetViewPort(vp);
 
 	SetCameraProjection();
@@ -206,12 +205,12 @@ void CCameraController::Update(const float deltaRealTime)
 
 	if (g_mouse_active && m_ViewScrollMouseDetectDistance > 0)
 	{
-		if (g_mouse_x >= g_xres - m_ViewScrollMouseDetectDistance && g_mouse_x < g_xres)
+		if (g_mouse_x >= g_VideoMode.GetWindowWidth() - m_ViewScrollMouseDetectDistance && g_mouse_x < g_VideoMode.GetWindowWidth())
 			moveRightward += m_ViewScrollSpeed * deltaRealTime;
 		else if (g_mouse_x < m_ViewScrollMouseDetectDistance && g_mouse_x >= 0)
 			moveRightward -= m_ViewScrollSpeed * deltaRealTime;
 
-		if (g_mouse_y >= g_yres - m_ViewScrollMouseDetectDistance && g_mouse_y < g_yres)
+		if (g_mouse_y >= g_VideoMode.GetWindowHeight() - m_ViewScrollMouseDetectDistance && g_mouse_y < g_VideoMode.GetWindowHeight())
 			moveForward -= m_ViewScrollSpeed * deltaRealTime;
 		else if (g_mouse_y < m_ViewScrollMouseDetectDistance && g_mouse_y >= 0)
 			moveForward += m_ViewScrollSpeed * deltaRealTime;

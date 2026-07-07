@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -33,8 +33,6 @@
 #include <iterator>
 #include <optional>
 #include <utility>
-
-extern int g_xres, g_yres;
 
 // TODO Gee: CRect => CPoint ?
 void SGenerateTextImage::SetupSpriteCall(

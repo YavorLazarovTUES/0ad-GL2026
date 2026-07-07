@@ -88,10 +88,10 @@ public:
 	 * This should be called after the GL context has been resized.
 	 * This can also be used when the GL context is managed externally, not via SDL.
 	 */
-	static void UpdateRenderer(int w, int h);
+	void UpdateRenderer(int windowWidth, int windowHeight);
 
-	int GetXRes() const;
-	int GetYRes() const;
+	int GetWindowWidth() const;
+	int GetWindowHeight() const;
 	int GetBPP() const;
 
 	bool IsVSyncEnabled() const;

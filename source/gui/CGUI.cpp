@@ -461,7 +461,7 @@ IGUIObject* CGUI::FindObjectUnderMouse()
 
 CSize2D CGUI::GetWindowSize() const
 {
-	return CSize2D{static_cast<float>(g_xres) / g_VideoMode.GetScale(), static_cast<float>(g_yres) / g_VideoMode.GetScale() };
+	return CSize2D{static_cast<float>(g_VideoMode.GetWindowWidth()) / g_VideoMode.GetScale(), static_cast<float>(g_VideoMode.GetWindowHeight()) / g_VideoMode.GetScale() };
 }
 
 void CGUI::SendFocusMessage(EGUIMessageType msgType)

@@ -54,8 +54,6 @@
 
 extern void (*Atlas_GLSwapBuffers)(void* context);
 
-extern int g_xres, g_yres;
-
 //////////////////////////////////////////////////////////////////////////
 
 void AtlasView::SetParam(const std::wstring& /*name*/, bool /*value*/)
@@ -93,7 +91,7 @@ void AtlasViewActor::Update(float realFrameLength)
 
 void AtlasViewActor::Render()
 {
-	SViewPort vp = { 0, 0, g_xres, g_yres };
+	SViewPort vp = { 0, 0, g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight() };
 	CCamera camera{GetCamera()};
 	camera.SetViewPort(vp);
 	camera.SetPerspectiveProjection(2.f, 512.f, DEGTORAD(20.f));
@@ -246,7 +244,7 @@ void AtlasViewGame::Render()
 	if (!swapChain || !swapChain->IsValid() || !swapChain->AcquireNextBackbuffer())
 		return;
 
-	SViewPort vp = { 0, 0, g_xres, g_yres };
+	SViewPort vp = { 0, 0, g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight() };
 	CCamera camera{GetCamera()};
 	camera.SetViewPort(vp);
 	camera.SetProjectionFromCamera(g_Game->GetView()->GetCamera());

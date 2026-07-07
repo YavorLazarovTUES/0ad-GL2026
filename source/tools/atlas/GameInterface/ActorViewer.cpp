@@ -81,8 +81,6 @@
 
 class CTerrainTextureEntry;
 
-extern int g_xres, g_yres;
-
 struct ActorViewerImpl : public Scene
 {
 	NONCOPYABLE(ActorViewerImpl);
@@ -578,7 +576,7 @@ void ActorViewer::Render()
 	sceneRenderer.RenderSceneOverlays(deviceCommandContext);
 
 	{
-		CCanvas2D canvas(g_xres, g_yres, g_VideoMode.GetScale(), deviceCommandContext);
+		CCanvas2D canvas(g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight(), g_VideoMode.GetScale(), deviceCommandContext);
 		g_Logger->Render(canvas);
 		g_ProfileViewer.RenderProfile(canvas);
 	}

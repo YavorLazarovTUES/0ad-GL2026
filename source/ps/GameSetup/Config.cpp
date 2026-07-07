@@ -30,8 +30,6 @@
 // (these variables are documented in the header.)
 bool g_PauseOnFocusLoss = false;
 
-int g_xres, g_yres;
-
 bool g_Quickstart = false;
 bool g_DisableAudio = false;
 

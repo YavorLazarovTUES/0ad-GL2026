@@ -447,7 +447,7 @@ CRenderer::CRenderer(Renderer::Backend::IDevice* device)
 	// Create terrain related stuff.
 	new CTerrainTextureManager(device);
 
-	Open(g_xres, g_yres);
+	Open(g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight());
 
 	// Setup lighting environment. Since the Renderer accesses the
 	// lighting environment through a pointer, this has to be done before
@@ -697,7 +697,7 @@ void CRenderer::RenderFrameImpl(
 
 void CRenderer::RenderFrame2D(const bool renderGUI, const bool renderLogger)
 {
-	CCanvas2D canvas(g_xres, g_yres, g_VideoMode.GetScale(), m->deviceCommandContext.get());
+	CCanvas2D canvas(g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight(), g_VideoMode.GetScale(), m->deviceCommandContext.get());
 
 	m->sceneRenderer.RenderTextOverlays(canvas);
 
@@ -745,7 +745,7 @@ void CRenderer::RenderScreenShot(const bool needsPresent)
 	VfsPath filename;
 	vfs::NextNumberedFilename(g_VFS, filenameFormat, g_NextScreenShotNumber, filename);
 
-	const size_t width = static_cast<size_t>(g_xres), height = static_cast<size_t>(g_yres);
+	const size_t width = static_cast<size_t>(g_VideoMode.GetWindowWidth()), height = static_cast<size_t>(g_VideoMode.GetWindowHeight());
 	const size_t bpp = 24;
 
 	const size_t img_size = width * height * bpp / 8;
@@ -804,12 +804,12 @@ void CRenderer::RenderBigScreenShot(const bool needsPresent)
 		return;
 	}
 
-	if (g_xres < tileWidth && g_yres < tileHeight)
+	if (g_VideoMode.GetWindowWidth() < tileWidth && g_VideoMode.GetWindowHeight() < tileHeight)
 	{
 		LOGWARNING(
 			"The window size is too small for a big screenshot, increase the"
 			" window size %dx%d or decrease the tile size %dx%d",
-			g_xres, g_yres, tileWidth, tileHeight);
+			g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight(), tileWidth, tileHeight);
 		return;
 	}
 
@@ -897,8 +897,8 @@ void CRenderer::RenderBigScreenShot(const bool needsPresent)
 
 	// Restore the viewport settings
 	{
-		g_Renderer.Resize(g_xres, g_yres);
-		SViewPort vp = { 0, 0, g_xres, g_yres };
+		g_Renderer.Resize(g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight());
+		SViewPort vp = { 0, 0, g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight() };
 		g_Game->GetView()->SetViewport(vp);
 		g_Game->GetView()->SetCamera(oldCamera);
 	}

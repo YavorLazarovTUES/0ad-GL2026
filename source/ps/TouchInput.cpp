@@ -27,6 +27,7 @@
 #include "lib/timer.h"
 #include "maths/Matrix3D.h"
 #include "ps/Game.h"
+#include "ps/VideoMode.h"
 
 #include <SDL_events.h>
 #include <SDL_mouse.h>
@@ -38,8 +39,6 @@
 // Then left-click to put finger 0 up.
 // Same with right-click for finger 1.
 #define EMULATE_FINGERS_WITH_MOUSE 0
-
-extern int g_xres, g_yres;
 
 // NOTE: All this code is currently just a basic prototype for testing;
 // it might need significant redesigning for proper usage.
@@ -279,11 +278,11 @@ Input::Reaction CTouchInput::HandleEvent(const SDL_Event& ev)
 			ev.tfinger.x, ev.tfinger.y, ev.tfinger.dx, ev.tfinger.dy, ev.tfinger.pressure);
 
 		if (ev.type == SDL_FINGERDOWN)
-			OnFingerDown(ev.tfinger.fingerId, g_xres * ev.tfinger.x, g_yres * ev.tfinger.y);
+			OnFingerDown(ev.tfinger.fingerId, g_VideoMode.GetWindowWidth() * ev.tfinger.x, g_VideoMode.GetWindowHeight() * ev.tfinger.y);
 		else if (ev.type == SDL_FINGERUP)
-			OnFingerUp(ev.tfinger.fingerId, g_xres * ev.tfinger.x, g_yres * ev.tfinger.y);
+			OnFingerUp(ev.tfinger.fingerId, g_VideoMode.GetWindowWidth() * ev.tfinger.x, g_VideoMode.GetWindowHeight() * ev.tfinger.y);
 		else if (ev.type == SDL_FINGERMOTION)
-			OnFingerMotion(ev.tfinger.fingerId, g_xres * ev.tfinger.x, g_yres * ev.tfinger.y);
+			OnFingerMotion(ev.tfinger.fingerId, g_VideoMode.GetWindowWidth() * ev.tfinger.x, g_VideoMode.GetWindowHeight() * ev.tfinger.y);
 		return Input::Reaction::HANDLED;
 	}
 	}

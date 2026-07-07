@@ -215,7 +215,7 @@ MESSAGEHANDLER(SetCanvas)
 {
 	// Need to set the canvas size before possibly doing any rendering,
 	// else we'll get GL errors when trying to render to 0x0
-	CVideoMode::UpdateRenderer(msg->width, msg->height);
+	g_VideoMode.UpdateRenderer(msg->width, msg->height);
 
 	g_AtlasGameLoop->glCanvas = msg->canvas;
 	Atlas_GLSetCurrent(const_cast<void*>(g_AtlasGameLoop->glCanvas));
@@ -224,7 +224,7 @@ MESSAGEHANDLER(SetCanvas)
 
 MESSAGEHANDLER(ResizeScreen)
 {
-	CVideoMode::UpdateRenderer(msg->width, msg->height);
+	g_VideoMode.UpdateRenderer(msg->width, msg->height);
 
 #if OS_MACOSX
 	// OS X seems to require this to update the GL canvas

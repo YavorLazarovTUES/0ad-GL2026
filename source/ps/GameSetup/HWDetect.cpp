@@ -285,7 +285,7 @@ void WriteSystemInfo(Renderer::Backend::IDevice* device, const utsname& un)
 	// graphics
 	fprintf(f, "Video Card     : %s\n", device->GetName().c_str());
 	fprintf(f, "Video Driver   : %s\n", device->GetDriverInformation().c_str());
-	fprintf(f, "Video Mode     : %dx%d:%d\n", g_VideoMode.GetXRes(), g_VideoMode.GetYRes(), g_VideoMode.GetBPP());
+	fprintf(f, "Video Mode     : %dx%d:%d\n", g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight(), g_VideoMode.GetBPP());
 
 #if CONFIG2_AUDIO
 	if (g_SoundManager)

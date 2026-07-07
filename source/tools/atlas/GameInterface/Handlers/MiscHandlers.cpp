@@ -125,8 +125,8 @@ MESSAGEHANDLER(GuiMouseButtonEvent)
 	ev.button.clicks = msg->clicks;
 	float x, y;
 	msg->pos->GetScreenSpace(x, y);
-	ev.button.x = static_cast<u16>(Clamp<int>(x, 0, g_xres));
-	ev.button.y = static_cast<u16>(Clamp<int>(y, 0, g_yres));
+	ev.button.x = static_cast<u16>(Clamp<int>(x, 0, g_VideoMode.GetWindowWidth()));
+	ev.button.y = static_cast<u16>(Clamp<int>(y, 0, g_VideoMode.GetWindowHeight()));
 	g_VideoMode.m_InputManager.DispatchEvent(ev);
 }
 
@@ -136,8 +136,8 @@ MESSAGEHANDLER(GuiMouseMotionEvent)
 	ev.type = SDL_MOUSEMOTION;
 	float x, y;
 	msg->pos->GetScreenSpace(x, y);
-	ev.motion.x = static_cast<u16>(Clamp<int>(x, 0, g_xres));
-	ev.motion.y = static_cast<u16>(Clamp<int>(y, 0, g_yres));
+	ev.motion.x = static_cast<u16>(Clamp<int>(x, 0, g_VideoMode.GetWindowWidth()));
+	ev.motion.y = static_cast<u16>(Clamp<int>(y, 0, g_VideoMode.GetWindowHeight()));
 	g_VideoMode.m_InputManager.DispatchEvent(ev);
 }
 

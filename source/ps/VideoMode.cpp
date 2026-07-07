@@ -550,9 +550,6 @@ bool CVideoMode::SetVideoMode(int w, int h, int bpp, bool fullscreen)
 
 	m_IsFullscreen = fullscreen;
 
-	g_xres = m_CurrentW;
-	g_yres = m_CurrentH;
-
 	return true;
 }
 
@@ -733,9 +730,9 @@ void CVideoMode::RecreateSwapChain()
 	if (m_BackendDevice)
 	{
 		char nameBuffer[64];
-		snprintf(nameBuffer, std::size(nameBuffer), "SwapChain: %dx%d", g_xres, g_yres);
+		snprintf(nameBuffer, std::size(nameBuffer), "SwapChain: %dx%d", m_CurrentW, m_CurrentH);
 		m_SwapChain = m_BackendDevice->CreateSwapChain(
-			nameBuffer, m_Window, g_xres, g_yres, m_ConfigVSync, std::move(m_SwapChain));
+			nameBuffer, m_Window, m_CurrentW, m_CurrentH, m_ConfigVSync, std::move(m_SwapChain));
 	}
 }
 
@@ -876,8 +873,8 @@ void CVideoMode::UpdateRenderer(int w, int h)
 	if (w < 2) w = 2; // avoid GL errors caused by invalid sizes
 	if (h < 2) h = 2;
 
-	g_xres = w;
-	g_yres = h;
+	m_CurrentW = w;
+	m_CurrentH = h;
 
 	SViewPort vp = { 0, 0, w, h };
 
@@ -915,13 +912,13 @@ int CVideoMode::GetBestBPP()
 	return 32;
 }
 
-int CVideoMode::GetXRes() const
+int CVideoMode::GetWindowWidth() const
 {
 	ENSURE(m_IsInitialised);
 	return m_CurrentW;
 }
 
-int CVideoMode::GetYRes() const
+int CVideoMode::GetWindowHeight() const
 {
 	ENSURE(m_IsInitialised);
 	return m_CurrentH;

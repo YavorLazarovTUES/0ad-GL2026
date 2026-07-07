@@ -30,6 +30,7 @@
 #include "ps/Game.h"
 #include "ps/GameSetup/Config.h"
 #include "ps/Pyrogenesis.h"
+#include "ps/VideoMode.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/Request.h"
@@ -118,12 +119,12 @@ std::vector<entity_id_t> PickPlayerEntitiesInRect(int x0, int y0, int x1, int y1
 
 std::vector<entity_id_t> PickPlayerEntitiesOnScreen(int player)
 {
-	return EntitySelection::PickEntitiesInRect(*g_Game->GetSimulation2(), g_Game->GetView()->GetCamera(), 0, 0, g_xres, g_yres, player, false);
+	return EntitySelection::PickEntitiesInRect(*g_Game->GetSimulation2(), g_Game->GetView()->GetCamera(), 0, 0, g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight(), player, false);
 }
 
 std::vector<entity_id_t> PickNonGaiaEntitiesOnScreen()
 {
-	return EntitySelection::PickNonGaiaEntitiesInRect(*g_Game->GetSimulation2(), g_Game->GetView()->GetCamera(), 0, 0, g_xres, g_yres, false);
+	return EntitySelection::PickNonGaiaEntitiesInRect(*g_Game->GetSimulation2(), g_Game->GetView()->GetCamera(), 0, 0, g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight(), false);
 }
 
 std::vector<entity_id_t> GetEntitiesWithStaticObstructionOnScreen()
@@ -136,7 +137,9 @@ std::vector<entity_id_t> GetEntitiesWithStaticObstructionOnScreen()
 			return cmpObstruction->GetObstructionType() == ICmpObstruction::STATIC;
 		}
 	};
-	return EntitySelection::GetEntitiesWithComponentInRect<StaticObstructionFilter>(*g_Game->GetSimulation2(), IID_Obstruction, g_Game->GetView()->GetCamera(), 0, 0, g_xres, g_yres);
+	return EntitySelection::GetEntitiesWithComponentInRect<StaticObstructionFilter>(*g_Game->GetSimulation2(),
+		IID_Obstruction, g_Game->GetView()->GetCamera(), 0, 0,
+		g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight());
 }
 
 JS::Value GetEdgesOfStaticObstructionsOnScreenNearTo(const Script::Interface& scriptInterface, entity_pos_t x, entity_pos_t z)
