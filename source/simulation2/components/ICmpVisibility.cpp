@@ -55,13 +55,29 @@ public:
 
 	bool GetRetainInFog() override
 	{
-		return m_Script.Call<bool>("GetRetainInFog");
+		if (!m_RetainInFogCached)
+		{
+			m_RetainInFog = m_Script.Call<bool>("GetRetainInFog");
+			m_RetainInFogCached = true;
+		}
+		return m_RetainInFog;
 	}
 
 	bool GetAlwaysVisible() override
 	{
-		return m_Script.Call<bool>("GetAlwaysVisible");
+		if (!m_AlwaysVisibleCached)
+		{
+			m_AlwaysVisible = m_Script.Call<bool>("GetAlwaysVisible");
+			m_AlwaysVisibleCached = true;
+		}
+		return m_AlwaysVisible;
 	}
+
+private:
+	bool m_RetainInFogCached = false;
+	bool m_RetainInFog = false;
+	bool m_AlwaysVisibleCached = false;
+	bool m_AlwaysVisible = false;
 };
 
 REGISTER_COMPONENT_SCRIPT_WRAPPER(VisibilityScripted)
