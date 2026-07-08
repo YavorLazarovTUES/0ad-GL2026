@@ -29,6 +29,7 @@
 #include "ps/CLogger.h"
 #include "ps/ConfigDB.h"
 #include "ps/Profile.h"
+#include "ps/strings/StringBuilder.h"
 #include "renderer/backend/Format.h"
 #include "renderer/backend/gl/Buffer.h"
 #include "renderer/backend/gl/DeviceCommandContext.h"
@@ -201,6 +202,63 @@ void GLAD_API_PTR OnDebugMessage(
 	{
 		LOGWARNING(
 			"OpenGL | %s: %s source: %s id %u: %s\n", debugSeverity.c_str(), debugType.c_str(), debugSource.c_str(), id, message);
+	}
+}
+
+template<typename ParameterType, size_t parameterCount, bool doQueryCounterBits = false>
+void ReportParameter(
+	const Script::Request& rq, JS::HandleValue settings,
+	const GLenum parameter, const char* paremeterName)
+{
+	static_assert(parameterCount > 0);
+
+	const char* errorString = "(error)";
+
+	ParameterType values[parameterCount];
+
+	if constexpr (std::is_same_v<ParameterType, GLint>)
+	{
+		std::fill(std::begin(values), std::end(values), -1);
+		if constexpr (doQueryCounterBits)
+			glGetQueryivARB(parameter, GL_QUERY_COUNTER_BITS, values);
+		else
+			glGetIntegerv(parameter, values);
+	}
+	else if constexpr (std::is_same_v<ParameterType, GLfloat>)
+	{
+		std::fill(std::begin(values), std::end(values), std::numeric_limits<GLfloat>::quiet_NaN());
+		glGetFloatv(parameter, values);
+	}
+	else if constexpr (std::is_same_v<ParameterType, const char*>)
+	{
+		std::fill(std::begin(values), std::end(values), "");
+		// In the newer GL versions we have glGetStringi but currently we get
+		// only one string.
+		static_assert(parameterCount == 1);
+		values[0] = reinterpret_cast<const char*>(glGetString(parameter));
+		if (!values[0])
+			values[0] = errorString;
+	}
+	else
+		static_assert(false);
+
+	const bool errorHappened{ogl_SquelchError(GL_INVALID_ENUM)};
+
+	char buffer[1024];
+	for (size_t index{0}; index < parameterCount; ++index)
+	{
+		PS::StringBuilder stringBuilder{buffer};
+		stringBuilder.Append(paremeterName);
+		if constexpr (parameterCount > 1)
+		{
+			stringBuilder.Append('[');
+			stringBuilder.Append(index);
+			stringBuilder.Append(']');
+		}
+		if (errorHappened)
+			Script::SetProperty(rq, settings, stringBuilder.Str().data(), errorString);
+		else
+			Script::SetProperty(rq, settings, stringBuilder.Str().data(), values[index]);
 	}
 }
 
@@ -389,69 +447,19 @@ CDevice::~CDevice()
 
 void CDevice::Report(const Script::Request& rq, JS::HandleValue settings)
 {
-	const char* errstr = "(error)";
-
 	Script::SetProperty(rq, settings, "name", "gl");
 
-#define INTEGER(id) do { \
-	GLint i = -1; \
-	glGetIntegerv(GL_##id, &i); \
-	if (ogl_SquelchError(GL_INVALID_ENUM)) \
-		Script::SetProperty(rq, settings, "GL_" #id, errstr); \
-	else \
-		Script::SetProperty(rq, settings, "GL_" #id, i); \
-	} while (false)
+#define INTEGER(NAME) ReportParameter<GLint, 1>(rq, settings, GL_##NAME, "GL_" #NAME)
+#define INTEGER2(NAME) ReportParameter<GLint, 2>(rq, settings, GL_##NAME, "GL_" #NAME)
 
-#define INTEGER2(id) do { \
-	GLint i[2] = { -1, -1 }; \
-	glGetIntegerv(GL_##id, i); \
-	if (ogl_SquelchError(GL_INVALID_ENUM)) { \
-		Script::SetProperty(rq, settings, "GL_" #id "[0]", errstr); \
-		Script::SetProperty(rq, settings, "GL_" #id "[1]", errstr); \
-	} else { \
-		Script::SetProperty(rq, settings, "GL_" #id "[0]", i[0]); \
-		Script::SetProperty(rq, settings, "GL_" #id "[1]", i[1]); \
-	} \
-	} while (false)
+#define BOOL(NAME) INTEGER(NAME)
 
-#define FLOAT(id) do { \
-	GLfloat f = std::numeric_limits<GLfloat>::quiet_NaN(); \
-	glGetFloatv(GL_##id, &f); \
-	if (ogl_SquelchError(GL_INVALID_ENUM)) \
-		Script::SetProperty(rq, settings, "GL_" #id, errstr); \
-	else \
-		Script::SetProperty(rq, settings, "GL_" #id, f); \
-	} while (false)
+#define FLOAT(NAME) ReportParameter<GLfloat, 1>(rq, settings, GL_##NAME, "GL_" #NAME)
+#define FLOAT2(NAME) ReportParameter<GLfloat, 2>(rq, settings, GL_##NAME, "GL_" #NAME)
 
-#define FLOAT2(id) do { \
-	GLfloat f[2] = { std::numeric_limits<GLfloat>::quiet_NaN(), std::numeric_limits<GLfloat>::quiet_NaN() }; \
-	glGetFloatv(GL_##id, f); \
-	if (ogl_SquelchError(GL_INVALID_ENUM)) { \
-		Script::SetProperty(rq, settings, "GL_" #id "[0]", errstr); \
-		Script::SetProperty(rq, settings, "GL_" #id "[1]", errstr); \
-	} else { \
-		Script::SetProperty(rq, settings, "GL_" #id "[0]", f[0]); \
-		Script::SetProperty(rq, settings, "GL_" #id "[1]", f[1]); \
-	} \
-	} while (false)
+#define STRING(NAME) ReportParameter<const char*, 1>(rq, settings, GL_##NAME, "GL_" #NAME)
 
-#define STRING(id) do { \
-	const char* c = (const char*)glGetString(GL_##id); \
-	if (!c) c = ""; \
-	if (ogl_SquelchError(GL_INVALID_ENUM)) c = errstr; \
-	Script::SetProperty(rq, settings, "GL_" #id, std::string(c)); \
-	}  while (false)
-
-#define QUERY(target, pname) do { \
-	GLint i = -1; \
-	glGetQueryivARB(GL_##target, GL_##pname, &i); \
-	if (ogl_SquelchError(GL_INVALID_ENUM)) \
-		Script::SetProperty(rq, settings, "GL_" #target ".GL_" #pname, errstr); \
-	else \
-		Script::SetProperty(rq, settings, "GL_" #target ".GL_" #pname, i); \
-	} while (false)
-
-#define BOOL(id) INTEGER(id)
+#define QUERY_COUNTER_BITS(NAME) ReportParameter<GLint, 1, true>(rq, settings, GL_##NAME, "GL_" #NAME ".GL_QUERY_COUNTER_BITS")
 
 	ogl_WarnIfError();
 
@@ -512,7 +520,7 @@ void CDevice::Report(const Script::Request& rq, JS::HandleValue settings)
 
 	if (ogl_HaveExtension("GL_ARB_occlusion_query"))
 	{
-		QUERY(SAMPLES_PASSED, QUERY_COUNTER_BITS);
+		QUERY_COUNTER_BITS(SAMPLES_PASSED);
 	}
 
 	if (ogl_HaveExtension("GL_ARB_shading_language_100"))
@@ -574,12 +582,12 @@ void CDevice::Report(const Script::Request& rq, JS::HandleValue settings)
 
 	if (ogl_HaveExtension("GL_EXT_timer_query") || ogl_HaveExtension("GL_ARB_timer_query"))
 	{
-		QUERY(TIME_ELAPSED, QUERY_COUNTER_BITS);
+		QUERY_COUNTER_BITS(TIME_ELAPSED);
 	}
 
 	if (ogl_HaveExtension("GL_ARB_timer_query"))
 	{
-		QUERY(TIMESTAMP, QUERY_COUNTER_BITS);
+		QUERY_COUNTER_BITS(TIMESTAMP);
 	}
 
 	if (ogl_HaveExtension("GL_EXT_texture_filter_anisotropic"))
