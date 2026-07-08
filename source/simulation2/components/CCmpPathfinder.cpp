@@ -43,6 +43,7 @@
 #include "ps/XML/Xeromyces.h"
 #include "renderer/Scene.h"
 
+#include <algorithm>
 #include <type_traits>
 
 REGISTER_COMPONENT_TYPE(Pathfinder)
@@ -629,42 +630,54 @@ void CCmpPathfinder::TerrainUpdateHelper(bool expandPassability, int itile0, int
 		jend = Clamp<int>((jtile1 + 1) * Pathfinding::NAVCELLS_PER_TERRAIN_TILE, 0, m_GridSize);
 	}
 
-	// Compute initial terrain-dependent passability
-	for (int j = jstart; j < jend; ++j)
+	// Compute initial terrain-dependent passability.
+	// Slope and shore distance are constant over each terrain tile, so iterate over
+	// terrain tiles and hoist those out of the per-navcell loop.
+	const int itilestart = istart / Pathfinding::NAVCELLS_PER_TERRAIN_TILE;
+	const int itileend = (iend + Pathfinding::NAVCELLS_PER_TERRAIN_TILE - 1) / Pathfinding::NAVCELLS_PER_TERRAIN_TILE;
+	const int jtilestart = jstart / Pathfinding::NAVCELLS_PER_TERRAIN_TILE;
+	const int jtileend = (jend + Pathfinding::NAVCELLS_PER_TERRAIN_TILE - 1) / Pathfinding::NAVCELLS_PER_TERRAIN_TILE;
+	for (int jtile = jtilestart; jtile < jtileend; ++jtile)
 	{
-		for (int i = istart; i < iend; ++i)
+		// The navcell range of this tile row, clamped to the updated region.
+		const int j0 = std::max(jstart, jtile * Pathfinding::NAVCELLS_PER_TERRAIN_TILE);
+		const int j1 = std::min(jend, (jtile + 1) * Pathfinding::NAVCELLS_PER_TERRAIN_TILE);
+		for (int itile = itilestart; itile < itileend; ++itile)
 		{
-			// World-space coordinates for this navcell
-			fixed x, z;
-			Pathfinding::NavcellCenter(i, j, x, z);
-
-			// Terrain-tile coordinates for this navcell
-			int itile = i / Pathfinding::NAVCELLS_PER_TERRAIN_TILE;
-			int jtile = j / Pathfinding::NAVCELLS_PER_TERRAIN_TILE;
-
-			// Gather all the data potentially needed to determine passability:
-
-			fixed height = terrain.GetExactGroundLevelFixed(x, z);
-
-			fixed water;
-			if (cmpWaterManager)
-				water = cmpWaterManager->GetWaterLevel(x, z);
-
-			fixed depth = water - height;
-
 			// Exact slopes give kind of weird output, so just use rough tile-based slopes
-			fixed slope = terrain.GetSlopeFixed(itile, jtile);
+			const fixed slope = terrain.GetSlopeFixed(itile, jtile);
 
 			// Get world-space coordinates from shoreGrid (which uses terrain tiles)
-			fixed shoredist = fixed::FromInt(shoreGrid.get(itile, jtile)).MultiplyClamp(TERRAIN_TILE_SIZE);
+			const fixed shoredist = fixed::FromInt(shoreGrid.get(itile, jtile)).MultiplyClamp(TERRAIN_TILE_SIZE);
 
-			// Compute the passability for every class for this cell
-			NavcellData t = 0;
-			for (const PathfinderPassability& passability : m_PassClasses)
-				if (!passability.IsPassable(depth, slope, shoredist))
-					t |= passability.m_Mask;
+			const int i0 = std::max(istart, itile * Pathfinding::NAVCELLS_PER_TERRAIN_TILE);
+			const int i1 = std::min(iend, (itile + 1) * Pathfinding::NAVCELLS_PER_TERRAIN_TILE);
+			for (int j = j0; j < j1; ++j)
+			{
+				for (int i = i0; i < i1; ++i)
+				{
+					// World-space coordinates for this navcell
+					fixed x, z;
+					Pathfinding::NavcellCenter(i, j, x, z);
 
-			m_TerrainOnlyGrid->set(i, j, t);
+					// Height and water level vary within the tile, so they stay per-navcell
+					fixed height = terrain.GetExactGroundLevelFixed(x, z);
+
+					fixed water;
+					if (cmpWaterManager)
+						water = cmpWaterManager->GetWaterLevel(x, z);
+
+					fixed depth = water - height;
+
+					// Compute the passability for every class for this cell
+					NavcellData t = 0;
+					for (const PathfinderPassability& passability : m_PassClasses)
+						if (!passability.IsPassable(depth, slope, shoredist))
+							t |= passability.m_Mask;
+
+					m_TerrainOnlyGrid->set(i, j, t);
+				}
+			}
 		}
 	}
 
