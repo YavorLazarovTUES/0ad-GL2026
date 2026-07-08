@@ -205,6 +205,11 @@ void GLAD_API_PTR OnDebugMessage(
 	}
 }
 
+void ResetGLError()
+{
+	do {} while (glGetError() != GL_NO_ERROR);
+}
+
 template<typename ParameterType, size_t parameterCount, bool doQueryCounterBits = false>
 void ReportParameter(
 	const Script::Request& rq, JS::HandleValue settings,
@@ -240,14 +245,17 @@ void ReportParameter(
 			values[0] = errorString;
 	}
 	else
-		static_assert(false);
+	{
+		debug_warn("Unsupported type");
+	}
 
-	const bool errorHappened{ogl_SquelchError(GL_INVALID_ENUM)};
+	const bool errorHappened{glGetError() != GL_NO_ERROR};
+	ResetGLError();
 
 	char buffer[1024];
 	for (size_t index{0}; index < parameterCount; ++index)
 	{
-		PS::StringBuilder stringBuilder{buffer};
+		PS::StringBuilder stringBuilder{{std::begin(buffer), std::end(buffer)}};
 		stringBuilder.Append(paremeterName);
 		if constexpr (parameterCount > 1)
 		{
@@ -448,6 +456,10 @@ CDevice::~CDevice()
 void CDevice::Report(const Script::Request& rq, JS::HandleValue settings)
 {
 	Script::SetProperty(rq, settings, "name", "gl");
+
+	// We need to reset all previous errors because we don't call glGetError
+	// by default.
+	ResetGLError();
 
 #define INTEGER(NAME) ReportParameter<GLint, 1>(rq, settings, GL_##NAME, "GL_" #NAME)
 #define INTEGER2(NAME) ReportParameter<GLint, 2>(rq, settings, GL_##NAME, "GL_" #NAME)
