@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,14 +19,22 @@
 
 #include "ModInstaller.h"
 
-#include "lib/file/vfs/vfs_util.h"
 #include "lib/file/file_system.h"
+#include "lib/status.h"
 #include "lib/sysdep/os.h"
 #include "ps/CLogger.h"
+#include "ps/Errors.h"
 #include "ps/Filesystem.h"
-#include "ps/XML/Xeromyces.h"
-#include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/JSON.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
+
+#include <js/PropertyAndElement.h>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <string>
 
 #if !OS_WIN
 #include "lib/os_path.h"
@@ -52,7 +60,7 @@ CModInstaller::~CModInstaller()
 
 CModInstaller::ModInstallationResult CModInstaller::Install(
 	const OsPath& mod,
-	const std::shared_ptr<ScriptContext>& scriptContext,
+	const std::shared_ptr<Script::Context>& scriptContext,
 	bool keepFile)
 {
 	const OsPath modTemp = m_TempDir / mod.Basename() / mod.Filename().ChangeExtension(L".zip");
@@ -84,8 +92,8 @@ CModInstaller::ModInstallationResult CModInstaller::Install(
 	// Extract the name of the mod
 	CStr modName;
 	{
-		ScriptInterface scriptInterface("Engine", "ModInstaller", scriptContext);
-		ScriptRequest rq(scriptInterface);
+		Script::Interface scriptInterface("Engine", "ModInstaller", scriptContext);
+		Script::Request rq(scriptInterface);
 
 		JS::RootedValue json_val(rq.cx);
 		if (!Script::ParseJSON(rq, modinfo.GetAsString(), &json_val))

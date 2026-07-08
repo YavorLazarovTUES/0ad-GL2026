@@ -7,20 +7,20 @@ const ATTACKER = 2;
 
 var QuickSpawn = function(x, z, template, owner = 1)
 {
-	let ent = Engine.AddEntity(template);
+	const ent = Engine.AddEntity(template);
 
-	let cmpEntOwnership = Engine.QueryInterface(ent, IID_Ownership);
+	const cmpEntOwnership = Engine.QueryInterface(ent, IID_Ownership);
 	if (cmpEntOwnership)
 		cmpEntOwnership.SetOwner(owner);
 
-	let cmpEntPosition = Engine.QueryInterface(ent, IID_Position);
+	const cmpEntPosition = Engine.QueryInterface(ent, IID_Position);
 	cmpEntPosition.JumpTo(x, z);
 	return ent;
 };
 
 var Rotate = function(angle, ent)
 {
-	let cmpEntPosition = Engine.QueryInterface(ent, IID_Position);
+	const cmpEntPosition = Engine.QueryInterface(ent, IID_Position);
 	cmpEntPosition.SetYRotation(angle);
 	return ent;
 };
@@ -54,7 +54,7 @@ var FormationWalkTo = function(x, z, queued, ent, owner=1)
 
 var Attack = function(target, ent)
 {
-	let comm = {
+	const comm = {
 		"type": "attack",
 		"entities": Array.isArray(ent) ? ent : [ent],
 		"target": target,
@@ -67,12 +67,12 @@ var Attack = function(target, ent)
 
 var Do = function(name, data, ent, owner = 1)
 {
-	let comm = {
+	const comm = {
 		"type": name,
 		"entities": Array.isArray(ent) ? ent : [ent],
 		"queued": false
 	};
-	for (let k in data)
+	for (const k in data)
 		comm[k] = data[k];
 	ProcessCommand(owner, comm);
 };
@@ -81,7 +81,8 @@ var Do = function(name, data, ent, owner = 1)
 var experiments = {};
 
 experiments.units_sparse_forest_of_units = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = -16; i <= 16; i += 8)
 			for (let j = -16; j <= 16; j += 8)
 				QuickSpawn(gx + i, gy + 50 + j, REG_UNIT_TEMPLATE);
@@ -91,7 +92,8 @@ experiments.units_sparse_forest_of_units = {
 };
 
 experiments.units_dense_forest_of_units = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = -16; i <= 16; i += 4)
 			for (let j = -16; j <= 16; j += 4)
 				QuickSpawn(gx + i, gy + 50 + j, REG_UNIT_TEMPLATE);
@@ -101,7 +103,8 @@ experiments.units_dense_forest_of_units = {
 };
 
 experiments.units_superdense_forest_of_units = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = -6; i <= 6; i += 2)
 			for (let j = -6; j <= 6; j += 2)
 				QuickSpawn(gx + i, gy + 50 + j, REG_UNIT_TEMPLATE);
@@ -111,7 +114,8 @@ experiments.units_superdense_forest_of_units = {
 };
 
 experiments.units_superdense_forest_of_fast_units = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = -12; i <= 12; i += 2)
 			for (let j = -12; j <= 12; j += 2)
 				QuickSpawn(gx + i, gy + 50 + j, FAST_UNIT_TEMPLATE);
@@ -121,29 +125,31 @@ experiments.units_superdense_forest_of_fast_units = {
 };
 
 experiments.building = {
-	"spawn": (gx, gy) => {
-		let target = QuickSpawn(gx + 20, gy + 20, "foundation|structures/athen/storehouse");
+	"spawn": (gx, gy) =>
+	{
+		const target = QuickSpawn(gx + 20, gy + 20, "foundation|structures/athen/storehouse");
 		for (let i = 0; i < 8; ++i)
 			Do("repair", { "target": target }, QuickSpawn(gx + i, gy, REG_UNIT_TEMPLATE));
 
-		let cmpFoundation = Engine.QueryInterface(target, IID_Foundation);
+		const cmpFoundation = Engine.QueryInterface(target, IID_Foundation);
 		cmpFoundation.InitialiseConstruction("structures/athen/storehouse");
 	}
 };
 
 experiments.collecting_tree = {
-	"spawn": (gx, gy) => {
-		let target = QuickSpawn(gx + 10, gy + 10, "gaia/tree/acacia");
-		let storehouse = QuickSpawn(gx - 10, gy - 10, "structures/athen/storehouse");
+	"spawn": (gx, gy) =>
+	{
+		const target = QuickSpawn(gx + 10, gy + 10, "gaia/tree/acacia");
+		const storehouse = QuickSpawn(gx - 10, gy - 10, "structures/athen/storehouse");
 		for (let i = 0; i < 8; ++i)
 			Do("gather", { "target": target }, QuickSpawn(gx + i, gy, REG_UNIT_TEMPLATE));
 
-		let cmpModifiersManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_ModifiersManager);
+		const cmpModifiersManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_ModifiersManager);
 		// Make that tree essentially infinite.
 		cmpModifiersManager.AddModifiers("inf_tree", {
 			"ResourceSupply/Max": [{ "replace": 50000 }],
 		}, target);
-		let cmpSupply = Engine.QueryInterface(target, IID_ResourceSupply);
+		const cmpSupply = Engine.QueryInterface(target, IID_ResourceSupply);
 		cmpSupply.SetAmount(50000);
 		// Make the storehouse a territory root
 		cmpModifiersManager.AddModifiers("root", {
@@ -157,7 +163,8 @@ experiments.collecting_tree = {
 };
 
 experiments.multicrossing = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = 0; i < 20; i += 2)
 			for (let j = 0; j < 20; j += 2)
 				WalkTo(gx+10, gy+70, false, QuickSpawn(gx + i, gy + j, REG_UNIT_TEMPLATE));
@@ -169,7 +176,8 @@ experiments.multicrossing = {
 
 // Same as above but not as aligned.
 experiments.multicrossing_spaced = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = 0; i < 20; i += 2)
 			for (let j = 0; j < 20; j += 2)
 				WalkTo(gx+10, gy+70, false, QuickSpawn(gx + i, gy + j, REG_UNIT_TEMPLATE));
@@ -181,7 +189,8 @@ experiments.multicrossing_spaced = {
 
 // Same as above but not as aligned.
 experiments.multicrossing_spaced_2 = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = 0; i < 20; i += 2)
 			for (let j = 0; j < 20; j += 2)
 				WalkTo(gx+10, gy+70, false, QuickSpawn(gx + i, gy + j, REG_UNIT_TEMPLATE));
@@ -192,7 +201,8 @@ experiments.multicrossing_spaced_2 = {
 };
 
 experiments.crossing_perpendicular = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = 0; i < 20; i += 4)
 			for (let j = 0; j < 20; j += 4)
 				WalkTo(gx+10, gy+70, false, QuickSpawn(gx + i, gy + j, REG_UNIT_TEMPLATE));
@@ -203,8 +213,9 @@ experiments.crossing_perpendicular = {
 };
 
 experiments.elephant_formation = {
-	"spawn": (gx, gy) => {
-		let ents = [];
+	"spawn": (gx, gy) =>
+	{
+		const ents = [];
 		for (let i = 0; i < 20; i += 4)
 			for (let j = 0; j < 20; j += 4)
 				ents.push(QuickSpawn(gx + i, gy + j, ELE_TEMPLATE));
@@ -218,7 +229,8 @@ experiments.sep1 = {
 };
 
 experiments.battle = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = 0; i < 4; ++i)
 			for (let j = 0; j < 8; ++j)
 			{
@@ -234,7 +246,8 @@ experiments.sep2 = {
 
 
 experiments.overlapping = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = 0; i < 20; ++i)
 			QuickSpawn(gx, gy, REG_UNIT_TEMPLATE);
 		for (let i = 0; i < 20; ++i)
@@ -243,7 +256,8 @@ experiments.overlapping = {
 };
 
 experiments.large_against_units = {
-	"spawn": (gx, gy) => {
+	"spawn": (gx, gy) =>
+	{
 		for (let i = -18; i < 20; i += 2)
 			for (let j = 0; j < 40; j += 3)
 				WalkTo(gx, gy - 50, false, QuickSpawn(gx + i, gy + 10 + j, REG_UNIT_TEMPLATE));
@@ -256,7 +270,8 @@ var perf_experiments = {};
 
 // Perf check: put units everywhere, not moving.
 perf_experiments.Idle = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		const spacing = 12;
 		for (let x = 0; x < 20*4*4 - 20; x += spacing)
 			for (let z = 0; z < 20*4*4 - 20; z += spacing)
@@ -266,12 +281,13 @@ perf_experiments.Idle = {
 
 // Perf check: put units everywhere, moving.
 perf_experiments.MovingAround = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		const spacing = 24;
 		for (let x = 0; x < 20*16*4 - 20; x += spacing)
 			for (let z = 0; z < 20*16*4 - 20; z += spacing)
 			{
-				let ent = QuickSpawn(x, z, REG_UNIT_TEMPLATE);
+				const ent = QuickSpawn(x, z, REG_UNIT_TEMPLATE);
 				for (let i = 0; i < 5; ++i)
 				{
 					WalkTo(x + 4, z, true, ent);
@@ -284,12 +300,13 @@ perf_experiments.MovingAround = {
 };
 // Perf check: fewer units moving more.
 perf_experiments.LighterMovingAround = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		const spacing = 48;
 		for (let x = 0; x < 20*16*4 - 20; x += spacing)
 			for (let z = 0; z < 20*16*4 - 20; z += spacing)
 			{
-				let ent = QuickSpawn(x, z, REG_UNIT_TEMPLATE);
+				const ent = QuickSpawn(x, z, REG_UNIT_TEMPLATE);
 				for (let i = 0; i < 5; ++i)
 				{
 					WalkTo(x + 20, z, true, ent);
@@ -303,7 +320,8 @@ perf_experiments.LighterMovingAround = {
 
 // Perf check: rows of units crossing each other.
 perf_experiments.BunchaCollisions = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		const spacing = 64;
 		for (let x = 0; x < 20*16*4 - 20; x += spacing)
 			for (let z = 0; z < 20*16*4 - 20; z += spacing)
@@ -311,7 +329,7 @@ perf_experiments.BunchaCollisions = {
 				for (let i = 0; i < 10; ++i)
 				{
 					// Add a little variation to the spawning, or all clusters end up identical.
-					let ent = QuickSpawn(x + i + randFloat(-0.5, 0.5), z + 20 * (i%2) + randFloat(-0.5, 0.5), REG_UNIT_TEMPLATE);
+					const ent = QuickSpawn(x + i + randFloat(-0.5, 0.5), z + 20 * (i%2) + randFloat(-0.5, 0.5), REG_UNIT_TEMPLATE);
 					for (let ii = 0; ii < 5; ++ii)
 					{
 						WalkTo(x + i, z + 20, true, ent);
@@ -324,12 +342,13 @@ perf_experiments.BunchaCollisions = {
 
 // Massive moshpit of pushing.
 perf_experiments.LotsaLocalCollisions = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		const spacing = 3;
 		for (let x = 100; x < 200; x += spacing)
 			for (let z = 100; z < 200; z += spacing)
 			{
-				let ent = QuickSpawn(x, z, REG_UNIT_TEMPLATE);
+				const ent = QuickSpawn(x, z, REG_UNIT_TEMPLATE);
 				for (let ii = 0; ii < 20; ++ii)
 					WalkTo(randFloat(100, 200), randFloat(100, 200), true, ent);
 			}
@@ -337,9 +356,10 @@ perf_experiments.LotsaLocalCollisions = {
 };
 
 
-var woodcutting = (gx, gy) => {
-	let dropsite = QuickSpawn(gx + 50, gy, "structures/athen/storehouse");
-	let cmpModifiersManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_ModifiersManager);
+var woodcutting = (gx, gy) =>
+{
+	const dropsite = QuickSpawn(gx + 50, gy, "structures/athen/storehouse");
+	const cmpModifiersManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_ModifiersManager);
 	cmpModifiersManager.AddModifiers("root", {
 		"TerritoryInfluence/Root": [{ "affects": ["Structure"], "replace": true }],
 	}, dropsite);
@@ -356,7 +376,8 @@ var woodcutting = (gx, gy) => {
 };
 
 perf_experiments.WoodCutting = {
-	"spawn": () => {
+	"spawn": () =>
+	{
 		for (let i = 0; i < 8; i++)
 			for (let j = 0; j < 8; j++)
 			{
@@ -369,12 +390,11 @@ var cmpTrigger = Engine.QueryInterface(SYSTEM_ENTITY, IID_Trigger);
 
 Trigger.prototype.Setup = function()
 {
-	let start = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).GetTime();
+	const start = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).GetTime();
 
-	// /*
 	let gx = 100;
 	let gy = 100;
-	for (let key in experiments)
+	for (const key in experiments)
 	{
 		experiments[key].spawn(gx, gy);
 		gx += 90;
@@ -384,8 +404,7 @@ Trigger.prototype.Setup = function()
 			gy += 150;
 		}
 	}
-	/**/
-	//perf_experiments.LotsaLocalCollisions.spawn();
+	// perf_experiments.LotsaLocalCollisions.spawn();
 	/*
 	let time = 0;
 	for (let key in perf_experiments)
@@ -399,9 +418,9 @@ Trigger.prototype.Setup = function()
 Trigger.prototype.Cleanup = function()
 {
 	warn("cleanup");
-	let cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
-	let ents = cmpRangeManager.GetEntitiesByPlayer(1).concat(cmpRangeManager.GetEntitiesByPlayer(2));
-	for (let ent of ents)
+	const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
+	const ents = cmpRangeManager.GetEntitiesByPlayer(1).concat(cmpRangeManager.GetEntitiesByPlayer(2));
+	for (const ent of ents)
 		Engine.DestroyEntity(ent);
 };
 

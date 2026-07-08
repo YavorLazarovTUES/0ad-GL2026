@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -166,6 +166,7 @@ function RunDetection(settings)
 	// This function should have no side effects, it should just
 	// set these output properties:
 
+	let hardwareSupported = true;
 
 	// List of warning strings to display to the user
 	// in an ugly GUI dialog box
@@ -176,16 +177,14 @@ function RunDetection(settings)
 
 	// If variable value is not undefined it overrides default.cfg,
 	// local preferences have a higher priority anyway
-	var disable_audio = undefined;
-	var disable_s3tc = undefined;
-	var disable_shadows = undefined;
-	var disable_shadowpcf = undefined;
-	var disable_allwater = undefined;
-	var disable_fancywater = undefined;
-	var enable_glsl = undefined;
-	var enable_postproc = undefined;
-	var enable_smoothlos = undefined;
-	var override_renderpath = undefined;
+	var disable_audio;
+	var disable_s3tc;
+	var disable_shadows;
+	var disable_shadowpcf;
+	var disable_allwater;
+	var disable_fancywater;
+	var enable_postproc;
+	var enable_smoothlos;
 
 	// TODO: add some mechanism for setting config values
 	// (overriding default.cfg, but overridden by local.cfg)
@@ -214,16 +213,6 @@ function RunDetection(settings)
 	var GL_VERSION = settings.renderer_backend.GL_VERSION;
 	var GL_EXTENSIONS = settings.renderer_backend.GL_EXTENSIONS.split(" ");
 
-	// Enable GLSL on OpenGL 3+, which should be able to properly
-	// manage GLSL shaders, needed for effects like windy trees
-	if (GL_VERSION.match(/^[3-9]/))
-		enable_glsl = true;
-
-	// Enable GLSL on OpenGL ES 2.0+, which doesn’t support the fixed
-	// function fallbacks
-	if (GL_VERSION.match(/^OpenGL ES /))
-		enable_glsl = true;
-
 	// Enable most graphics options on OpenGL 4+, which should be
 	// able to properly manage them
 	if (GL_VERSION.match(/^[4-9]/))
@@ -239,7 +228,6 @@ function RunDetection(settings)
 	{
 		warnings.push("You are using '" + GL_RENDERER + "' graphics driver, expect very poor performance!");
 		warnings.push("If possible install a proper graphics driver for your hardware.");
-		enable_glsl = false;
 		enable_postproc = false;
 		enable_smoothlos = false;
 		// s3tc on software renderers halves fps and makes textures weird
@@ -258,7 +246,7 @@ function RunDetection(settings)
 		dialog_warnings.push("You are using 260.19.* series NVIDIA drivers, which may crash the game. Please upgrade to 260.19.21 or later.");
 	}
 
-	// https://trac.wildfiregames.com/ticket/684
+	// https://gitea.wildfiregames.com/0ad/0ad/issues/684
 	// https://bugs.freedesktop.org/show_bug.cgi?id=24047
 	// R600 drivers will advertise support for S3TC but not actually support it,
 	// and will draw everything in grey instead, so forcibly disable S3TC.
@@ -266,7 +254,7 @@ function RunDetection(settings)
 	if (os_unix && GL_RENDERER.match(/^Mesa DRI R600 /))
 		disable_s3tc = true;
 
-	// https://trac.wildfiregames.com/ticket/623
+	// https://gitea.wildfiregames.com/0ad/0ad/issues/623
 	// Shadows are reportedly very slow on various drivers:
 	//   r300 classic
 	//   Intel 945
@@ -297,29 +285,25 @@ function RunDetection(settings)
 		disable_shadowpcf = true;
 	}
 
-	// https://trac.wildfiregames.com/ticket/780
+	// https://gitea.wildfiregames.com/0ad/0ad/issues/780
 	// r300 classic has problems with shader mode, so fall back to non-shader
 	if (os_unix && GL_RENDERER.match(/^Mesa DRI R[123]00 /))
 	{
-		override_renderpath = "fixed";
-		warnings.push("Some graphics features are disabled, due to bugs in old graphics drivers. Upgrading to a Gallium-based driver might help.");
+		hardwareSupported = false;
 	}
 
 	// https://www.wildfiregames.com/forum/index.php?showtopic=15058
 	// GF FX has poor shader performance, so fall back to non-shader
 	if (GL_RENDERER.match(/^GeForce FX /))
 	{
-		override_renderpath = "fixed";
-		disable_allwater = true;
+		hardwareSupported = false;
 	}
 
-	// https://trac.wildfiregames.com/ticket/964
+	// https://gitea.wildfiregames.com/0ad/0ad/issues/964
 	// SiS Mirage 3 drivers apparently crash with shaders, so fall back to non-shader
-	// (The other known SiS cards don't advertise GL_ARB_fragment_program so we
-	// don't need to do anything special for them)
 	if (os_win && GL_RENDERER.match(/^Mirage Graphics3$/))
 	{
-		override_renderpath = "fixed";
+		hardwareSupported = false;
 	}
 
 	return {
@@ -331,24 +315,23 @@ function RunDetection(settings)
 		"disable_shadowpcf": disable_shadowpcf,
 		"disable_allwater": disable_allwater,
 		"disable_fancywater": disable_fancywater,
-		"enable_glsl": enable_glsl,
 		"enable_postproc": enable_postproc,
 		"enable_smoothlos": enable_smoothlos,
-		"override_renderpath": override_renderpath,
+		"hardwareSupported": hardwareSupported,
 	};
 }
 
 global.RunHardwareDetection = function(settings)
 {
-	// Currently we don't have limitations for other backends than GL and GL ARB.
-	if (settings.renderer_backend.name != 'gl' && settings.renderer_backend.name != 'glarb')
-		return;
+	// Currently we don't have limitations for other backends than GL.
+	if (settings.renderer_backend.name != 'gl')
+		return true;
 
-	//print(JSON.stringify(settings, null, 1)+"\n");
+	// print(JSON.stringify(settings, null, 1)+"\n");
 
 	var output = RunDetection(settings);
 
-	//print(JSON.stringify(output, null, 1)+"\n");
+	// print(JSON.stringify(output, null, 1)+"\n");
 
 	for (var i = 0; i < output.warnings.length; ++i)
 		warn(output.warnings[i]);
@@ -385,15 +368,11 @@ global.RunHardwareDetection = function(settings)
 		Engine.ConfigDB_CreateValue("hwdetect", "watershadows", (!output.disable_fancywater).toString());
 	}
 
-	if (output.enable_glsl !== undefined)
-		Engine.ConfigDB_CreateValue("hwdetect", "preferglsl", (output.enable_glsl).toString());
-
 	if (output.enable_postproc !== undefined)
 		Engine.ConfigDB_CreateValue("hwdetect", "postproc", (output.enable_postproc).toString());
 
 	if (output.enable_smoothlos !== undefined)
 		Engine.ConfigDB_CreateValue("hwdetect", "smoothlos", (output.enable_smoothlos).toString());
 
-	if (output.override_renderpath !== undefined)
-		Engine.ConfigDB_CreateValue("hwdetect", "renderpath", (output.override_renderpath).toString());
+	return output.hardwareSupported;
 };

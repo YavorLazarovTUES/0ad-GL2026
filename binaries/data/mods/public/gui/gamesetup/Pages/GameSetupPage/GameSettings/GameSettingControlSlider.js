@@ -23,12 +23,12 @@ class GameSettingControlSlider extends GameSettingControl
 
 	setControl(gameSettingControlManager)
 	{
-		let row = gameSettingControlManager.getNextRow("sliderSettingFrame");
+		const row = gameSettingControlManager.getNextRow("sliderSettingFrame");
 		this.frame = Engine.GetGUIObjectByName("sliderSettingFrame[" + row + "]");
 		this.slider = Engine.GetGUIObjectByName("sliderSettingControl[" + row + "]");
 		this.valueLabel = Engine.GetGUIObjectByName("sliderSettingLabel[" + row + "]");
 
-		let labels = this.frame.children[0].children;
+		const labels = this.frame.children[0].children;
 		this.title = labels[0];
 		this.label = labels[1];
 	}
@@ -61,7 +61,8 @@ class GameSettingControlSlider extends GameSettingControl
 	onValueChangeSuper()
 	{
 		if (!this.isInGuiUpdate && !this.timer)
-			this.timer = setTimeout(() => {
+			this.timer = setTimeout(() =>
+			{
 				this.onValueChange(this.slider.value);
 				delete this.timer;
 			}, this.Timeout);

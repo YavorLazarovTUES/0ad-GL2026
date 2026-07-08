@@ -1,4 +1,4 @@
-/* Copyright (C) 2017 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,9 +18,14 @@
 #ifndef INCLUDED_STDSERIALIZER
 #define INCLUDED_STDSERIALIZER
 
-#include "BinarySerializer.h"
+#include "lib/code_annotation.h"
+#include "lib/types.h"
+#include "simulation2/serialization/BinarySerializer.h"
 
 #include <cstring>
+#include <ostream>
+
+namespace Script { class Interface; }
 
 #define DEBUG_SERIALIZER_ANNOTATE 0 // annotate the stream to help debugging if you're reading the output in a hex editor
 
@@ -35,14 +40,12 @@ public:
 		m_Stream.flush();
 	}
 
-	void Put(const char* name, const u8* data, size_t len)
+	void Put([[maybe_unused]] const char* name, const u8* data, size_t len)
 	{
 #if DEBUG_SERIALIZER_ANNOTATE
 		m_Stream.put('<');
 		m_Stream.write(name, strlen(name));
 		m_Stream.put('>');
-#else
-		UNUSED2(name);
 #endif
 		m_Stream.write((const char*)data, (std::streamsize)len);
 	}
@@ -59,7 +62,7 @@ private:
 class CStdSerializer : public CBinarySerializer<CStdSerializerImpl>
 {
 public:
-	CStdSerializer(const ScriptInterface& scriptInterface, std::ostream& stream);
+	CStdSerializer(const Script::Interface& scriptInterface, std::ostream& stream);
 
 	virtual std::ostream& GetStream();
 };

@@ -1,7 +1,7 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
 	const tGrass = [
 		"tropic_grass_c",
@@ -136,7 +136,7 @@ function* GenerateMap()
 	const playerIDs = randBool() ? sortAllPlayers() : primeSortAllPlayers();
 
 	g_Map.log("Ensuring player territory");
-	const playerRadius = scaleByMapSize(12, 20);
+	const playerRadius = scaleByMapSize(15, 20);
 	for (let i = 0; i < numPlayers; ++i)
 		createArea(
 			new ChainPlacer(1, 6, 40, 1, playerPosition[i], 0, [Math.floor(playerRadius)]),
@@ -194,7 +194,7 @@ function* GenerateMap()
 
 	yield 40;
 
-	if (!isNomad())
+	if (!mapSettings.Nomad)
 	{
 		g_Map.log("Creating gaia");
 		for (let i = 0; i < 2; ++i)

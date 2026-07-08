@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,8 +19,15 @@
 
 #include "DllLoader.h"
 
-#include "lib/timer.h"
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
 #include "lib/posix/posix_dlfcn.h"
+#include "lib/sysdep/os.h"
+#include "ps/Profiler2.h"
+
+#include <cstddef>
+#include <sstream>
+#include <string>
 
 #if OS_MACOSX
 # include "lib/sysdep/os/osx/osx_bundle.h"
@@ -153,7 +160,7 @@ bool DllLoader::LoadDLL()
 	// postcondition: m_Handle valid or == HANDLE_UNAVAILABLE.
 	if (m_Handle == 0)
 	{
-		TIMER(L"LoadDLL");
+		PROFILE2("LoadDLL");
 
 		std::stringstream errors;
 		m_Handle = LoadAnyVariant(m_Name, errors);

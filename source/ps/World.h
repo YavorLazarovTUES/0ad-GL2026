@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,10 +24,17 @@
 #ifndef INCLUDED_WORLD
 #define INCLUDED_WORLD
 
-#include "ps/CStrForward.h"
 #include "ps/Errors.h"
 
+#include <js/TypeDecls.h>
 #include <memory>
+
+class CGame;
+class CMapReader;
+class CStrW;
+class CTerrain;
+class CUnitManager;
+namespace Script { class Context; }
 
 #ifndef ERROR_GROUP_GAME_DEFINED
 #define ERROR_GROUP_GAME_DEFINED
@@ -35,12 +42,6 @@ ERROR_GROUP(Game);
 #endif
 ERROR_SUBGROUP(Game, World);
 ERROR_TYPE(Game_World, MapLoadFailed);
-
-class CGame;
-class CUnitManager;
-class CTerrain;
-class CMapReader;
-class ScriptContext;
 
 /**
  * CWorld is a general data class containing whatever is needed to accurately represent the world.
@@ -55,12 +56,12 @@ public:
 	/*
 	Initialize the World - load the map and all objects
 	*/
-	void RegisterInit(const CStrW& mapFile, const ScriptContext& cx, JS::HandleValue settings, int playerID);
+	void RegisterInit(const CStrW& mapFile, const Script::Context& cx, JS::HandleValue settings, int playerID);
 
 	/*
 	Initialize the World - generate and load the random map
 	*/
-	void RegisterInitRMS(const CStrW& scriptFile, const ScriptContext& cx, JS::HandleValue settings, int playerID);
+	void RegisterInitRMS(const CStrW& scriptFile, const Script::Context& cx, JS::HandleValue settings, int playerID);
 
 	/**
 	 * Explicitly delete m_MapReader once the map has finished loading.

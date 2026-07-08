@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,6 +22,16 @@
 #include "gui/CGUI.h"
 #include "gui/CGUIScrollBarVertical.h"
 #include "gui/CGUIText.h"
+#include "gui/IGUIScrollBar.h"
+#include "gui/SGUIMessage.h"
+#include "maths/Rect.h"
+#include "maths/Size2D.h"
+
+#include <limits>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 CText::CText(CGUI& pGUI)
 	: IGUIObject(pGUI),
@@ -49,24 +59,17 @@ CText::CText(CGUI& pGUI)
 	AddText();
 }
 
-CText::~CText()
-{
-}
-
 void CText::SetupText()
 {
 	if (m_GeneratedTexts.empty())
 		return;
 
-	float width = m_CachedActualSize.GetWidth();
+	float width = GetActualSize().GetWidth();
 	// remove scrollbar if applicable
 	if (m_ScrollBar && GetScrollBar(0).GetStyle())
 		width -= GetScrollBar(0).GetStyle()->m_Width;
 
 	m_GeneratedTexts[0] = CGUIText(m_pGUI, m_Caption, m_Font, width, m_BufferZone, m_TextAlign, this);
-
-	if (!m_ScrollBar)
-		CalculateTextPosition(m_CachedActualSize, m_TextPos, m_GeneratedTexts[0]);
 
 	// Setup scrollbar
 	if (m_ScrollBar)
@@ -80,12 +83,12 @@ void CText::SetupText()
 			bottom = true;
 
 		GetScrollBar(0).SetScrollRange(m_GeneratedTexts[0].GetSize().Height);
-		GetScrollBar(0).SetScrollSpace(m_CachedActualSize.GetHeight());
+		GetScrollBar(0).SetScrollSpace(GetActualSize().GetHeight());
 
-		GetScrollBar(0).SetX(m_CachedActualSize.right);
-		GetScrollBar(0).SetY(m_CachedActualSize.top);
+		GetScrollBar(0).SetX(GetActualSize().right);
+		GetScrollBar(0).SetY(GetActualSize().top);
 		GetScrollBar(0).SetZ(GetBufferedZ());
-		GetScrollBar(0).SetLength(m_CachedActualSize.bottom - m_CachedActualSize.top);
+		GetScrollBar(0).SetLength(GetActualSize().bottom - GetActualSize().top);
 
 		if (bottom)
 			GetScrollBar(0).SetPos(GetScrollBar(0).GetMaxPos());
@@ -93,6 +96,9 @@ void CText::SetupText()
 		if (m_ScrollTop)
 			GetScrollBar(0).SetPos(0.0f);
 	}
+
+	if (!m_ScrollBar || !std::ranges::any_of(m_ScrollBars, &IGUIScrollBar::IsVisible))
+		CalculateTextPosition(GetActualSize(), m_TextPos, m_GeneratedTexts[0]);
 }
 
 void CText::ResetStates()
@@ -101,16 +107,21 @@ void CText::ResetStates()
 	IGUIScrollBarOwner::ResetStates();
 }
 
-void CText::UpdateCachedSize()
+void CText::HandleSizeChanged()
 {
-	IGUIObject::UpdateCachedSize();
-	IGUITextOwner::UpdateCachedSize();
+	IGUIObject::HandleSizeChanged();
+	IGUITextOwner::HandleSizeChanged();
 }
 
 CSize2D CText::GetTextSize()
 {
 	UpdateText();
 	return m_GeneratedTexts[0].GetSize();
+}
+
+CSize2D CText::GetPreferredTextSize()
+{
+	return CGUIText{m_pGUI, m_Caption, m_Font, std::numeric_limits<float>::max(), m_BufferZone, m_TextAlign, this}.GetSize();
 }
 
 const CStrW& CText::GetTooltipText() const
@@ -121,7 +132,7 @@ const CStrW& CText::GetTooltipText() const
 			if (textChunk.m_Tooltip.empty())
 				continue;
 			CRect area(textChunk.m_Pos - CVector2D(0.f, textChunk.m_Size.Height), textChunk.m_Size);
-			if (area.PointInside(m_pGUI.GetMousePos() - m_CachedActualSize.TopLeft()))
+			if (area.PointInside(m_pGUI.GetMousePos() - GetActualSize().TopLeft()))
 				return textChunk.m_Tooltip;
 		}
 	return m_Tooltip;
@@ -130,7 +141,8 @@ const CStrW& CText::GetTooltipText() const
 void CText::HandleMessage(SGUIMessage& Message)
 {
 	IGUIObject::HandleMessage(Message);
-	IGUIScrollBarOwner::HandleMessage(Message);
+	if (m_ScrollBar)
+		IGUIScrollBarOwner::HandleMessage(Message);
 	//IGUITextOwner::HandleMessage(Message); <== placed it after the switch instead!
 
 	switch (Message.type)
@@ -148,30 +160,12 @@ void CText::HandleMessage(SGUIMessage& Message)
 
 		break;
 
-	case GUIM_MOUSE_WHEEL_DOWN:
-	{
-		GetScrollBar(0).ScrollPlus();
-		// Since the scroll was changed, let's simulate a mouse movement
-		//  to check if scrollbar now is hovered
-		SGUIMessage msg(GUIM_MOUSE_MOTION);
-		HandleMessage(msg);
-		break;
-	}
-	case GUIM_MOUSE_WHEEL_UP:
-	{
-		GetScrollBar(0).ScrollMinus();
-		// Since the scroll was changed, let's simulate a mouse movement
-		//  to check if scrollbar now is hovered
-		SGUIMessage msg(GUIM_MOUSE_MOTION);
-		HandleMessage(msg);
-		break;
-	}
 	case GUIM_LOAD:
 	{
-		GetScrollBar(0).SetX(m_CachedActualSize.right);
-		GetScrollBar(0).SetY(m_CachedActualSize.top);
+		GetScrollBar(0).SetX(GetActualSize().right);
+		GetScrollBar(0).SetY(GetActualSize().top);
 		GetScrollBar(0).SetZ(GetBufferedZ());
-		GetScrollBar(0).SetLength(m_CachedActualSize.bottom - m_CachedActualSize.top);
+		GetScrollBar(0).SetLength(GetActualSize().bottom - GetActualSize().top);
 		GetScrollBar(0).SetScrollBarStyle(m_ScrollBarStyle);
 		break;
 	}
@@ -185,18 +179,16 @@ void CText::HandleMessage(SGUIMessage& Message)
 
 void CText::Draw(CCanvas2D& canvas)
 {
-	m_pGUI.DrawSprite(m_Sprite, canvas, m_CachedActualSize);
+	m_pGUI.DrawSprite(m_Sprite, canvas, GetActualSize(), m_VisibleArea);
 
 	float scroll = 0.f;
 	if (m_ScrollBar)
 		scroll = GetScrollBar(0).GetPos();
 
 	// Clipping area (we'll have to subtract the scrollbar)
-	CRect cliparea;
+	CRect cliparea = m_VisibleArea ? m_VisibleArea : GetActualSize();
 	if (m_Clip)
 	{
-		cliparea = m_CachedActualSize;
-
 		if (m_ScrollBar)
 		{
 			// subtract scrollbar from cliparea
@@ -212,15 +204,15 @@ void CText::Draw(CCanvas2D& canvas)
 
 	const CGUIColor& color = m_Enabled ? m_TextColor : m_TextColorDisabled;
 
-	if (m_ScrollBar)
-		DrawText(canvas, 0, color, m_CachedActualSize.TopLeft() - CVector2D(0.f, scroll), cliparea);
+	if (m_ScrollBar && std::ranges::any_of(m_ScrollBars, &IGUIScrollBar::IsVisible))
+	{
+		DrawText(canvas, 0, color, GetActualSize().TopLeft() - CVector2D(0.f, scroll), cliparea);
+		// Draw scrollbars on top of the content
+		IGUIScrollBarOwner::Draw(canvas);
+	}
 	else
 		DrawText(canvas, 0, color, m_TextPos, cliparea);
 
-	// Draw scrollbars on top of the content
-	if (m_ScrollBar)
-		IGUIScrollBarOwner::Draw(canvas);
-
 	// Draw the overlays last
-	m_pGUI.DrawSprite(m_SpriteOverlay, canvas, m_CachedActualSize);
+	m_pGUI.DrawSprite(m_SpriteOverlay, canvas, GetActualSize(), m_VisibleArea);
 }

@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,50 +19,70 @@
 
 #include "Renderer.h"
 
+#include "graphics/Camera.h"
 #include "graphics/Canvas2D.h"
 #include "graphics/CinemaManager.h"
+#include "graphics/Color.h"
+#include "graphics/FontManager.h"
 #include "graphics/GameView.h"
-#include "graphics/LightEnv.h"
 #include "graphics/ModelDef.h"
+#include "graphics/ShaderManager.h"
 #include "graphics/TerrainTextureManager.h"
-#include "i18n/L10n.h"
-#include "lib/allocators/shared_ptr.h"
-#include "lib/hash.h"
-#include "lib/tex/tex.h"
+#include "graphics/TextureManager.h"
 #include "gui/GUIManager.h"
+#include "i18n/L10n.h"
+#include "lib/alignment.h"
+#include "lib/allocators/shared_ptr.h"
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/file/vfs/vfs_path.h"
+#include "lib/file/vfs/vfs_util.h"
+#include "lib/hash.h"
+#include "lib/os_path.h"
+#include "lib/secure_crt.h"
+#include "lib/status.h"
+#include "lib/tex/tex.h"
+#include "lib/types.h"
+#include "maths/Matrix3D.h"
 #include "ps/CConsole.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
 #include "ps/ConfigDB.h"
-#include "ps/CStrInternStatic.h"
+#include "ps/Filesystem.h"
 #include "ps/Game.h"
 #include "ps/GameSetup/Config.h"
-#include "ps/GameSetup/GameSetup.h"
 #include "ps/Globals.h"
-#include "ps/Loader.h"
+#include "ps/memory/LinearAllocator.h"
+#include "ps/Hotkey.h"
 #include "ps/Profile.h"
-#include "ps/Filesystem.h"
-#include "ps/World.h"
 #include "ps/ProfileViewer.h"
-#include "graphics/Camera.h"
-#include "graphics/FontManager.h"
-#include "graphics/ShaderManager.h"
-#include "graphics/Terrain.h"
-#include "graphics/Texture.h"
-#include "graphics/TextureManager.h"
+#include "ps/Profiler2.h"
 #include "ps/Util.h"
 #include "ps/VideoMode.h"
-#include "renderer/backend/IDevice.h"
+#include "ps/World.h"
 #include "renderer/DebugRenderer.h"
+#include "renderer/ModelRenderer.h"
 #include "renderer/PostprocManager.h"
 #include "renderer/RenderingOptions.h"
-#include "renderer/RenderModifiers.h"
 #include "renderer/SceneRenderer.h"
 #include "renderer/TimeManager.h"
 #include "renderer/VertexBufferManager.h"
+#include "renderer/backend/Backend.h"
+#include "renderer/backend/IDevice.h"
+#include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/IFramebuffer.h"
+#include "renderer/backend/IShaderProgram.h"
+#include "renderer/backend/ISwapChain.h"
 #include "tools/atlas/GameInterface/GameLoop.h"
 #include "tools/atlas/GameInterface/View.h"
 
-#include <algorithm>
+#include <SDL_events.h>
+#include <cstdlib>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace
 {
@@ -83,7 +103,7 @@ class CRendererStatsTable : public AbstractProfileTable
 {
 	NONCOPYABLE(CRendererStatsTable);
 public:
-	CRendererStatsTable(const CRenderer::Stats& st);
+	CRendererStatsTable(const CRenderer::Stats& st, const PS::Memory::LinearAllocator& linearAllocator);
 
 	// Implementation of AbstractProfileTable interface
 	CStr GetName() override;
@@ -96,6 +116,7 @@ public:
 private:
 	/// Reference to the renderer singleton's stats
 	const CRenderer::Stats& Stats;
+	const PS::Memory::LinearAllocator& m_LinearAllocator;
 
 	/// Column descriptions
 	std::vector<ProfileColumn> columnDescriptions;
@@ -113,6 +134,7 @@ private:
 		Row_VBAllocated,
 		Row_TextureMemory,
 		Row_ShadersLoaded,
+		Row_LinearAllocator,
 
 		// Must be last to count number of rows
 		NumberRows
@@ -120,8 +142,8 @@ private:
 };
 
 // Construction
-CRendererStatsTable::CRendererStatsTable(const CRenderer::Stats& st)
-	: Stats(st)
+CRendererStatsTable::CRendererStatsTable(const CRenderer::Stats& st, const PS::Memory::LinearAllocator& linearAllocator)
+	: Stats(st), m_LinearAllocator(linearAllocator)
 {
 	columnDescriptions.push_back(ProfileColumn("Name", 230));
 	columnDescriptions.push_back(ProfileColumn("Value", 100));
@@ -220,15 +242,73 @@ CStr CRendererStatsTable::GetCellText(size_t row, size_t col)
 		sprintf_s(buf, sizeof(buf), "%lu", (unsigned long)g_Renderer.GetShaderManager().GetNumEffectsLoaded());
 		return buf;
 
+	case Row_LinearAllocator:
+		if (col == 0)
+			return "linear allocator";
+		sprintf_s(buf, sizeof(buf), "%lu", static_cast<unsigned long>(m_LinearAllocator.GetCapacity()));
+		return buf;
+
 	default:
 		return "???";
 	}
 }
 
-AbstractProfileTable* CRendererStatsTable::GetChild(size_t UNUSED(row))
+AbstractProfileTable* CRendererStatsTable::GetChild(size_t /*row*/)
 {
 	return 0;
 }
+
+class CRendererBackendStatsTable : public AbstractProfileTable
+{
+public:
+	CRendererBackendStatsTable(const Renderer::Backend::IDevice& device)
+		: m_Device(device)
+	{
+		m_ColumnDescriptions.push_back(ProfileColumn("Name", 230));
+		m_ColumnDescriptions.push_back(ProfileColumn("Value", 100));
+	}
+
+	CStr GetName() override { return "renderer.backend"; }
+	CStr GetTitle() override { return "Renderer backend statistics"; }
+	size_t GetNumberRows() override { UpdateIfNeeded(); return m_Statistics.size(); }
+	const std::vector<ProfileColumn>& GetColumns() override { return m_ColumnDescriptions; }
+	AbstractProfileTable* GetChild(size_t) override { return nullptr; }
+
+	CStr GetCellText(size_t row, size_t col) override
+	{
+		UpdateIfNeeded();
+		if (row >= m_Statistics.size() || col > 2)
+			return "";
+		if (col == 0)
+			return CStr(m_Statistics[row].name);
+		return std::visit(
+			[]<typename T>(const T& value) -> std::string
+			{
+				return std::to_string(value);
+			},
+			m_Statistics[row].value) + " " + CStr{m_Statistics[row].unit};
+	}
+
+	void MakeOutdated() { m_Outdated = true; }
+
+private:
+	void UpdateIfNeeded()
+	{
+		if (!m_Outdated)
+			return;
+		m_Outdated = false;
+		m_Statistics.clear();
+		m_Device.CollectStatistics(m_Statistics);
+	}
+
+	const Renderer::Backend::IDevice& m_Device;
+
+	std::vector<ProfileColumn> m_ColumnDescriptions;
+	Renderer::Backend::IDevice::StatisticsVector m_Statistics;
+
+	// We need to recalculate statistics only when a new frame happened.
+	bool m_Outdated{true};
+};
 
 } // anonymous namespace
 
@@ -255,6 +335,7 @@ public:
 
 	/// Table to display renderer stats in-game via profile system
 	CRendererStatsTable profileTable;
+	CRendererBackendStatsTable backendProfileTable;
 
 	/// Shader manager
 	CShaderManager shaderManager;
@@ -276,6 +357,13 @@ public:
 
 	CFontManager fontManager;
 
+	// During rendering we need to collect and sort many objects. To reduce
+	// the allocation cost and increase cache locality we use the
+	// LinearAllocator.
+	// If we need to have more than 16MiB of continious memory then we're doing
+	// a lot of unnecessary work.
+	PS::Memory::LinearAllocator linearAllocator{1 * MiB, 16 * MiB};
+
 	struct VertexAttributesHash
 	{
 		size_t operator()(const std::vector<Renderer::Backend::SVertexAttributeFormat>& attributes) const;
@@ -285,12 +373,42 @@ public:
 		std::vector<Renderer::Backend::SVertexAttributeFormat>,
 		std::unique_ptr<Renderer::Backend::IVertexInputLayout>, VertexAttributesHash> vertexInputLayouts;
 
+	ScreenShotType m_ScreenShotType{ScreenShotType::NONE};
+
+	struct InputHandler
+	{
+		ScreenShotType& screenshotType;
+
+		Input::Reaction operator()(const SDL_Event& ev)
+		{
+			if (ev.type != SDL_HOTKEYPRESS)
+				return Input::Reaction::PASS;
+
+			std::string_view hotkey{static_cast<const char*>(ev.user.data1)};
+			if (hotkey == "screenshot")
+			{
+				screenshotType = ScreenShotType::DEFAULT;
+				return Input::Reaction::HANDLED;
+			}
+			if (hotkey == "bigscreenshot")
+			{
+				screenshotType = ScreenShotType::BIG;
+				return Input::Reaction::HANDLED;
+			}
+			return Input::Reaction::PASS;
+		}
+	};
+
+	Input::Handler<InputHandler> m_InputHandler{g_VideoMode.m_InputManager, Input::Slot::SCREENSHOT,
+		{m_ScreenShotType}};
+
 	Internals(Renderer::Backend::IDevice* device) :
 		device(device),
 		deviceCommandContext(device->CreateCommandContext()),
-		IsOpen(false), ShadersDirty(true), profileTable(g_Renderer.m_Stats),
+		IsOpen(false), ShadersDirty(true), profileTable(g_Renderer.m_Stats, linearAllocator),
+		backendProfileTable(*device),
 		shaderManager(device), textureManager(g_VFS, false, device), vertexBufferManager(device),
-		postprocManager(device), sceneRenderer(device)
+		postprocManager(device), sceneRenderer(device), fontManager(device)
 	{
 	}
 };
@@ -314,11 +432,12 @@ size_t CRenderer::Internals::VertexAttributesHash::operator()(
 
 CRenderer::CRenderer(Renderer::Backend::IDevice* device)
 {
-	TIMER(L"InitRenderer");
+	PROFILE2("InitRenderer");
 
 	m = std::make_unique<Internals>(device);
 
 	g_ProfileViewer.AddRootTable(&m->profileTable);
+	g_ProfileViewer.AddRootTable(&m->backendProfileTable);
 
 	m_Width = 0;
 	m_Height = 0;
@@ -328,7 +447,7 @@ CRenderer::CRenderer(Renderer::Backend::IDevice* device)
 	// Create terrain related stuff.
 	new CTerrainTextureManager(device);
 
-	Open(g_xres, g_yres);
+	Open(g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight());
 
 	// Setup lighting environment. Since the Renderer accesses the
 	// lighting environment through a pointer, this has to be done before
@@ -342,6 +461,7 @@ CRenderer::CRenderer(Renderer::Backend::IDevice* device)
 
 CRenderer::~CRenderer()
 {
+	PROFILE2("~CRenderer");
 	delete &g_TexMan;
 
 	// We no longer UnloadWaterTextures here -
@@ -366,9 +486,6 @@ bool CRenderer::Open(int width, int height)
 	m_Width = width;
 	m_Height = height;
 
-	// Validate the currently selected render path
-	SetRenderPath(g_RenderingOptions.GetRenderPath());
-
 	m->debugRenderer.Initialize();
 
 	if (m->postprocManager.IsEnabled())
@@ -389,41 +506,6 @@ void CRenderer::Resize(int width, int height)
 	m->sceneRenderer.Resize(width, height);
 }
 
-void CRenderer::SetRenderPath(RenderPath rp)
-{
-	if (!m->IsOpen)
-	{
-		// Delay until Open() is called.
-		return;
-	}
-
-	// Renderer has been opened, so validate the selected renderpath
-	const bool hasShadersSupport =
-		m->device->GetCapabilities().ARBShaders ||
-		m->device->GetBackend() != Renderer::Backend::Backend::GL_ARB;
-	if (rp == RenderPath::DEFAULT)
-	{
-		if (hasShadersSupport)
-			rp = RenderPath::SHADER;
-		else
-			rp = RenderPath::FIXED;
-	}
-
-	if (rp == RenderPath::SHADER)
-	{
-		if (!hasShadersSupport)
-		{
-			LOGWARNING("Falling back to fixed function\n");
-			rp = RenderPath::FIXED;
-		}
-	}
-
-	// TODO: remove this once capabilities have been properly extracted and the above checks have been moved elsewhere.
-	g_RenderingOptions.m_RenderPath = rp;
-
-	MakeShadersDirty();
-}
-
 bool CRenderer::ShouldRender() const
 {
 	return !g_app_minimized && (g_app_has_focus || !g_VideoMode.IsInFullscreen());
@@ -436,43 +518,46 @@ void CRenderer::RenderFrame(const bool needsPresent)
 	if (!ShouldRender())
 		return;
 
-	if (m_ScreenShotType == ScreenShotType::BIG)
+	if (m->m_ScreenShotType == ScreenShotType::BIG)
 	{
 		RenderBigScreenShot(needsPresent);
 	}
-	else if (m_ScreenShotType == ScreenShotType::DEFAULT)
+	else if (m->m_ScreenShotType == ScreenShotType::DEFAULT)
 	{
 		RenderScreenShot(needsPresent);
 	}
 	else
 	{
-		if (needsPresent)
-		{
-			// In case of no acquired backbuffer we have nothing render to.
-			if (!m->device->AcquireNextBackbuffer())
-				return;
-		}
+		Renderer::Backend::ISwapChain* swapChain{g_VideoMode.GetOrCreateSwapChain()};
+		if (!swapChain || !swapChain->IsValid())
+			return;
+
+		// In case of no acquired backbuffer we have nothing render to.
+		if (needsPresent && !swapChain->AcquireNextBackbuffer())
+			return;
 
 		if (m_ShouldPreloadResourcesBeforeNextFrame)
 		{
 			m_ShouldPreloadResourcesBeforeNextFrame = false;
 			// We don't need to render logger for the preload.
-			RenderFrameImpl(true, false);
+			RenderFrameImpl(*swapChain, true, false);
 		}
 
-		RenderFrameImpl(true, true);
+		RenderFrameImpl(*swapChain, true, true);
 
 		m->deviceCommandContext->Flush();
 		if (needsPresent)
-			m->device->Present();
+			swapChain->Present();
 	}
 }
 
-void CRenderer::RenderFrameImpl(const bool renderGUI, const bool renderLogger)
+void CRenderer::RenderFrameImpl(
+	Renderer::Backend::ISwapChain& swapChain,
+	const bool renderGUI, const bool renderLogger)
 {
 	PROFILE3("render");
 
-	g_Profiler2.RecordGPUFrameStart();
+	g_Profiler2.RecordGPUFrameStart(m->deviceCommandContext.get());
 
 	g_TexMan.UploadResourcesIfNeeded(m->deviceCommandContext.get());
 
@@ -514,7 +599,7 @@ void CRenderer::RenderFrameImpl(const bool renderGUI, const bool renderLogger)
 			// We don't need to clear the color attachment of the framebuffer as the sky
 			// is going to be rendered anyway.
 			framebuffer =
-				m->deviceCommandContext->GetDevice()->GetCurrentBackbuffer(
+				swapChain.GetCurrentBackbuffer(
 					Renderer::Backend::AttachmentLoadOp::DONT_CARE,
 					Renderer::Backend::AttachmentStoreOp::STORE,
 					Renderer::Backend::AttachmentLoadOp::CLEAR,
@@ -539,7 +624,7 @@ void CRenderer::RenderFrameImpl(const bool renderGUI, const bool renderLogger)
 			postprocManager.ApplyPostproc(m->deviceCommandContext.get());
 
 			Renderer::Backend::IFramebuffer* backbuffer =
-				m->deviceCommandContext->GetDevice()->GetCurrentBackbuffer(
+				swapChain.GetCurrentBackbuffer(
 					Renderer::Backend::AttachmentLoadOp::LOAD,
 					Renderer::Backend::AttachmentStoreOp::STORE,
 					Renderer::Backend::AttachmentLoadOp::LOAD,
@@ -557,7 +642,7 @@ void CRenderer::RenderFrameImpl(const bool renderGUI, const bool renderLogger)
 
 		g_Game->GetView()->RenderOverlays(m->deviceCommandContext.get());
 
-		g_Game->GetView()->GetCinema()->Render();
+		g_Game->GetView()->GetCinema()->Render(*m->deviceCommandContext);
 	}
 	else
 	{
@@ -571,7 +656,7 @@ void CRenderer::RenderFrameImpl(const bool renderGUI, const bool renderLogger)
 				? Renderer::Backend::AttachmentLoadOp::CLEAR
 				: Renderer::Backend::AttachmentLoadOp::DONT_CARE;
 		Renderer::Backend::IFramebuffer* backbuffer =
-			m->deviceCommandContext->GetDevice()->GetCurrentBackbuffer(
+			swapChain.GetCurrentBackbuffer(
 				Renderer::Backend::AttachmentLoadOp::DONT_CARE,
 				Renderer::Backend::AttachmentStoreOp::STORE,
 				depthStencilLoadOp,
@@ -587,7 +672,7 @@ void CRenderer::RenderFrameImpl(const bool renderGUI, const bool renderLogger)
 	// If we're in Atlas game view, render special tools
 	if (g_AtlasGameLoop && g_AtlasGameLoop->view)
 	{
-		g_AtlasGameLoop->view->DrawCinemaPathTool();
+		g_AtlasGameLoop->view->DrawCinemaPathTool(*m->deviceCommandContext);
 	}
 
 	RenderFrame2D(renderGUI, renderLogger);
@@ -605,12 +690,14 @@ void CRenderer::RenderFrameImpl(const bool renderGUI, const bool renderLogger)
 	PROFILE2_ATTR("blend splats: %zu", stats.m_BlendSplats);
 	PROFILE2_ATTR("particles: %zu", stats.m_Particles);
 
-	g_Profiler2.RecordGPUFrameEnd();
+	g_Profiler2.RecordGPUFrameEnd(m->deviceCommandContext.get());
+
+	m->linearAllocator.Release();
 }
 
 void CRenderer::RenderFrame2D(const bool renderGUI, const bool renderLogger)
 {
-	CCanvas2D canvas(g_xres, g_yres, g_VideoMode.GetScale(), m->deviceCommandContext.get());
+	CCanvas2D canvas(g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight(), g_VideoMode.GetScale(), m->deviceCommandContext.get());
 
 	m->sceneRenderer.RenderTextOverlays(canvas);
 
@@ -644,11 +731,13 @@ void CRenderer::RenderFrame2D(const bool renderGUI, const bool renderLogger)
 		// Profile information
 		g_ProfileViewer.RenderProfile(canvas);
 	}
+
+	GetFontManager().UploadAtlasTexturesToGPU(m->deviceCommandContext.get());
 }
 
 void CRenderer::RenderScreenShot(const bool needsPresent)
 {
-	m_ScreenShotType = ScreenShotType::NONE;
+	m->m_ScreenShotType = ScreenShotType::NONE;
 
 	// get next available numbered filename
 	// note: %04d -> always 4 digits, so sorting by filename works correctly.
@@ -656,14 +745,8 @@ void CRenderer::RenderScreenShot(const bool needsPresent)
 	VfsPath filename;
 	vfs::NextNumberedFilename(g_VFS, filenameFormat, g_NextScreenShotNumber, filename);
 
-	const size_t width = static_cast<size_t>(g_xres), height = static_cast<size_t>(g_yres);
+	const size_t width = static_cast<size_t>(g_VideoMode.GetWindowWidth()), height = static_cast<size_t>(g_VideoMode.GetWindowHeight());
 	const size_t bpp = 24;
-
-	if (needsPresent && !m->device->AcquireNextBackbuffer())
-		return;
-
-	// Hide log messages and re-render
-	RenderFrameImpl(true, false);
 
 	const size_t img_size = width * height * bpp / 8;
 	const size_t hdr_size = tex_hdr_size(filename);
@@ -674,10 +757,20 @@ void CRenderer::RenderScreenShot(const bool needsPresent)
 	if (t.wrap(width, height, bpp, TEX_BOTTOM_UP, buf, hdr_size) < 0)
 		return;
 
-	m->deviceCommandContext->ReadbackFramebufferSync(0, 0, width, height, img);
+	Renderer::Backend::ISwapChain* swapChain{g_VideoMode.GetOrCreateSwapChain()};
+	if (!swapChain || !swapChain->IsValid())
+		return;
+
+	if (needsPresent && !swapChain->AcquireNextBackbuffer())
+		return;
+
+	// Hide log messages and re-render
+	RenderFrameImpl(*swapChain, false, false);
+
+	m->deviceCommandContext->ReadbackFramebufferSync(*swapChain, 0, 0, width, height, img);
 	m->deviceCommandContext->Flush();
 	if (needsPresent)
-		m->device->Present();
+		swapChain->Present();
 
 	if (tex_write(&t, filename) == INFO::OK)
 	{
@@ -696,28 +789,27 @@ void CRenderer::RenderScreenShot(const bool needsPresent)
 
 void CRenderer::RenderBigScreenShot(const bool needsPresent)
 {
-	m_ScreenShotType = ScreenShotType::NONE;
+	m->m_ScreenShotType = ScreenShotType::NONE;
 
 	// If the game hasn't started yet then use WriteScreenshot to generate the image.
 	if (!g_Game)
 		return RenderScreenShot(needsPresent);
 
-	int tiles = 4, tileWidth = 256, tileHeight = 256;
-	CFG_GET_VAL("screenshot.tiles", tiles);
-	CFG_GET_VAL("screenshot.tilewidth", tileWidth);
-	CFG_GET_VAL("screenshot.tileheight", tileHeight);
+	const int tiles{g_ConfigDB.Get("screenshot.tiles", 4)};
+	const int tileWidth{g_ConfigDB.Get("screenshot.tilewidth", 256)};
+	const int tileHeight{g_ConfigDB.Get("screenshot.tileheight", 256)};
 	if (tiles <= 0 || tileWidth <= 0 || tileHeight <= 0 || tileWidth * tiles % 4 != 0 || tileHeight * tiles % 4 != 0)
 	{
 		LOGWARNING("Invalid big screenshot size: tiles=%d tileWidth=%d tileHeight=%d", tiles, tileWidth, tileHeight);
 		return;
 	}
 
-	if (g_xres < tileWidth && g_yres < tileHeight)
+	if (g_VideoMode.GetWindowWidth() < tileWidth && g_VideoMode.GetWindowHeight() < tileHeight)
 	{
 		LOGWARNING(
 			"The window size is too small for a big screenshot, increase the"
 			" window size %dx%d or decrease the tile size %dx%d",
-			g_xres, g_yres, tileWidth, tileHeight);
+			g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight(), tileWidth, tileHeight);
 		return;
 	}
 
@@ -750,7 +842,7 @@ void CRenderer::RenderBigScreenShot(const bool needsPresent)
 		return;
 	}
 
-	CCamera oldCamera = *g_Game->GetView()->GetCamera();
+	const CCamera oldCamera{g_Game->GetView()->GetCamera()};
 
 	// Resize various things so that the sizes and aspect ratios are correct
 	{
@@ -774,17 +866,23 @@ void CRenderer::RenderBigScreenShot(const bool needsPresent)
 					oldCamera.GetFOV(), aspectRatio, oldCamera.GetNearPlane(), oldCamera.GetFarPlane(),
 					tiles, tileX, tileY);
 			}
-			g_Game->GetView()->GetCamera()->SetProjection(projection);
+			CCamera camera{g_Game->GetView()->GetCamera()};
+			camera.SetProjection(projection);
+			g_Game->GetView()->SetCamera(camera);
 
-			if (!needsPresent || m->device->AcquireNextBackbuffer())
+			Renderer::Backend::ISwapChain* swapChain{g_VideoMode.GetOrCreateSwapChain()};
+			if (!swapChain || !swapChain->IsValid())
+				continue;
+
+			if (!needsPresent || swapChain->AcquireNextBackbuffer())
 			{
-				RenderFrameImpl(false, false);
+				RenderFrameImpl(*swapChain, false, false);
 
-				m->deviceCommandContext->ReadbackFramebufferSync(0, 0, tileWidth, tileHeight, tileData);
+				m->deviceCommandContext->ReadbackFramebufferSync(*swapChain, 0, 0, tileWidth, tileHeight, tileData);
 				m->deviceCommandContext->Flush();
 
 				if (needsPresent)
-					m->device->Present();
+					swapChain->Present();
 			}
 
 			// Copy the tile pixels into the main image
@@ -799,10 +897,10 @@ void CRenderer::RenderBigScreenShot(const bool needsPresent)
 
 	// Restore the viewport settings
 	{
-		g_Renderer.Resize(g_xres, g_yres);
-		SViewPort vp = { 0, 0, g_xres, g_yres };
+		g_Renderer.Resize(g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight());
+		SViewPort vp = { 0, 0, g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight() };
 		g_Game->GetView()->SetViewport(vp);
-		g_Game->GetView()->GetCamera()->SetProjectionFromCamera(oldCamera);
+		g_Game->GetView()->SetCamera(oldCamera);
 	}
 
 	if (tex_write(&t, filename) == INFO::OK)
@@ -840,6 +938,10 @@ void CRenderer::EndFrame()
 	PROFILE3("end frame");
 
 	m->sceneRenderer.EndFrame();
+
+	m->linearAllocator.Release();
+
+	m->backendProfileTable.MakeOutdated();
 }
 
 void CRenderer::MakeShadersDirty()
@@ -895,7 +997,7 @@ void CRenderer::PreloadResourcesBeforeNextFrame()
 
 void CRenderer::MakeScreenShotOnNextFrame(ScreenShotType screenShotType)
 {
-	m_ScreenShotType = screenShotType;
+	m->m_ScreenShotType = screenShotType;
 }
 
 Renderer::Backend::IDeviceCommandContext* CRenderer::GetDeviceCommandContext()
@@ -904,11 +1006,16 @@ Renderer::Backend::IDeviceCommandContext* CRenderer::GetDeviceCommandContext()
 }
 
 Renderer::Backend::IVertexInputLayout* CRenderer::GetVertexInputLayout(
-	const PS::span<const Renderer::Backend::SVertexAttributeFormat> attributes)
+	const std::span<const Renderer::Backend::SVertexAttributeFormat> attributes)
 {
 	const auto [it, inserted] = m->vertexInputLayouts.emplace(
 		std::vector<Renderer::Backend::SVertexAttributeFormat>{attributes.begin(), attributes.end()}, nullptr);
 	if (inserted)
 		it->second = m->device->CreateVertexInputLayout(attributes);
 	return it->second.get();
+}
+
+PS::Memory::LinearAllocator& CRenderer::GetLinearAllocator()
+{
+	return m->linearAllocator;
 }

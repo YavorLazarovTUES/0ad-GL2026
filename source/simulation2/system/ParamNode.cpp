@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,19 +19,36 @@
 
 #include "ParamNode.h"
 
+#include "lib/debug.h"
+#include "lib/path.h"
 #include "lib/utf8.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
 #include "ps/CStrIntern.h"
 #include "ps/Filesystem.h"
+#include "ps/XMB/XMBData.h"
 #include "ps/XML/Xeromyces.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Object.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
+#include "simulation2/system/Component.h"
 
+#include <algorithm>
 #include <boost/algorithm/string/classification.hpp>
+#include <boost/algorithm/string/constants.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/split.hpp>
+#include <cstdlib>
+#include <js/CharacterEncoding.h>
+#include <js/PropertyAndElement.h>
+#include <js/RootingAPI.h>
+#include <js/String.h>
+#include <js/Value.h>
+#include <jsapi.h>
 #include <sstream>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 static CParamNode g_NullNode(false);
 
@@ -371,7 +388,7 @@ void CParamNode::ToXMLString(std::ostream& strm) const
 	}
 }
 
-void CParamNode::ToJSVal(const ScriptRequest& rq, bool cacheValue, JS::MutableHandleValue ret) const
+void CParamNode::ToJSVal(const Script::Request& rq, bool cacheValue, JS::MutableHandleValue ret) const
 {
 	if (cacheValue && m_ScriptVal != NULL)
 	{
@@ -382,10 +399,15 @@ void CParamNode::ToJSVal(const ScriptRequest& rq, bool cacheValue, JS::MutableHa
 	ConstructJSVal(rq, ret);
 
 	if (cacheValue)
+	{
+		if (ret.isObject())
+			Script::DeepFreezeObject(rq, ret);
+
 		m_ScriptVal.reset(new JS::PersistentRootedValue(rq.cx, ret));
+	}
 }
 
-void CParamNode::ConstructJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret) const
+void CParamNode::ConstructJSVal(const Script::Request& rq, JS::MutableHandleValue ret) const
 {
 	if (m_Childs.empty())
 	{
@@ -398,7 +420,6 @@ void CParamNode::ConstructJSVal(const ScriptRequest& rq, JS::MutableHandleValue 
 
 		// Just a string
 		JS::RootedString str(rq.cx, JS_NewStringCopyUTF8Z(rq.cx, JS::ConstUTF8CharsZ(m_Value.data(), m_Value.size())));
-		str.set(JS_AtomizeAndPinJSString(rq.cx, str));
 		if (str)
 		{
 			ret.setString(str);
@@ -432,8 +453,7 @@ void CParamNode::ConstructJSVal(const ScriptRequest& rq, JS::MutableHandleValue 
 	// If the node has a string too, add that as an extra property
 	if (!m_Value.empty())
 	{
-		std::u16string text(m_Value.begin(), m_Value.end());
-		JS::RootedString str(rq.cx, JS_AtomizeAndPinUCStringN(rq.cx, text.c_str(), text.length()));
+		JS::RootedString str(rq.cx, JS_NewStringCopyUTF8Z(rq.cx, JS::ConstUTF8CharsZ(m_Value.data(), m_Value.size())));
 		if (!str)
 		{
 			ret.setUndefined();

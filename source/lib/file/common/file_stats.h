@@ -1,4 +1,4 @@
-/* Copyright (C) 2010 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -27,7 +27,7 @@
 #ifndef INCLUDED_FILE_STATS
 #define INCLUDED_FILE_STATS
 
-#include "lib/posix/posix_aio.h"	// LIO_READ, LIO_WRITE
+#include "lib/posix/posix_types.h"
 
 #define FILE_STATS_ENABLED 0
 
@@ -103,7 +103,7 @@ class ScopedIoMonitor
 public:
 	ScopedIoMonitor() {}
 	~ScopedIoMonitor() {}
-	void NotifyOfSuccess(FileIOImplentation UNUSED(fi), int UNUSED(opcode), off_t UNUSED(size)) {}
+	void NotifyOfSuccess(FileIOImplentation, int /*opcode*/, off_t /*size*/) {}
 };
 #define stats_cb_start()
 #define stats_cb_finish()

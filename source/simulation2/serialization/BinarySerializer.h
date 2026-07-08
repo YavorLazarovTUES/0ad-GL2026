@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,11 +21,26 @@
 #include "ISerializer.h"
 
 #include "lib/byte_order.h"
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
+#include "lib/types.h"
+#include "maths/Fixed.h"
+#include "simulation2/system/Component.h"
 
-#include "scriptinterface/ScriptExtraHeaders.h"
-
+#include <cstddef>
+#include <cstdint>
+#include <js/AllocPolicy.h>
+#include <js/GCHashTable.h>
+#include <js/Id.h>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <memory>
 #include <ostream>
-#include <streambuf>
+#include <string>
+
+class JSTracer;
+namespace Script { class Interface; }
+namespace Script { class Request; }
 
 /**
  * Wrapper for redirecting ostream writes to CBinarySerializer's impl
@@ -83,21 +98,26 @@ protected:
 class CBinarySerializerScriptImpl
 {
 public:
-	CBinarySerializerScriptImpl(const ScriptInterface& scriptInterface, ISerializer& serializer);
+	CBinarySerializerScriptImpl(const Script::Interface& scriptInterface, ISerializer& serializer);
 	~CBinarySerializerScriptImpl();
 
-	void ScriptString(const char* name, JS::HandleString string);
-	void HandleScriptVal(JS::HandleValue val);
+	void PutScriptVal(JS::HandleValue val);
 private:
+	void ScriptString(const Script::Request& rq, const char* name, JS::HandleString string);
+	void HandleScriptVal(const Script::Request& rq, JS::HandleValue val);
 	static void Trace(JSTracer* trc, void* data);
 
-	const ScriptInterface& m_ScriptInterface;
+	const Script::Interface& m_ScriptInterface;
 	ISerializer& m_Serializer;
 
-	using ObjectTagMap = JS::GCHashMap<JS::Heap<JSObject*>, u32, js::MovableCellHasher<JSObject*>, js::SystemAllocPolicy>;
+	using ObjectTagMap = JS::GCHashMap<JS::Heap<JSObject*>, u32, js::StableCellHasher<JSObject*>, js::SystemAllocPolicy>;
 	ObjectTagMap m_ScriptBackrefTags;
 	u32 m_ScriptBackrefsNext;
-	u32 GetScriptBackrefTag(JS::HandleObject obj);
+	u32 GetScriptBackrefTag(const Script::Request& rq, JS::HandleObject obj);
+
+	JS::PropertyKey m_SerializePropId;
+	JS::PropertyKey m_DeserializePropId;
+
 };
 
 /**
@@ -109,7 +129,7 @@ class CBinarySerializer : public ISerializer
 {
 	NONCOPYABLE(CBinarySerializer);
 public:
-	CBinarySerializer(const ScriptInterface& scriptInterface) :
+	CBinarySerializer(const Script::Interface& scriptInterface) :
 		m_ScriptImpl(new CBinarySerializerScriptImpl(scriptInterface, *this)),
 		m_RawStreamBuf(m_Impl),
 		m_RawStream(&m_RawStreamBuf)
@@ -117,7 +137,7 @@ public:
 	}
 
 	template <typename A>
-	CBinarySerializer(const ScriptInterface& scriptInterface, A& a) :
+	CBinarySerializer(const Script::Interface& scriptInterface, A& a) :
 		m_ScriptImpl(new CBinarySerializerScriptImpl(scriptInterface, *this)),
 		m_Impl(a),
 		m_RawStreamBuf(m_Impl),
@@ -199,9 +219,9 @@ protected:
 		m_Impl.Put(name, (u8*)value.data(), value.length());
 	}
 
-	virtual void PutScriptVal(const char* UNUSED(name), JS::MutableHandleValue value)
+	virtual void PutScriptVal(const char* /*name*/, JS::MutableHandleValue value)
 	{
-		m_ScriptImpl->HandleScriptVal(value);
+		m_ScriptImpl->PutScriptVal(value);
 	}
 
 	virtual void PutRaw(const char* name, const u8* data, size_t len)

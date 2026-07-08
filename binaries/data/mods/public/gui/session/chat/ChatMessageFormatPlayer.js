@@ -36,7 +36,7 @@ class ChatMessageFormatPlayer
 			msg.text = translate(msg.text);
 			if (msg.translateParameters)
 			{
-				let parameters = msg.parameters || {};
+				const parameters = msg.parameters || {};
 				translateObjectKeys(parameters, msg.translateParameters);
 				msg.text = sprintf(msg.text, parameters);
 			}
@@ -45,14 +45,14 @@ class ChatMessageFormatPlayer
 		{
 			msg.text = escapeText(msg.text);
 
-			let userName = g_PlayerAssignments[Engine.GetPlayerGUID()].name;
+			const userName = g_PlayerAssignments[Engine.GetPlayerGUID()].name;
 			if (userName != g_PlayerAssignments[msg.guid].name &&
 			    msg.text.toLowerCase().indexOf(splitRatingFromNick(userName).nick.toLowerCase()) != -1)
 				soundNotification("nick");
 		}
 
 		// GUID for players, playerID for AIs
-		let coloredUsername = msg.guid != -1 ? colorizePlayernameByGUID(msg.guid) : colorizePlayernameByID(msg.player);
+		const coloredUsername = msg.guid != -1 ? colorizePlayernameByGUID(msg.guid) : colorizePlayernameByID(msg.player);
 
 		return {
 			"text": sprintf(translate(this.strings[isMe ? "me" : "regular"][msg.context ? "context" : "no-context"]), {
@@ -80,37 +80,31 @@ class ChatMessageFormatPlayer
 
 		// GUID is "local" in single-player, some string in multiplayer.
 		// Chat messages sent by the simulation (AI) come with the playerID.
-		let senderID = msg.player ? msg.player : (g_PlayerAssignments[msg.guid] || msg).player;
+		const senderID = msg.player ? msg.player : (g_PlayerAssignments[msg.guid] || msg).player;
 
-		let isSender = msg.guid ?
+		const isSender = msg.guid ?
 			msg.guid == Engine.GetPlayerGUID() :
 			senderID == Engine.GetPlayerID();
 
 		// Parse private message
-		let isPM = msg.cmd == "/msg";
+		const isPM = msg.cmd == "/msg";
 		let addresseeGUID;
-		let addresseeIndex;
 		if (isPM)
 		{
 			addresseeGUID = this.matchUsername(msg.text);
-			let addressee = g_PlayerAssignments[addresseeGUID];
+			const addressee = g_PlayerAssignments[addresseeGUID];
 			if (!addressee)
 			{
-				if (isSender)
-					warn("Couldn't match username: " + msg.text);
+				if (msg.player === undefined)
+					warn("Couldn't find chat message receiver: " + msg.text);
 				return false;
 			}
 
-			// Prohibit PM if addressee and sender are identical
-			if (isSender && addresseeGUID == Engine.GetPlayerGUID())
-				return false;
-
 			msg.text = msg.text.substr(addressee.name.length + 1);
-			addresseeIndex = addressee.player;
 		}
 
 		// Set context string
-		let addresseeType = this.AddresseeTypes.find(type => type.command == msg.cmd);
+		const addresseeType = this.AddresseeTypes.find(type => type.command == msg.cmd);
 		if (!addresseeType)
 		{
 			if (isSender)
@@ -120,11 +114,30 @@ class ChatMessageFormatPlayer
 		msg.context = addresseeType.context;
 
 		// For observers only permit public- and observer-chat and PM to observers
-		if (isPlayerObserver(senderID) &&
-		    (isPM && !isPlayerObserver(addresseeIndex) || !isPM && msg.cmd != "/observers"))
-			return false;
+		if (msg.player === undefined && isPlayerObserver(senderID))
+		{
+			if (isPM && !g_IsObserver)
+			{
+				warn("Received unexpected private chat message from observer " +
+					g_PlayerAssignments[msg.guid]?.name +
+					" to active player " +
+					g_PlayerAssignments[addresseeGUID]?.name);
+				return false;
+			}
 
-		let visible = isSender || addresseeType.isAddressee(senderID, addresseeGUID);
+			if (!isPM && msg.cmd != "/observers")
+			{
+				warn("Received unexpected chat message from observer " +
+					g_PlayerAssignments[msg.guid]?.name + " to " + msg.cmd);
+				return false;
+			}
+		}
+
+		// We already should only be receiving messages that were meant for us. The following
+		// consistency check rejects a message only if it was manipulated by the sender or if it was
+		// sent before a relevant simulation change occurred.
+		const visible = isSender || (addresseeType.isAddressee(senderID, Engine.GetPlayerID()) &&
+			(!isPM || addresseeGUID === Engine.GetPlayerGUID()));
 		msg.isVisiblePM = isPM && visible;
 
 		return visible;
@@ -140,10 +153,10 @@ class ChatMessageFormatPlayer
 
 		let match = "";
 		let playerGUID = "";
-		for (let guid in g_PlayerAssignments)
+		for (const guid in g_PlayerAssignments)
 		{
-			let pName = g_PlayerAssignments[guid].name;
-			if (text.indexOf(pName + " ") == 0 && pName.length > match.length)
+			const pName = g_PlayerAssignments[guid].name;
+			if (text.startsWith(pName) && pName.length > match.length)
 			{
 				match = pName;
 				playerGUID = guid;

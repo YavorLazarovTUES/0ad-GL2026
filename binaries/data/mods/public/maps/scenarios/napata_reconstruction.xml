@@ -48749,19 +48749,19 @@
 			<Actor seed="25416"/>
 		</Entity>
 		<Entity uid="11040">
-			<Template>actor|props/structures/persians/market_a_stall1.xml</Template>
+			<Template>actor|props/structures/achaemenids/market_a_stall1.xml</Template>
 			<Position x="1575.98194" z="1009.50165"/>
 			<Orientation y="1.236"/>
 			<Actor seed="21454"/>
 		</Entity>
 		<Entity uid="11041">
-			<Template>actor|props/structures/persians/market_a_stall2.xml</Template>
+			<Template>actor|props/structures/achaemenids/market_a_stall2.xml</Template>
 			<Position x="1567.74927" z="1010.19288"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="26475"/>
 		</Entity>
 		<Entity uid="11042">
-			<Template>actor|props/structures/persians/market_a_stall3.xml</Template>
+			<Template>actor|props/structures/achaemenids/market_a_stall3.xml</Template>
 			<Position x="1568.63733" z="1015.59137"/>
 			<Orientation y="-3.1282"/>
 			<Actor seed="62781"/>
@@ -81203,14 +81203,14 @@
 		<Entity uid="16075">
 			<Template>units/kush/ship_scout</Template>
 			<Player>0</Player>
-			<Position x="1937.27222" z="1006.42133"/>
+			<Position x="1941.27222" z="1010.42133"/>
 			<Orientation y="-1.6437"/>
 			<Actor seed="62640"/>
 		</Entity>
 		<Entity uid="16076">
 			<Template>units/kush/ship_scout</Template>
 			<Player>0</Player>
-			<Position x="1921.01893" z="909.52625"/>
+			<Position x="1918.01893" z="902.52625"/>
 			<Orientation y="1.43442"/>
 			<Actor seed="41755"/>
 		</Entity>

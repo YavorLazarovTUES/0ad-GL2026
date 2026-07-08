@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,16 +19,16 @@
 
 #include "Config.h"
 
-#include "lib/timer.h"
-#include "ps/CConsole.h"
-#include "ps/CLogger.h"
+#include "ps/CStr.h"
 #include "ps/ConfigDB.h"
 #include "ps/GameSetup/CmdLineArgs.h"
+#include "ps/Profiler2.h"
+
+#include <cstddef>
+#include <vector>
 
 // (these variables are documented in the header.)
 bool g_PauseOnFocusLoss = false;
-
-int g_xres, g_yres;
 
 bool g_Quickstart = false;
 bool g_DisableAudio = false;
@@ -40,7 +40,7 @@ bool g_DisableAudio = false;
 // Fill in the globals from the config files.
 static void LoadGlobals()
 {
-	CFG_GET_VAL("pauseonfocusloss", g_PauseOnFocusLoss);
+	g_PauseOnFocusLoss = g_ConfigDB.Get("pauseonfocusloss", g_PauseOnFocusLoss);
 }
 
 static void ProcessCommandLineArgs(const CmdLineArgs& args)
@@ -89,7 +89,10 @@ static void ProcessCommandLineArgs(const CmdLineArgs& args)
 		g_ConfigDB.SetValueString(CFG_COMMAND, "ooslog", "true");
 
 	if (args.Has("serializationtest"))
-		g_ConfigDB.SetValueString(CFG_COMMAND, "serializationtest", "true");
+	{
+		const CStr str{args.Get("serializationtest")};
+		g_ConfigDB.SetValueString(CFG_COMMAND, "serializationtest", str.empty() ? "0" : str);
+	}
 
 	if (args.Has("rejointest"))
 		g_ConfigDB.SetValueString(CFG_COMMAND, "rejointest", args.Get("rejointest"));
@@ -98,7 +101,7 @@ static void ProcessCommandLineArgs(const CmdLineArgs& args)
 
 void CONFIG_Init(const CmdLineArgs& args)
 {
-	TIMER(L"CONFIG_Init");
+	PROFILE2("CONFIG_Init");
 
 	CConfigDB::Initialise();
 

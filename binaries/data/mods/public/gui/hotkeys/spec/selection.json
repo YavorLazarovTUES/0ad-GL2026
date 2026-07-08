@@ -31,6 +31,54 @@
 				"name": "Select only wounded units",
 				"desc": "Select only wounded units."
 			},
+			"selection.unit.civilian": {
+				"name": "Select Civilian",
+				"desc": "Select all Civilian units."
+			},
+			"selection.unit.infantry": {
+				"name": "Select Infantry",
+				"desc": "Select all Infantry units."
+			},
+			"selection.unit.cavalry": {
+				"name": "Select Cavalry",
+				"desc": "Select all Cavalry units."
+			},
+			"selection.unit.mercenary": {
+				"name": "Select Mercenary",
+				"desc": "Select all Mercenary units."
+			},
+			"selection.unit.champion": {
+				"name": "Select Champion",
+				"desc": "Select all Champion units."
+			},
+			"selection.unit.elephant": {
+				"name": "Select Elephant",
+				"desc": "Select all Elephant units."
+			},
+			"selection.unit.healer": {
+				"name": "Select Healer",
+				"desc": "Select all Healer units."
+			},
+			"selection.unit.siege": {
+				"name": "Select Siege",
+				"desc": "Select all Siege units."
+			},
+			"selection.unit.hero": {
+				"name": "Select Hero",
+				"desc": "Select your Hero."
+			},
+			"selection.unit.dog": {
+				"name": "Select Dog",
+				"desc": "Select all Dogs."
+			},
+			"selection.unit.wagon": {
+				"name": "Select Mobile Dropsite",
+				"desc": "Select all your Mobile Dropsite units."
+			},
+			"selection.unit.trader": {
+				"name": "Select Trader",
+				"desc": "Select all your Trader units."
+			},
 			"selection.remove": {
 				"name": "Remove units from selection",
 				"desc": "Remove units from selection."

@@ -1,8 +1,8 @@
 warn("loading the triggers file");
 
-///////////////////////
-// Trigger listeners //
-///////////////////////
+//
+// Trigger listeners
+//
 
 // every function just logs when it gets fired, and shows the data
 Trigger.prototype.StructureBuiltAction = function(data)
@@ -53,6 +53,12 @@ Trigger.prototype.PlayerCommandAction = function(data)
 	warn(uneval(data));
 };
 
+Trigger.prototype.AttackDetectedAction = function(data)
+{
+	warn("The OnAttackDetected event happened with the following data:");
+	warn(uneval(data));
+};
+
 Trigger.prototype.IntervalAction = function(data)
 {
 	warn("The OnInterval event happened with the following data:");
@@ -65,7 +71,7 @@ Trigger.prototype.IntervalAction = function(data)
 	var cmpGUIInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface);
 	cmpGUIInterface.PushNotification({
 		"type": "dialog",
-		"players": [1,2,3,4,5,6,7,8],
+		"players": [1, 2, 3, 4, 5, 6, 7, 8],
 		"dialogName": "yes-no",
 		"data": {
 			"text": {
@@ -106,10 +112,10 @@ Trigger.prototype.RangeAction = function(data)
 };
 
 {
-	let cmpTrigger = Engine.QueryInterface(SYSTEM_ENTITY, IID_Trigger);
+	const cmpTrigger = Engine.QueryInterface(SYSTEM_ENTITY, IID_Trigger);
 
 	// Activate all possible triggers
-	let data = { "enabled": true };
+	const data = { "enabled": true };
 	cmpTrigger.RegisterTrigger("OnStructureBuilt", "StructureBuiltAction", data);
 	cmpTrigger.RegisterTrigger("OnConstructionStarted", "ConstructionStartedAction", data);
 	cmpTrigger.RegisterTrigger("OnTrainingFinished", "TrainingFinishedAction", data);
@@ -118,6 +124,7 @@ Trigger.prototype.RangeAction = function(data)
 	cmpTrigger.RegisterTrigger("OnResearchQueued", "ResearchQueuedAction", data);
 	cmpTrigger.RegisterTrigger("OnOwnershipChanged", "OwnershipChangedAction", data);
 	cmpTrigger.RegisterTrigger("OnPlayerCommand", "PlayerCommandAction", data);
+	cmpTrigger.RegisterTrigger("OnAttackDetected", "AttackDetectedAction", data);
 
 	cmpTrigger.numberOfTimerTrigger = 0;
 	cmpTrigger.maxNumberOfTimerTrigger = 3; // execute it 3 times maximum

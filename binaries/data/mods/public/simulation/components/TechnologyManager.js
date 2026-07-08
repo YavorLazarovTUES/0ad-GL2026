@@ -91,7 +91,7 @@ TechnologyManager.prototype.Technology.prototype.Finish = function()
 
 	const template = TechnologyTemplates.Get(this.templateName);
 	if (!template)
-		error("Trying to finish non-existing technology: " + this.templateName + ".")
+		error("Trying to finish non-existing technology: " + this.templateName + ".");
 
 	if (template.soundComplete)
 		Engine.QueryInterface(SYSTEM_ENTITY, IID_SoundManager)?.PlaySoundGroup(template.soundComplete, this.researcher);
@@ -183,7 +183,7 @@ TechnologyManager.prototype.Technology.prototype.Serialize = function()
 {
 	const result = {};
 	for (const att of this.SerializableAttributes)
-		if (this.hasOwnProperty(att))
+		if (Object.hasOwn(this, att))
 			result[att] = this[att];
 	return result;
 };
@@ -205,14 +205,14 @@ TechnologyManager.prototype.Init = function()
 
 	this.classCounts = {}; // stores the number of entities of each Class
 	this.typeCountsByClass = {}; // stores the number of entities of each type for each class i.e.
-	                             // {"someClass": {"unit/spearman": 2, "unit/cav": 5} "someOtherClass":...}
+	// {"someClass": {"unit/spearman": 2, "unit/cav": 5} "someOtherClass":...}
 
 	// Some technologies are automatically researched when their conditions are met.  They have no cost and are
 	// researched instantly.  This allows civ bonuses and more complicated technologies.
 	this.unresearchedAutoResearchTechs = new Set();
-	let allTechs = TechnologyTemplates.GetAll();
-	for (let key in allTechs)
-		if (allTechs[key].autoResearch || allTechs[key].top)
+	const allTechs = TechnologyTemplates.GetAll();
+	for (const key in allTechs)
+		if (allTechs[key].autoResearch || allTechs[key].pair)
 			this.unresearchedAutoResearchTechs.add(key);
 };
 
@@ -227,7 +227,7 @@ TechnologyManager.prototype.Serialize = function()
 {
 	const result = {};
 	for (const att of this.SerializableAttributes)
-		if (this.hasOwnProperty(att))
+		if (Object.hasOwn(this, att))
 			result[att] = this[att];
 
 	result.researchQueued = [];
@@ -260,11 +260,10 @@ TechnologyManager.prototype.OnUpdate = function()
 // This function checks if the requirements of any autoresearch techs are met and if they are it researches them
 TechnologyManager.prototype.UpdateAutoResearch = function()
 {
-	for (let key of this.unresearchedAutoResearchTechs)
+	for (const key of this.unresearchedAutoResearchTechs)
 	{
-		let tech = TechnologyTemplates.Get(key);
-		if ((tech.autoResearch && this.CanResearch(key)) ||
-			(tech.top && (this.IsTechnologyResearched(tech.top) || this.IsTechnologyResearched(tech.bottom))))
+		const tech = TechnologyTemplates.Get(key);
+		if ((tech.autoResearch && this.CanResearch(key)) || (tech.pair?.some(t => this.IsTechnologyResearched(t))))
 		{
 			this.unresearchedAutoResearchTechs.delete(key);
 			this.ResearchTechnology(key);
@@ -298,7 +297,7 @@ TechnologyManager.prototype.IsTechnologyResearched = function(tech)
 // Checks the requirements for a technology to see if it can be researched at the current time
 TechnologyManager.prototype.CanResearch = function(tech)
 {
-	let template = TechnologyTemplates.Get(tech);
+	const template = TechnologyTemplates.Get(tech);
 
 	if (!template)
 	{
@@ -306,11 +305,10 @@ TechnologyManager.prototype.CanResearch = function(tech)
 		return false;
 	}
 
-	if (template.top && this.IsInProgress(template.top) ||
-	    template.bottom && this.IsInProgress(template.bottom))
+	if (template.pair?.some(t => this.IsInProgress(t)))
 		return false;
 
-	if (template.pair && !this.CanResearch(template.pair))
+	if (template.partOfPair && !this.CanResearch(template.partOfPair))
 		return false;
 
 	if (this.IsInProgress(tech))
@@ -331,7 +329,7 @@ TechnologyManager.prototype.CanResearch = function(tech)
  */
 TechnologyManager.prototype.CheckTechnologyRequirements = function(reqs, civonly = false)
 {
-	let cmpPlayer = Engine.QueryInterface(this.entity, IID_Player);
+	const cmpPlayer = Engine.QueryInterface(this.entity, IID_Player);
 
 	if (!reqs)
 		return false;
@@ -339,8 +337,10 @@ TechnologyManager.prototype.CheckTechnologyRequirements = function(reqs, civonly
 	if (civonly || !reqs.length)
 		return true;
 
-	return reqs.some(req => {
-		return Object.keys(req).every(type => {
+	return reqs.some(req =>
+	{
+		return Object.keys(req).every(type =>
+		{
 			switch (type)
 			{
 			case "techs":
@@ -348,8 +348,9 @@ TechnologyManager.prototype.CheckTechnologyRequirements = function(reqs, civonly
 
 			case "entities":
 				return req[type].every(this.DoesEntitySpecPass, this);
+			default:
+				return false;
 			}
-			return false;
 		});
 	});
 };
@@ -361,14 +362,15 @@ TechnologyManager.prototype.DoesEntitySpecPass = function(entity)
 	case "count":
 		if (!this.classCounts[entity.class] || this.classCounts[entity.class] < entity.number)
 			return false;
-		break;
+		return true;
 
 	case "variants":
 		if (!this.typeCountsByClass[entity.class] || Object.keys(this.typeCountsByClass[entity.class]).length < entity.number)
 			return false;
-		break;
+		return true;
+	default:
+		return true;
 	}
-	return true;
 };
 
 TechnologyManager.prototype.OnGlobalOwnershipChanged = function(msg)
@@ -377,18 +379,18 @@ TechnologyManager.prototype.OnGlobalOwnershipChanged = function(msg)
 	var playerID = (Engine.QueryInterface(this.entity, IID_Player)).GetPlayerID();
 	if (msg.to == playerID)
 	{
-		var cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
-		var template = cmpTemplateManager.GetCurrentTemplateName(msg.entity);
+		const cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
+		const template = cmpTemplateManager.GetCurrentTemplateName(msg.entity);
 
-		var cmpIdentity = Engine.QueryInterface(msg.entity, IID_Identity);
+		const cmpIdentity = Engine.QueryInterface(msg.entity, IID_Identity);
 		if (!cmpIdentity)
 			return;
 
-		var classes = cmpIdentity.GetClassesList();
+		const classes = cmpIdentity.GetClassesList();
 		// don't use foundations for the class counts but check if techs apply (e.g. health increase)
 		if (!Engine.QueryInterface(msg.entity, IID_Foundation))
 		{
-			for (let cls of classes)
+			for (const cls of classes)
 			{
 				this.classCounts[cls] = this.classCounts[cls] || 0;
 				this.classCounts[cls] += 1;
@@ -401,17 +403,17 @@ TechnologyManager.prototype.OnGlobalOwnershipChanged = function(msg)
 	}
 	if (msg.from == playerID)
 	{
-		var cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
-		var template = cmpTemplateManager.GetCurrentTemplateName(msg.entity);
+		const cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
+		const template = cmpTemplateManager.GetCurrentTemplateName(msg.entity);
 
 		// don't use foundations for the class counts
 		if (!Engine.QueryInterface(msg.entity, IID_Foundation))
 		{
-			var cmpIdentity = Engine.QueryInterface(msg.entity, IID_Identity);
+			const cmpIdentity = Engine.QueryInterface(msg.entity, IID_Identity);
 			if (cmpIdentity)
 			{
-				var classes = cmpIdentity.GetClassesList();
-				for (let cls of classes)
+				const classes = cmpIdentity.GetClassesList();
+				for (const cls of classes)
 				{
 					this.classCounts[cls] -= 1;
 					if (this.classCounts[cls] <= 0)

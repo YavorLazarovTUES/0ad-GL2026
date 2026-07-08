@@ -2,9 +2,9 @@ Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
-	setSelectedBiome();
+	setBiome(mapSettings.Biome);
 
 	const tMainTerrain = g_Terrains.mainTerrain;
 	const tForestFloor1 = g_Terrains.forestFloor1;
@@ -79,7 +79,7 @@ function* GenerateMap()
 	const clBaseResource = g_Map.createTileClass();
 	const clShallow = g_Map.createTileClass();
 
-	const [playerIDs, playerPosition, playerAngle, startAngle] =
+	const { playerIDs, playerPosition, playerAngle, startAngle } =
 		playerPlacementCircle(fractionToTiles(0.35));
 
 	placePlayerBases({
@@ -120,12 +120,12 @@ function* GenerateMap()
 		]);
 
 	g_Map.log("Creating rivers between opponents");
-	const numRivers = isNomad() ? randIntInclusive(4, 8) : numPlayers;
+	const numRivers = mapSettings.Nomad ? randIntInclusive(4, 8) : numPlayers;
 	const rivers = distributePointsOnCircle(numRivers, startAngle + Math.PI / numRivers,
 		fractionToTiles(0.5), mapCenter)[0];
 	for (let i = 0; i < numRivers; ++i)
 	{
-		if (isNomad() ? randBool() : areAllies(playerIDs[i], playerIDs[(i + 1) % numPlayers]))
+		if (mapSettings.Nomad ? randBool() : areAllies(playerIDs[i], playerIDs[(i + 1) % numPlayers]))
 			continue;
 
 		const shallowLocation = randFloat(0.2, 0.7);
@@ -143,7 +143,8 @@ function* GenerateMap()
 			"minHeight": heightSeaGround,
 			"meanderShort": 10,
 			"meanderLong": 0,
-			"waterFunc": (position, height, riverFraction) => {
+			"waterFunc": (position, height, riverFraction) =>
+			{
 
 				clWater.add(position);
 
@@ -282,9 +283,9 @@ function* GenerateMap()
 			[new SimpleObject(oFish, 2, 3, 0, 2)]
 		],
 		[
-			25 * numPlayers
+			35 * numPlayers
 		],
-		[avoidClasses(clFood, 20), stayClasses(clWater, 6)],
+		[avoidClasses(clFood, 8), stayClasses(clWater, 6)],
 		clFood);
 
 	yield 85;

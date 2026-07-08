@@ -1,4 +1,4 @@
-/* Copyright (C) 2017 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
 * This file is part of 0 A.D.
 *
 * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,9 +19,29 @@
 
 #include "Cinema.h"
 
-#include "GameInterface/Messages.h"
-#include "ScenarioEditor/ScenarioEditor.h"
-#include "CustomControls/ColorDialog/ColorDialog.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/ScenarioEditor.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/Sections/Common/Sidebar.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/StyleSheet.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/Tools.h"
+#include "tools/atlas/GameInterface/Messages.h"
+#include "tools/atlas/GameInterface/Shareable.h"
+#include "tools/atlas/GameInterface/SharedTypes.h"
+
+#include <cstddef>
+#include <string>
+#include <vector>
+#include <wx/button.h>
+#include <wx/chartype.h>
+#include <wx/checkbox.h>
+#include <wx/listbox.h>
+#include <wx/scrolwin.h>
+#include <wx/sizer.h>
+#include <wx/statbox.h>
+#include <wx/string.h>
+#include <wx/textctrl.h>
+#include <wx/toolbar.h>
+#include <wx/translation.h>
+#include <wx/window.h>
 
 using AtlasMessage::Shareable;
 
@@ -42,33 +62,32 @@ static wxWindow* Tooltipped(wxWindow* window, const wxString& tip)
 CinemaSidebar::CinemaSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContainer, wxWindow* bottomBarContainer)
 	: Sidebar(scenarioEditor, sidebarContainer, bottomBarContainer)
 {
-	wxSizer* scrollSizer = new wxBoxSizer(wxVERTICAL);
-	scrolledWindow = new wxScrolledWindow(this);
-	scrolledWindow->SetScrollRate(10, 10);
-	scrolledWindow->SetSizer(scrollSizer);
-	m_MainSizer->Add(scrolledWindow, wxSizerFlags().Proportion(1).Expand());
+	wxStaticBoxSizer* commonSizer = new wxStaticBoxSizer(wxVERTICAL, this, _T("Common settings"));
+	m_MainSizer->Add(commonSizer, wxSizerFlags().Expand());
 
-	wxSizer* commonSizer = new wxStaticBoxSizer(wxVERTICAL, scrolledWindow, _T("Common settings"));
-	scrollSizer->Add(commonSizer, wxSizerFlags().Expand());
+	wxFlexGridSizer* gridSizer = new wxFlexGridSizer(1, 5, 5);
+	gridSizer->AddGrowableCol(0);
 
-	wxFlexGridSizer* gridSizer = new wxFlexGridSizer(2, 5, 5);
-	gridSizer->AddGrowableCol(1);
-
-	gridSizer->Add(Tooltipped(m_DrawPath = new wxCheckBox(scrolledWindow, ID_PathsDrawing, _("Draw all paths")),
+	gridSizer->Add(Tooltipped(m_DrawPath = new wxCheckBox(commonSizer->GetStaticBox(), ID_PathsDrawing, _("Draw all paths")),
 		_("Display every cinematic path added to the map")));
 
-	commonSizer->Add(gridSizer, wxSizerFlags().Expand());
+	commonSizer->Add(gridSizer, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 
 	// Paths list panel
-	wxSizer* pathsSizer = new wxStaticBoxSizer(wxVERTICAL, scrolledWindow, _T("Paths"));
-	scrollSizer->Add(pathsSizer, wxSizerFlags().Proportion(1).Expand());
+	wxStaticBoxSizer* pathsBoxSizer = new wxStaticBoxSizer(wxVERTICAL, commonSizer->GetStaticBox(), _T("Paths"));
+	wxStaticBox* pathsBox = pathsBoxSizer->GetStaticBox();
+	gridSizer->Add(pathsBoxSizer, wxSizerFlags().Proportion(1).Expand());
 
-	pathsSizer->Add(m_PathList = new wxListBox(scrolledWindow, ID_PathsList, wxDefaultPosition, wxDefaultSize, 0, NULL, wxLB_SINGLE | wxLB_SORT), wxSizerFlags().Proportion(1).Expand());
-	scrollSizer->AddSpacer(3);
-	pathsSizer->Add(Tooltipped(new wxButton(scrolledWindow, ID_DeletePath, _("Delete")), _T("Delete selected path")), wxSizerFlags().Expand());
+	wxFlexGridSizer* pathsSizer = new wxFlexGridSizer(1, 5, 5);
+	pathsSizer->AddGrowableCol(0);
+	pathsBoxSizer->Add(pathsSizer, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 
-	pathsSizer->Add(m_NewPathName = new wxTextCtrl(scrolledWindow, wxID_ANY), wxSizerFlags().Expand());
-	pathsSizer->Add(new wxButton(scrolledWindow, ID_AddPath, _("Add")), wxSizerFlags().Expand());
+	pathsSizer->Add(m_PathList = new wxListBox(pathsBox, ID_PathsList, wxDefaultPosition, wxDefaultSize, 0, NULL, wxLB_SINGLE | wxLB_SORT), wxSizerFlags().Proportion(1).Expand());
+	commonSizer->AddSpacer(3);
+	pathsSizer->Add(Tooltipped(new wxButton(pathsBox, ID_DeletePath, _("Delete")), _T("Delete selected path")), wxSizerFlags().Expand());
+
+	pathsSizer->Add(m_NewPathName = new wxTextCtrl(pathsBox, wxID_ANY), wxSizerFlags().Expand());
+	pathsSizer->Add(new wxButton(pathsBox, ID_AddPath, _("Add")), wxSizerFlags().Expand());
 }
 
 void CinemaSidebar::OnFirstDisplay()

@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,16 +20,30 @@
 #include "Canvas2D.h"
 
 #include "graphics/Color.h"
+#include "graphics/ShaderDefines.h"
 #include "graphics/ShaderManager.h"
+#include "graphics/ShaderTechnique.h"
+#include "graphics/ShaderTechniquePtr.h"
 #include "graphics/TextRenderer.h"
 #include "graphics/TextureManager.h"
+#include "lib/debug.h"
+#include "lib/types.h"
+#include "maths/Matrix3D.h"
 #include "maths/Rect.h"
 #include "maths/Vector2D.h"
-#include "ps/containers/StaticVector.h"
+#include "ps/ConfigDB.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
+#include "ps/containers/StaticVector.h"
 #include "renderer/Renderer.h"
+#include "renderer/backend/Format.h"
+#include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/IShaderProgram.h"
 
+#include <algorithm>
 #include <array>
+#include <cmath>
+#include <cstddef>
 
 namespace
 {
@@ -85,7 +99,8 @@ public:
 		const uint32_t widthInPixels, const uint32_t heightInPixels, const float scale,
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 		: WidthInPixels(widthInPixels), HeightInPixels(heightInPixels),
-		Scale(scale), DeviceCommandContext(deviceCommandContext)
+		Scale(scale), DeviceCommandContext(deviceCommandContext),
+		DebugFontBox(g_ConfigDB.Get("fonts.debugbox", false))
 	{
 		constexpr std::array<Renderer::Backend::SVertexAttributeFormat, 2> attributes{{
 			{Renderer::Backend::VertexAttributeStream::POSITION,
@@ -96,6 +111,9 @@ public:
 				Renderer::Backend::VertexAttributeRate::PER_VERTEX, 1}
 		}};
 		m_VertexInputLayout = g_Renderer.GetVertexInputLayout(attributes);
+
+		const std::string debugFontBoxColor{g_ConfigDB.Get("fonts.debugboxcolor", std::string{"128 0 128"})};
+		DebugBoxColor.ParseString(debugFontBoxColor.c_str());
 	}
 
 	void BindTechIfNeeded()
@@ -192,6 +210,9 @@ public:
 	SBindingSlots BindingSlots;
 
 	PS::StaticVector<CRect, 4> Scissors;
+
+	bool DebugFontBox;
+	CColor DebugBoxColor;
 };
 
 CCanvas2D::CCanvas2D(
@@ -465,7 +486,8 @@ void CCanvas2D::DrawText(CTextRenderer& textRenderer)
 		m->BindingSlots.grayscaleFactor, 0.0f);
 
 	textRenderer.Render(
-		m->DeviceCommandContext, m->Tech->GetShader(), m->TransformScale, m->Translation);
+		m->DeviceCommandContext, m->Tech->GetShader(), m->TransformScale, m->Translation,
+		m->DebugFontBox, m->DebugBoxColor);
 }
 
 void CCanvas2D::PushScissor(const CRect& scissor)

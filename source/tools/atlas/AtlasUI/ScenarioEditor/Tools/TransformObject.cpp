@@ -1,4 +1,4 @@
-/* Copyright (C) 2019 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,15 +17,35 @@
 
 #include "precompiled.h"
 
-#include "ScenarioEditor/ScenarioEditor.h"
-#include "Common/Tools.h"
-#include "Common/Brushes.h"
-#include "Common/MiscState.h"
-#include "Common/ObjectSettings.h"
-#include "GameInterface/Messages.h"
+#include "tools/atlas/AtlasUI/General/AtlasWindowCommandProc.h"
+#include "tools/atlas/AtlasUI/General/Observable.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/ScenarioEditor.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/MiscState.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/ObjectSettings.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/Tools.h"
+#include "tools/atlas/GameInterface/MessagePasser.h"
+#include "tools/atlas/GameInterface/Messages.h"
+#include "tools/atlas/GameInterface/Shareable.h"
+#include "tools/atlas/GameInterface/SharedTypes.h"
+
+#include <algorithm>
+#include <cstddef>
+#include <limits>
+#include <string>
+#include <vector>
+#include <wx/chartype.h>
 #include <wx/clipbrd.h>
-#include <wx/xml/xml.h>
+#include <wx/dataobj.h>
+#include <wx/debug.h>
+#include <wx/event.h>
+#include <wx/gdicmn.h>
+#include <wx/object.h>
 #include <wx/sstream.h>
+#include <wx/string.h>
+#include <wx/utils.h>
+#include <wx/xml/xml.h>
+
+class wxInputStream;
 
 using AtlasMessage::Position;
 
@@ -322,11 +342,15 @@ public:
 				POST_MESSAGE(SetSelectionPreview, (g_SelectedObjects));
 				return true;
 			}
-			else if (type == KEY_CHAR && (evt.GetKeyCode() >= '0' && evt.GetKeyCode() <= '9'))
+			else if (type == KEY_CHAR && (evt.GetKeyCode() >= '0' && evt.GetKeyCode() <= '8'))
 			{
-				int playerID = evt.GetKeyCode() - '0';
-				obj->GetScenarioEditor().GetObjectSettings().SetPlayerID(playerID);
-				obj->GetScenarioEditor().GetObjectSettings().NotifyObservers();
+				const int maxPlayerID = obj->GetScenarioEditor().GetMapSettings()["PlayerData"]["item"].count();
+				const int playerID = evt.GetKeyCode() - '0';
+				if (playerID <= maxPlayerID)
+				{
+					obj->GetScenarioEditor().GetObjectSettings().SetPlayerID(playerID);
+					obj->GetScenarioEditor().GetObjectSettings().NotifyObservers();
+				}
 				return true;
 			}
 			else if (evt.GetModifiers() == wxMOD_CONTROL)

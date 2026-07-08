@@ -11,7 +11,7 @@ var g_GameSettingsLayout = [
 			"MapSelection",
 			"MapBrowser",
 			"MapSize",
-			"TeamPlacement",
+			"PlayerPlacement",
 			"Landscape",
 			"Biome",
 			"WaterLevel",
@@ -29,9 +29,8 @@ var g_GameSettingsLayout = [
 		"label": translateWithContext("Match settings tab name", "Player"),
 		"settings": [
 			"PlayerCount",
-			"WorldPopulation",
+			"PopulationCapType",
 			"PopulationCap",
-			"WorldPopulationCap",
 			"StartingResources",
 			"Spies",
 			"Cheats"

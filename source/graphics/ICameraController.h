@@ -1,4 +1,4 @@
-/* Copyright (C) 2019 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,10 +19,13 @@
 #define INCLUDED_ICAMERACONTROLLER
 
 #include "graphics/Camera.h"
+#include "lib/code_annotation.h"
+#include "ps/Input.h"
 #include "simulation2/system/Entity.h"
 
-#include "lib/input.h" // InReaction - can't forward-declare enum
-
+class CCamera;
+class CVector3D;
+struct SViewPort;
 /**
  * @interface ICameraController defines a camera controller interface. The camera object
  * is owned by the camera controller's owner. It is therefore guaranteed that the lifetime
@@ -39,7 +42,7 @@ public:
 
 	virtual void LoadConfig() = 0;
 
-	virtual InReaction HandleEvent(const SDL_Event_* ev) = 0;
+	virtual Input::Reaction HandleEvent(const SDL_Event& ev) = 0;
 
 	virtual CVector3D GetCameraPivot() const = 0;
 	virtual CVector3D GetCameraPosition() const = 0;

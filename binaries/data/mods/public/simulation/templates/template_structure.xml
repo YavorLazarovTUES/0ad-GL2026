@@ -8,7 +8,7 @@
   </BuildRestrictions>
   <Capturable>
     <CapturePoints>500</CapturePoints>
-    <RegenRate>0.5</RegenRate>
+    <RegenRate>5</RegenRate>
     <GarrisonRegenRate>1.0</GarrisonRegenRate>
   </Capturable>
   <Cost>
@@ -24,6 +24,7 @@
   <Decay>
     <Active>false</Active>
     <SinkingAnim>false</SinkingAnim>
+    <SinkProb>1.0</SinkProb>
     <DelayTime>0.0</DelayTime>
     <SinkRate>3.0</SinkRate>
     <SinkAccel>9.8</SinkAccel>
@@ -56,7 +57,6 @@
   </Loot>
   <Looter/>
   <Minimap>
-    <Type>structure</Type>
   </Minimap>
   <Obstruction>
     <Active>true</Active>
@@ -79,7 +79,7 @@
   </Position>
   <RallyPoint/>
   <RallyPointRenderer>
-    <MarkerTemplate>special/rallypoint</MarkerTemplate>
+    <MarkerTemplate>special/rallypoints/{civ}</MarkerTemplate>
     <LineTexture>art/textures/misc/rallypoint_line.png</LineTexture>
     <LineTextureMask>art/textures/misc/rallypoint_line_mask.png</LineTextureMask>
     <LineThickness>0.25</LineThickness>
@@ -139,6 +139,7 @@
       <attacked_gaia>interface/alarm/alarm_attacked_gaia.xml</attacked_gaia>
       <attacked_capture>interface/alarm/alarm_attackplayer.xml</attacked_capture>
       <attacked_capture_gaia>interface/alarm/alarm_attacked_gaia.xml</attacked_capture_gaia>
+      <focus_fire>attack/weapon/bow_launch_building.xml</focus_fire>
     </SoundGroups>
   </Sound>
   <StatusBars>

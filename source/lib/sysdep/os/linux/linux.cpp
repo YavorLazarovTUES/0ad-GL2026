@@ -1,4 +1,4 @@
-/* Copyright (C) 2014 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -22,33 +22,16 @@
 
 #include "precompiled.h"
 
+#include "lib/os_path.h"
 #include "lib/sysdep/sysdep.h"
-#include "lib/sysdep/os/unix/unix_executable_pathname.h"
 
-static bool getPathFromProc(char* buffer, size_t length)
-{
-	int pos = readlink("/proc/self/exe", buffer, length-1);
-	if (pos <= 0)
-		return false;
-
-	buffer[pos] = '\0';
-
-	char* endOfPath = strrchr(buffer, '/');
-	if (endOfPath == NULL)
-		return false;
-
-	++endOfPath;
-	*endOfPath = '\0';
-
-	return true;
-}
+#include <climits>
+#include <stdlib.h>
 
 OsPath sys_ExecutablePathname()
 {
-	// Check /proc for the path
 	char pathBuffer[PATH_MAX];
-	if (getPathFromProc(pathBuffer, sizeof(pathBuffer)))
-		return pathBuffer;
-
-	return unix_ExecutablePathname();
+	if (realpath("/proc/self/exe", pathBuffer) == nullptr)
+		return {};
+	return pathBuffer;
 }

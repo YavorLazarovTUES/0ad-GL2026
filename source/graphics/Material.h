@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,16 +18,31 @@
 #ifndef INCLUDED_MATERIAL
 #define INCLUDED_MATERIAL
 
-#include "graphics/Color.h"
 #include "graphics/ShaderDefines.h"
 #include "graphics/Texture.h"
 #include "ps/CStr.h"
 #include "ps/CStrIntern.h"
-#include "simulation2/helpers/Player.h"
+
+#include <array>
+#include <vector>
+
+class CVector4D;
 
 class CMaterial
 {
 public:
+	enum class Pass : uint8_t
+	{
+		MAIN,
+		SHADOW_CASTER,
+		REFLECTIONS,
+		REFRACTIONS,
+		SILHOUETTE_OCCLUDER,
+		SILHOUETTE_CASTER,
+		WIREFRAME,
+		WIREFRAME_SOLID,
+		COUNT
+	};
 
 	struct TextureSampler
 	{
@@ -50,8 +65,8 @@ public:
 
 	const CTexturePtr& GetDiffuseTexture() const { return m_DiffuseTexture; }
 
-	void SetShaderEffect(const CStr& effect);
-	CStrIntern GetShaderEffect() const { return m_ShaderEffect; }
+	void SetShaderEffect(const Pass pass, CStrIntern effect);
+	CStrIntern GetShaderEffect(const Pass pass) const;
 
 	// Must call RecomputeCombinedShaderDefines after this, before rendering with this material
 	void AddShaderDefine(CStrIntern key, CStrIntern value);
@@ -79,7 +94,7 @@ private:
 	SamplersVector m_Samplers;
 	std::vector<CStrIntern> m_RequiredSamplers;
 
-	CStrIntern m_ShaderEffect;
+	std::array<CStrIntern, static_cast<size_t>(Pass::COUNT)> m_ShaderEffects;
 	CShaderDefines m_ShaderDefines;
 	CShaderUniforms m_StaticUniforms;
 	CShaderRenderQueries m_RenderQueries;

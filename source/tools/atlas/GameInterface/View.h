@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,20 +18,22 @@
 #ifndef INCLUDED_VIEW
 #define INCLUDED_VIEW
 
-#include <map>
-
 #include "graphics/Camera.h"
 #include "maths/Rect.h"
-
-#include "Messages.h"
+#include "maths/Vector3D.h"
 #include "simulation2/system/Entity.h"
+#include "tools/atlas/GameInterface/SharedTypes.h"
 
+#include <cstddef>
+#include <map>
+#include <string>
+
+class AtlasViewActor;
+class AtlasViewGame;
 class CCanvas2D;
-class CUnit;
 class CSimulation2;
 
-class AtlasViewGame;
-class AtlasViewActor;
+namespace Renderer::Backend { class IDeviceCommandContext; }
 
 /**
  * Superclass for all Atlas game views.
@@ -40,19 +42,21 @@ class AtlasView
 {
 public:
 	virtual ~AtlasView();
-	virtual void Update(float UNUSED(realFrameLength)) { };
+	virtual void Update(float /*realFrameLength*/) { };
 	virtual void Render() { };
-	virtual void DrawCinemaPathTool() { };
-	virtual void DrawOverlays(CCanvas2D& UNUSED(canvas)) { };
-	virtual CCamera& GetCamera() = 0;
+	virtual void DrawCinemaPathTool(Renderer::Backend::IDeviceCommandContext&) { };
+	virtual void DrawOverlays(CCanvas2D& /*canvas*/) { };
+	virtual const CCamera& GetCamera() const = 0;
+	virtual void SetCamera(const CCamera& camera) = 0;
 	virtual CSimulation2* GetSimulation2() { return NULL; }
 	virtual entity_id_t GetEntityId(AtlasMessage::ObjectID obj) { return (entity_id_t)obj; }
-	virtual bool WantsHighFramerate() { return false; }
-	virtual void SetEnabled(bool UNUSED(enabled)) {}
+	virtual bool GetSmoothFramerate() const { return false; }
+	virtual void SetSmoothFramerate(const bool) {}
+	virtual void SetEnabled(bool /*enabled*/) {}
 
 	virtual void SetParam(const std::wstring& name, bool value);
 	virtual void SetParam(const std::wstring& name, int value);
-	virtual void SetParam(const std::wstring& UNUSED(name), float UNUSED(value)) {}
+	virtual void SetParam(const std::wstring& /*name*/, float /*value*/) {}
 	virtual void SetParam(const std::wstring& name, const AtlasMessage::Color& value);
 	virtual void SetParam(const std::wstring& name, const std::wstring& value);
 
@@ -71,9 +75,10 @@ public:
 class AtlasViewNone : public AtlasView
 {
 public:
-	virtual CCamera& GetCamera() { return dummyCamera; }
+	virtual const CCamera& GetCamera() const { return m_DummyCamera; }
+	virtual void SetCamera(const CCamera& camera) { m_DummyCamera = camera; }
 private:
-	CCamera dummyCamera;
+	CCamera m_DummyCamera;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -90,11 +95,13 @@ public:
 	virtual ~AtlasViewGame();
 	virtual void Update(float realFrameLength);
 	virtual void Render();
-	virtual void DrawCinemaPathTool();
+	virtual void DrawCinemaPathTool(Renderer::Backend::IDeviceCommandContext& deviceCommandContext);
 	virtual void DrawOverlays(CCanvas2D& canvas);
-	virtual CCamera& GetCamera();
+	virtual const CCamera& GetCamera() const;
+	virtual void SetCamera(const CCamera& camera);
 	virtual CSimulation2* GetSimulation2();
-	virtual bool WantsHighFramerate();
+	virtual bool GetSmoothFramerate() const;
+	virtual void SetSmoothFramerate(const bool enabled);
 
 	virtual void SetParam(const std::wstring& name, bool value);
 	virtual void SetParam(const std::wstring& name, float value);
@@ -110,6 +117,7 @@ public:
 private:
 	float m_SpeedMultiplier;
 	bool m_IsTesting;
+	bool m_SmoothFramerate{false};
 	std::map<std::wstring, SimState*> m_SavedStates;
 	std::string m_DisplayPassability;
 
@@ -134,10 +142,12 @@ public:
 
 	virtual void Update(float realFrameLength);
 	virtual void Render();
-	virtual CCamera& GetCamera();
+	virtual const CCamera& GetCamera() const;
+	virtual void SetCamera(const CCamera& camera);
 	virtual CSimulation2* GetSimulation2();
 	virtual entity_id_t GetEntityId(AtlasMessage::ObjectID obj);
-	virtual bool WantsHighFramerate();
+	virtual bool GetSmoothFramerate() const;
+	virtual void SetSmoothFramerate(const bool enabled);
 	virtual void SetEnabled(bool enabled);
 
 	virtual void SetParam(const std::wstring& name, bool value);
@@ -149,6 +159,7 @@ public:
 
 private:
 	float m_SpeedMultiplier;
+	bool m_SmoothFramerate{false};
 	CCamera m_Camera;
 	ActorViewer* m_ActorViewer;
 };

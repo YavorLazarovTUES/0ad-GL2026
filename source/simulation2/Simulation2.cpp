@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,63 +21,101 @@
 
 #include "graphics/MapReader.h"
 #include "graphics/Terrain.h"
-#include "lib/timer.h"
+#include "lib/debug.h"
+#include "lib/file/file_system.h"
 #include "lib/file/vfs/vfs_util.h"
+#include "lib/os_path.h"
+#include "lib/path.h"
+#include "lib/sysdep/filesystem.h"
+#include "lib/timer.h"
+#include "lib/types.h"
+#include "lib/utf8.h"
+#include "maths/Fixed.h"
 #include "maths/MathUtil.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
 #include "ps/ConfigDB.h"
+#include "ps/Errors.h"
 #include "ps/Filesystem.h"
 #include "ps/Loader.h"
 #include "ps/Profile.h"
+#include "ps/Profiler2.h"
 #include "ps/Pyrogenesis.h"
 #include "ps/Util.h"
-#include "ps/XML/Xeromyces.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "scriptinterface/StructuredClone.h"
 #include "simulation2/MessageTypes.h"
-#include "simulation2/system/ComponentManager.h"
-#include "simulation2/system/ParamNode.h"
-#include "simulation2/system/SimContext.h"
 #include "simulation2/components/ICmpAIManager.h"
 #include "simulation2/components/ICmpCommandQueue.h"
-#include "simulation2/components/ICmpTemplateManager.h"
+#include "simulation2/components/ICmpPathfinder.h"
+#include "simulation2/helpers/Player.h"
+#include "simulation2/helpers/SimulationCommand.h"
+#include "simulation2/system/Component.h"
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iomanip>
+#include <js/CallArgs.h>
+#include <js/RootingAPI.h>
+#include <js/Value.h>
 #include <memory>
+#include <optional>
+#include <set>
+#include <sstream>
+#include <system_error>
 
 class CSimulation2Impl
 {
 public:
-	CSimulation2Impl(CUnitManager* unitManager, ScriptContext& cx, CTerrain* terrain) :
+	CSimulation2Impl(CUnitManager* unitManager, Script::Context& cx, CTerrain* terrain,
+		const std::span<const wchar_t* const> scriptDirectories, const SimulationDebugOptions debugOptions) :
 		m_SimContext{terrain, unitManager},
 		m_ComponentManager{m_SimContext, cx},
+		m_InitAttributes{cx.GetGeneralJSContext()},
 		m_MapSettings{cx.GetGeneralJSContext()},
-		m_InitAttributes{cx.GetGeneralJSContext()}
+		// Tests won't have config initialised
+		m_EnableOOSLog{debugOptions.oosLog || CConfigDB::GetIfInitialised("ooslog", false)},
+		// Handle bogus values of the arg
+		m_SerializationTestTurn{[&]
+		{
+			const auto* serializationTestOption{
+				std::get_if<SimulationDebugOptions::SerializationTest>(&debugOptions.test)};
+			return serializationTestOption ? serializationTestOption->turn :
+				std::max(CConfigDB::GetIfInitialised("serializationtest", -1), -1);
+		}()},
+		m_RejoinTestTurn{[&]() -> std::optional<int>
+		{
+			const auto* rejoinTestOption{
+				std::get_if<SimulationDebugOptions::RejoinTest>(&debugOptions.test)};
+			if (rejoinTestOption)
+				return rejoinTestOption->turn;
+			const int configVal{CConfigDB::GetIfInitialised("rejointest", -1)};
+			if (configVal >= 0)
+				return configVal;
+			return std::nullopt;
+		}()}
 	{
 		m_ComponentManager.LoadComponentTypes();
 
 		RegisterFileReloadFunc(ReloadChangedFileCB, this);
-
-		// Tests won't have config initialised
-		if (CConfigDB::IsInitialised())
-		{
-			CFG_GET_VAL("ooslog", m_EnableOOSLog);
-			CFG_GET_VAL("serializationtest", m_EnableSerializationTest);
-			CFG_GET_VAL("rejointest", m_RejoinTestTurn);
-			if (m_RejoinTestTurn < 0) // Handle bogus values of the arg
-				m_RejoinTestTurn = -1;
-		}
 
 		if (m_EnableOOSLog)
 		{
 			m_OOSLogPath = createDateIndexSubdirectory(psLogDir() / "oos_logs");
 			debug_printf("Writing ooslogs to %s\n", m_OOSLogPath.string8().c_str());
 		}
+
+		std::ranges::for_each(scriptDirectories,
+			std::bind_front(LoadScripts, std::ref(m_ComponentManager), &m_LoadedScripts));
 	}
 
 	~CSimulation2Impl()
@@ -87,7 +125,6 @@ public:
 
 	void ResetState(bool skipScriptedComponents, bool skipAI)
 	{
-		m_DeltaTime = 0.0;
 		m_LastFrameOffset = 0.0f;
 		m_TurnNumber = 0;
 		ResetComponentState(m_ComponentManager, skipScriptedComponents, skipAI);
@@ -100,8 +137,7 @@ public:
 		componentManager.AddSystemComponents(skipScriptedComponents, skipAI);
 	}
 
-	static bool LoadDefaultScripts(CComponentManager& componentManager, std::set<VfsPath>* loadedScripts);
-	static bool LoadScripts(CComponentManager& componentManager, std::set<VfsPath>* loadedScripts, const VfsPath& path);
+	static void LoadScripts(CComponentManager& componentManager, std::set<VfsPath>* loadedScripts, const VfsPath& path);
 	static bool LoadTriggerScripts(CComponentManager& componentManager, JS::HandleValue mapSettings, std::set<VfsPath>* loadedScripts);
 	Status ReloadChangedFile(const VfsPath& path);
 
@@ -110,7 +146,7 @@ public:
 		return static_cast<CSimulation2Impl*>(param)->ReloadChangedFile(path);
 	}
 
-	int ProgressiveLoad();
+	PS::Loader::Task ProgressiveLoad();
 	void Update(int turnLength, const std::vector<SimulationCommand>& commands);
 	static void UpdateComponents(CSimContext& simContext, fixed turnLengthFixed, const std::vector<SimulationCommand>& commands);
 	void Interpolate(float simFrameLength, float frameOffset, float realFrameLength);
@@ -119,7 +155,6 @@ public:
 
 	CSimContext m_SimContext;
 	CComponentManager m_ComponentManager;
-	double m_DeltaTime;
 	float m_LastFrameOffset;
 
 	std::string m_StartupScript;
@@ -135,8 +170,10 @@ public:
 
 	// Functions and data for the serialization test mode: (see Update() for relevant comments)
 
+	std::optional<int> m_SerializationTestTurn;
+	bool m_TestingSerialization{false};
 	bool m_EnableSerializationTest{false};
-	int m_RejoinTestTurn{-1};
+	std::optional<int> m_RejoinTestTurn;
 	bool m_TestingRejoin{false};
 
 	// Secondary simulation (NB: order matters for destruction).
@@ -161,17 +198,17 @@ public:
 	void InitRNGSeedSimulation();
 	void InitRNGSeedAI();
 
-	static std::vector<SimulationCommand> CloneCommandsFromOtherCompartment(const ScriptInterface& newScript, const ScriptInterface& oldScript,
+	static std::vector<SimulationCommand> CloneCommandsFromOtherCompartment(const Script::Interface& newScript, const Script::Interface& oldScript,
 		const std::vector<SimulationCommand>& commands)
 	{
 		std::vector<SimulationCommand> newCommands;
 		newCommands.reserve(commands.size());
 
-		ScriptRequest rqNew(newScript);
+		Script::Request rqNew(newScript);
 		for (const SimulationCommand& command : commands)
 		{
 			JS::RootedValue tmpCommand(rqNew.cx, Script::CloneValueFromOtherCompartment(newScript, oldScript, command.data));
-			Script::FreezeObject(rqNew, tmpCommand, true);
+			Script::DeepFreezeObject(rqNew, tmpCommand);
 			SimulationCommand cmd(command.player, rqNew.cx, tmpCommand);
 			newCommands.emplace_back(std::move(cmd));
 		}
@@ -179,37 +216,26 @@ public:
 	}
 };
 
-bool CSimulation2Impl::LoadDefaultScripts(CComponentManager& componentManager, std::set<VfsPath>* loadedScripts)
-{
-	return (
-		LoadScripts(componentManager, loadedScripts, L"simulation/components/interfaces/") &&
-		LoadScripts(componentManager, loadedScripts, L"simulation/helpers/") &&
-		LoadScripts(componentManager, loadedScripts, L"simulation/components/")
-	);
-}
-
-bool CSimulation2Impl::LoadScripts(CComponentManager& componentManager, std::set<VfsPath>* loadedScripts, const VfsPath& path)
+void CSimulation2Impl::LoadScripts(CComponentManager& componentManager, std::set<VfsPath>* loadedScripts, const VfsPath& path)
 {
 	VfsPaths pathnames;
 	if (vfs::GetPathnames(g_VFS, path, L"*.js", pathnames) < 0)
-		return false;
+		throw CSimulation2::LoadScriptError{"Error enumerating " + path.string8()};
 
-	bool ok = true;
 	for (const VfsPath& scriptPath : pathnames)
 	{
 		if (loadedScripts)
 			loadedScripts->insert(scriptPath);
 		LOGMESSAGE("Loading simulation script '%s'", scriptPath.string8());
 		if (!componentManager.LoadScript(scriptPath))
-			ok = false;
+			throw CSimulation2::LoadScriptError{"Error loading " + scriptPath.string8()};
 	}
-	return ok;
 }
 
 bool CSimulation2Impl::LoadTriggerScripts(CComponentManager& componentManager, JS::HandleValue mapSettings, std::set<VfsPath>* loadedScripts)
 {
 	bool ok = true;
-	ScriptRequest rq(componentManager.GetScriptInterface());
+	Script::Request rq(componentManager.GetScriptInterface());
 	if (Script::HasProperty(rq, mapSettings, "TriggerScripts"))
 	{
 		std::vector<std::string> scriptNames;
@@ -250,15 +276,9 @@ Status CSimulation2Impl::ReloadChangedFile(const VfsPath& path)
 	return INFO::OK;
 }
 
-int CSimulation2Impl::ProgressiveLoad()
+PS::Loader::Task CSimulation2Impl::ProgressiveLoad()
 {
-	// yield after this time is reached. balances increased progress bar
-	// smoothness vs. slowing down loading.
-	const double end_time = timer_Time() + 200e-3;
-
-	int ret;
-
-	do
+	while (true)
 	{
 		bool progressed = false;
 		int total = 0;
@@ -269,32 +289,29 @@ int CSimulation2Impl::ProgressiveLoad()
 		m_ComponentManager.BroadcastMessage(msg);
 
 		if (!progressed || total == 0)
-			return 0; // we have nothing left to load
+			co_return 0; // we have nothing left to load
 
-		ret = Clamp(100*progress / total, 1, 100);
+		co_yield Clamp(100*progress / total, 1, 100);
 	}
-	while (timer_Time() < end_time);
-
-	return ret;
 }
 
 void CSimulation2Impl::DumpSerializationTestState(SerializationTestState& state, const OsPath& path, const OsPath::String& suffix)
 {
 	if (!state.hash.empty())
 	{
-		std::ofstream file (OsString(path / (L"hash." + suffix)).c_str(), std::ofstream::out | std::ofstream::trunc);
+		std::ofstream file (OsString(path / (L"hash." + suffix)), std::ofstream::out | std::ofstream::trunc);
 		file << Hexify(state.hash);
 	}
 
 	if (!state.debug.str().empty())
 	{
-		std::ofstream file (OsString(path / (L"debug." + suffix)).c_str(), std::ofstream::out | std::ofstream::trunc);
+		std::ofstream file (OsString(path / (L"debug." + suffix)), std::ofstream::out | std::ofstream::trunc);
 		file << state.debug.str();
 	}
 
 	if (!state.state.str().empty())
 	{
-		std::ofstream file (OsString(path / (L"state." + suffix)).c_str(), std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
+		std::ofstream file (OsString(path / (L"state." + suffix)), std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
 		file << state.state.str();
 	}
 }
@@ -306,19 +323,26 @@ void CSimulation2Impl::ReportSerializationFailure(
 	const OsPath path = createDateIndexSubdirectory(psLogDir() / "serializationtest");
 	debug_printf("Writing serializationtest-data to %s\n", path.string8().c_str());
 
-	// Clean up obsolete files from previous runs
-	wunlink(path / "hash.before.a");
-	wunlink(path / "hash.before.b");
-	wunlink(path / "debug.before.a");
-	wunlink(path / "debug.before.b");
-	wunlink(path / "state.before.a");
-	wunlink(path / "state.before.b");
-	wunlink(path / "hash.after.a");
-	wunlink(path / "hash.after.b");
-	wunlink(path / "debug.after.a");
-	wunlink(path / "debug.after.b");
-	wunlink(path / "state.after.a");
-	wunlink(path / "state.after.b");
+	// Try to clean up obsolete files from previous runs.
+	constexpr auto namesToRemove{std::to_array<std::string_view>({
+		"hash.before.a",
+		"hash.before.b",
+		"debug.before.a",
+		"debug.before.b",
+		"state.before.a",
+		"state.before.b",
+		"hash.after.a",
+		"hash.after.b",
+		"debug.after.a",
+		"debug.after.b",
+		"state.after.a",
+		"state.after.b",
+	})};
+
+	const std::filesystem::path fspath{path.string()};
+	std::error_code ec{};
+	for (const std::string_view nameToRemove : namesToRemove)
+		std::filesystem::remove(fspath / nameToRemove, ec);
 
 	if (primaryStateBefore)
 		DumpSerializationTestState(*primaryStateBefore, path, L"before.a");
@@ -335,7 +359,7 @@ void CSimulation2Impl::ReportSerializationFailure(
 void CSimulation2Impl::InitRNGSeedSimulation()
 {
 	u32 seed = 0;
-	ScriptRequest rq(m_ComponentManager.GetScriptInterface());
+	Script::Request rq(m_ComponentManager.GetScriptInterface());
 	if (!Script::HasProperty(rq, m_MapSettings, "Seed") ||
 		!Script::GetProperty(rq, m_MapSettings, "Seed", seed))
 		LOGWARNING("CSimulation2Impl::InitRNGSeedSimulation: No seed value specified - using %d", seed);
@@ -346,7 +370,7 @@ void CSimulation2Impl::InitRNGSeedSimulation()
 void CSimulation2Impl::InitRNGSeedAI()
 {
 	u32 seed = 0;
-	ScriptRequest rq(m_ComponentManager.GetScriptInterface());
+	Script::Request rq(m_ComponentManager.GetScriptInterface());
 	if (!Script::HasProperty(rq, m_MapSettings, "AISeed") ||
 		!Script::GetProperty(rq, m_MapSettings, "AISeed", seed))
 		LOGWARNING("CSimulation2Impl::InitRNGSeedAI: No seed value specified - using %d", seed);
@@ -381,13 +405,18 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 	const bool serializationTestHash = true; // set true to save and compare hash of state
 
 	SerializationTestState primaryStateBefore;
-	const ScriptInterface& scriptInterface = m_ComponentManager.GetScriptInterface();
+	const Script::Interface& scriptInterface = m_ComponentManager.GetScriptInterface();
 
-	const bool startRejoinTest = (int64_t) m_RejoinTestTurn == m_TurnNumber;
+	const bool startSerializationTest = m_SerializationTestTurn.has_value() &&
+		std::cmp_equal(m_SerializationTestTurn.value(), m_TurnNumber);
+	if (startSerializationTest)
+		m_TestingSerialization = true;
+	const bool startRejoinTest = m_RejoinTestTurn.has_value() &&
+		static_cast<int64_t>(m_RejoinTestTurn.value()) == m_TurnNumber;
 	if (startRejoinTest)
 		m_TestingRejoin = true;
 
-	if (m_EnableSerializationTest || m_TestingRejoin)
+	if (m_TestingSerialization || m_TestingRejoin)
 	{
 		ENSURE(m_ComponentManager.SerializeState(primaryStateBefore.state));
 		if (serializationTestDebugDump)
@@ -398,8 +427,10 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 
 	UpdateComponents(m_SimContext, turnLengthFixed, commands);
 
-	if (m_EnableSerializationTest || startRejoinTest)
+	if (m_TestingSerialization || startRejoinTest)
 	{
+		if (startSerializationTest)
+			debug_printf("Starting serializationtest\n");
 		if (startRejoinTest)
 			debug_printf("Initializing the secondary simulation\n");
 
@@ -411,21 +442,29 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 		m_SecondaryComponentManager->LoadComponentTypes();
 
 		m_SecondaryLoadedScripts = std::make_unique<std::set<VfsPath>>();
-		ENSURE(LoadDefaultScripts(*m_SecondaryComponentManager, m_SecondaryLoadedScripts.get()));
+		std::ranges::for_each(CSimulation2::DEFAULT_SCRIPTS, std::bind_front(LoadScripts,
+			std::ref(*m_SecondaryComponentManager), m_SecondaryLoadedScripts.get()));
 		ResetComponentState(*m_SecondaryComponentManager, false, false);
 
-		ScriptRequest rq(scriptInterface);
+		Script::Request rq(scriptInterface);
+
+		// Clone InitAttributes.
+		{
+			const Script::Request rq2(m_SecondaryComponentManager->GetScriptInterface());
+			const JS::RootedValue initAttributesCloned(rq2.cx, Script::CloneValueFromOtherCompartment(m_SecondaryComponentManager->GetScriptInterface(), scriptInterface, m_InitAttributes));
+			m_SecondaryComponentManager->GetScriptInterface().SetGlobal("InitAttributes", initAttributesCloned, true, true, true);
+		}
 
 		// Load the trigger scripts after we have loaded the simulation.
 		{
-			ScriptRequest rq2(m_SecondaryComponentManager->GetScriptInterface());
+			Script::Request rq2(m_SecondaryComponentManager->GetScriptInterface());
 			JS::RootedValue mapSettingsCloned(rq2.cx, Script::CloneValueFromOtherCompartment(m_SecondaryComponentManager->GetScriptInterface(), scriptInterface, m_MapSettings));
 			ENSURE(LoadTriggerScripts(*m_SecondaryComponentManager, mapSettingsCloned, m_SecondaryLoadedScripts.get()));
 		}
 
 		// Load the map into the secondary simulation
 
-		LDR_BeginRegistering();
+		PS::Loader::BeginRegistering();
 		std::unique_ptr<CMapReader> mapReader = std::make_unique<CMapReader>();
 
 		std::string mapType;
@@ -446,12 +485,12 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 				NULL, NULL, m_SecondaryContext.get(), INVALID_PLAYER, true); // throws exception on failure
 		}
 
-		LDR_EndRegistering();
-		ENSURE(LDR_NonprogressiveLoad() == INFO::OK);
+		PS::Loader::EndRegistering();
+		ENSURE(PS::Loader::NonprogressiveLoad() == INFO::OK);
 		ENSURE(m_SecondaryComponentManager->DeserializeState(primaryStateBefore.state));
 	}
 
-	if (m_EnableSerializationTest || m_TestingRejoin)
+	if (m_TestingSerialization || m_TestingRejoin)
 	{
 		SerializationTestState secondaryStateBefore;
 		ENSURE(m_SecondaryComponentManager->SerializeState(secondaryStateBefore.state));
@@ -489,20 +528,9 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 		}
 	}
 
-	// Run the GC occasionally
-	// No delay because a lot of garbage accumulates in one turn and in non-visual replays there are
-	// much more turns in the same time than in normal games.
-	// Every 500 turns we run a shrinking GC, which decommits unused memory and frees all JIT code.
-	// Based on testing, this seems to be a good compromise between memory usage and performance.
-	// Also check the comment about gcPreserveCode in the ScriptInterface code and this forum topic:
-	// http://www.wildfiregames.com/forum/index.php?showtopic=18466&p=300323
-	//
 	// (TODO: we ought to schedule this for a frame where we're not
 	// running the sim update, to spread the load)
-	if (m_TurnNumber % 500 == 0)
-		scriptInterface.GetContext().ShrinkingGC();
-	else
-		scriptInterface.GetContext().MaybeIncrementalGC(0.0f);
+	scriptInterface.GetContext().MaybeIncrementalGC();
 
 	if (m_EnableOOSLog)
 		DumpState();
@@ -609,7 +637,7 @@ void CSimulation2Impl::DumpState()
 	std::stringstream name;\
 	name << std::setw(5) << std::setfill('0') << m_TurnNumber << ".txt";
 	const OsPath path = m_OOSLogPath / name.str();
-	std::ofstream file (OsString(path).c_str(), std::ofstream::out | std::ofstream::trunc);
+	std::ofstream file (OsString(path), std::ofstream::out | std::ofstream::trunc);
 
 	if (!DirectoryExists(m_OOSLogPath))
 	{
@@ -628,44 +656,21 @@ void CSimulation2Impl::DumpState()
 
 	m_ComponentManager.DumpDebugState(file, true);
 
-	std::ofstream binfile (OsString(path.ChangeExtension(L".dat")).c_str(), std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
+	std::ofstream binfile (OsString(path.ChangeExtension(L".dat")), std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
 	m_ComponentManager.SerializeState(binfile);
 }
 
 ////////////////////////////////////////////////////////////////
 
-CSimulation2::CSimulation2(CUnitManager* unitManager, ScriptContext& cx, CTerrain* terrain) :
-	m(new CSimulation2Impl(unitManager, cx, terrain))
+CSimulation2::CSimulation2(CUnitManager* unitManager, Script::Context& cx, CTerrain* terrain,
+	const std::span<const wchar_t* const> scriptDirectories, const SimulationDebugOptions debugOptions) :
+	m(std::make_unique<CSimulation2Impl>(unitManager, cx, terrain, scriptDirectories, debugOptions))
 {
 }
 
-CSimulation2::~CSimulation2()
-{
-	delete m;
-}
+CSimulation2::~CSimulation2() = default;
 
 // Forward all method calls to the appropriate CSimulation2Impl/CComponentManager methods:
-
-void CSimulation2::EnableSerializationTest()
-{
-	m->m_EnableSerializationTest = true;
-}
-
-void CSimulation2::EnableRejoinTest(int rejoinTestTurn)
-{
-	m->m_RejoinTestTurn = rejoinTestTurn;
-}
-
-void CSimulation2::EnableOOSLog()
-{
-	if (m->m_EnableOOSLog)
-		return;
-
-	m->m_EnableOOSLog = true;
-	m->m_OOSLogPath = createDateIndexSubdirectory(psLogDir() / "oos_logs");
-
-	debug_printf("Writing ooslogs to %s\n", m->m_OOSLogPath.string8().c_str());
-}
 
 entity_id_t CSimulation2::AddEntity(const std::wstring& templateName)
 {
@@ -722,28 +727,28 @@ const CSimContext& CSimulation2::GetSimContext() const
 	return m->m_SimContext;
 }
 
-ScriptInterface& CSimulation2::GetScriptInterface() const
+Script::Interface& CSimulation2::GetScriptInterface() const
 {
 	return m->m_ComponentManager.GetScriptInterface();
 }
 
 void CSimulation2::PreInitGame()
 {
-	ScriptRequest rq(GetScriptInterface());
+	Script::Request rq(GetScriptInterface());
 	JS::RootedValue global(rq.cx, rq.globalValue());
-	ScriptFunction::CallVoid(rq, global, "PreInitGame");
+	Script::Function::CallVoid(rq, global, "PreInitGame");
 }
 
 void CSimulation2::InitGame()
 {
-	ScriptRequest rq(GetScriptInterface());
+	Script::Request rq(GetScriptInterface());
 	JS::RootedValue global(rq.cx, rq.globalValue());
 
 	JS::RootedValue settings(rq.cx);
 	JS::RootedValue tmpInitAttributes(rq.cx, GetInitAttributes());
 	Script::GetProperty(rq, tmpInitAttributes, "settings", &settings);
 
-	ScriptFunction::CallVoid(rq, global, "InitGame", settings);
+	Script::Function::CallVoid(rq, global, "InitGame", settings);
 }
 
 void CSimulation2::Update(int turnLength)
@@ -775,16 +780,6 @@ float CSimulation2::GetLastFrameOffset() const
 	return m->m_LastFrameOffset;
 }
 
-bool CSimulation2::LoadScripts(const VfsPath& path)
-{
-	return m->LoadScripts(m->m_ComponentManager, &m->m_LoadedScripts, path);
-}
-
-bool CSimulation2::LoadDefaultScripts()
-{
-	return m->LoadDefaultScripts(m->m_ComponentManager, &m->m_LoadedScripts);
-}
-
 void CSimulation2::SetStartupScript(const std::string& code)
 {
 	m->m_StartupScript = code;
@@ -812,7 +807,7 @@ void CSimulation2::GetInitAttributes(JS::MutableHandleValue ret)
 
 void CSimulation2::SetMapSettings(const std::string& settings)
 {
-	Script::ParseJSON(ScriptRequest(m->m_ComponentManager.GetScriptInterface()), settings, &m->m_MapSettings);
+	Script::ParseJSON(Script::Request(m->m_ComponentManager.GetScriptInterface()), settings, &m->m_MapSettings);
 }
 
 void CSimulation2::SetMapSettings(JS::HandleValue settings)
@@ -825,7 +820,7 @@ void CSimulation2::SetMapSettings(JS::HandleValue settings)
 
 std::string CSimulation2::GetMapSettingsString()
 {
-	return Script::StringifyJSON(ScriptRequest(m->m_ComponentManager.GetScriptInterface()), &m->m_MapSettings);
+	return Script::StringifyJSON(Script::Request(m->m_ComponentManager.GetScriptInterface()), &m->m_MapSettings);
 }
 
 void CSimulation2::GetMapSettings(JS::MutableHandleValue ret)
@@ -835,21 +830,21 @@ void CSimulation2::GetMapSettings(JS::MutableHandleValue ret)
 
 void CSimulation2::LoadPlayerSettings(bool newPlayers)
 {
-	ScriptRequest rq(GetScriptInterface());
+	Script::Request rq(GetScriptInterface());
 	JS::RootedValue global(rq.cx, rq.globalValue());
-	ScriptFunction::CallVoid(rq, global, "LoadPlayerSettings", m->m_MapSettings, newPlayers);
+	Script::Function::CallVoid(rq, global, "LoadPlayerSettings", m->m_MapSettings, newPlayers);
 }
 
 void CSimulation2::LoadMapSettings()
 {
-	ScriptRequest rq(GetScriptInterface());
+	Script::Request rq(GetScriptInterface());
 
 	JS::RootedValue global(rq.cx, rq.globalValue());
 
 	// Initialize here instead of in Update()
-	ScriptFunction::CallVoid(rq, global, "LoadMapSettings", m->m_MapSettings);
+	Script::Function::CallVoid(rq, global, "LoadMapSettings", m->m_MapSettings);
 
-	Script::FreezeObject(rq, m->m_InitAttributes, true);
+	Script::DeepFreezeObject(rq, m->m_InitAttributes);
 	GetScriptInterface().SetGlobal("InitAttributes", m->m_InitAttributes, true, true, true);
 
 	if (!m->m_StartupScript.empty())
@@ -859,7 +854,7 @@ void CSimulation2::LoadMapSettings()
 	m->LoadTriggerScripts(m->m_ComponentManager, m->m_MapSettings, &m->m_LoadedScripts);
 }
 
-int CSimulation2::ProgressiveLoad()
+PS::Loader::Task CSimulation2::ProgressiveLoad()
 {
 	return m->ProgressiveLoad();
 }
@@ -898,7 +893,7 @@ bool CSimulation2::DeserializeState(std::istream& stream)
 
 void CSimulation2::ActivateRejoinTest(int turn)
 {
-	if (m->m_RejoinTestTurn != -1)
+	if (m->m_RejoinTestTurn.has_value())
 		return;
 	LOGMESSAGERENDER("Rejoin test will activate in %i turns", turn - m->m_TurnNumber);
 	m->m_RejoinTestTurn = turn;
@@ -981,8 +976,8 @@ std::string CSimulation2::GetMapSizes()
 
 std::string CSimulation2::GetAIData()
 {
-	const ScriptInterface& scriptInterface = GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	const Script::Interface& scriptInterface = GetScriptInterface();
+	Script::Request rq(scriptInterface);
 	JS::RootedValue aiData(rq.cx, ICmpAIManager::GetAIs(scriptInterface));
 
 	// Build single JSON string with array of AI data

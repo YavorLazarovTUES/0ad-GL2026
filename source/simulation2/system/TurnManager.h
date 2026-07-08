@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,16 +18,25 @@
 #ifndef INCLUDED_TURNMANAGER
 #define INCLUDED_TURNMANAGER
 
+#include "lib/code_annotation.h"
+#include "lib/types.h"
 #include "ps/CStr.h"
 #include "simulation2/helpers/SimulationCommand.h"
 
+#include <cstddef>
+#include <deque>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <js/ValueArray.h>
 #include <list>
 #include <map>
+#include <optional>
+#include <string>
 #include <vector>
-#include <deque>
 
-class CSimulationMessage;
 class CSimulation2;
+class CSimulationMessage;
 class IReplayLogger;
 
 /**
@@ -80,6 +89,11 @@ class CTurnManager
 {
 	NONCOPYABLE(CTurnManager);
 public:
+	using UpdateCallback =
+		std::function<void(const std::string&, const std::optional<JS::HandleValueArray>)>;
+
+	static const CStr EventNameSavegameLoaded;
+
 	/**
 	 * Construct for a given network session ID.
 	 */
@@ -102,7 +116,7 @@ public:
 	 * @param simFrameLength Length of the previous frame, in simulation seconds
 	 * @param maxTurns Maximum number of turns to simulate at once
 	 */
-	bool Update(float simFrameLength, size_t maxTurns);
+	bool Update(float simFrameLength, size_t maxTurns, const UpdateCallback& sendEventToAll);
 
 	/**
 	 * Advance the simulation by as much as possible. Intended for catching up
@@ -147,7 +161,7 @@ public:
 	void RewindTimeWarp();
 
 	void QuickSave(JS::HandleValue GUIMetadata);
-	void QuickLoad();
+	std::optional<JS::Value> TryQuickLoad();
 
 	u32 GetCurrentTurn() const { return m_CurrentTurn; }
 
@@ -171,7 +185,7 @@ protected:
 	/**
 	 * Called when this client has finished a simulation update.
 	 */
-	virtual void NotifyFinishedUpdate(u32 turn) = 0;
+	virtual void NotifyFinishedUpdate(u32 turn, const UpdateCallback& sendEventToAll) = 0;
 
 	/**
 	 * Returns whether we should compute a complete state hash for the given turn,
@@ -209,8 +223,6 @@ protected:
 	u32 m_FinalTurn;
 
 private:
-	static const CStr EventNameSavegameLoaded;
-
 	size_t m_TimeWarpNumTurns; // 0 if disabled
 	std::list<std::string> m_TimeWarpStates;
 	std::string m_QuickSaveState; // TODO: should implement a proper disk-based quicksave system

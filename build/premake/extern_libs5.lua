@@ -7,14 +7,26 @@
 
 -- directory in which OS-specific library subdirectories reside.
 if os.istarget("macosx") then
-	libraries_dir = rootdir.."/libraries/osx/"
+	libraries_dir = rootdir.."/libraries/macos/"
 elseif os.istarget("windows") then
-	libraries_dir = rootdir.."/libraries/win32/"
+	if arch == "amd64" then
+		libraries_dir = rootdir.."/libraries/win64/"
+	else
+		libraries_dir = rootdir.."/libraries/win32/"
+	end
 else
 	-- No Unix-specific libs yet (use source directory instead!)
 end
 -- directory for shared, bundled libraries
-libraries_source_dir = rootdir.."/libraries/source/"
+if os.istarget("windows") then
+	if arch == "amd64" then
+		libraries_source_dir = rootdir.."/libraries/win64/"
+	else
+		libraries_source_dir = rootdir.."/libraries/win32/"
+	end
+else
+	libraries_source_dir = rootdir.."/libraries/source/"
+end
 third_party_source_dir = rootdir.."/source/third_party/"
 
 local function add_default_lib_paths(extern_lib)
@@ -26,41 +38,34 @@ local function add_source_lib_paths(extern_lib)
 end
 
 local function add_default_include_paths(extern_lib)
-	-- As of premake5-beta2, `sysincludedirs` has been deprecated in favour of
-	-- `externalincludedirs`, and continuing to use it causes warnings to be emitted.
-	--
-	-- We use `externalincludedirs` when available to prevent the warnings, falling back
-	-- to `sysincludedirs` when not to prevent breakage of the `--with-system-premake5`
-	-- build argument.
-	if externalincludedirs then
-		externalincludedirs { libraries_dir .. extern_lib .. "/include" }
-	else
-		sysincludedirs { libraries_dir .. extern_lib .. "/include" }
-	end
+	externalincludedirs { libraries_dir .. extern_lib .. "/include" }
 end
 
 local function add_source_include_paths(extern_lib)
-	if externalincludedirs then
-		externalincludedirs { libraries_source_dir .. extern_lib .. "/include" }
-	else
-		sysincludedirs { libraries_source_dir .. extern_lib .. "/include" }
-	end
+	externalincludedirs { libraries_source_dir .. extern_lib .. "/include" }
 end
 
 local function add_third_party_include_paths(extern_lib)
-	if externalincludedirs then
-		externalincludedirs { third_party_source_dir .. extern_lib .. "/include" }
-	else
-		sysincludedirs { third_party_source_dir .. extern_lib .. "/include" }
+	externalincludedirs { third_party_source_dir .. extern_lib .. "/include" }
+end
+
+local function wx_config_path()
+	local wx_config = os.getenv("WX_CONFIG") or "wx-config"
+	local _, error_code = os.outputof("command -v " .. wx_config)
+	if error_code ~= 0 then
+		print("WX_CONFIG must be set and valid or wx-config must be present when atlas is enabled")
+		print("current value: " .. wx_config)
+		os.exit(1)
 	end
+	return wx_config
 end
 
 pkgconfig = require "pkgconfig"
 
 -- Configure pkgconfig for MacOSX systems
 if os.istarget("macosx") then
-	pkgconfig.additional_pc_path = libraries_dir .. "pkgconfig/"
-	pkgconfig.static_link_libs = true
+	pkgconfig.add_pkg_config_path(libraries_dir .. "pkgconfig/")
+	pkgconfig.set_static_link_libs(true)
 end
 
 local function add_delayload(name, suffix, def)
@@ -207,8 +212,8 @@ extern_lib_defs = {
 	boost = {
 		compile_settings = function()
 			if os.istarget("windows") then
-				-- Force the autolink to use the vc141 libs.
-				defines { 'BOOST_LIB_TOOLSET="vc141"' }
+				-- Force the autolink to use the vc143 libs.
+				defines { 'BOOST_LIB_TOOLSET="vc143"' }
 				add_default_include_paths("boost")
 			elseif os.istarget("macosx") then
 				-- Suppress all the Boost warnings on OS X by including it as a system directory
@@ -216,27 +221,8 @@ extern_lib_defs = {
 			end
 			-- TODO: This actually applies to most libraries we use on BSDs, make this a global setting.
 			if os.istarget("bsd") then
-				if externalincludedirs then
-					externalincludedirs { "/usr/local/include" }
-				else
-					sysincludedirs { "/usr/local/include" }
-				end
+				externalincludedirs { "/usr/local/include" }
 			end
-		end,
-		link_settings = function()
-			if os.istarget("windows") or os.istarget("macosx") then
-				if os.istarget("windows") then
-					defines { 'BOOST_LIB_TOOLSET="vc141"' }
-				end
-				add_default_lib_paths("boost")
-			end
-			add_default_links({
-				-- The following are not strictly link dependencies on all systems, but
-				-- are included for compatibility with different versions of Boost
-				android_names = { "boost_filesystem-gcc-mt", "boost_system-gcc-mt" },
-				unix_names = { os.findlib("boost_filesystem-mt") and "boost_filesystem-mt" or "boost_filesystem", os.findlib("boost_system-mt") and "boost_system-mt" or "boost_system" },
-				osx_names = { "boost_filesystem", "boost_system" },
-			})
 		end,
 	},
 	comsuppw = {
@@ -248,12 +234,33 @@ extern_lib_defs = {
 			})
 		end,
 	},
+	cpp_httplib = {
+		compile_settings = function()
+			if not _OPTIONS["with-system-cpp-httplib"] then
+				add_source_include_paths("cpp-httplib")
+			end
+		end,
+		link_settings = function()
+			if not _OPTIONS["with-system-cpp-httplib"] then
+				add_source_lib_paths("cpp-httplib")
+			end
+			add_default_links({
+				win_names  = { "cpp-httplib" },
+				unix_names = { "cpp-httplib" },
+				osx_names = { "cpp-httplib" },
+				dbg_suffix = "",
+				no_delayload = 1,
+			})
+		end,
+	},
 	cxxtest = {
 		compile_settings = function()
-			if externalincludedirs then
+			if not _OPTIONS["with-system-cxxtest"] then
 				externalincludedirs { libraries_source_dir .. "cxxtest-4.4" }
-			else
-				sysincludedirs { libraries_source_dir .. "cxxtest-4.4" }
+				-- Upstream uses WIN32 instead of _WIN32 define
+				if os.istarget("windows") then
+					defines { "WIN32" }
+				end
 			end
 		end,
 	},
@@ -361,12 +368,13 @@ extern_lib_defs = {
 		end,
 	},
 	glad = {
-		add_source_include_paths("glad")
+		add_third_party_include_paths("glad")
 	},
 	gloox = {
 		compile_settings = function()
 			if os.istarget("windows") then
 				add_default_include_paths("gloox")
+				defines { "GLOOX_IMPORTS" }
 			else
 				pkgconfig.add_includes("gloox")
 			end
@@ -422,6 +430,7 @@ extern_lib_defs = {
 				add_default_include_paths("icu")
 			else
 				pkgconfig.add_includes("icu-i18n")
+				pkgconfig.add_includes("icu-uc")
 			end
 		end,
 		link_settings = function()
@@ -434,6 +443,7 @@ extern_lib_defs = {
 				})
 			else
 				pkgconfig.add_links("icu-i18n")
+				pkgconfig.add_links("icu-uc")
 			end
 		end,
 	},
@@ -581,11 +591,19 @@ extern_lib_defs = {
 			})
 		end,
 	},
+	oleaut32 = {
+		link_settings = function()
+			add_default_links({
+				win_names = { "oleaut32" },
+				dbg_suffix = ""
+			})
+		end,
+	},
 	openal = {
 		compile_settings = function()
 			if os.istarget("windows") then
 				add_default_include_paths("openal")
-			elseif not os.istarget("macosx") then
+			else
 				pkgconfig.add_includes("openal")
 			end
 		end,
@@ -596,10 +614,6 @@ extern_lib_defs = {
 					win_names  = { "openal32" },
 					dbg_suffix = "",
 					no_delayload = 1, -- delayload seems to cause errors on startup
-				})
-			elseif os.istarget("macosx") then
-				add_default_links({
-					osx_frameworks = { "OpenAL" },
 				})
 			else
 				pkgconfig.add_links("openal")
@@ -617,6 +631,15 @@ extern_lib_defs = {
 		link_settings = function()
 			if os.istarget("windows") then
 				add_default_lib_paths("sdl2")
+				add_default_links({
+					win_names  = { "SDL2", "SDL2main" },
+					no_delayload = 1,
+				})
+
+				-- SDL2maind.pdb dont provide debug info, so we ignore the warning
+				filter { "system:windows", "configurations:Debug" }
+					linkoptions { "/IGNORE:4099" }
+				filter{}
 			elseif not _OPTIONS["android"] then
 				pkgconfig.add_links("sdl2")
 			end
@@ -624,50 +647,44 @@ extern_lib_defs = {
 	},
 	spidermonkey = {
 		compile_settings = function()
+			-- This define is not supposed to be needed anymore, but it leaks into the
+			-- SpiderMonkey headers, and is necessary to build with ESR140 at the time
+			-- of writing (https://bugzilla.mozilla.org/show_bug.cgi?id=1987876).
+			filter "system:windows"
+				defines { "XP_WIN" }
+			filter { }
+
+			filter "Debug"
+				defines { "MOZ_DIAGNOSTIC_ASSERT_ENABLED" }
+			filter {}
+
 			if _OPTIONS["with-system-mozjs"] then
 				if not _OPTIONS["android"] then
-					pkgconfig.add_includes("mozjs-91")
+					pkgconfig.add_includes_after("mozjs-128")
 				end
 			else
-				if os.istarget("windows") then
-					include_dir = "include-win32"
-				else
-					include_dir = "include-unix"
-				end
 				filter "Debug"
-					if externalincludedirs then
-						externalincludedirs { libraries_source_dir.."spidermonkey/"..include_dir.."-debug" }
-					else
-						sysincludedirs { libraries_source_dir.."spidermonkey/"..include_dir.."-debug" }
-					end
+					externalincludedirs { libraries_source_dir.."spidermonkey/include-debug" }
 					defines { "DEBUG" }
 				filter "Release"
-					if externalincludedirs then
-						externalincludedirs { libraries_source_dir.."spidermonkey/"..include_dir.."-release" }
-					else
-						sysincludedirs { libraries_source_dir.."spidermonkey/"..include_dir.."-release" }
-					end
+					externalincludedirs { libraries_source_dir.."spidermonkey/include-release" }
 				filter { }
 			end
 		end,
 		link_settings = function()
 			if _OPTIONS["with-system-mozjs"] then
 				if _OPTIONS["android"] then
-					links { "mozjs-91" }
+					links { "mozjs-128" }
 				else
-					pkgconfig.add_links("mozjs-91")
+					pkgconfig.add_links("mozjs-128")
 				end
 			else
-				filter { "Debug", "action:vs*" }
-					links { "mozjs91-ps-debug" }
-					links { "mozjs91-ps-rust-debug" }
-				filter { "Debug", "action:not vs*" }
-					links { "mozjs91-ps-debug" }
-					links { "mozjs91-ps-rust" }
+				filter { "Debug" }
+					links { "mozjs128-debug" }
 				filter { "Release" }
-					links { "mozjs91-ps-release" }
-					links { "mozjs91-ps-rust" }
+					links { "mozjs128-release" }
 				filter { }
+				links { "mozjs128-rust" }
 				add_source_lib_paths("spidermonkey")
 			end
 		end,
@@ -696,22 +713,18 @@ extern_lib_defs = {
 			else
 				pkgconfig.add_includes("ogg")
 				pkgconfig.add_includes("vorbisfile")
+				pkgconfig.add_includes("vorbis")
 			end
 		end,
 		link_settings = function()
 			if os.istarget("windows") then
 				add_default_lib_paths("vorbis")
 				add_default_links({
-					win_names  = { "libvorbisfile" },
-				})
-			elseif os.getversion().description == "OpenBSD" then
-				-- TODO: We need to force linking with these as currently
-				-- they need to be loaded explicitly on execution
-				add_default_links({
-					unix_names = { "ogg", "vorbis" },
+					win_names  = { "vorbisfile", "vorbis" },
 				})
 			else
 				pkgconfig.add_links("vorbisfile")
+				pkgconfig.add_links("vorbis")
 			end
 		end,
 	},
@@ -723,28 +736,19 @@ extern_lib_defs = {
 			else
 				-- wxwidgets does not come with a definition file for pkg-config,
 				-- so we have to use wxwidgets' own config tool
-				wx_config_path = os.getenv("WX_CONFIG") or "wx-config"
-				pkgconfig.add_includes(nil, wx_config_path, "--unicode=yes --cxxflags")
+				pkgconfig.add_includes(nil, wx_config_path(), "--unicode=yes --cxxflags")
 			end
+			defines({ "wxNO_REQUIRE_LITERAL_MSGIDS" })
 		end,
 		link_settings = function()
 			if os.istarget("windows") then
-				libdirs { libraries_dir.."wxwidgets/lib/vc_lib" }
+				if arch == "amd64" then
+					libdirs { libraries_dir.."wxwidgets/lib/vc_x64_lib" }
+				else
+					libdirs { libraries_dir.."wxwidgets/lib/vc_lib" }
+				end
 			else
-				wx_config_path = os.getenv("WX_CONFIG") or "wx-config"
-				pkgconfig.add_links(nil, wx_config_path, "--unicode=yes --libs std,gl")
-			end
-		end,
-	},
-	x11 = {
-		compile_settings = function()
-			if not os.istarget("windows") and not os.istarget("macosx") then
-				pkgconfig.add_includes("x11")
-			end
-		end,
-		link_settings = function()
-			if not os.istarget("windows") and not os.istarget("macosx") then
-				pkgconfig.add_links("x11")
+				pkgconfig.add_links(nil, wx_config_path(), "--unicode=yes --libs std,gl")
 			end
 		end,
 	},
@@ -768,6 +772,14 @@ extern_lib_defs = {
 			end
 		end,
 	},
+	sockets = {
+		link_settings = function()
+			add_default_links({
+				win_names = { "ws2_32" },
+				no_delayload = 1,
+			})
+		end,
+	}
 }
 
 

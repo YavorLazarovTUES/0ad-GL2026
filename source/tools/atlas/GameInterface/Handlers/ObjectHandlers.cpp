@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,40 +17,57 @@
 
 #include "precompiled.h"
 
-#include <cfloat>
-#include <map>
-
 #include "MessageHandler.h"
-#include "../CommandProc.h"
-#include "../SimState.h"
-#include "../View.h"
 
+#include "graphics/Camera.h"
+#include "graphics/Color.h"
 #include "graphics/GameView.h"
-#include "graphics/Model.h"
-#include "graphics/ObjectBase.h"
-#include "graphics/ObjectEntry.h"
-#include "graphics/ObjectManager.h"
 #include "graphics/Terrain.h"
-#include "graphics/Unit.h"
+#include "lib/debug.h"
+#include "lib/types.h"
 #include "lib/utf8.h"
+#include "maths/Fixed.h"
+#include "maths/FixedVector3D.h"
 #include "maths/MathUtil.h"
 #include "maths/Matrix3D.h"
+#include "maths/Vector2D.h"
+#include "maths/Vector3D.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
 #include "ps/Game.h"
 #include "ps/World.h"
-#include "renderer/Renderer.h"
-#include "renderer/WaterManager.h"
+#include "ps/XML/XMLWriter.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpObstruction.h"
 #include "simulation2/components/ICmpOwnership.h"
-#include "simulation2/components/ICmpPosition.h"
 #include "simulation2/components/ICmpPlayer.h"
 #include "simulation2/components/ICmpPlayerManager.h"
+#include "simulation2/components/ICmpPosition.h"
 #include "simulation2/components/ICmpSelectable.h"
 #include "simulation2/components/ICmpTemplateManager.h"
+#include "simulation2/components/ICmpUnitMotion.h"
 #include "simulation2/components/ICmpVisual.h"
+#include "simulation2/helpers/Player.h"
+#include "simulation2/helpers/Position.h"
 #include "simulation2/helpers/Selection.h"
-#include "ps/XML/XMLWriter.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+#include "tools/atlas/GameInterface/CommandProc.h"
+#include "tools/atlas/GameInterface/Messages.h"
+#include "tools/atlas/GameInterface/Shareable.h"
+#include "tools/atlas/GameInterface/SharedTypes.h"
+#include "tools/atlas/GameInterface/View.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <cwchar>
+#include <map>
+#include <set>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace AtlasMessage
 {
@@ -69,7 +86,12 @@ bool CheckEntityObstruction(entity_id_t ent)
 	CmpPtr<ICmpObstruction> cmpObstruction(*g_Game->GetSimulation2(), ent);
 	if (cmpObstruction)
 	{
-		ICmpObstruction::EFoundationCheck result = cmpObstruction->CheckFoundation("default");
+		std::string passClassName = "default";
+		CmpPtr<ICmpUnitMotion> cmpUnitMotion(*g_Game->GetSimulation2(), ent);
+		if (cmpUnitMotion)
+			passClassName = cmpUnitMotion->GetPassabilityClassName();
+
+		ICmpObstruction::EFoundationCheck result = cmpObstruction->CheckFoundation(passClassName);
 		if (result != ICmpObstruction::FOUNDATION_CHECK_SUCCESS)
 			return false;
 	}
@@ -350,7 +372,7 @@ BEGIN_COMMAND(SetObjectSettings)
 	}
 
 private:
-	void Set(player_id_t player, const std::set<CStr>& UNUSED(selections))
+	void Set(player_id_t player, const std::set<CStr>& /*selections*/)
 	{
 		AtlasView* view = AtlasView::GetView(msg->view);
 		CSimulation2* simulation = view->GetSimulation2();
@@ -405,8 +427,6 @@ QUERYHANDLER(GetCurrentSelection)
 
 MESSAGEHANDLER(ObjectPreviewToEntity)
 {
-	UNUSED2(msg);
-
 	if (g_PreviewEntitiesID.size() == 0)
 		return;
 
@@ -647,7 +667,7 @@ QUERYHANDLER(PickObject)
 
 	// Normally this function would be called with a player ID to check LOS,
 	//	but in Atlas the entire map is revealed, so just pass INVALID_PLAYER
-	entity_id_t ent = EntitySelection::PickEntityAtPoint(*g_Game->GetSimulation2(), *g_Game->GetView()->GetCamera(), x, y, INVALID_PLAYER, msg->selectActors);;
+	entity_id_t ent = EntitySelection::PickEntityAtPoint(*g_Game->GetSimulation2(), g_Game->GetView()->GetCamera(), x, y, INVALID_PLAYER, msg->selectActors);;
 
 	if (ent == INVALID_ENTITY)
 		msg->id = INVALID_ENTITY;
@@ -667,11 +687,10 @@ QUERYHANDLER(PickObject)
 			CFixedVector3D fixed = cmpPosition->GetPosition();
 			CVector3D centre = CVector3D(fixed.X.ToFloat(), fixed.Y.ToFloat(), fixed.Z.ToFloat());
 
-			float cx, cy;
-			g_Game->GetView()->GetCamera()->GetScreenCoordinates(centre, cx, cy);
+			const CVector2D screenPos{g_Game->GetView()->GetCamera().GetScreenCoordinates(centre)};
 
-			msg->offsetx = (int)(cx - x);
-			msg->offsety = (int)(cy - y);
+			msg->offsetx = static_cast<int>(screenPos.X - x);
+			msg->offsety = static_cast<int>(screenPos.Y - y);
 		}
 	}
 }
@@ -684,7 +703,7 @@ QUERYHANDLER(PickObjectsInRect)
 	msg->end->GetScreenSpace(x1, y1);
 
 	// Since owner selections are meaningless in Atlas, use INVALID_PLAYER
-	msg->ids = EntitySelection::PickEntitiesInRect(*g_Game->GetSimulation2(), *g_Game->GetView()->GetCamera(), x0, y0, x1, y1, INVALID_PLAYER, msg->selectActors);
+	msg->ids = EntitySelection::PickEntitiesInRect(*g_Game->GetSimulation2(), g_Game->GetView()->GetCamera(), x0, y0, x1, y1, INVALID_PLAYER, msg->selectActors);
 }
 
 
@@ -702,13 +721,11 @@ QUERYHANDLER(PickSimilarObjects)
 	if (cmpOwnership)
 		owner = cmpOwnership->GetOwner();
 
-	msg->ids = EntitySelection::PickSimilarEntities(*g_Game->GetSimulation2(), *g_Game->GetView()->GetCamera(), templateName, owner, false, true, true, false);
+	msg->ids = EntitySelection::PickSimilarEntities(*g_Game->GetSimulation2(), g_Game->GetView()->GetCamera(), templateName, owner, false, true, true, false);
 }
 
 MESSAGEHANDLER(ResetSelectionColor)
 {
-	UNUSED2(msg);
-
 	for (entity_id_t ent : g_Selection)
 	{
 		CmpPtr<ICmpVisual> cmpVisual(*g_Game->GetSimulation2(), ent);

@@ -1,8 +1,8 @@
 class AIGameSettingControlDropdown extends GameSettingControlDropdown
 {
-	onOpenPage(playerIndex)
+	onOpenPage(playerIndex, enabled)
 	{
-		this.setEnabled(true);
+		this.setEnabled(enabled);
 		this.playerIndex = playerIndex;
 		this.render();
 	}
@@ -22,17 +22,15 @@ class AIGameSettingControlDropdown extends GameSettingControlDropdown
 	{
 		aiConfigPage.registerOpenPageHandler(this.onOpenPage.bind(this));
 
-		let i = aiConfigPage.getRow();
+		const i = aiConfigPage.getRow();
 
 		this.frame = Engine.GetGUIObjectByName("aiSettingFrame[" + i + "]");
 		this.title = this.frame.children[0];
 		this.dropdown = this.frame.children[1];
 		this.label = this.frame.children[2];
 
-		let size = this.frame.size;
-		size.top = i * (this.Height + this.Margin);
-		size.bottom = size.top + this.Height;
-		this.frame.size = size;
+		this.frame.size.top = i * (this.Height + this.Margin);
+		this.frame.size.bottom = this.frame.size.top + this.Height;
 
 		this.setHidden(false);
 	}

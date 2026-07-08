@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,21 +18,31 @@
 #ifndef INCLUDED_RENDERER_BACKEND_VULKAN_SHADERPROGRAM
 #define INCLUDED_RENDERER_BACKEND_VULKAN_SHADERPROGRAM
 
+#include "lib/debug.h"
+#include "lib/file/vfs/vfs_path.h"
+#include "ps/CStr.h"
+#include "ps/CStrIntern.h"
+#include "renderer/backend/Format.h"
 #include "renderer/backend/IShaderProgram.h"
-#include "renderer/backend/vulkan/Buffer.h"
 #include "renderer/backend/vulkan/DescriptorManager.h"
-#include "renderer/backend/vulkan/Texture.h"
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <glad/vulkan.h>
 #include <memory>
 #include <optional>
+#include <span>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 class CShaderDefines;
 class CStr;
+namespace Renderer::Backend::Vulkan { class CBuffer; }
+namespace Renderer::Backend::Vulkan { class CDevice; }
+namespace Renderer::Backend::Vulkan { class CRingCommandContext; }
+namespace Renderer::Backend::Vulkan { class CTexture; }
 
 namespace Renderer
 {
@@ -43,13 +53,10 @@ namespace Backend
 namespace Vulkan
 {
 
-class CDevice;
-class CRingCommandContext;
-
 class CVertexInputLayout : public IVertexInputLayout
 {
 public:
-	CVertexInputLayout(CDevice* device, const PS::span<const SVertexAttributeFormat> attributes)
+	CVertexInputLayout(CDevice* device, const std::span<const SVertexAttributeFormat> attributes)
 		: m_Device(device), m_Attributes(attributes.begin(), attributes.end())
 	{
 		static uint32_t m_LastAvailableUID = 1;
@@ -118,10 +125,11 @@ public:
 		const float valueX, const float valueY,
 		const float valueZ, const float valueW);
 	void SetUniform(
-		const int32_t bindingSlot, PS::span<const float> values);
+		const int32_t bindingSlot, std::span<const float> values);
 
 	void SetTexture(const int32_t bindingSlot, CTexture* texture);
 	void SetStorageTexture(const int32_t bindingSlot, CTexture* texture);
+	void SetStorageBuffer(const int32_t bindingSlot, CBuffer* buffer);
 
 	// TODO: rename to something related to buffer.
 	bool IsMaterialConstantsDataOutdated() const { return m_MaterialConstantsDataOutdated; }
@@ -178,6 +186,7 @@ private:
 
 	std::optional<CSingleTypeDescriptorSetBinding<CTexture>> m_TextureBinding;
 	std::optional<CSingleTypeDescriptorSetBinding<CTexture>> m_StorageImageBinding;
+	std::optional<CSingleTypeDescriptorSetBinding<CBuffer>> m_StorageBufferBinding;
 
 	std::unordered_map<VertexAttributeStream, uint32_t> m_StreamLocations;
 };

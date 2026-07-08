@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,24 +21,46 @@
 
 #include "gui/CGUI.h"
 #include "lib/external_libraries/libsdl.h"
+#include "lib/file/file_system.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/path.h"
+#include "ps/CLogger.h"
+#include "ps/CStr.h"
 #include "ps/ConfigDB.h"
 #include "ps/Filesystem.h"
 #include "ps/GameSetup/GameSetup.h"
 #include "ps/Hotkey.h"
+#include "ps/VideoMode.h"
 #include "ps/XML/Xeromyces.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptRequest.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/StructuredClone.h"
+#include "ps/VideoMode.h"
+#include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/Object.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
+#include "scriptinterface/StructuredClone.h"
 
+#include <SDL_events.h>
+#include <SDL_scancode.h>
+#include <array>
+#include <js/CallArgs.h>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
 #include <memory>
 #include <optional>
+#include <stdexcept>
+#include <tuple>
+#include <utility>
+#include <variant>
+
+#include "js/Promise.h"
 
 class TestGuiManager : public CxxTest::TestSuite
 {
 	std::unique_ptr<CConfigDB> configDB;
-	std::optional<ScriptInterface> scriptInterface;
+	std::optional<CXeromycesEngine> xeromycesEngine;
+	std::optional<Script::Interface> scriptInterface;
 public:
 
 	void setUp()
@@ -49,7 +71,7 @@ public:
 
 		configDB = std::make_unique<CConfigDB>();
 
-		CXeromyces::Startup();
+		xeromycesEngine.emplace();
 
 		scriptInterface.emplace("Engine", "GUIManager", *g_ScriptContext);
 		g_GUI = new CGUIManager{*g_ScriptContext, *scriptInterface};
@@ -59,7 +81,7 @@ public:
 	{
 		delete g_GUI;
 		scriptInterface.reset();
-		CXeromyces::Terminate();
+		xeromycesEngine.reset();
 		configDB.reset();
 		g_VFS.reset();
 		DeleteDirectory(DataDir()/"_testcache");
@@ -68,15 +90,15 @@ public:
 	void test_EventObject()
 	{
 		// Load up a test page.
-		ScriptRequest rq{g_GUI->GetScriptInterface()};
+		Script::Request rq{g_GUI->GetScriptInterface()};
 		JS::RootedValue val(rq.cx);
 		Script::CreateObject(rq, &val);
 
 		Script::StructuredClone data = Script::WriteStructuredClone(rq, JS::NullHandleValue);
-		g_GUI->PushPage(L"event/page_event.xml", data);
+		g_GUI->OpenChildPage(L"event/page_event.xml", data);
 
-		const ScriptInterface& pageScriptInterface = *(g_GUI->GetActiveGUI()->GetScriptInterface());
-		ScriptRequest prq(pageScriptInterface);
+		const Script::Interface& pageScriptInterface = *(g_GUI->GetActiveGUI()->GetScriptInterface());
+		Script::Request prq(pageScriptInterface);
 		JS::RootedValue global(prq.cx, prq.globalValue());
 
 		int called_value = 0;
@@ -131,28 +153,27 @@ public:
 		LoadHotkeys(*configDB);
 
 		// Load up a test page.
-		ScriptRequest rq{g_GUI->GetScriptInterface()};
+		Script::Request rq{g_GUI->GetScriptInterface()};
 		JS::RootedValue val(rq.cx);
 		Script::CreateObject(rq, &val);
 
 		Script::StructuredClone data = Script::WriteStructuredClone(rq, JS::NullHandleValue);
-		g_GUI->PushPage(L"hotkey/page_hotkey.xml", data);
+		g_GUI->OpenChildPage(L"hotkey/page_hotkey.xml", data);
 
 		// Press 'a'.
-		SDL_Event_ hotkeyNotification;
-		hotkeyNotification.ev.type = SDL_KEYDOWN;
-		hotkeyNotification.ev.key.keysym.scancode = SDL_SCANCODE_A;
-		hotkeyNotification.ev.key.repeat = 0;
+		SDL_Event hotkeyNotification;
+		hotkeyNotification.type = SDL_KEYDOWN;
+		hotkeyNotification.key.keysym.scancode = SDL_SCANCODE_A;
+		hotkeyNotification.key.repeat = 0;
 
 		// Init input and poll the event.
-		InitInput();
-		in_push_priority_event(&hotkeyNotification);
-		SDL_Event_ ev;
-		while (in_poll_event(&ev))
-			in_dispatch_event(&ev);
+		const std::unique_ptr<InputHandlers> _{MakeInputHandlers()};
+		g_VideoMode.m_InputManager.PushPriorityEvent(hotkeyNotification);
+		for (SDL_Event& ev : g_VideoMode.m_InputManager.PollEvents())
+			g_VideoMode.m_InputManager.DispatchEvent(ev);
 
-		const ScriptInterface& pageScriptInterface = *(g_GUI->GetActiveGUI()->GetScriptInterface());
-		ScriptRequest prq(pageScriptInterface);
+		const Script::Interface& pageScriptInterface = *(g_GUI->GetActiveGUI()->GetScriptInterface());
+		Script::Request prq(pageScriptInterface);
 		JS::RootedValue global(prq.cx, prq.globalValue());
 
 		// Ensure that our hotkey state was synchronised with the event itself.
@@ -169,10 +190,10 @@ public:
 		TS_ASSERT_EQUALS(hotkey_pressed_value, true);
 
 		// We are listening to KeyDown events, so repeat shouldn't matter.
-		hotkeyNotification.ev.key.repeat = 1;
-		in_push_priority_event(&hotkeyNotification);
-		while (in_poll_event(&ev))
-			in_dispatch_event(&ev);
+		hotkeyNotification.key.repeat = 1;
+		g_VideoMode.m_InputManager.PushPriorityEvent(hotkeyNotification);
+		for (SDL_Event& ev : g_VideoMode.m_InputManager.PollEvents())
+			g_VideoMode.m_InputManager.DispatchEvent(ev);
 
 		hotkey_pressed_value = false;
 		Script::GetProperty(prq, global, "state_before", &js_hotkey_pressed_value);
@@ -184,10 +205,10 @@ public:
 		Script::FromJSVal(prq, js_hotkey_pressed_value, hotkey_pressed_value);
 		TS_ASSERT_EQUALS(hotkey_pressed_value, true);
 
-		hotkeyNotification.ev.type = SDL_KEYUP;
-		in_push_priority_event(&hotkeyNotification);
-		while (in_poll_event(&ev))
-			in_dispatch_event(&ev);
+		hotkeyNotification.type = SDL_KEYUP;
+		g_VideoMode.m_InputManager.PushPriorityEvent(hotkeyNotification);
+		for (SDL_Event& ev : g_VideoMode.m_InputManager.PollEvents())
+			g_VideoMode.m_InputManager.DispatchEvent(ev);
 
 		hotkey_pressed_value = true;
 		Script::GetProperty(prq, global, "state_before", &js_hotkey_pressed_value);
@@ -202,35 +223,123 @@ public:
 		UnloadHotkeys();
 	}
 
+	static void CloseTopmostPage()
+	{
+		Script::Request rq{g_GUI->GetActiveGUI()->GetScriptInterface()};
+		JS::RootedValue global{rq.cx, rq.globalValue()};
+		TS_ASSERT(Script::Function::CallVoid(rq, global, "closePageCallback"));
+		// Check whether promises are settled in the page stack and flush the stack.
+		g_GUI->TickObjects();
+	}
+
 	void test_PageRegainedFocusEvent()
 	{
-		// Load up a test page.
-		ScriptRequest rq{g_GUI->GetScriptInterface()};
-		JS::RootedValue val(rq.cx);
-		Script::CreateObject(rq, &val);
+		Script::Request rq{g_GUI->GetScriptInterface()};
+		const Script::StructuredClone undefined{
+			Script::WriteStructuredClone(rq, JS::UndefinedHandleValue)};
 
 		TS_ASSERT_EQUALS(g_GUI->GetPageCount(), 0);
-		Script::StructuredClone data = Script::WriteStructuredClone(rq, JS::NullHandleValue);
-		g_GUI->PushPage(L"regainFocus/page_emptyPage.xml", data);
-
-		const ScriptInterface& pageScriptInterface = *(g_GUI->GetActiveGUI()->GetScriptInterface());
-		ScriptRequest prq(pageScriptInterface);
-		JS::RootedValue global(prq.cx, prq.globalValue());
-
-		TS_ASSERT_EQUALS(g_GUI->GetPageCount(), 1);
-		g_GUI->PushPage(L"regainFocus/page_emptyPage.xml", data);
-		TS_ASSERT_EQUALS(g_GUI->GetPageCount(), 2);
-		g_GUI->PopPage(data);
+		g_GUI->OpenChildPage(L"regainFocus/page_emptyPage.xml", undefined);
 		TS_ASSERT_EQUALS(g_GUI->GetPageCount(), 1);
 
 		// This page instantly pushes an empty page with a callback that pops another page again.
-		g_GUI->PushPage(L"regainFocus/page_pushWithPopOnInit.xml", data);
+		g_GUI->OpenChildPage(L"regainFocus/page_pushWithPopOnInit.xml", undefined);
 		TS_ASSERT_EQUALS(g_GUI->GetPageCount(), 3);
 
-		// Pop the empty page
-		g_GUI->PopPage(data);
-		TS_ASSERT_EQUALS(g_GUI->GetPageCount(), 2);
-		scriptInterface->GetContext().RunJobs();
+		// Pop the empty page and execute the continuation.
+		CloseTopmostPage();
 		TS_ASSERT_EQUALS(g_GUI->GetPageCount(), 1);
+
+		CloseTopmostPage();
+		TS_ASSERT_EQUALS(g_GUI->GetPageCount(), 0);
+	}
+
+	void test_ResolveReject()
+	{
+		TestLogger logger;
+		constexpr std::array<std::tuple<bool, JS::PromiseState>, 2> testSteps{{
+			{false, JS::PromiseState::Fulfilled},
+			{true, JS::PromiseState::Rejected}}};
+
+		const Script::Request rq{g_GUI->GetScriptInterface()};
+
+		const Script::StructuredClone undefined{
+			Script::WriteStructuredClone(rq, JS::UndefinedHandleValue)};
+		g_GUI->OpenChildPage(L"regainFocus/page_emptyPage.xml", undefined);
+
+
+		for (const auto& [reject, result] : testSteps)
+		{
+			const JS::RootedValue value{rq.cx, JS::BooleanValue(reject)};
+			const Script::StructuredClone clonedValue{Script::WriteStructuredClone(rq, value)};
+
+			const JS::RootedValue promise{rq.cx,
+				g_GUI->OpenChildPage(L"resolveReject/page_resolveReject.xml", clonedValue)};
+
+			// Check whether promises are settled in the page stack and flush the stack.
+			g_GUI->TickObjects();
+			const JS::RootedObject promiseObject{rq.cx, &promise.toObject()};
+			TS_ASSERT_EQUALS(JS::GetPromiseState(promiseObject), result);
+		}
+	}
+
+	void test_Sequential()
+	{
+		const Script::Request rq{g_GUI->GetScriptInterface()};
+		const Script::StructuredClone undefined{
+			Script::WriteStructuredClone(rq, JS::UndefinedHandleValue)};
+		g_GUI->OpenChildPage(L"sequential/page_sequential.xml", undefined);
+		TS_ASSERT_EQUALS(g_GUI->GetPageCount(), 2);
+		CloseTopmostPage();
+		TS_ASSERT_EQUALS(g_GUI->GetPageCount(), 2);
+		CloseTopmostPage();
+		TS_ASSERT_EQUALS(g_GUI->GetPageCount(), 0);
+	}
+
+	void test_Result()
+	{
+		const Script::Request rq{g_GUI->GetScriptInterface()};
+		g_GUI->OpenChildPage(L"Result/page_Result.xml",
+			Script::WriteStructuredClone(rq, JS::FalseHandleValue));
+		TS_ASSERT(!g_GUI->TickObjects().value());
+
+		g_GUI->OpenChildPage(L"Result/page_Result.xml",
+			Script::WriteStructuredClone(rq, JS::TrueHandleValue));
+		TS_ASSERT(g_GUI->TickObjects().value());
+	}
+
+	void test_MultipleRootModules()
+	{
+		Script::Request rq{g_GUI->GetScriptInterface()};
+
+		TS_ASSERT_THROWS_EQUALS(g_GUI->OpenChildPage(
+			L"multiple_root-modules/page.xml",
+			Script::WriteStructuredClone(rq, JS::NullHandleValue)),
+			const std::logic_error& e, e.what(), "There can only be one root module per page.");
+	}
+
+	void test_Await()
+	{
+		Script::Request rq{g_GUI->GetScriptInterface()};
+
+		TS_ASSERT_THROWS(g_GUI->OpenChildPage(L"await/page.xml",
+			Script::WriteStructuredClone(rq, JS::NullHandleValue)), const std::bad_variant_access&);
+	}
+
+	void test_OpenRequest()
+	{
+		const Script::Request rq{g_GUI->GetScriptInterface()};
+		g_GUI->OpenChildPage(L"OpenRequest/Root/Page.xml",
+			Script::WriteStructuredClone(rq, JS::UndefinedHandleValue));
+		TS_ASSERT_EQUALS(g_GUI->GetPageCount(), 2);
+
+		g_GUI->TickObjects();
+
+		const Script::Request pageRq{g_GUI->GetActiveGUI()->GetScriptInterface()};
+		JS::RootedValue global{pageRq.cx, pageRq.globalValue()};
+		std::string result;
+		TS_ASSERT(Script::Function::Call(pageRq, global, "closePageCallback", result));
+
+		TS_ASSERT_STR_EQUALS(result, "Entry Continuation");
 	}
 };

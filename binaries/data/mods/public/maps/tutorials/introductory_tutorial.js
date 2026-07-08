@@ -3,7 +3,7 @@ Trigger.prototype.tutorialGoals = [
 		"instructions": markForTranslation("Welcome to the 0\xa0A.D. tutorial."),
 	},
 	{
-		"instructions": markForTranslation("Left-click on a Female Citizen and then right-click on a berry bush to make that Female Citizen gather food. Female Citizens gather vegetables faster than other units."),
+		"instructions": markForTranslation("Left-click on a Civilian and then right-click on a berry bush to make that Civilian gather food. Civilians gather vegetables faster than other units."),
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "gather" && msg.cmd.target &&
@@ -12,7 +12,7 @@ Trigger.prototype.tutorialGoals = [
 		}
 	},
 	{
-		"instructions": markForTranslation("Select the Citizen Soldier, right-click on a tree near the Civic Center to begin gathering wood. Citizen Soldiers gather wood faster than Female Citizens."),
+		"instructions": markForTranslation("Select the Citizen Soldier, right-click on a tree near the Civic Center to begin gathering wood. Citizen Soldiers gather wood faster than Civilians."),
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "gather" && msg.cmd.target &&
@@ -31,9 +31,9 @@ Trigger.prototype.tutorialGoals = [
 		{
 			if (msg.unitTemplate != "units/spart/infantry_spearman_b" || +msg.count == 1)
 			{
-				let cmpProductionQueue = Engine.QueryInterface(msg.trainerEntity, IID_ProductionQueue);
+				const cmpProductionQueue = Engine.QueryInterface(msg.trainerEntity, IID_ProductionQueue);
 				cmpProductionQueue.ResetQueue();
-				let txt = +msg.count == 1 ?
+				const txt = +msg.count == 1 ?
 					markForTranslation("Do not forget to press the batch training hotkey while clicking to produce multiple units.") :
 					markForTranslation("Click on the Hoplite icon.");
 				this.WarningMessage(txt);
@@ -43,7 +43,7 @@ Trigger.prototype.tutorialGoals = [
 		}
 	},
 	{
-		"instructions": markForTranslation("Select the two idle Female Citizens and build a House nearby by selecting the House icon. Place the House by left-clicking on a piece of land."),
+		"instructions": markForTranslation("Select the two idle Civilians and build a House nearby by selecting the House icon. Place the House by left-clicking on a piece of land."),
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "repair" && TriggerHelper.EntityMatchesClassList(msg.cmd.target, "House"))
@@ -73,9 +73,9 @@ Trigger.prototype.tutorialGoals = [
 		{
 			if (msg.unitTemplate != "units/spart/infantry_javelineer_b" || +msg.count == 1)
 			{
-				let cmpProductionQueue = Engine.QueryInterface(msg.trainerEntity, IID_ProductionQueue);
+				const cmpProductionQueue = Engine.QueryInterface(msg.trainerEntity, IID_ProductionQueue);
 				cmpProductionQueue.ResetQueue();
-				let txt = +msg.count == 1 ?
+				const txt = +msg.count == 1 ?
 					markForTranslation("Do not forget to press the batch training hotkey while clicking to produce multiple units.") :
 					markForTranslation("Click on the Skirmisher icon.");
 				this.WarningMessage(txt);
@@ -155,9 +155,9 @@ Trigger.prototype.tutorialGoals = [
 		{
 			if (msg.unitTemplate != "units/spart/infantry_spearman_b" || +msg.count == 1)
 			{
-				let cmpProductionQueue = Engine.QueryInterface(msg.trainerEntity, IID_ProductionQueue);
+				const cmpProductionQueue = Engine.QueryInterface(msg.trainerEntity, IID_ProductionQueue);
 				cmpProductionQueue.ResetQueue();
-				let txt = +msg.count == 1 ?
+				const txt = +msg.count == 1 ?
 					markForTranslation("Do not forget to press the batch training hotkey while clicking to produce multiple units.") :
 					markForTranslation("Click on the Hoplite icon.");
 				this.WarningMessage(txt);
@@ -205,9 +205,9 @@ Trigger.prototype.tutorialGoals = [
 		"instructions": markForTranslation("While waiting for the phasing up, you may reassign your idle workers to gathering the resources you are short of."),
 		"IsDone": function()
 		{
-			let cmpPlayerManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_PlayerManager);
-			let playerEnt = cmpPlayerManager.GetPlayerByID(this.playerID);
-			let cmpTechnologyManager = Engine.QueryInterface(playerEnt, IID_TechnologyManager);
+			const cmpPlayerManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_PlayerManager);
+			const playerEnt = cmpPlayerManager.GetPlayerByID(this.playerID);
+			const cmpTechnologyManager = Engine.QueryInterface(playerEnt, IID_TechnologyManager);
 			return cmpTechnologyManager && cmpTechnologyManager.IsTechnologyResearched("phase_town_generic");
 		},
 		"OnResearchFinished": function(msg)
@@ -225,7 +225,7 @@ Trigger.prototype.tutorialGoals = [
 		}
 	},
 	{
-		"instructions": markForTranslation("Start training a batch of Female Citizens in the Civic Center and set its rally point to the Field (right click on it)."),
+		"instructions": markForTranslation("Start training a batch of Civilians in the Civic Center and set its rally point to the Field (right click on it)."),
 		"Init": function()
 		{
 			this.rallyPointSet = false;
@@ -237,13 +237,13 @@ Trigger.prototype.tutorialGoals = [
 		},
 		"OnTrainingQueued": function(msg)
 		{
-			if (msg.unitTemplate != "units/spart/support_female_citizen" || +msg.count == 1)
+			if (msg.unitTemplate != "units/spart/support_civilian" || +msg.count == 1)
 			{
-				let cmpProductionQueue = Engine.QueryInterface(msg.trainerEntity, IID_ProductionQueue);
+				const cmpProductionQueue = Engine.QueryInterface(msg.trainerEntity, IID_ProductionQueue);
 				cmpProductionQueue.ResetQueue();
-				let txt = +msg.count == 1 ?
+				const txt = +msg.count == 1 ?
 					markForTranslation("Do not forget to press the batch training hotkey while clicking to produce multiple units.") :
-					markForTranslation("Click on the Female Citizen icon.");
+					markForTranslation("Click on the Civilian icon.");
 				this.WarningMessage(txt);
 				return;
 			}
@@ -365,7 +365,7 @@ Trigger.prototype.tutorialGoals = [
 	{
 		"instructions": [
 			markForTranslation("Stop all your soldiers gathering resources and instead task small groups to find the enemy Civic Center on the map. Once the enemy's base has been spotted, send your Siege Engines and all remaining soldiers to destroy it.\n"),
-			markForTranslation("Female Citizens should continue to gather resources.")
+			markForTranslation("Civilians should continue to gather resources.")
 		],
 		"OnOwnershipChanged": function(msg)
 		{
@@ -379,7 +379,7 @@ Trigger.prototype.tutorialGoals = [
 		"instructions": markForTranslation("The enemy has been defeated. These tutorial tasks are now completed."),
 		"Init": function()
 		{
-			let cmpEndGameManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_EndGameManager);
+			const cmpEndGameManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_EndGameManager);
 			cmpEndGameManager.MarkPlayerAndAlliesAsWon(1, () => "Tutorial completed", () => "");
 		}
 	}
@@ -387,22 +387,25 @@ Trigger.prototype.tutorialGoals = [
 
 Trigger.prototype.LaunchAttack = function()
 {
-	let cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
-	let entities = cmpRangeManager.GetEntitiesByPlayer(this.playerID);
-	let target =
-		entities.find(e => {
-			let cmpIdentity = Engine.QueryInterface(e, IID_Identity);
+	const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
+	const entities = cmpRangeManager.GetEntitiesByPlayer(this.playerID);
+	const target =
+		entities.find(e =>
+		{
+			const cmpIdentity = Engine.QueryInterface(e, IID_Identity);
 			return cmpIdentity && cmpIdentity.HasClass("Tower") && Engine.QueryInterface(e, IID_Position);
 		}) ||
-		entities.find(e => {
-			let cmpIdentity = Engine.QueryInterface(e, IID_Identity);
+		entities.find(e =>
+		{
+			const cmpIdentity = Engine.QueryInterface(e, IID_Identity);
 			return cmpIdentity && cmpIdentity.HasClass("CivilCentre") && Engine.QueryInterface(e, IID_Position);
 		});
 
-	let position = Engine.QueryInterface(target, IID_Position).GetPosition2D();
+	const position = Engine.QueryInterface(target, IID_Position).GetPosition2D();
 
-	this.attackers = cmpRangeManager.GetEntitiesByPlayer(this.enemyID).filter(e => {
-		let cmpIdentity = Engine.QueryInterface(e, IID_Identity);
+	this.attackers = cmpRangeManager.GetEntitiesByPlayer(this.enemyID).filter(e =>
+	{
+		const cmpIdentity = Engine.QueryInterface(e, IID_Identity);
 		return Engine.QueryInterface(e, IID_UnitAI) && cmpIdentity && cmpIdentity.HasClass("CitizenSoldier");
 	});
 
@@ -424,12 +427,12 @@ Trigger.prototype.IsAttackRepelled = function()
 
 Trigger.prototype.RemoveChampions = function()
 {
-	let cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
-	let champions = cmpRangeManager.GetEntitiesByPlayer(this.enemyID).filter(e => Engine.QueryInterface(e, IID_Identity).HasClass("Champion"));
+	const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
+	const champions = cmpRangeManager.GetEntitiesByPlayer(this.enemyID).filter(e => Engine.QueryInterface(e, IID_Identity).HasClass("Champion"));
 	let keep = 6;
-	for (let ent of champions)
+	for (const ent of champions)
 	{
-		let cmpHealth = Engine.QueryInterface(ent, IID_Health);
+		const cmpHealth = Engine.QueryInterface(ent, IID_Health);
 		if (!cmpHealth)
 			Engine.DestroyEntity(ent);
 		else if (--keep < 0)
@@ -438,7 +441,7 @@ Trigger.prototype.RemoveChampions = function()
 };
 
 {
-	let cmpTrigger = Engine.QueryInterface(SYSTEM_ENTITY, IID_Trigger);
+	const cmpTrigger = Engine.QueryInterface(SYSTEM_ENTITY, IID_Trigger);
 	cmpTrigger.playerID = 1;
 	cmpTrigger.enemyID = 2;
 	cmpTrigger.RegisterTrigger("OnInitGame", "InitTutorial", { "enabled": true });

@@ -13,7 +13,7 @@ class GameDescription
 
 	registerWatchers()
 	{
-		let update = () => this.updateGameDescription();
+		const update = () => this.updateGameDescription();
 		g_GameSettings.biome.watch(update, ["biome"]);
 		g_GameSettings.ceasefire.watch(update, ["value"]);
 		g_GameSettings.cheats.watch(update, ["enabled"]);
@@ -25,7 +25,8 @@ class GameDescription
 		g_GameSettings.mapExploration.watch(update, ["revealed"]);
 		g_GameSettings.mapExploration.watch(update, ["allied"]);
 		g_GameSettings.nomad.watch(update, ["enabled"]);
-		g_GameSettings.population.watch(update, ["perPlayer", "cap", "useWorldPop"]);
+		g_GameSettings.population.watch(update, ["perPlayer", "cap", "capType"]);
+		g_GameSettings.playerPlacement.watch(update, ["value"]);
 		g_GameSettings.rating.watch(update, ["enabled"]);
 		g_GameSettings.regicideGarrison.watch(update, ["enabled"]);
 		g_GameSettings.relic.watch(update, ["count", "duration"]);
@@ -38,9 +39,7 @@ class GameDescription
 
 	onTabsResize(settingsTabButtonsFrame)
 	{
-		let size = this.gameDescription.size;
-		size.top = settingsTabButtonsFrame.size.bottom + this.Margin;
-		this.gameDescription.size = size;
+		this.gameDescription.size.top = settingsTabButtonsFrame.size.bottom + this.Margin;
 	}
 
 	updateGameDescription()
@@ -49,7 +48,7 @@ class GameDescription
 			clearTimeout(this.timer);
 		// Update the description on the next GUI tick.
 		// (multiple settings can change at once)
-		let updateCaption = () => { this.gameDescription.caption = getGameDescription(g_GameSettings.toInitAttributes(), this.mapCache); };
+		const updateCaption = () => { this.gameDescription.caption = getGameDescription(g_GameSettings.toInitAttributes(), this.mapCache); };
 		this.timer = setTimeout(updateCaption, 0);
 	}
 }

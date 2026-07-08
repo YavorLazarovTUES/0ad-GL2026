@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,24 +17,36 @@
 
 #include "precompiled.h"
 
-#include "simulation2/system/Component.h"
 #include "ICmpPosition.h"
 
-#include "simulation2/MessageTypes.h"
-#include "simulation2/serialization/SerializedTypes.h"
-
-#include "ICmpTerrain.h"
-#include "ICmpVisual.h"
-#include "ICmpWaterManager.h"
-
-#include "graphics/Terrain.h"
-#include "lib/rand.h"
+#include "maths/BoundingBoxOriented.h"
+#include "maths/Fixed.h"
+#include "maths/FixedVector2D.h"
+#include "maths/FixedVector3D.h"
 #include "maths/MathUtil.h"
 #include "maths/Matrix3D.h"
-#include "maths/Vector3D.h"
 #include "maths/Vector2D.h"
+#include "maths/Vector3D.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
 #include "ps/Profile.h"
+#include "simulation2/MessageTypes.h"
+#include "simulation2/components/ICmpTerrain.h"
+#include "simulation2/components/ICmpVisual.h"
+#include "simulation2/components/ICmpWaterManager.h"
+#include "simulation2/helpers/Position.h"
+#include "simulation2/serialization/SerializeTemplates.h"
+#include "simulation2/serialization/SerializedTypes.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+#include "simulation2/system/Message.h"
+
+#include <algorithm>
+#include <cmath>
+#include <numbers>
+#include <set>
+#include <string>
+#include <utility>
 
 /**
  * Basic ICmpPosition implementation.
@@ -59,13 +71,16 @@ public:
 
 	// Template state:
 
-	enum
+	enum class AnchorType
 	{
+		UNDEFINED = -1, // Used for m_ActorAnchorType only since it's optional.
 		UPRIGHT = 0,
 		PITCH = 1,
 		PITCH_ROLL = 2,
 		ROLL = 3,
-	} m_AnchorType;
+	};
+
+	AnchorType m_AnchorType;
 
 	bool m_Floating;
 	entity_pos_t m_FloatDepth;
@@ -94,6 +109,7 @@ public:
 	std::set<entity_id_t> m_Turrets;
 
 	// Not serialized:
+	AnchorType m_ActorAnchorType;
 	float m_InterpolatedRotX, m_InterpolatedRotY, m_InterpolatedRotZ;
 	float m_LastInterpolatedRotX, m_LastInterpolatedRotZ;
 	bool m_ActorFloating;
@@ -119,7 +135,7 @@ public:
 					"<value a:help='Rotate in all directions to follow the terrain (e.g. carts)'>pitch-roll</value>"
 				"</choice>"
 			"</element>"
-			"<element name='Altitude' a:help='Height above terrain in metres'>"
+			"<element name='Altitude' a:help='Height above terrain in meters'>"
 				"<data type='decimal'/>"
 			"</element>"
 			"<element name='Floating' a:help='Whether the entity floats on water'>"
@@ -135,15 +151,8 @@ public:
 
 	void Init(const CParamNode& paramNode) override
 	{
-		const std::string& anchor = paramNode.GetChild("Anchor").ToString();
-		if (anchor == "pitch")
-			m_AnchorType = PITCH;
-		else if (anchor == "pitch-roll")
-			m_AnchorType = PITCH_ROLL;
-		else if (anchor == "roll")
-			m_AnchorType = ROLL;
-		else
-			m_AnchorType = UPRIGHT;
+		m_AnchorType = ParseAnchorString(paramNode.GetChild("Anchor").ToString());
+		m_ActorAnchorType = AnchorType::UNDEFINED;
 
 		m_InWorld = false;
 
@@ -199,19 +208,19 @@ public:
 			const char* anchor = "???";
 			switch (m_AnchorType)
 			{
-			case PITCH:
+			case AnchorType::PITCH:
 				anchor = "pitch";
 				break;
 
-			case PITCH_ROLL:
+			case AnchorType::PITCH_ROLL:
 				anchor = "pitch-roll";
 				break;
 
-			case ROLL:
+			case AnchorType::ROLL:
 				anchor = "roll";
 				break;
 
-			case UPRIGHT: // upright is the default
+			case AnchorType::UPRIGHT: // upright is the default
 			default:
 				anchor = "upright";
 				break;
@@ -493,6 +502,11 @@ public:
 		AdvertiseInterpolatedPositionChanges();
 	}
 
+	void SetActorAnchor(const CStr& anchor) override
+	{
+		m_ActorAnchorType = ParseAnchorString(anchor);
+	}
+
 	void SetConstructionProgress(fixed progress) override
 	{
 		m_ConstructionProgress = progress;
@@ -703,7 +717,7 @@ public:
 			return m;
 		}
 
-		float x, z, rotY;
+		float x{0.0f}, z{0.0f}, rotY{0.0f};
 		GetInterpolatedPosition2D(frameOffset, x, z, rotY);
 
 
@@ -735,7 +749,7 @@ public:
 
 		pos.Y += GetConstructionProgressOffset(pos);
 
-		m.RotateY(rotY + (float)M_PI);
+		m.RotateY(rotY + std::numbers::pi_v<float>);
 		m.Translate(pos);
 
 		return m;
@@ -779,7 +793,7 @@ public:
 		pos1.Y += GetConstructionProgressOffset(pos1);
 	}
 
-	void HandleMessage(const CMessage& msg, bool UNUSED(global)) override
+	void HandleMessage(const CMessage& msg, bool /*global*/) override
 	{
 		switch (msg.GetType())
 		{
@@ -795,14 +809,14 @@ public:
 			{
 				float rotYSpeed = m_RotYSpeed.ToFloat();
 				float delta = rotY - m_InterpolatedRotY;
-				// Wrap delta to -M_PI..M_PI
-				delta = fmodf(delta + (float)M_PI, 2*(float)M_PI); // range -2PI..2PI
-				if (delta < 0) delta += 2*(float)M_PI; // range 0..2PI
-				delta -= (float)M_PI; // range -M_PI..M_PI
+				// Wrap delta to -PI..PI
+				delta = fmodf(delta + std::numbers::pi_v<float>, 2.f * std::numbers::pi_v<float>); // range -2PI..2PI
+				if (delta < 0) delta += 2.f * std::numbers::pi_v<float>; // range 0..2PI
+				delta -= std::numbers::pi_v<float>; // range -PI..PI
 				// Clamp to max rate
 				float deltaClamped = Clamp(delta, -rotYSpeed*msgData.deltaSimTime, +rotYSpeed*msgData.deltaSimTime);
 				// Calculate new orientation, in a peculiar way in order to make sure the
-				// result gets close to m_orientation (rather than being n*2*M_PI out)
+				// result gets close to m_orientation (rather than being n*2*PI out)
 				m_InterpolatedRotY = rotY + deltaClamped - delta;
 
 				// update the visual XZ rotation
@@ -853,6 +867,17 @@ public:
 	}
 
 private:
+
+	AnchorType ParseAnchorString(const CStr& anchor)
+	{
+		if (anchor == "pitch")
+			return AnchorType::PITCH;
+		if (anchor == "roll")
+			return AnchorType::ROLL;
+		if (anchor == "pitch-roll")
+			return AnchorType::PITCH_ROLL;
+		return AnchorType::UPRIGHT;
+	}
 
 	/*
 	 * Must be called whenever m_RotY or m_InterpolatedRotY change,
@@ -935,7 +960,8 @@ private:
 			return;
 		}
 
-		if (m_AnchorType == UPRIGHT || !m_RotZ.IsZero() || !m_RotX.IsZero())
+		AnchorType anchor = m_ActorAnchorType == AnchorType::UNDEFINED ? m_AnchorType : m_ActorAnchorType;
+		if (anchor == AnchorType::UPRIGHT || !m_RotZ.IsZero() || !m_RotX.IsZero())
 		{
 			// set the visual rotations to the ones fixed by the interface
 			m_InterpolatedRotX = m_RotX.ToFloat();
@@ -961,10 +987,10 @@ private:
 		normal.Z = projected.Y;
 
 		// project and calculate the angles
-		if (m_AnchorType == PITCH || m_AnchorType == PITCH_ROLL)
+		if (anchor == AnchorType::PITCH || anchor == AnchorType::PITCH_ROLL)
 			m_InterpolatedRotX = -atan2(normal.Z, normal.Y);
 
-		if (m_AnchorType == ROLL || m_AnchorType == PITCH_ROLL)
+		if (anchor == AnchorType::ROLL || anchor == AnchorType::PITCH_ROLL)
 			m_InterpolatedRotZ = atan2(normal.X, normal.Y);
 	}
 };

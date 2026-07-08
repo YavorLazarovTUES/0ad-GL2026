@@ -20,6 +20,9 @@
 
 #include "renderer/backend/IFramebuffer.h"
 
+#include "graphics/Color.h"
+
+#include <cstdint>
 #include <memory>
 
 namespace Renderer
@@ -51,7 +54,7 @@ private:
 	static std::unique_ptr<IFramebuffer> Create(CDevice* device);
 
 	CFramebuffer();
-	
+
 	CDevice* m_Device = nullptr;
 
 	CColor m_ClearColor;

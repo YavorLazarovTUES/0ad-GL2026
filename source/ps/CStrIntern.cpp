@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,11 +19,13 @@
 
 #include "CStrIntern.h"
 
+#include "lib/debug.h"
 #include "lib/fnv_hash.h"
-#include "ps/CLogger.h"
 #include "ps/ThreadUtil.h"
 
+#include <cstring>
 #include <unordered_map>
+#include <utility>
 
 class CStrInternInternals
 {
@@ -33,6 +35,8 @@ public:
 	{
 // 		LOGWARNING("New interned string '%s'", data.c_str());
 	}
+
+	CStrInternInternals(const CStrInternInternals& b) = default;
 
 	bool operator==(const CStrInternInternals& b) const
 	{
@@ -85,30 +89,31 @@ struct StringsKeyProxyEq
 	}
 };
 
-static std::unordered_map<StringsKey, std::shared_ptr<CStrInternInternals>, StringsKeyHash> g_Strings;
+namespace
+{
+std::unordered_map<StringsKey, CStrInternInternals, StringsKeyHash> g_Strings;
 
-#define X(id) CStrIntern str_##id(#id);
-#define X2(id, str) CStrIntern str_##id(str);
-#include "CStrInternStatic.h"
-#undef X
-#undef X2
-
-static CStrInternInternals* GetString(const char* str, size_t len)
+CStrInternInternals* GetString(const char* str, size_t len)
 {
 	// g_Strings is not thread-safe, so complain if anyone is using this
 	// type in non-main threads. (If that's desired, g_Strings should be changed
 	// to be thread-safe, preferably without sacrificing performance.)
 	ENSURE(Threading::IsMainThread());
 
-	std::unordered_map<StringsKey, std::shared_ptr<CStrInternInternals> >::iterator it = g_Strings.find(str);
+	const auto it = g_Strings.find(str);
 
 	if (it != g_Strings.end())
-		return it->second.get();
+		return &it->second;
 
-	std::shared_ptr<CStrInternInternals> internals = std::make_shared<CStrInternInternals>(str, len);
-	g_Strings.insert(std::make_pair(internals->data, internals));
-	return internals.get();
+	return &g_Strings.insert({str, {str, len}}).first->second;
 }
+}
+
+#define X(id) CStrIntern str_##id(#id);
+#define X2(id, str) CStrIntern str_##id(str);
+#include "CStrInternStatic.h"
+#undef X
+#undef X2
 
 CStrIntern::CStrIntern()
 {
@@ -123,6 +128,11 @@ CStrIntern::CStrIntern(const char* str)
 CStrIntern::CStrIntern(const std::string& str)
 {
 	m = GetString(str.c_str(), str.length());
+}
+
+CStrIntern::CStrIntern(const std::string_view str)
+{
+	m = GetString(str.data(), str.length());
 }
 
 u32 CStrIntern::GetHash() const

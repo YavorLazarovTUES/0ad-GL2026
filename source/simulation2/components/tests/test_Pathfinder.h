@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -15,27 +15,50 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "simulation2/system/ComponentTest.h"
-
-#include "simulation2/components/ICmpObstructionManager.h"
-#include "simulation2/components/ICmpPathfinder.h"
-#include "simulation2/helpers/Grid.h"
+#include "lib/self_test.h"
 
 #include "graphics/MapReader.h"
 #include "graphics/Terrain.h"
-#include "graphics/TerrainTextureManager.h"
+#include "lib/debug.h"
+#include "lib/file/file_system.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/os_path.h"
+#include "lib/path.h"
+#include "lib/posix/posix_types.h"
 #include "lib/timer.h"
-#include "lib/tex/tex.h"
+#include "lib/types.h"
+#include "maths/Fixed.h"
+#include "maths/FixedVector2D.h"
+#include "ps/Filesystem.h"
 #include "ps/Loader.h"
-#include "ps/Pyrogenesis.h"
-#include "scriptinterface/ScriptContext.h"
+#include "ps/XML/Xeromyces.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Object.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/Simulation2.h"
+#include "simulation2/components/ICmpObstructionManager.h"
+#include "simulation2/components/ICmpPathfinder.h"
+#include "simulation2/helpers/Grid.h"
+#include "simulation2/helpers/PathGoal.h"
+#include "simulation2/helpers/Pathfinding.h"
+#include "simulation2/helpers/Position.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
 
+#include <cmath>
+#include <cstdio>
 #include <fstream>
+#include <js/CallArgs.h>
+#include <js/RootingAPI.h>
+#include <memory>
+#include <optional>
 #include <random>
+#include <string>
+#include <vector>
 
 class TestCmpPathfinder : public CxxTest::TestSuite
 {
+	std::optional<CXeromycesEngine> xeromycesEngine;
 public:
 	void setUp()
 	{
@@ -44,12 +67,12 @@ public:
 		g_VFS->Mount(L"", DataDir() / "mods" / "public" / "", VFS_MOUNT_MUST_EXIST, 1); // ignore directory-not-found errors
 		TS_ASSERT_OK(g_VFS->Mount(L"cache", DataDir() / "_testcache" / "", 0, VFS_MAX_PRIORITY));
 
-		CXeromyces::Startup();
+		xeromycesEngine.emplace();
 	}
 
 	void tearDown()
 	{
-		CXeromyces::Terminate();
+		xeromycesEngine.reset();
 		g_VFS.reset();
 		DeleteDirectory(DataDir()/"_testcache");
 	}
@@ -133,23 +156,26 @@ public:
 		}
 	}
 
-	void test_performance_DISABLED()
+	void DISABLED_test_performance()
 	{
 		CTerrain terrain;
 
-		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain};
-		sim2.LoadDefaultScripts();
+		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain, CSimulation2::DEFAULT_SCRIPTS};
 		sim2.ResetState();
+
+		JS::RootedValue attribs(sim2.GetScriptInterface().GetGeneralJSContext());
+		Script::CreateObject(Script::Request(sim2.GetScriptInterface()), &attribs);
+		sim2.SetInitAttributes(attribs);
 
 		std::unique_ptr<CMapReader> mapReader = std::make_unique<CMapReader>();
 
-		LDR_BeginRegistering();
-		mapReader->LoadMap(L"maps/skirmishes/Median Oasis (2).pmp",
+		PS::Loader::BeginRegistering();
+		mapReader->LoadMap(L"maps/skirmishes/median_oasis_2p.pmp",
 			sim2.GetScriptInterface().GetContext(), JS::UndefinedHandleValue,
 			&terrain, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 			&sim2, &sim2.GetSimContext(), -1, false);
-		LDR_EndRegistering();
-		TS_ASSERT_OK(LDR_NonprogressiveLoad());
+		PS::Loader::EndRegistering();
+		TS_ASSERT_OK(PS::Loader::NonprogressiveLoad());
 
 		sim2.PreInitGame();
 		sim2.InitGame();
@@ -191,19 +217,19 @@ public:
 		printf("[%f]", t);
 	}
 
-	void test_performance_short_DISABLED()
+	void DISABLED_test_performance_short()
 	{
 		CTerrain terrain;
 		terrain.Initialize(5, NULL);
 
-		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain};
-		sim2.LoadDefaultScripts();
+		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain, CSimulation2::DEFAULT_SCRIPTS};
 		sim2.ResetState();
 
 		const entity_pos_t range = entity_pos_t::FromInt(48);
 
 		CmpPtr<ICmpObstructionManager> cmpObstructionMan(sim2, SYSTEM_ENTITY);
 		CmpPtr<ICmpPathfinder> cmpPathfinder(sim2, SYSTEM_ENTITY);
+		cmpPathfinder->UpdateGrid();
 
 		std::mt19937 engine(42);
 		std::uniform_real_distribution<float> distribution01(0.0f, std::nextafter(1.0f, 2.0f));
@@ -247,29 +273,32 @@ public:
 		}
 	}
 
-	void test_perf2_DISABLED()
+	void DISABLED_test_perf2()
 	{
 		CTerrain terrain;
 
-		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain};
-		sim2.LoadDefaultScripts();
+		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain, CSimulation2::DEFAULT_SCRIPTS};
 		sim2.ResetState();
+
+		JS::RootedValue attribs(sim2.GetScriptInterface().GetGeneralJSContext());
+		Script::CreateObject(Script::Request(sim2.GetScriptInterface()), &attribs);
+		sim2.SetInitAttributes(attribs);
 
 		std::unique_ptr<CMapReader> mapReader = std::make_unique<CMapReader>();
 
-		LDR_BeginRegistering();
-		mapReader->LoadMap(L"maps/scenarios/Peloponnese.pmp",
+		PS::Loader::BeginRegistering();
+		mapReader->LoadMap(L"maps/scenarios/peloponnese.pmp",
 			sim2.GetScriptInterface().GetContext(), JS::UndefinedHandleValue,
 			&terrain, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 			&sim2, &sim2.GetSimContext(), -1, false);
-		LDR_EndRegistering();
-		TS_ASSERT_OK(LDR_NonprogressiveLoad());
+		PS::Loader::EndRegistering();
+		TS_ASSERT_OK(PS::Loader::NonprogressiveLoad());
 
 		sim2.PreInitGame();
 		sim2.InitGame();
 		sim2.Update(0);
 
-		std::ofstream stream(OsString("perf2.html").c_str(), std::ofstream::out | std::ofstream::trunc);
+		std::ofstream stream(OsString("perf2.html"), std::ofstream::out | std::ofstream::trunc);
 
 		CmpPtr<ICmpObstructionManager> cmpObstructionManager(sim2, SYSTEM_ENTITY);
 		CmpPtr<ICmpPathfinder> cmpPathfinder(sim2, SYSTEM_ENTITY);
@@ -304,29 +333,32 @@ public:
 		stream << "</svg>\n";
 	}
 
-	void test_perf3_DISABLED()
+	void DISABLED_test_perf3()
 	{
 		CTerrain terrain;
 
-		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain};
-		sim2.LoadDefaultScripts();
+		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain, CSimulation2::DEFAULT_SCRIPTS};
 		sim2.ResetState();
+
+		JS::RootedValue attribs(sim2.GetScriptInterface().GetGeneralJSContext());
+		Script::CreateObject(Script::Request(sim2.GetScriptInterface()), &attribs);
+		sim2.SetInitAttributes(attribs);
 
 		std::unique_ptr<CMapReader> mapReader = std::make_unique<CMapReader>();
 
-		LDR_BeginRegistering();
-		mapReader->LoadMap(L"maps/scenarios/Peloponnese.pmp",
+		PS::Loader::BeginRegistering();
+		mapReader->LoadMap(L"maps/scenarios/peloponnese.pmp",
 			sim2.GetScriptInterface().GetContext(), JS::UndefinedHandleValue,
 			&terrain, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 			&sim2, &sim2.GetSimContext(), -1, false);
-		LDR_EndRegistering();
-		TS_ASSERT_OK(LDR_NonprogressiveLoad());
+		PS::Loader::EndRegistering();
+		TS_ASSERT_OK(PS::Loader::NonprogressiveLoad());
 
 		sim2.PreInitGame();
 		sim2.InitGame();
 		sim2.Update(0);
 
-		std::ofstream stream(OsString("perf3.html").c_str(), std::ofstream::out | std::ofstream::trunc);
+		std::ofstream stream(OsString("perf3.html"), std::ofstream::out | std::ofstream::trunc);
 
 		CmpPtr<ICmpObstructionManager> cmpObstructionManager(sim2, SYSTEM_ENTITY);
 		CmpPtr<ICmpPathfinder> cmpPathfinder(sim2, SYSTEM_ENTITY);

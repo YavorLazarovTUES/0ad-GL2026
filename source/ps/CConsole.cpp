@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,30 +20,58 @@
 #include "CConsole.h"
 
 #include "graphics/Canvas2D.h"
+#include "graphics/Color.h"
 #include "graphics/FontMetrics.h"
 #include "graphics/TextRenderer.h"
 #include "gui/CGUI.h"
 #include "gui/GUIManager.h"
 #include "lib/code_generation.h"
+#include "lib/debug.h"
+#include "lib/external_libraries/libsdl.h"
+#include "lib/file/io/write_buffer.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/status.h"
 #include "lib/timer.h"
+#include "lib/types.h"
 #include "lib/utf8.h"
 #include "maths/MathUtil.h"
-#include "ps/CLogger.h"
+#include "maths/Rect.h"
+#include "maths/Vector2D.h"
+#include "ps/CStr.h"
+#include "ps/CStrIntern.h"
 #include "ps/ConfigDB.h"
-#include "ps/CStrInternStatic.h"
 #include "ps/Filesystem.h"
 #include "ps/GameSetup/Config.h"
 #include "ps/Globals.h"
 #include "ps/Hotkey.h"
+#include "ps/KeyName.h"
 #include "ps/Profile.h"
-#include "ps/Pyrogenesis.h"
+#include "ps/Profiler2.h"
 #include "ps/VideoMode.h"
-#include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/JSON.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 
+#include <SDL_clipboard.h>
+#include <SDL_events.h>
+#include <SDL_keyboard.h>
+#include <SDL_keycode.h>
+#include <SDL_scancode.h>
+#include <SDL_stdinc.h>
+#include <algorithm>
+#include <cmath>
+#include <concepts>
+#include <cstring>
+#include <cwchar>
+#include <iterator>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <numeric>
 #include <string_view>
+#include <unordered_map>
+#include <utility>
 #include <vector>
-#include <wctype.h>
 
 namespace
 {
@@ -51,13 +79,44 @@ namespace
 // For text being typed into the console.
 constexpr int CONSOLE_BUFFER_SIZE = 1024;
 
-const char* CONSOLE_FONT = "mono-10";
+template<std::invocable<std::string> Function>
+void ShowQuitHotkeys(bool& quitHotkeyWasShown, Function insertMessage)
+{
+	if (std::exchange(quitHotkeyWasShown, true))
+		return;
 
+	const std::string str{std::accumulate(g_HotkeyMap.begin(), g_HotkeyMap.end(), std::string{},
+		[](std::string acc, const std::pair<const SDL_Scancode_, KeyMapping>& key)
+		{
+			if (std::get<1>(key).front().name != "console.toggle")
+				return acc;
+
+			return acc + (acc.empty() ? "Press " : " / ") +
+				FindScancodeName(static_cast<SDL_Scancode>(std::get<0>(key)));
+		})};
+
+	if (!str.empty())
+		insertMessage(str + " to quit.");
+}
+
+template<std::invocable<std::string> Function>
+void SetVisible(const bool visible, bool& quitHotkeyWasShown, Function insertMessage)
+{
+	// TODO: this should be based on input focus, not visibility
+	if (visible)
+	{
+		ShowQuitHotkeys(quitHotkeyWasShown, std::move(insertMessage));
+		SDL_StartTextInput();
+		return;
+	}
+	SDL_StopTextInput();
+}
 } // anonymous namespace
 
 CConsole* g_Console = 0;
 
-CConsole::CConsole()
+CConsole::CConsole() :
+	m_InputHandler{g_VideoMode.m_InputManager, Input::Slot::CONSOLE, {*this}}
 {
 	m_Toggle = false;
 	m_Visible = false;
@@ -84,65 +143,36 @@ CConsole::~CConsole() = default;
 
 void CConsole::Init()
 {
+	PROFILE2("CConsole::Init");
 	// Initialise console history file
-	m_MaxHistoryLines = 200;
-	CFG_GET_VAL("console.history.size", m_MaxHistoryLines);
+	m_MaxHistoryLines = g_ConfigDB.Get("console.history.size", 200);
+	m_HistoryIgnoreDuplicates = g_ConfigDB.Get("console.history.ignore_duplicates", true);
+	m_consoleFont = g_ConfigDB.Get("console.font", std::string{"mono-10"});
 
 	m_HistoryFile = L"config/console.txt";
 	LoadHistory();
 
-	UpdateScreenSize(g_xres, g_yres);
+	UpdateScreenSize(g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight());
 
-	// Calculate and store the line spacing
-	const CFontMetrics font{CStrIntern(CONSOLE_FONT)};
-	m_FontHeight = font.GetLineSpacing();
+	// Calculate and store the line spacing.
+	const CFontMetrics font{CStrIntern(m_consoleFont)};
+	m_FontHeight = font.GetHeight();
 	m_FontWidth = font.GetCharacterWidth(L'C');
-	m_CharsPerPage = static_cast<size_t>(g_xres / m_FontWidth);
-	// Offset by an arbitrary amount, to make it fit more nicely
-	m_FontOffset = 7;
+	m_CharsPerPage = static_cast<size_t>(g_VideoMode.GetWindowWidth() / m_FontWidth);
+	// Fonts constains two dimensions: the full height, and the cap height.
+	// We are adding some offset to move the text up a bit, so it looks better in the console.
+	m_FontOffset = font.GetCapHeight() / 2.f;
 
-	m_CursorBlinkRate = 0.5;
-	CFG_GET_VAL("gui.cursorblinkrate", m_CursorBlinkRate);
+	m_CursorBlinkRate = g_ConfigDB.Get("gui.cursorblinkrate", 0.5);
 }
 
 void CConsole::UpdateScreenSize(int w, int h)
 {
-	m_X = 0;
-	m_Y = 0;
+	m_X = 0.0f;
+	m_Y = 0.0f;
 	float height = h * 0.6f;
 	m_Width = w / g_VideoMode.GetScale();
 	m_Height = height / g_VideoMode.GetScale();
-}
-
-void CConsole::ShowQuitHotkeys()
-{
-	if (m_QuitHotkeyWasShown)
-		return;
-
-	std::string str;
-	for (const std::pair<const SDL_Scancode_, KeyMapping>& key : g_HotkeyMap)
-		if (key.second.front().name == "console.toggle")
-			str += (str.empty() ? "Press " : " / ") + FindScancodeName(static_cast<SDL_Scancode>(key.first));
-
-	if (!str.empty())
-		InsertMessage(str + " to quit.");
-
-	m_QuitHotkeyWasShown = true;
-}
-
-void CConsole::ToggleVisible()
-{
-	m_Toggle = true;
-	m_Visible = !m_Visible;
-
-	// TODO: this should be based on input focus, not visibility
-	if (m_Visible)
-	{
-		ShowQuitHotkeys();
-		SDL_StartTextInput();
-		return;
-	}
-	SDL_StopTextInput();
 }
 
 void CConsole::SetVisible(bool visible)
@@ -196,12 +226,12 @@ void CConsole::Render(CCanvas2D& canvas)
 	if (!(m_Visible || m_Toggle))
 		return;
 
-	PROFILE3_GPU("console");
+	PROFILE3("console");
 
 	DrawWindow(canvas);
 
 	CTextRenderer textRenderer;
-	textRenderer.SetCurrentFont(CStrIntern(CONSOLE_FONT));
+	textRenderer.SetCurrentFont(CStrIntern{m_consoleFont}, CStrIntern{});
 	// Animation: slide in from top of screen.
 	const float deltaY = (1.0f - m_VisibleFrac) * m_Height;
 	textRenderer.Translate(m_X, m_Y - deltaY);
@@ -225,18 +255,18 @@ void CConsole::DrawWindow(CCanvas2D& canvas)
 	for (CVector2D& point : points)
 		point += CVector2D{m_X, m_Y - (1.0f - m_VisibleFrac) * m_Height};
 
-	canvas.DrawRect(CRect(points[1], points[3]), CColor(0.0f, 0.0f, 0.5f, 0.6f));
-	canvas.DrawLine(points, 1.0f, CColor(0.5f, 0.5f, 0.0f, 0.6f));
+	canvas.DrawRect(CRect(points[1], points[3]), CColor(0.05f, 0.05f, 0.2f, 0.85f));
+	canvas.DrawLine(points, 1.0f, CColor(0.5f, 0.5f, 0.0f, 0.85f));
 
-	if (m_Height > m_FontHeight + 4)
+	if (m_Height > m_FontHeight + 2.0f * m_FontOffset)
 	{
 		points = {
-			CVector2D{0.0f, m_Height - static_cast<float>(m_FontHeight) - 4.0f},
-			CVector2D{m_Width, m_Height - static_cast<float>(m_FontHeight) - 4.0f}
+			CVector2D{0.0f, m_Height - m_FontHeight - 2.0f * m_FontOffset},
+			CVector2D{m_Width, m_Height - m_FontHeight - 2.0f * m_FontOffset}
 		};
 		for (CVector2D& point : points)
 			point += CVector2D{m_X, m_Y - (1.0f - m_VisibleFrac) * m_Height};
-		canvas.DrawLine(points, 1.0f, CColor(0.5f, 0.5f, 0.0f, 0.6f));
+		canvas.DrawLine(points, 1.0f, CColor(0.5f, 0.5f, 0.0f, 0.85f));
 	}
 }
 
@@ -259,7 +289,7 @@ void CConsole::DrawHistory(CTextRenderer& textRenderer)
 		{
 			textRenderer.Put(
 				9.0f,
-				m_Height - static_cast<float>(m_FontOffset) - static_cast<float>(m_FontHeight) * (i - m_MsgHistPos + 1),
+				m_Height - 3.0f * m_FontOffset - m_FontHeight * (i - m_MsgHistPos + 1),
 				it->c_str());
 		}
 
@@ -275,7 +305,7 @@ void CConsole::DrawBuffer(CTextRenderer& textRenderer)
 
 	const CVector2D savedTranslate = textRenderer.GetTranslate();
 
-	textRenderer.Translate(2.0f, m_Height - static_cast<float>(m_FontOffset) + 1.0f);
+	textRenderer.Translate(2.0f, m_Height - m_FontOffset);
 
 	textRenderer.SetCurrentColor(CColor(1.0f, 1.0f, 0.0f, 1.0f));
 	textRenderer.PutAdvance(L"]");
@@ -416,7 +446,7 @@ void CConsole::InsertChar(const int szChar, const wchar_t cooked)
 		{
 			std::lock_guard<std::mutex> lock(m_Mutex); // needed for safe access to m_deqMsgHistory
 
-			const int linesShown = static_cast<int>(m_Height / m_FontHeight) - 4;
+			const int linesShown = static_cast<int>(std::ceil(m_Height / m_FontHeight)) - 4;
 			m_MsgHistPos = Clamp(static_cast<int>(m_MsgHistory.size()) - linesShown, 1, static_cast<int>(m_MsgHistory.size()));
 		}
 		else
@@ -554,12 +584,6 @@ void CConsole::InsertMessage(const std::string& message)
 	}
 }
 
-const wchar_t* CConsole::GetBuffer()
-{
-	m_Buffer[m_BufferLength] = 0;
-	return m_Buffer.get();
-}
-
 void CConsole::SetBuffer(const wchar_t* szMessage)
 {
 	int oldBufferPos = m_BufferPos;	// remember since FlushBuffer will set it to 0
@@ -579,13 +603,16 @@ void CConsole::ProcessBuffer(const wchar_t* szLine)
 
 	ENSURE(wcslen(szLine) < CONSOLE_BUFFER_SIZE);
 
-	m_BufHistory.push_front(szLine);
-	SaveHistory(); // Do this each line for the moment; if a script causes
-	               // a crash it's a useful record.
+	if (!m_HistoryIgnoreDuplicates || m_BufHistory.empty() || m_BufHistory.front() != szLine)
+	{
+		m_BufHistory.push_front(szLine);
+		SaveHistory(); // Do this each line for the moment; if a script causes
+		               // a crash it's a useful record.
+	}
 
 	// Process it as JavaScript
-	std::shared_ptr<ScriptInterface> pScriptInterface = g_GUI->GetActiveGUI()->GetScriptInterface();
-	ScriptRequest rq(*pScriptInterface);
+	std::shared_ptr<Script::Interface> pScriptInterface = g_GUI->GetActiveGUI()->GetScriptInterface();
+	Script::Request rq(*pScriptInterface);
 
 	JS::RootedValue rval(rq.cx);
 	pScriptInterface->Eval(CStrW(szLine).ToUTF8().c_str(), &rval);
@@ -664,69 +691,70 @@ static bool isUnprintableChar(SDL_Keysym key)
 	}
 }
 
-InReaction conInputHandler(const SDL_Event_* ev)
+Input::Reaction CConsole::InputHandler::operator()(const SDL_Event& ev)
 {
-	if (!g_Console)
-		return IN_PASS;
-
-	if (static_cast<int>(ev->ev.type) == SDL_HOTKEYPRESS)
+	if (static_cast<int>(ev.type) == SDL_HOTKEYPRESS)
 	{
-		std::string hotkey = static_cast<const char*>(ev->ev.user.data1);
+		std::string_view hotkey{static_cast<const char*>(ev.user.data1)};
 
 		if (hotkey == "console.toggle")
 		{
 			ResetActiveHotkeys();
-			g_Console->ToggleVisible();
-			return IN_HANDLED;
+			console.m_Toggle = true;
+			console.m_Visible = !console.m_Visible;
+			::SetVisible(console.m_Visible, console.m_QuitHotkeyWasShown, [&](auto&&... args){
+				console.InsertMessage(std::forward<decltype(args)>(args)...);
+			});
+			return Input::Reaction::HANDLED;
 		}
-		else if (g_Console->IsActive() && hotkey == "copy")
+		if (!console.IsActive())
+			return Input::Reaction::PASS;
+		if (hotkey == "copy")
 		{
-			std::string text = utf8_from_wstring(g_Console->GetBuffer());
-			SDL_SetClipboardText(text.c_str());
-			return IN_HANDLED;
+			console.m_Buffer[console.m_BufferLength] = 0;
+			SDL_SetClipboardText(utf8_from_wstring(console.m_Buffer.get()).c_str());
+			return Input::Reaction::HANDLED;
 		}
-		else if (g_Console->IsActive() && hotkey == "paste")
+		if (hotkey == "paste")
 		{
 			char* utf8_text = SDL_GetClipboardText();
 			if (!utf8_text)
-				return IN_HANDLED;
+				return Input::Reaction::HANDLED;
 
-			std::wstring text = wstring_from_utf8(utf8_text);
+			for (wchar_t c : wstring_from_utf8(utf8_text))
+				console.InsertChar(0, c);
 			SDL_free(utf8_text);
 
-			for (wchar_t c : text)
-				g_Console->InsertChar(0, c);
-
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 	}
 
-	if (!g_Console->IsActive())
-		return IN_PASS;
+	if (!console.IsActive())
+		return Input::Reaction::PASS;
 
 	// In SDL2, we no longer get Unicode wchars via SDL_Keysym
 	// we use text input events instead and they provide UTF-8 chars
-	if (ev->ev.type == SDL_TEXTINPUT)
+	if (ev.type == SDL_TEXTINPUT)
 	{
 		// TODO: this could be more efficient with an interface to insert UTF-8 strings directly
-		std::wstring wstr = wstring_from_utf8(ev->ev.text.text);
+		std::wstring wstr = wstring_from_utf8(ev.text.text);
 		for (size_t i = 0; i < wstr.length(); ++i)
-			g_Console->InsertChar(0, wstr[i]);
-		return IN_HANDLED;
+			console.InsertChar(0, wstr[i]);
+		return Input::Reaction::HANDLED;
 	}
 	// TODO: text editing events for IME support
 
-	if (ev->ev.type != SDL_KEYDOWN && ev->ev.type != SDL_KEYUP)
-		return IN_PASS;
+	if (ev.type != SDL_KEYDOWN && ev.type != SDL_KEYUP)
+		return Input::Reaction::PASS;
 
-	int sym = ev->ev.key.keysym.sym;
+	int sym = ev.key.keysym.sym;
 
 	// Stop unprintable characters (ctrl+, alt+ and escape).
-	if (ev->ev.type == SDL_KEYDOWN && isUnprintableChar(ev->ev.key.keysym) &&
+	if (ev.type == SDL_KEYDOWN && isUnprintableChar(ev.key.keysym) &&
 		!HotkeyIsPressed("console.toggle"))
 	{
-		g_Console->InsertChar(sym, 0);
-		return IN_HANDLED;
+		console.InsertChar(sym, 0);
+		return Input::Reaction::HANDLED;
 	}
 
 	// We have a probably printable key - we should return HANDLED so it can't trigger hotkeys.
@@ -737,7 +765,7 @@ InReaction conInputHandler(const SDL_Event_* ev)
 	if (EventWillFireHotkey(ev, "console.toggle") ||
 		g_scancodes[SDL_SCANCODE_LCTRL] || g_scancodes[SDL_SCANCODE_RCTRL] ||
 		g_scancodes[SDL_SCANCODE_LGUI] || g_scancodes[SDL_SCANCODE_RGUI])
-		return IN_PASS;
+		return Input::Reaction::PASS;
 
-	return IN_HANDLED;
+	return Input::Reaction::HANDLED;
 }

@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,40 +22,171 @@
 #include "rlinterface/RLInterface.h"
 
 #include "gui/GUIManager.h"
+#include "lib/debug.h"
+#include "lib/types.h"
+#include "network/HttpServer.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
+#include "ps/Errors.h"
 #include "ps/Game.h"
 #include "ps/GameSetup/GameSetup.h"
 #include "ps/Loader.h"
-#include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/JSON.h"
+#include "ps/TaskManager.h"
+#include "scriptinterface/Object.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpAIInterface.h"
 #include "simulation2/components/ICmpTemplateManager.h"
+#include "simulation2/system/Component.h"
 #include "simulation2/system/LocalTurnManager.h"
+#include "simulation2/system/TurnManager.h"
 
+#include <cstdlib>
+#include <fmt/format.h>
+#include <httplib.h>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
 #include <queue>
 #include <sstream>
-#include <tuple>
+#include <stdexcept>
+#include <string_view>
+#include <utility>
 
 namespace RL
 {
-Interface::Interface(const char* server_address)
+Interface::Interface(std::string const serverAddress)
 {
 	LOGMESSAGERENDER("Starting RL interface HTTP server");
+	m_HttpServer = PS::Net::createHttpServer();
 
-	const char *options[] = {
-		"listening_ports", server_address,
-		"num_threads", "1",
-		nullptr
-	};
-	m_Context = mg_start(MgCallback, this, options);
-	ENSURE(m_Context);
+	m_HttpServer->Post("/reset", [this](const httplib::Request &req, httplib::Response &res) {
+		if(req.body.empty())
+		{
+			res.set_content("No POST data found.", "text/plain");
+			res.status = httplib::StatusCode::BadRequest_400;
+			return;
+		}
+
+		ScenarioConfig scenario;
+		scenario.saveReplay = req.has_param("saveReplay");
+		scenario.playerID = 1;
+		if (req.has_param("playerID"))
+		{
+				scenario.playerID = std::stoi(req.get_param_value("playerID"));
+		}
+
+		scenario.content = req.body;
+
+		const std::string gameState = Reset(std::move(scenario));
+
+		res.set_content(gameState, "text/plain");
+	});
+
+	m_HttpServer->Post("/step", [this](const httplib::Request &req, httplib::Response &res) {
+		if (!IsGameRunning())
+		{
+			res.set_content("Game not running. Please create a scenario first.", "text/plain");
+			res.status = httplib::StatusCode::BadRequest_400;
+			return;
+		}
+		std::stringstream postStream(req.body);
+		std::string line;
+		std::vector<GameCommand> commands;
+		while (std::getline(postStream, line, '\n'))
+		{
+			const std::size_t splitPos = line.find(";");
+			if (splitPos == std::string::npos)
+				continue;
+
+			GameCommand cmd;
+			cmd.playerID = std::stoi(line.substr(0, splitPos));
+			cmd.json_cmd = line.substr(splitPos + 1);
+			commands.push_back(std::move(cmd));
+		}
+		const std::string gameState = Step(std::move(commands));
+		if (gameState.empty())
+		{
+			res.set_content("Game not running. Please create a scenario first.", "text/plain");
+			res.status = httplib::StatusCode::BadRequest_400;
+			return;
+		}
+		else
+			res.set_content(gameState, "text/plain");
+	});
+
+	m_HttpServer->Post("/evaluate", [this](const httplib::Request &req, httplib::Response &res) {
+		if (!IsGameRunning())
+		{
+			res.set_content("Game not running. Please create a scenario first.", "text/plain");
+			res.status = httplib::StatusCode::BadRequest_400;
+			return;
+		}
+		if (req.body.empty())
+		{
+			res.set_content("No POST data found.", "text/plain");
+			res.status = httplib::StatusCode::BadRequest_400;
+			return;
+		}
+		std::string code{req.body};
+		const std::string codeResult = Evaluate(std::move(code));
+		if (codeResult.empty())
+		{
+			res.set_content("Game not running. Please create a scenario first.", "text/plain");
+			res.status = httplib::StatusCode::BadRequest_400;
+			return;
+		}
+		else
+			res.set_content(codeResult, "text/plain");
+	});
+
+	m_HttpServer->Get("/templates", [this](const httplib::Request &req, httplib::Response &res) {
+		if (!IsGameRunning()) {
+			res.set_content("Game not running. Please create a scenario first.", "text/plain");
+			res.status = httplib::StatusCode::BadRequest_400;
+			return;
+		}
+		if (req.body.empty())
+		{
+			res.set_content("No POST data found.", "text/plain");
+			res.status = httplib::StatusCode::BadRequest_400;
+			return;
+		}
+		std::stringstream postStream(req.body);
+		std::string line;
+		std::vector<std::string> templateNames;
+		while (std::getline(postStream, line, '\n'))
+			templateNames.push_back(line);
+
+		std::stringstream stream;
+		for (std::string templateStr : GetTemplates(templateNames))
+			stream << templateStr.c_str() << "\n";
+		res.set_content(stream.str(), "text/plain");
+	});
+
+	std::size_t sepIndex = serverAddress.find(":");
+	if (sepIndex == std::string::npos)
+	{
+		throw std::invalid_argument{fmt::format("Invalid server address for RL interface '{}'", serverAddress)};
+	}
+	std::string address = serverAddress.substr(0, sepIndex);
+	int port = std::stoi(serverAddress.substr(sepIndex + 1, serverAddress.length() - sepIndex - 1));
+
+	m_HttpServerThread = std::thread([this, address, port](){
+		if (!m_HttpServer->listen(address, port))
+		{
+			LOGERROR("Failed to start http server");
+		}
+	});
 }
 
-Interface::~Interface()
-{
-	mg_stop(m_Context);
+Interface::~Interface() {
+	m_HttpServer->stop();
+	if(m_HttpServerThread.joinable()) {
+		m_HttpServerThread.join();
+	}
 }
 
 // Interactions with the game engine (g_Game) must be done in the main
@@ -108,192 +239,6 @@ std::vector<std::string> Interface::GetTemplates(const std::vector<std::string>&
 	return templates;
 }
 
-void* Interface::MgCallback(mg_event event, struct mg_connection *conn, const struct mg_request_info *request_info)
-{
-	Interface* interface = (Interface*)request_info->user_data;
-	ENSURE(interface);
-
-	void* handled = (void*)""; // arbitrary non-NULL pointer to indicate successful handling
-
-	const char* header200 =
-		"HTTP/1.1 200 OK\r\n"
-		"Access-Control-Allow-Origin: *\r\n"
-		"Content-Type: text/plain; charset=utf-8\r\n\r\n";
-
-	const char* header404 =
-		"HTTP/1.1 404 Not Found\r\n"
-		"Content-Type: text/plain; charset=utf-8\r\n\r\n"
-		"Unrecognised URI";
-
-	const char* noPostData =
-		"HTTP/1.1 400 Bad Request\r\n"
-		"Content-Type: text/plain; charset=utf-8\r\n\r\n"
-		"No POST data found.";
-
-	const char* notRunningResponse =
-		"HTTP/1.1 400 Bad Request\r\n"
-		"Content-Type: text/plain; charset=utf-8\r\n\r\n"
-		"Game not running. Please create a scenario first.";
-
-	switch (event)
-	{
-	case MG_NEW_REQUEST:
-	{
-		std::stringstream stream;
-
-		const std::string uri = request_info->uri;
-
-		if (uri == "/reset")
-		{
-			std::string data = GetRequestContent(conn);
-			if (data.empty())
-			{
-				mg_printf(conn, "%s", noPostData);
-				return handled;
-			}
-			ScenarioConfig scenario;
-			const char *query_string = request_info->query_string;
-			if (query_string != nullptr)
-			{
-				const std::string qs(query_string);
-				scenario.saveReplay = qs.find("saveReplay") != std::string::npos;
-
-				scenario.playerID = 1;
-				char playerID[1];
-				const int len = mg_get_var(query_string, qs.length(), "playerID", playerID, 1);
-				if (len != -1)
-					scenario.playerID = std::stoi(playerID);
-			}
-
-			scenario.content = std::move(data);
-
-			const std::string gameState = interface->Reset(std::move(scenario));
-
-			stream << gameState.c_str();
-		}
-		else if (uri == "/step")
-		{
-			if (!interface->IsGameRunning())
-			{
-				mg_printf(conn, "%s", notRunningResponse);
-				return handled;
-			}
-
-			std::string data = GetRequestContent(conn);
-			std::stringstream postStream(data);
-			std::string line;
-			std::vector<GameCommand> commands;
-
-			while (std::getline(postStream, line, '\n'))
-			{
-				const std::size_t splitPos = line.find(";");
-				if (splitPos == std::string::npos)
-					continue;
-
-				GameCommand cmd;
-				cmd.playerID = std::stoi(line.substr(0, splitPos));
-				cmd.json_cmd = line.substr(splitPos + 1);
-				commands.push_back(std::move(cmd));
-			}
-			const std::string gameState = interface->Step(std::move(commands));
-			if (gameState.empty())
-			{
-				mg_printf(conn, "%s", notRunningResponse);
-				return handled;
-			}
-			else
-				stream << gameState.c_str();
-		}
-		else if (uri == "/evaluate")
-		{
-			if (!interface->IsGameRunning())
-			{
-				mg_printf(conn, "%s", notRunningResponse);
-				return handled;
-			}
-
-			std::string code = GetRequestContent(conn);
-			if (code.empty())
-			{
-				mg_printf(conn, "%s", noPostData);
-				return handled;
-			}
-
-			const std::string codeResult = interface->Evaluate(std::move(code));
-			if (codeResult.empty())
-			{
-				mg_printf(conn, "%s", notRunningResponse);
-				return handled;
-			}
-			else
-				stream << codeResult.c_str();
-		}
-		else if (uri == "/templates")
-		{
-			if (!interface->IsGameRunning()) {
-				mg_printf(conn, "%s", notRunningResponse);
-				return handled;
-			}
-			const std::string data = GetRequestContent(conn);
-			if (data.empty())
-			{
-				mg_printf(conn, "%s", noPostData);
-				return handled;
-			}
-			std::stringstream postStream(data);
-			std::string line;
-			std::vector<std::string> templateNames;
-			while (std::getline(postStream, line, '\n'))
-				templateNames.push_back(line);
-
-			for (std::string templateStr : interface->GetTemplates(templateNames))
-				stream << templateStr.c_str() << "\n";
-
-		}
-		else
-		{
-			mg_printf(conn, "%s", header404);
-			return handled;
-		}
-
-		mg_printf(conn, "%s", header200);
-		const std::string str = stream.str();
-		mg_write(conn, str.c_str(), str.length());
-		return handled;
-	}
-
-	case MG_HTTP_ERROR:
-		return nullptr;
-
-	case MG_EVENT_LOG:
-		// Called by Mongoose's cry()
-		LOGERROR("Mongoose error: %s", request_info->log_message);
-		return nullptr;
-
-	case MG_INIT_SSL:
-		return nullptr;
-
-	default:
-		debug_warn(L"Invalid Mongoose event type");
-		return nullptr;
-	}
-}
-
-std::string Interface::GetRequestContent(struct mg_connection *conn)
-{
-	const static std::string NO_CONTENT;
-	const char* val = mg_get_header(conn, "Content-Length");
-	if (!val)
-	{
-		return NO_CONTENT;
-	}
-	const int contentSize = std::atoi(val);
-
-	std::string content(contentSize, ' ');
-	mg_read(conn, content.data(), contentSize);
-	return content;
-}
-
 bool Interface::TryGetGameMessage(GameMessage& msg)
 {
 	if (m_GameMessage.type != GameMessageType::None)
@@ -342,8 +287,8 @@ void Interface::ApplyMessage(const GameMessage& msg)
 				EndGame();
 
 			g_Game = new CGame(m_ScenarioConfig.saveReplay);
-			ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
-			ScriptRequest rq(scriptInterface);
+			Script::Interface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+			Script::Request rq(scriptInterface);
 			JS::RootedValue attrs(rq.cx);
 			Script::ParseJSON(rq, m_ScenarioConfig.content, &attrs);
 
@@ -352,7 +297,7 @@ void Interface::ApplyMessage(const GameMessage& msg)
 
 			if (nonVisual)
 			{
-				LDR_NonprogressiveLoad();
+				PS::Loader::NonprogressiveLoad();
 				ENSURE(g_Game->ReallyStartGame() == PSRETURN_OK);
 				m_ReturnValue = GetGameState();
 				m_MsgApplied.notify_one();
@@ -383,12 +328,12 @@ void Interface::ApplyMessage(const GameMessage& msg)
 				m_MsgLock.unlock();
 				return;
 			}
-			const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+			const Script::Interface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
 			CLocalTurnManager* turnMgr = static_cast<CLocalTurnManager*>(g_Game->GetTurnManager());
 
 			for (const GameCommand& command : msg.commands)
 			{
-				ScriptRequest rq(scriptInterface);
+				Script::Request rq(scriptInterface);
 				JS::RootedValue commandJSON(rq.cx);
 				Script::ParseJSON(rq, command.json_cmd, &commandJSON);
 				turnMgr->PostCommand(command.playerID, commandJSON);
@@ -399,7 +344,8 @@ void Interface::ApplyMessage(const GameMessage& msg)
 			{
 				const double deltaSimTime = deltaRealTime * g_Game->GetSimRate();
 				const size_t maxTurns = static_cast<size_t>(g_Game->GetSimRate());
-				g_Game->GetTurnManager()->Update(deltaSimTime, maxTurns);
+				g_Game->GetTurnManager()->Update(deltaSimTime, maxTurns,
+					std::bind_front(&CGUIManager::SendEventToAll, g_GUI));
 			}
 			else
 				g_Game->Update(deltaRealTime);
@@ -418,8 +364,8 @@ void Interface::ApplyMessage(const GameMessage& msg)
 				m_MsgLock.unlock();
 				return;
 			}
-			const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
-			ScriptRequest rq(scriptInterface);
+			const Script::Interface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+			Script::Request rq(scriptInterface);
 			JS::RootedValue ret(rq.cx);
 			scriptInterface.Eval(m_Code.c_str(), &ret);
 			m_ReturnValue = Script::StringifyJSON(rq, &ret, false);
@@ -434,10 +380,10 @@ void Interface::ApplyMessage(const GameMessage& msg)
 
 std::string Interface::GetGameState() const
 {
-	const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+	const Script::Interface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
 	const CSimContext simContext = g_Game->GetSimulation2()->GetSimContext();
 	CmpPtr<ICmpAIInterface> cmpAIInterface(simContext.GetSystemEntity());
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 	JS::RootedValue state(rq.cx);
 	cmpAIInterface->GetFullRepresentation(&state, true);
 	return Script::StringifyJSON(rq, &state, false);

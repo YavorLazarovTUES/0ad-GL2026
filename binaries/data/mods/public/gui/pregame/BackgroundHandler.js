@@ -1,4 +1,62 @@
-class BackgroundHandler
+class BackgroundLayer
+{
+	constructor(layer, i)
+	{
+		this.layer = layer;
+
+		this.background = Engine.GetGUIObjectByName("background[" + i + "]");
+		this.background.sprite = this.layer.sprite;
+		this.background.z = i;
+		this.background.hidden = false;
+	}
+
+	update(time, backgroundsSize)
+	{
+		const height = backgroundsSize.bottom - backgroundsSize.top;
+		const width = height * this.AspectRatio;
+		const offset = this.layer.offset(time / 1000, width);
+
+		if (this.layer.tiling)
+		{
+			const iw = height * 2;
+			let left = offset % iw;
+			if (left >= 0)
+				left -= iw;
+			this.background.size = {
+				"left": left,
+				"top": backgroundsSize.top,
+				"right": backgroundsSize.right,
+				"bottom": backgroundsSize.bottom
+			};
+		}
+		else if (this.layer.halign)
+		{
+			const left = ({
+				"left": 0.0,
+				"center": (backgroundsSize.right - width) / 2,
+				"right": backgroundsSize.right - width,
+			}[this.layer.halign] || 0.0) + offset;
+			this.background.size = {
+				"left": left,
+				"top": backgroundsSize.top,
+				"right": left + width,
+				"bottom": backgroundsSize.bottom
+			};
+		}
+		else
+		{
+			const right = backgroundsSize.right / 2 + offset;
+			this.background.size = {
+				"left": right - height,
+				"top": backgroundsSize.top,
+				"right": right + height,
+				"bottom": backgroundsSize.bottom
+			};
+		}
+	}
+}
+
+export class BackgroundHandler
 {
 	constructor(layers)
 	{
@@ -15,57 +73,15 @@ class BackgroundHandler
 
 	onWindowResized()
 	{
-		let size = this.backgrounds.getComputedSize();
-		this.backgroundsSize = deepfreeze(new GUISize(size.top, size.left, size.right, size.bottom));
+		const size = this.backgrounds.getComputedSize();
+		this.backgroundsSize = { "left": size.top, "top": size.left, "right": size.right, "bottom": size.bottom };
 	}
 
 	onTick()
 	{
-		let time = Date.now() - this.initTime;
-		for (let background of this.backgroundLayers)
+		const time = Date.now() - this.initTime;
+		for (const background of this.backgroundLayers)
 			background.update(time, this.backgroundsSize);
-	}
-}
-
-class BackgroundLayer
-{
-	constructor(layer, i)
-	{
-		this.layer = layer;
-
-		this.background = Engine.GetGUIObjectByName("background[" + i + "]");
-		this.background.sprite = this.layer.sprite;
-		this.background.z = i;
-		this.background.hidden = false;
-	}
-
-	update(time, backgroundsSize)
-	{
-		let height = backgroundsSize.bottom - backgroundsSize.top;
-		let width = height * this.AspectRatio;
-		let offset = this.layer.offset(time / 1000, width);
-
-		if (this.layer.tiling)
-		{
-			let iw = height * 2;
-			let left = offset % iw;
-			if (left >= 0)
-				left -= iw;
-			this.background.size = new GUISize(
-				left,
-				backgroundsSize.top,
-				backgroundsSize.right,
-				backgroundsSize.bottom);
-		}
-		else
-		{
-			let right = backgroundsSize.right / 2 + offset;
-			this.background.size = new GUISize(
-				right - height,
-				backgroundsSize.top,
-				right + height,
-				backgroundsSize.bottom);
-		}
 	}
 }
 

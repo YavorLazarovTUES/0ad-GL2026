@@ -1,54 +1,36 @@
-class AutoStartClient
+async function autoStartClient(cmdLineArgs)
 {
-	constructor(initData)
+	try
 	{
-		this.playerAssignments = {};
-
-		try
-		{
-			Engine.StartNetworkJoin(initData.playerName, initData.ip, initData.port, initData.storeReplay);
-		}
-		catch (e)
-		{
-			const message = sprintf(translate("Cannot join game: %(message)s."), { "message": e.message });
-			messageBox(400, 200, message, translate("Error"));
-		}
+		const playerName = cmdLineArgs['autostart-playername'] || "anonymous";
+		const ip = cmdLineArgs['autostart-client'] ?? "127.0.0.1";
+		const port = +(cmdLineArgs['autostart-port'] ?? 5073);
+		Engine.StartNetworkJoin(playerName, ip, port, !('autostart-disable-replay' in cmdLineArgs));
+	}
+	catch(e)
+	{
+		const message = sprintf(translate("Cannot join game: %(message)s."), { "message": e.message });
+		messageBox(400, 200, message, translate("Error"));
 	}
 
-	onTick()
+	let playerAssignments = {};
+	while (true)
 	{
-		while (true)
+		const message = await Engine.PollNetworkClient();
+
+		switch (message.type)
 		{
-			const message = Engine.PollNetworkClient();
-			if (!message)
-				break;
-
-			switch (message.type)
-			{
-			case "players":
-				this.playerAssignments = message.newAssignments;
-				Engine.SendNetworkReady(2);
-				break;
-			case "start":
-				this.onLaunch(message);
-				// Process further pending netmessages in the session page.
-				return true;
-			default:
-			}
+		case "players":
+			playerAssignments = message.newAssignments;
+			Engine.SendNetworkReady(2);
+			break;
+		case "start":
+			return ["page_loading.xml", {
+				"attribs": message.initAttributes,
+				"isRejoining": true,
+				"playerAssignments": playerAssignments
+			}];
+		default:
 		}
-		return false;
-	}
-
-	/**
-	 * In the visual autostart path, we need to show the loading screen.
-	 * Overload this as appropriate, the default implementation works for the public mod.
-	 */
-	onLaunch(message)
-	{
-		Engine.SwitchGuiPage("page_loading.xml", {
-			"attribs": message.initAttributes,
-			"isRejoining": true,
-			"playerAssignments": this.playerAssignments
-		});
 	}
 }

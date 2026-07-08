@@ -38,20 +38,17 @@ GameListFilters.Rating = class
 
 		// TODO: COList should expose the precise column width
 		// Hide element to compensate width
-		let mapTypeFilter = Engine.GetGUIObjectByName("mapTypeFilter");
+		const mapTypeFilter = Engine.GetGUIObjectByName("mapTypeFilter");
 		mapTypeFilter.hidden = enabled;
-		let playersNumberFilter = Engine.GetGUIObjectByName("playersNumberFilter");
-		let mapTypeFilterSize = mapTypeFilter.size;
-		let size = playersNumberFilter.size;
-		size.rleft = mapTypeFilterSize.rleft;
-		size.rright = this.gameRatingFilter.size.rleft;
-		playersNumberFilter.size = size;
+		const playersNumberFilter = Engine.GetGUIObjectByName("playersNumberFilter");
+		playersNumberFilter.size.rleft = mapTypeFilter.size.rleft;
+		playersNumberFilter.size.rright = this.gameRatingFilter.size.rleft;
 	}
 
 	onSelectionChange()
 	{
-		let selectedType = this.gameRatingFilter.list_data[this.gameRatingFilter.selected];
-		let selectedRating = +selectedType.substr(1);
+		const selectedType = this.gameRatingFilter.list_data[this.gameRatingFilter.selected];
+		const selectedRating = +selectedType.substr(1);
 
 		this.filter =
 			(!this.enabled || !selectedType) ?

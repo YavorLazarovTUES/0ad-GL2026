@@ -47,19 +47,22 @@ function updateTimers()
 	// (We do this in two stages to avoid deleting from the timer list while
 	// we're in the middle of iterating through it)
 	var run = [];
-	for (let id in g_Timers)
+	for (const id in g_Timers)
 		if (g_Timers[id][0] <= g_Time)
 			run.push(id);
 
-	for (let id of run)
+	for (const id of run)
 	{
-		let t = g_Timers[id];
+		const t = g_Timers[id];
 		if (!t)
 			continue; // an earlier timer might have cancelled this one, so skip it
 
-		try {
+		try
+		{
 			t[1]();
-		} catch (e) {
+		}
+		catch(e)
+		{
 			var stack = e.stack.trimRight().replace(/^/mg, '  '); // indent the stack trace
 			error(sprintf("Error in timer: %(error)s", { "error": e }) + "\n" + stack + "\n");
 		}

@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,10 +20,20 @@
 #include "Promises.h"
 
 #include "lib/debug.h"
+#include "ps/CLogger.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
+
+#include <js/CallAndConstruct.h>
+#include <js/GlobalObject.h>
+#include <js/Promise.h>
+#include <js/Value.h>
+#include <js/ValueArray.h>
+#include <string>
+#include <utility>
+
+struct JSContext;
 
 namespace Script
 {
@@ -34,11 +44,11 @@ void UnhandledRejectedPromise(JSContext* cx, bool, JS::HandleObject promise,
 	if (state == JS::PromiseRejectionHandlingState::Handled)
 		return;
 
-	const ScriptRequest rq{cx};
+	const Script::Request rq{cx};
 	JS::RootedValue reason(cx, JS::GetPromiseResult(promise));
 
 	std::string asString;
-	ScriptFunction::Call(rq, reason, "toString", asString);
+	Script::Function::Call(rq, reason, "toString", asString);
 	std::string stack;
 	Script::GetProperty(rq, reason, "stack", stack);
 	LOGERROR("An unhandled promise got rejected:\n%s\n%s", asString, stack);
@@ -49,7 +59,7 @@ void JobQueue::runJobs(JSContext*)
 	while (!m_Jobs.empty())
 	{
 		QueueElement& element = m_Jobs.front();
-		ScriptRequest rq{element.scriptInterface};
+		Script::Request rq{element.scriptInterface};
 		JS::RootedObject localJob{rq.cx, element.job};
 		m_Jobs.pop();
 
@@ -69,7 +79,7 @@ bool JobQueue::enqueuePromiseJob(JSContext* cx, JS::HandleObject, JS::HandleObje
 {
 	try
 	{
-		m_Jobs.push({ScriptRequest{cx}.GetScriptInterface(), JS::PersistentRootedObject{cx, job}});
+		m_Jobs.push({Script::Request{cx}.GetScriptInterface(), JS::PersistentRootedObject{cx, job}});
 		return true;
 	}
 	catch (...)
@@ -85,7 +95,7 @@ bool JobQueue::empty() const
 
 js::UniquePtr<JS::JobQueue::SavedJobQueue> JobQueue::saveJobQueue(JSContext*)
 {
-	class SavedJobQueue : public JS::JobQueue::SavedJobQueue
+	class SavedJobQueue final : public JS::JobQueue::SavedJobQueue
 	{
 	public:
 		SavedJobQueue(QueueType& queue) :

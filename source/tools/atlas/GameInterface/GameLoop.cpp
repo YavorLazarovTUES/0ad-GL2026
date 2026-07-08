@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,31 +19,22 @@
 
 #include "GameLoop.h"
 
-#include "MessagePasserImpl.h"
-#include "Messages.h"
-#include "SharedMemory.h"
-#include "Handlers/MessageHandler.h"
-#include "ActorViewer.h"
-#include "View.h"
-
-#include "InputProcessor.h"
-
 #include "graphics/TextureManager.h"
-#include "lib/app_hooks.h"
-#include "lib/external_libraries/libsdl.h"
+#include "lib/debug.h"
 #include "lib/timer.h"
-#include "ps/CLogger.h"
 #include "ps/DllLoader.h"
-#include "ps/Filesystem.h"
-#include "ps/Profile.h"
-#include "ps/ThreadUtil.h"
 #include "ps/GameSetup/Paths.h"
+#include "ps/ThreadUtil.h"
 #include "renderer/Renderer.h"
+#include "tools/atlas/GameInterface/MessagePasser.h"
+#include "tools/atlas/GameInterface/MessagePasserImpl.h"
+#include "tools/atlas/GameInterface/SharedMemory.h"
+#include "tools/atlas/GameInterface/View.h"
+
+#include <cstddef>
+#include <string>
 
 using namespace AtlasMessage;
-
-#include <thread>
-
 
 namespace AtlasMessage
 {
@@ -105,7 +96,7 @@ bool BeginAtlas(const CmdLineArgs& args, const DllLoader& dll)
 	}
 	catch (PSERROR_DllLoader&)
 	{
-		debug_warn(L"Failed to initialise DLL");
+		debug_warn(L"Failed to initialize DLL");
 		return false;
 	}
 
@@ -132,7 +123,7 @@ bool BeginAtlas(const CmdLineArgs& args, const DllLoader& dll)
 	state.glCanvas = NULL;
 
 	// Start Atlas UI on main thread
-	// (required for wxOSX/Cocoa compatibility - see http://trac.wildfiregames.com/ticket/500)
+	// (required for wxOSX/Cocoa compatibility - see https://gitea.wildfiregames.com/0ad/0ad/issues/500)
 	Atlas_StartWindow(L"ScenarioEditor");
 
 	// TODO: delete all remaining messages, to avoid memory leak warnings

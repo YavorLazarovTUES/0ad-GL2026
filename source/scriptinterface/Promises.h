@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,24 +18,21 @@
 #ifndef INCLUDED_SCRIPTINTERFACE_JOBQUEUE
 #define INCLUDED_SCRIPTINTERFACE_JOBQUEUE
 
-#if MSC_VERSION
-# pragma warning(push, 1)
-#endif
-#include "js/Promise.h"
-#if MSC_VERSION
-# pragma warning(pop)
-#endif
-
+#include <js/Promise.h>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/UniquePtr.h>
 #include <queue>
 
-class ScriptInterface;
+namespace Script { class Interface; }
+struct JSContext;
 
 namespace Script
 {
 void UnhandledRejectedPromise(JSContext* cx, bool, JS::HandleObject promise,
 	JS::PromiseRejectionHandlingState state, void*);
 
-class JobQueue : public JS::JobQueue
+class JobQueue final : public JS::JobQueue
 {
 public:
 	~JobQueue() final = default;
@@ -49,12 +46,13 @@ private:
 		JS::HandleObject) final;
 
 	bool empty() const final;
+	bool isDrainingStopped() const final { return false; }
 
 	js::UniquePtr<JS::JobQueue::SavedJobQueue> saveJobQueue(JSContext*) final;
 
 	struct QueueElement
 	{
-		const ScriptInterface& scriptInterface;
+		const Script::Interface& scriptInterface;
 		JS::PersistentRootedObject job;
 	};
 	using QueueType = std::queue<QueueElement>;

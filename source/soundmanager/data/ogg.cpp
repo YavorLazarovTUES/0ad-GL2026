@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,15 +21,21 @@
 #if CONFIG2_AUDIO
 
 #include "lib/byte_order.h"
-#include "lib/external_libraries/openal.h"
-#include "lib/external_libraries/vorbis.h"
-#include "lib/file/file_system.h"
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
 #include "lib/file/io/io.h"
-#include "lib/file/vfs/vfs_util.h"
 #include "maths/MathUtil.h"
 #include "ps/CLogger.h"
-#include "ps/Filesystem.h"
 
+#include <AL/al.h>
+#include <algorithm>
+#include <fcntl.h>
+#include <fmt/format.h>
+#include <iterator>
+#include <ogg/config_types.h>
+#include <stdexcept>
+#include <vorbis/codec.h>
+#include <vorbis/vorbisfile.h>
 
 static Status LibErrorFromVorbis(int err)
 {
@@ -66,145 +72,75 @@ static Status LibErrorFromVorbis(int err)
 	}
 }
 
-
-//-----------------------------------------------------------------------------
-
-class VorbisFileAdapter
-{
-public:
-	VorbisFileAdapter(const PFile& openedFile)
-		: file(openedFile)
-		, size(FileSize(openedFile->Pathname()))
-		, offset(0)
-	{
-	}
-
-	static size_t Read(void* bufferToFill, size_t itemSize, size_t numItems, void* context)
-	{
-		VorbisFileAdapter* adapter = static_cast<VorbisFileAdapter*>(context);
-		const off_t sizeRequested = numItems*itemSize;
-		const off_t sizeRemaining = adapter->size - adapter->offset;
-		const size_t sizeToRead = (size_t)std::min(sizeRequested, sizeRemaining);
-
-		io::Operation op(*adapter->file.get(), bufferToFill, sizeToRead, adapter->offset);
-		if(io::Run(op) == INFO::OK)
-		{
-			adapter->offset += sizeToRead;
-			return sizeToRead;
-		}
-
-		errno = EIO;
-		return 0;
-	}
-
-	static int Seek(void* context, ogg_int64_t offset, int whence)
-	{
-		VorbisFileAdapter* adapter = static_cast<VorbisFileAdapter*>(context);
-
-		off_t origin = 0;
-		switch(whence)
-		{
-		case SEEK_SET:
-			origin = 0;
-			break;
-		case SEEK_CUR:
-			origin = adapter->offset;
-			break;
-		case SEEK_END:
-			origin = adapter->size+1;
-			break;
-			NODEFAULT;
-		}
-
-		adapter->offset = Clamp(off_t(origin+offset), off_t(0), adapter->size);
-		return 0;
-	}
-
-	static int Close(void* context)
-	{
-		VorbisFileAdapter* adapter = static_cast<VorbisFileAdapter*>(context);
-		adapter->file.reset();
-		return 0;	// return value is ignored
-	}
-
-	static long Tell(void* context)
-	{
-		VorbisFileAdapter* adapter = static_cast<VorbisFileAdapter*>(context);
-		return adapter->offset;
-	}
-
-private:
-	PFile file;
-	off_t size;
-	off_t offset;
-};
-
 //-----------------------------------------------------------------------------
 
 class VorbisBufferAdapter
 {
 public:
 	VorbisBufferAdapter(const std::shared_ptr<u8>& buffer, size_t size)
-		: buffer(buffer)
-		, size(size)
-		, offset(0)
+		: m_Buffer(buffer)
+		, m_Size(size)
 	{
 	}
 
 	static size_t Read(void* bufferToFill, size_t itemSize, size_t numItems, void* context)
 	{
-		VorbisBufferAdapter* adapter = static_cast<VorbisBufferAdapter*>(context);
+		VorbisBufferAdapter* adapter{static_cast<VorbisBufferAdapter*>(context)};
 
-		const off_t sizeRequested = numItems*itemSize;
-		const off_t sizeRemaining = adapter->size - adapter->offset;
-		const size_t sizeToRead = (size_t)std::min(sizeRequested, sizeRemaining);
+		const ogg_int64_t sizeRequested{static_cast<ogg_int64_t>(numItems * itemSize)};
+		const ogg_int64_t sizeRemaining{adapter->m_Size - adapter->m_Offset};
+		const size_t sizeToRead{static_cast<size_t>(std::min(sizeRequested, sizeRemaining))};
 
-		memcpy(bufferToFill, adapter->buffer.get() + adapter->offset, sizeToRead);
+		std::copy_n(
+			adapter->m_Buffer.get() + adapter->m_Offset,
+			sizeToRead,
+			static_cast<u8*>(bufferToFill)
+		);
 
-		adapter->offset += sizeToRead;
+		adapter->m_Offset += sizeToRead;
 		return sizeToRead;
 	}
 
 	static int Seek(void* context, ogg_int64_t offset, int whence)
 	{
-		VorbisBufferAdapter* adapter = static_cast<VorbisBufferAdapter*>(context);
+		VorbisBufferAdapter* adapter{static_cast<VorbisBufferAdapter*>(context)};
 
-		off_t origin = 0;
+		ogg_int64_t origin{0};
 		switch(whence)
 		{
 		case SEEK_SET:
 			origin = 0;
 			break;
 		case SEEK_CUR:
-			origin = adapter->offset;
+			origin = adapter->m_Offset;
 			break;
 		case SEEK_END:
-			origin = adapter->size+1;
+			origin = adapter->m_Size + 1;
 			break;
 			NODEFAULT;
 		}
 
-		adapter->offset = Clamp(off_t(origin+offset), off_t(0), adapter->size);
+		adapter->m_Offset = Clamp<ogg_int64_t>(origin + offset, 0, adapter->m_Size);
 		return 0;
 	}
 
 	static int Close(void* context)
 	{
-		VorbisBufferAdapter* adapter = static_cast<VorbisBufferAdapter*>(context);
-		adapter->buffer.reset();
+		VorbisBufferAdapter* adapter{static_cast<VorbisBufferAdapter*>(context)};
+		adapter->m_Buffer.reset();
 		return 0;	// return value is ignored
 	}
 
 	static long Tell(void* context)
 	{
-		VorbisBufferAdapter* adapter = static_cast<VorbisBufferAdapter*>(context);
-		return adapter->offset;
+		VorbisBufferAdapter* adapter{static_cast<VorbisBufferAdapter*>(context)};
+		return adapter->m_Offset;
 	}
 
 private:
-	std::shared_ptr<u8> buffer;
-	off_t size;
-	off_t offset;
+	std::shared_ptr<u8> m_Buffer;
+	ogg_int64_t m_Size;
+	ogg_int64_t m_Offset{0};
 };
 
 
@@ -215,106 +151,110 @@ class OggStreamImpl : public OggStream
 {
 public:
 	OggStreamImpl(const Adapter& adapter)
-		: adapter(adapter)
+		: m_Adapter(adapter),
+		m_FileEOF(false),
+		m_Info(nullptr)
 	{
-		m_fileEOF = false;
-		info = NULL;
+		Open();
 	}
 
-	Status Close()
+	~OggStreamImpl()
 	{
-		ov_clear( &vf );
-
-		return 0;
+		ov_clear(&m_VorbisFile);
 	}
 
-	Status Open()
+	virtual ALenum Format()
+	{
+		return (m_Info->channels == 1)? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16;
+	}
+
+	virtual ALsizei SamplingRate()
+	{
+		return m_Info->rate;
+	}
+	virtual bool AtFileEOF()
+	{
+		return m_FileEOF;
+	}
+
+	virtual Status ResetFile()
+	{
+	    ov_time_seek(&m_VorbisFile, 0);
+	    m_FileEOF = false;
+		return INFO::OK;
+	}
+
+	virtual size_t GetNextChunk(std::span<u8> buffer)
+	{
+		// We may have to call ov_read multiple times because it
+		// treats the buffer size "as a limit and not a request".
+		size_t bytesRead{0};
+		while (bytesRead < buffer.size())
+		{
+			constexpr int isBigEndian{(BYTE_ORDER == BIG_ENDIAN)};
+			constexpr int wordSize{sizeof(i16)};
+			constexpr int isSigned{1};
+			// Unused.
+			int bitstream;
+			const int ret{static_cast<int>(ov_read(
+				&m_VorbisFile,
+				reinterpret_cast<char*>(buffer.data() + bytesRead),
+				static_cast<int>(buffer.size() - bytesRead),
+				isBigEndian,
+				wordSize,
+				isSigned,
+				&bitstream
+			))};
+			if(ret == 0) {
+				m_FileEOF = true;
+				return bytesRead;
+			}
+
+			if(ret < 0)
+				WARN_RETURN(LibErrorFromVorbis(ret));
+
+			bytesRead += ret;
+		}
+		return bytesRead;
+	}
+
+private:
+	void Open()
 	{
 		ov_callbacks callbacks;
 		callbacks.read_func = Adapter::Read;
 		callbacks.close_func = Adapter::Close;
 		callbacks.seek_func = Adapter::Seek;
 		callbacks.tell_func = Adapter::Tell;
-		const int ret = ov_open_callbacks(&adapter, &vf, 0, 0, callbacks);
-		if(ret != 0)
-			WARN_RETURN(LibErrorFromVorbis(ret));
-
-		const int link = -1;	// retrieve info for current bitstream
-		info = ov_info(&vf, link);
-		if(!info)
-			WARN_RETURN(ERR::INVALID_HANDLE);
-
-		return INFO::OK;
-	}
-
-	virtual ALenum Format()
-	{
-		return (info->channels == 1)? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16;
-	}
-
-	virtual ALsizei SamplingRate()
-	{
-		return info->rate;
-	}
-	virtual bool atFileEOF()
-	{
-		return m_fileEOF;
-	}
-
-	virtual Status ResetFile()
-	{
-	    ov_time_seek( &vf, 0 );
-	    m_fileEOF = false;
-		return INFO::OK;
-	}
-
-	virtual Status GetNextChunk(u8* buffer, size_t size)
-	{
-		// we may have to call ov_read multiple times because it
-		// treats the buffer size "as a limit and not a request"
-		size_t bytesRead = 0;
-		for(;;)
+		const int ret{ov_open_callbacks(&m_Adapter, &m_VorbisFile, 0, 0, callbacks)};
+		switch (ret)
 		{
-			const int isBigEndian = (BYTE_ORDER == BIG_ENDIAN);
-			const int wordSize = sizeof(i16);
-			const int isSigned = 1;
-			int bitstream;	// unused
-			const int ret = ov_read(&vf, (char*)buffer+bytesRead, int(size-bytesRead), isBigEndian, wordSize, isSigned, &bitstream);
-			if(ret == 0) {	// EOF
-				m_fileEOF = true;
-				return (Status)bytesRead;
-			}
-			else if(ret < 0)
-				WARN_RETURN(LibErrorFromVorbis(ret));
-			else	// success
-			{
-				bytesRead += ret;
-				if(bytesRead == size)
-					return (Status)bytesRead;
-			}
+			case 0:
+				break;
+			case OV_EBADHEADER:
+			case OV_EREAD:
+			case OV_ENOTVORBIS:
+			case OV_EVERSION:
+				throw std::runtime_error(fmt::format("Failed to open Ogg Vorbis file: {}", LibErrorFromVorbis(ret)));
+			default:
+				throw std::runtime_error(fmt::format("Unknown error opening Ogg Vorbis file: {}", LibErrorFromVorbis(ret)));
 		}
+
+		// Retrieve info for current bitstream.
+		const int link{-1};
+		m_Info = ov_info(&m_VorbisFile, link);
+		if(!m_Info)
+			DEBUG_WARN_ERR(ERR::INVALID_HANDLE);
 	}
 
-private:
-	Adapter adapter;
-	OggVorbis_File vf;
-	vorbis_info* info;
-	bool m_fileEOF;
+	Adapter m_Adapter;
+	OggVorbis_File m_VorbisFile;
+	vorbis_info* m_Info;
+	bool m_FileEOF;
 };
 
 
 //-----------------------------------------------------------------------------
-
-Status OpenOggStream(const OsPath& pathname, OggStreamPtr& stream)
-{
-	PFile file(new File);
-    RETURN_STATUS_IF_ERR(file->Open(pathname, L'r'));
-
-	std::shared_ptr<OggStreamImpl<VorbisFileAdapter>> tmp = std::make_shared<OggStreamImpl<VorbisFileAdapter>>(VorbisFileAdapter(file));
-	RETURN_STATUS_IF_ERR(tmp->Open());
-	stream = tmp;
-	return INFO::OK;
-}
 
 Status OpenOggNonstream(const PIVFS& vfs, const VfsPath& pathname, OggStreamPtr& stream)
 {
@@ -322,10 +262,17 @@ Status OpenOggNonstream(const PIVFS& vfs, const VfsPath& pathname, OggStreamPtr&
 	size_t size;
 	RETURN_STATUS_IF_ERR(vfs->LoadFile(pathname, contents, size));
 
-	std::shared_ptr<OggStreamImpl<VorbisBufferAdapter>> tmp = std::make_shared<OggStreamImpl<VorbisBufferAdapter>>(VorbisBufferAdapter(contents, size));
-	RETURN_STATUS_IF_ERR(tmp->Open());
-	stream = tmp;
-	return INFO::OK;
+	try
+	{
+		std::shared_ptr<OggStreamImpl<VorbisBufferAdapter>> tmp{std::make_shared<OggStreamImpl<VorbisBufferAdapter>>(VorbisBufferAdapter(contents, size))};
+		stream = tmp;
+		return INFO::OK;
+	}
+	catch(const std::runtime_error& e)
+	{
+		LOGERROR(e.what());
+		return ERR::IO;
+	}
 }
 
 #endif	// CONFIG2_AUDIO

@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -36,7 +36,9 @@
 # define MINIMAL_PCH 0
 #endif
 
-#include "lib/config.h"	            // CONFIG_ENABLE_BOOST, CONFIG_ENABLE_PCH
+// IWYU pragma: begin_keep
+
+#include "lib/config.h"	            // CONFIG_ENABLE_PCH
 #include "lib/sysdep/compiler.h"    // MSC_VERSION
 
 // must come before any STL headers are included
@@ -54,11 +56,6 @@
 // (as soon as possible so that headers below are covered)
 #include "lib/pch/pch_warnings.h"
 
-#if ICC_VERSION
-#include <mathimf.h>	// (must come before <cmath> or <math.h> (replaces them))
-double __cdecl abs(double x);	// not declared by mathimf
-#endif
-
 
 //
 // headers made available everywhere for convenience
@@ -73,10 +70,6 @@ double __cdecl abs(double x);	// not declared by mathimf
 #include "lib/debug.h"
 #include "lib/lib.h"
 #include "lib/secure_crt.h"
-
-#if CONFIG_ENABLE_BOOST
-# include "lib/pch/pch_boost.h"
-#endif
 
 #include <array>
 #include <memory>
@@ -110,3 +103,6 @@ double __cdecl abs(double x);	// not declared by mathimf
 #include "ps/Profile.h"
 
 #endif // #if CONFIG_ENABLE_PCH
+
+// IWYU pragma: end_keep
+

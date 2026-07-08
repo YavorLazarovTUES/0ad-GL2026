@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,11 +24,10 @@
 #define NETMESSAGES_H
 
 #include "ps/CStr.h"
-#include "scriptinterface/ScriptTypes.h"
 
 #define PS_PROTOCOL_MAGIC                         0x5073013f	// 'P', 's', 0x01, '?'
 #define PS_PROTOCOL_MAGIC_RESPONSE                0x50630121	// 'P', 'c', 0x01, '!'
-#define PS_PROTOCOL_VERSION                       0x01010018	// Arbitrary protocol
+#define PS_PROTOCOL_VERSION                       0x01010019	// Arbitrary protocol
 #define PS_DEFAULT_PORT                           0x5073		// 'P', 's'
 
 // Set when lobby authentication is required. Used in the SrvHandshakeResponseMessage.
@@ -75,18 +74,21 @@ enum NetMessageType
 
 	NMT_LOADED_GAME,
 	NMT_GAME_START,
+	NMT_SAVED_GAME_START,
 	NMT_END_COMMAND_BATCH,
 
 	NMT_SYNC_CHECK,	// OOS-detection hash checking
 	NMT_SYNC_ERROR,	// OOS-detection error
 
-	NMT_SIMULATION_COMMAND
+	NMT_SIMULATION_COMMAND,
+	NMT_FLARE
 };
 
 // Authentication result codes
 enum AuthenticateResultCode
 {
 	ARC_OK,
+	ARC_OK_SAVED_GAME,
 	ARC_OK_REJOINING,
 	ARC_PASSWORD_INVALID,
 };
@@ -104,13 +106,21 @@ START_NMTS()
 START_NMT_CLASS_(SrvHandshake, NMT_SERVER_HANDSHAKE)
 	NMT_FIELD_INT(m_Magic, u32, 4)
 	NMT_FIELD_INT(m_ProtocolVersion, u32, 4)
-	NMT_FIELD_INT(m_SoftwareVersion, u32, 4)
+	NMT_FIELD(CStr, m_EngineVersion)
+	NMT_START_ARRAY(m_EnabledMods)
+		NMT_FIELD(CStr, m_Name)
+		NMT_FIELD(CStr, m_Version)
+	NMT_END_ARRAY()
 END_NMT_CLASS()
 
 START_NMT_CLASS_(CliHandshake, NMT_CLIENT_HANDSHAKE)
 	NMT_FIELD_INT(m_MagicResponse, u32, 4)
 	NMT_FIELD_INT(m_ProtocolVersion, u32, 4)
-	NMT_FIELD_INT(m_SoftwareVersion, u32, 4)
+	NMT_FIELD(CStr, m_EngineVersion)
+	NMT_START_ARRAY(m_EnabledMods)
+		NMT_FIELD(CStr, m_Name)
+		NMT_FIELD(CStr, m_Version)
+	NMT_END_ARRAY()
 END_NMT_CLASS()
 
 START_NMT_CLASS_(SrvHandshakeResponse, NMT_SERVER_HANDSHAKE_RESPONSE)
@@ -133,8 +143,11 @@ START_NMT_CLASS_(AuthenticateResult, NMT_AUTHENTICATE_RESULT)
 END_NMT_CLASS()
 
 START_NMT_CLASS_(Chat, NMT_CHAT)
-	NMT_FIELD(CStr, m_GUID) // ignored when client->server, valid when server->client
+	NMT_FIELD(CStr, m_SenderGUID) // ignored when client->server
 	NMT_FIELD(CStrW, m_Message)
+	NMT_START_ARRAY(m_Receivers) // send to all when empty
+		NMT_FIELD(CStr, m_ReceiverGUID) // ignored when server->client
+	NMT_END_ARRAY()
 END_NMT_CLASS()
 
 START_NMT_CLASS_(Ready, NMT_READY)
@@ -155,6 +168,7 @@ START_NMT_CLASS_(PlayerAssignment, NMT_PLAYER_ASSIGNMENT)
 END_NMT_CLASS()
 
 START_NMT_CLASS_(FileTransferRequest, NMT_FILE_TRANSFER_REQUEST)
+	NMT_FIELD_INT(m_RequestType, i8, 1)
 	NMT_FIELD_INT(m_RequestID, u32, 4)
 END_NMT_CLASS()
 
@@ -175,6 +189,13 @@ END_NMT_CLASS()
 
 START_NMT_CLASS_(JoinSyncStart, NMT_JOIN_SYNC_START)
 	NMT_FIELD(CStr, m_InitAttributes)
+END_NMT_CLASS()
+
+START_NMT_CLASS_(Flare, NMT_FLARE)
+	NMT_FIELD(CStr, m_GUID) // ignored when client->server, valid when server->client
+	NMT_FIELD(CStr, m_PositionX)
+	NMT_FIELD(CStr, m_PositionY)
+	NMT_FIELD(CStr, m_PositionZ)
 END_NMT_CLASS()
 
 START_NMT_CLASS_(Rejoined, NMT_REJOINED)
@@ -214,6 +235,10 @@ START_NMT_CLASS_(LoadedGame, NMT_LOADED_GAME)
 END_NMT_CLASS()
 
 START_NMT_CLASS_(GameStart, NMT_GAME_START)
+	NMT_FIELD(CStr, m_InitAttributes)
+END_NMT_CLASS()
+
+START_NMT_CLASS_(GameSavedStart, NMT_SAVED_GAME_START)
 	NMT_FIELD(CStr, m_InitAttributes)
 END_NMT_CLASS()
 

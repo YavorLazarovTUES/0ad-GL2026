@@ -4,12 +4,15 @@
  */
 class NetworkStatusOverlay
 {
-	constructor()
+	constructor(closePageCallback)
 	{
 		this.netStatus = Engine.GetGUIObjectByName("netStatus");
 		this.loadingClientsText = Engine.GetGUIObjectByName("loadingClientsText");
 
-		Engine.GetGUIObjectByName("disconnectedExitButton").onPress = () => { endGame(true); };
+		Engine.GetGUIObjectByName("disconnectedExitButton").onPress = () =>
+		{
+			closePageCallback({ [Engine.openRequest]: endGame(true) });
+		};
 
 		registerNetworkStatusChangeHandler(this.onNetStatusMessage.bind(this));
 		registerClientsLoadingHandler(this.onClientsLoadingMessage.bind(this));
@@ -38,7 +41,7 @@ NetworkStatusOverlay.prototype.StatusCaption = {
 	"authenticated": msg => translate("Connection to the server has been authenticated."),
 	"connected": msg => translate("Connected to the server."),
 	"disconnected": msg => translate("Connection to the server has been lost.") + "\n" +
-		getDisconnectReason(msg.reason, true),
+		getDisconnectReason(msg.reason),
 	"waiting_for_players": msg => translate("Waiting for players to connect:"),
 	"join_syncing": msg => translate("Synchronizing gameplay with other players…"),
 	"active": msg => ""

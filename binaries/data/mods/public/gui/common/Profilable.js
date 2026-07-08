@@ -14,16 +14,17 @@ var ProfilableMixin = (Parent) => class Profilable extends (() => Parent || Obje
 	{
 		super();
 		return new Proxy(this, {
-			"get": (target, prop, receiver) => {
+			"get": (target, prop, receiver) =>
+			{
 				let ret = Reflect.get(target, prop);
 				if (typeof ret !== 'function')
 					return ret;
 				{
 					ret = ret.bind(receiver);
-					return (...a) => {
-						let ret2;
+					return (...a) =>
+					{
 						Engine.ProfileStart(target.constructor.name + ":" + prop);
-						ret2 = ret(...a);
+						const ret2 = ret(...a);
 						Engine.ProfileStop();
 						return ret2;
 					};

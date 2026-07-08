@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,10 +20,16 @@
 
 #include "graphics/Color.h"
 #include "graphics/RenderableObject.h"
+#include "lib/code_annotation.h"
+#include "lib/posix/posix_types.h"
+#include "maths/BoundingBoxAligned.h"
 #include "maths/BoundingBoxOriented.h"
 #include "simulation2/helpers/Player.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <memory>
+#include <string>
 
 class CModelDummy;
 class CModel;
@@ -151,7 +157,7 @@ public:
 	 * Called when the entity tries to set some variable to affect the display of this model
 	 * and/or its child objects.
 	 */
-	virtual void SetEntityVariable(const std::string& UNUSED(name), float UNUSED(value)) { }
+	virtual void SetEntityVariable(const std::string& /*name*/, float /*value*/) { }
 
 	/**
 	 * Ensure that both the transformation and the bone matrices are correct for this model and all its props.

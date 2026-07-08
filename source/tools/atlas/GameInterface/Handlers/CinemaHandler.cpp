@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,23 +18,41 @@
 #include "precompiled.h"
 
 #include "MessageHandler.h"
-#include "../CommandProc.h"
-#include "../GameLoop.h"
-#include "../View.h"
+
 #include "graphics/Camera.h"
 #include "graphics/CinemaManager.h"
 #include "graphics/GameView.h"
-#include "ps/Game.h"
-#include "ps/CStr.h"
-#include "ps/CLogger.h"
-#include "ps/Filesystem.h"
+#include "lib/debug.h"
+#include "maths/Fixed.h"
+#include "maths/FixedVector3D.h"
 #include "maths/MathUtil.h"
+#include "maths/Matrix3D.h"
+#include "maths/NUSpline.h"
 #include "maths/Quaternion.h"
 #include "maths/Vector2D.h"
 #include "maths/Vector3D.h"
-#include "simulation2/Simulation2.h"
+#include "ps/CStr.h"
+#include "ps/Game.h"
 #include "simulation2/components/ICmpCinemaManager.h"
+#include "simulation2/helpers/CinemaPath.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+#include "tools/atlas/GameInterface/CommandProc.h"
+#include "tools/atlas/GameInterface/GameLoop.h"
+#include "tools/atlas/GameInterface/Messages.h"
+#include "tools/atlas/GameInterface/Shareable.h"
+#include "tools/atlas/GameInterface/SharedTypes.h"
+#include "tools/atlas/GameInterface/View.h"
 
+#include <cstddef>
+#include <map>
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace AtlasMessage { struct cAddPathNode; }
+namespace AtlasMessage { struct cDeletePathNode; }
+namespace AtlasMessage { struct cMovePathNode; }
 
 namespace AtlasMessage
 {
@@ -144,7 +162,7 @@ void SetCurrentPaths(const std::vector<sCinemaPath>& atlasPaths)
 QUERYHANDLER(GetCameraInfo)
 {
 	sCameraInfo info;
-	const CMatrix3D& cameraOrientation = g_Game->GetView()->GetCamera()->GetOrientation();
+	const CMatrix3D& cameraOrientation = g_Game->GetView()->GetCamera().GetOrientation();
 
 	CQuaternion quatRot = cameraOrientation.GetRotation();
 	quatRot.Normalize();
@@ -171,7 +189,7 @@ MESSAGEHANDLER(CinemaEvent)
 
 	if (msg->mode == eCinemaEventMode::SMOOTH)
 	{
-		cmpCinemaManager->AddCinemaPathToQueue(*msg->path);
+		cmpCinemaManager->PushPathToQueue(*msg->path);
 	}
 	else if ( msg->mode == eCinemaEventMode::RESET )
 	{
@@ -196,14 +214,14 @@ BEGIN_COMMAND(AddCinemaPath)
 		pathData.m_Mode = L"ease_inout";
 		pathData.m_Style = L"default";
 
-		CVector3D focus = g_Game->GetView()->GetCamera()->GetFocus();
+		CVector3D focus = g_Game->GetView()->GetCamera().GetFocus();
 		CFixedVector3D target(
 			fixed::FromFloat(focus.X),
 			fixed::FromFloat(focus.Y),
 			fixed::FromFloat(focus.Z)
 		);
 
-		CVector3D camera = g_Game->GetView()->GetCamera()->GetOrientation().GetTranslation();
+		CVector3D camera = g_Game->GetView()->GetCamera().GetOrientation().GetTranslation();
 		CFixedVector3D position(
 			fixed::FromFloat(camera.X),
 			fixed::FromFloat(camera.Y),
@@ -292,9 +310,8 @@ static CVector3D GetNearestPointToScreenCoords(const CVector3D& base, const CVec
 		float delta = (upper - lower) / 3.0;
 		float middle1 = lower + delta, middle2 = lower + 2.0f * delta;
 		CVector3D p1 = base + dir * middle1, p2 = base + dir * middle2;
-		CVector2D s1, s2;
-		g_Game->GetView()->GetCamera()->GetScreenCoordinates(p1, s1.X, s1.Y);
-		g_Game->GetView()->GetCamera()->GetScreenCoordinates(p2, s2.X, s2.Y);
+		const CVector2D s1{g_Game->GetView()->GetCamera().GetScreenCoordinates(p1)};
+		const CVector2D s2{g_Game->GetView()->GetCamera().GetScreenCoordinates(p2)};
 		if ((s1 - screen).Length() < (s2 - screen).Length())
 			upper = middle2;
 		else
@@ -334,14 +351,14 @@ BEGIN_COMMAND(AddPathNode)
 		TNSpline targetSpline = path.GetTargetSpline();
 		TNSpline& spline = msg->node->targetNode ? targetSpline : positionSpline;
 
-		CVector3D focus = g_Game->GetView()->GetCamera()->GetFocus();
+		CVector3D focus = g_Game->GetView()->GetCamera().GetFocus();
 		CFixedVector3D target(
 			fixed::FromFloat(focus.X),
 			fixed::FromFloat(focus.Y),
 			fixed::FromFloat(focus.Z)
 		);
 		spline.InsertNode(index + 1, target, CFixedVector3D(), fixed::FromInt(1));
-		
+
 		spline.BuildSpline();
 		cmpCinemaManager->DeletePath(name);
 		cmpCinemaManager->AddPath(CCinemaPath(data, positionSpline, targetSpline));
@@ -462,9 +479,8 @@ static bool isPathNodePicked(const TNSpline& spline, const CVector2D& cursor, At
 			data.Position.Y.ToFloat(),
 			data.Position.Z.ToFloat()
 		);
-		CVector2D screen_pos;
-		g_Game->GetView()->GetCamera()->GetScreenCoordinates(position, screen_pos.X, screen_pos.Y);
-		if ((screen_pos - cursor).Length() < MINIMAL_SCREEN_DISTANCE)
+		const CVector2D screenPos{g_Game->GetView()->GetCamera().GetScreenCoordinates(position)};
+		if ((screenPos - cursor).Length() < MINIMAL_SCREEN_DISTANCE)
 		{
 			node.index = i;
 			node.targetNode = targetNode;
@@ -508,9 +524,8 @@ QUERYHANDLER(PickPathNode)
 static bool isAxisPicked(const CVector3D& base, const CVector3D& direction, float length, const CVector2D& cursor)
 {
 	CVector3D position = GetNearestPointToScreenCoords(base, direction, cursor, 0, length);
-	CVector2D screen_position;
-	g_Game->GetView()->GetCamera()->GetScreenCoordinates(position, screen_position.X, screen_position.Y);
-	return (cursor - screen_position).Length() < MINIMAL_SCREEN_DISTANCE;
+	const CVector2D screenPos{g_Game->GetView()->GetCamera().GetScreenCoordinates(position)};
+	return (cursor - screenPos).Length() < MINIMAL_SCREEN_DISTANCE;
 }
 
 QUERYHANDLER(PickAxis)
@@ -522,7 +537,7 @@ QUERYHANDLER(PickAxis)
 	const TNSpline& spline = msg->node->targetNode ? path.GetTargetSpline() : path;
 	CFixedVector3D pos = spline.GetAllNodes()[index].Position;
 	CVector3D position(pos.X.ToFloat(), pos.Y.ToFloat(), pos.Z.ToFloat());
-	CVector3D camera = g_Game->GetView()->GetCamera()->GetOrientation().GetTranslation();
+	CVector3D camera = g_Game->GetView()->GetCamera().GetOrientation().GetTranslation();
 	float scale = (position - camera).Length() / 10.0;
 
 	CVector2D cursor;
@@ -537,7 +552,6 @@ QUERYHANDLER(PickAxis)
 
 MESSAGEHANDLER(ClearPathNodePreview)
 {
-	UNUSED2(msg);
 	g_AtlasGameLoop->view->SetParam(L"movetool", false);
 }
 

@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,11 +18,16 @@
 #ifndef INCLUDED_PS_FILESYSTEM
 #define INCLUDED_PS_FILESYSTEM
 
-#include "lib/file/file.h"
-#include "lib/file/io/write_buffer.h"
-#include "lib/file/vfs/vfs_util.h"
-#include "ps/CStrForward.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/file/vfs/vfs_path.h"
+#include "lib/status.h"
+#include "lib/types.h"
 #include "ps/Errors.h"
+
+#include <cstddef>
+#include <memory>
+
+class CStr8;
 
 extern PIVFS g_VFS;
 
@@ -53,11 +58,6 @@ void UnregisterFileReloadFunc(FileReloadFunc func, void* obj);
  * note: polling is much simpler than asynchronous notifications.
  **/
 extern Status ReloadChangedFiles();
-
-/**
- * Helper function to handle API differences between Boost Filesystem v2 and v3
- */
-std::wstring GetWstringFromWpath(const fs::wpath& path);
 
 ERROR_GROUP(CVFSFile);
 ERROR_TYPE(CVFSFile, LoadFailed);

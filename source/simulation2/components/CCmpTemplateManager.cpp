@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,16 +17,24 @@
 
 #include "precompiled.h"
 
-#include "simulation2/system/Component.h"
 #include "ICmpTemplateManager.h"
 
-#include "simulation2/MessageTypes.h"
-#include "simulation2/serialization/SerializedTypes.h"
-
-#include "lib/utf8.h"
 #include "ps/CLogger.h"
 #include "ps/TemplateLoader.h"
 #include "ps/XML/RelaxNG.h"
+#include "simulation2/MessageTypes.h"
+#include "simulation2/serialization/SerializeTemplates.h"
+#include "simulation2/serialization/SerializedTypes.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+#include "simulation2/system/Message.h"
+
+#include <algorithm>
+#include <cstddef>
+#include <map>
+#include <string>
+#include <utility>
+#include <vector>
 
 class CCmpTemplateManager final : public ICmpTemplateManager
 {
@@ -43,7 +51,7 @@ public:
 		return "<a:component type='system'/><empty/>";
 	}
 
-	void Init(const CParamNode& UNUSED(paramNode)) override
+	void Init(const CParamNode&) override
 	{
 		m_DisableValidation = false;
 
@@ -78,7 +86,7 @@ public:
 				m_LatestTemplates[id] = mapEl.first;
 	}
 
-	void HandleMessage(const CMessage& msg, bool UNUSED(global)) override
+	void HandleMessage(const CMessage& msg, bool /*global*/) override
 	{
 		switch (msg.GetType())
 		{

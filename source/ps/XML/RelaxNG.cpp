@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,19 +19,22 @@
 
 #include "RelaxNG.h"
 
-#include "lib/timer.h"
-#include "lib/utf8.h"
+#include "lib/types.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
+#include "ps/Errors.h"
 #include "ps/Filesystem.h"
 
+#include <cstddef>
 #include <libxml/parser.h>
 #include <libxml/relaxng.h>
+#include <libxml/xmlerror.h>
+#include <libxml/xmlversion.h>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <type_traits>
-
-TIMER_ADD_CLIENT(xml_validation);
+#include <utility>
 
 /*
  * libxml2 leaks memory when parsing schemas: https://bugzilla.gnome.org/show_bug.cgi?id=615767
@@ -48,7 +51,7 @@ void ClearSchemaCache()
 	g_SchemaCache.clear();
 }
 
-static void relaxNGErrorHandler(void* UNUSED(userData),
+static void relaxNGErrorHandler(void* /*userData*/,
 	std::conditional_t<LIBXML_VERSION >= 21200, const xmlError, xmlError>* error)
 {
 	// Strip a trailing newline
@@ -139,8 +142,6 @@ bool RelaxNGValidator::Validate(const std::string& filename, const std::string& 
 
 bool RelaxNGValidator::ValidateEncoded(const std::string& filename, const std::string& document) const
 {
-	TIMER_ACCRUE(xml_validation);
-
 	if (!m_Schema)
 	{
 		LOGERROR("RelaxNGValidator: No grammar loaded");

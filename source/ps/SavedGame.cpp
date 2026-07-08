@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,21 +20,46 @@
 #include "SavedGame.h"
 
 #include "graphics/GameView.h"
-#include "i18n/L10n.h"
 #include "lib/allocators/shared_ptr.h"
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
+#include "lib/file/archive/archive.h"
 #include "lib/file/archive/archive_zip.h"
+#include "lib/file/file_system.h"
 #include "lib/file/io/io.h"
-#include "lib/utf8.h"
+#include "lib/file/io/write_buffer.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/file/vfs/vfs_path.h"
+#include "lib/file/vfs/vfs_util.h"
+#include "lib/path.h"
+#include "lib/sysdep/filesystem.h"
+#include "lib/types.h"
 #include "maths/Vector3D.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
 #include "ps/Filesystem.h"
 #include "ps/Game.h"
 #include "ps/Mod.h"
+#include "ps/Profiler2.h"
 #include "ps/Pyrogenesis.h"
-#include "scriptinterface/Object.h"
 #include "scriptinterface/JSON.h"
+#include "scriptinterface/Object.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Request.h"
 #include "scriptinterface/StructuredClone.h"
 #include "simulation2/Simulation2.h"
+
+#include <cstdint>
+#include <ctime>
+#include <filesystem>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <memory>
+#include <sstream>
+#include <system_error>
+#include <utility>
+
+namespace Script { class Interface; }
 
 // TODO: we ought to check version numbers when loading files
 
@@ -55,7 +80,7 @@ Status SavedGames::SavePrefix(const CStrW& prefix, const CStrW& description, CSi
 
 Status SavedGames::Save(const CStrW& name, const CStrW& description, CSimulation2& simulation, const Script::StructuredClone& guiMetadataClone)
 {
-	ScriptRequest rq(simulation.GetScriptInterface());
+	Script::Request rq(simulation.GetScriptInterface());
 
 	// Determine the filename to save under
 	const VfsPath basenameFormat(L"saves/" + name);
@@ -89,7 +114,8 @@ Status SavedGames::Save(const CStrW& name, const CStrW& description, CSimulation
 	Script::CreateObject(
 		rq,
 		&metadata,
-		"engine_version", engine_version,
+		"engine_version", PS_VERSION,
+		"engine_serialization_version", PS_SERIALIZATION_VERSION,
 		"time", static_cast<double>(now),
 		"playerID", g_Game->GetPlayerID(),
 		"mods", mods,
@@ -154,7 +180,7 @@ class CGameLoader
 public:
 
 	/**
-	 * @param scriptInterface the ScriptInterface used for loading metadata.
+	 * @param scriptInterface the Script::Interface used for loading metadata.
 	 * @param[out] savedState serialized simulation state stored as string of bytes,
 	 *	loaded from simulation.dat inside the archive.
 	 *
@@ -163,11 +189,11 @@ public:
 	 * for the metadata because it would be error prone with rooting and the stack-based rooting
 	 * types and confusing (a chain of pointers pointing to other pointers).
 	 */
-	CGameLoader(const ScriptInterface& scriptInterface, std::string* savedState) :
+	CGameLoader(const Script::Interface& scriptInterface, std::string* savedState) :
 		m_ScriptInterface(scriptInterface),
 		m_SavedState(savedState)
 	{
-		ScriptRequest rq(scriptInterface);
+		Script::Request rq(scriptInterface);
 		m_Metadata.init(rq.cx);
 	}
 
@@ -183,7 +209,7 @@ public:
 			std::string buffer;
 			buffer.resize(fileInfo.Size());
 			WARN_IF_ERR(archiveFile->Load("", DummySharedPtr((u8*)buffer.data()), buffer.size()));
-			Script::ParseJSON(ScriptRequest(m_ScriptInterface), buffer, &m_Metadata);
+			Script::ParseJSON(Script::Request(m_ScriptInterface), buffer, &m_Metadata);
 		}
 		else if (pathname == L"simulation.dat" && m_SavedState)
 		{
@@ -199,12 +225,13 @@ public:
 
 private:
 
-	const ScriptInterface& m_ScriptInterface;
+	const Script::Interface& m_ScriptInterface;
 	JS::PersistentRooted<JS::Value> m_Metadata;
 	std::string* m_SavedState;
 };
 
-Status SavedGames::Load(const std::wstring& name, const ScriptInterface& scriptInterface, JS::MutableHandleValue metadata, std::string& savedState)
+std::optional<SavedGames::LoadResult> SavedGames::Load(const Script::Interface& scriptInterface,
+	const std::wstring& name)
 {
 	// Determine the filename to load
 	const VfsPath basename(L"saves/" + name);
@@ -212,29 +239,49 @@ Status SavedGames::Load(const std::wstring& name, const ScriptInterface& scriptI
 
 	// Don't crash just because file isn't found, this can happen if the file is deleted from the OS
 	if (!VfsFileExists(filename))
-		return ERR::FILE_NOT_FOUND;
+		return std::nullopt;
 
 	OsPath realPath;
-	WARN_RETURN_STATUS_IF_ERR(g_VFS->GetRealPath(filename, realPath));
+	{
+		const Status status{g_VFS->GetRealPath(filename, realPath)};
+		if (status < 0)
+		{
+			DEBUG_WARN_ERR(status);
+			return std::nullopt;
+		}
+	}
 
 	PIArchiveReader archiveReader = CreateArchiveReader_Zip(realPath);
 	if (!archiveReader)
-		WARN_RETURN(ERR::FAIL);
+	{
+		DEBUG_WARN_ERR(ERR::FAIL);
+		return std::nullopt;
+	}
 
+	std::string savedState;
 	CGameLoader loader(scriptInterface, &savedState);
-	WARN_RETURN_STATUS_IF_ERR(archiveReader->ReadEntries(CGameLoader::ReadEntryCallback, (uintptr_t)&loader));
-	metadata.set(loader.GetMetadata());
+	{
+		const Status status{archiveReader->ReadEntries(CGameLoader::ReadEntryCallback,
+			reinterpret_cast<uintptr_t>(&loader))};
+		if (status < 0)
+		{
+			DEBUG_WARN_ERR(status);
+			return std::nullopt;
+		}
+	}
+	const Script::Request rq{scriptInterface};
+	JS::RootedValue metadata{rq.cx, loader.GetMetadata()};
 
-	return INFO::OK;
+	// `std::make_optional` can't be used since `LoadResult` doesn't have a constructor.
+	return {{metadata, std::move(savedState)}};
 }
 
-JS::Value SavedGames::GetSavedGames(const ScriptInterface& scriptInterface)
+JS::Value SavedGames::GetSavedGames(const Script::Interface& scriptInterface)
 {
-	TIMER(L"GetSavedGames");
-	ScriptRequest rq(scriptInterface);
+	PROFILE2("GetSavedGames");
+	Script::Request rq(scriptInterface);
 
-	JS::RootedValue games(rq.cx);
-	Script::CreateArray(rq, &games);
+	JS::RootedValueVector games{rq.cx};
 
 	Status err;
 
@@ -242,10 +289,10 @@ JS::Value SavedGames::GetSavedGames(const ScriptInterface& scriptInterface)
 	err = vfs::GetPathnames(g_VFS, "saves/", L"*.0adsave", pathnames);
 	WARN_IF_ERR(err);
 
-	for (size_t i = 0; i < pathnames.size(); ++i)
+	for (const VfsPath& pathname : pathnames)
 	{
 		OsPath realPath;
-		err = g_VFS->GetRealPath(pathnames[i], realPath);
+		err = g_VFS->GetRealPath(pathname, realPath);
 		if (err < 0)
 		{
 			DEBUG_WARN_ERR(err);
@@ -273,13 +320,14 @@ JS::Value SavedGames::GetSavedGames(const ScriptInterface& scriptInterface)
 		Script::CreateObject(
 			rq,
 			&game,
-			"id", pathnames[i].Basename(),
+			"id", pathname.Basename(),
 			"metadata", metadata);
 
-		Script::SetPropertyInt(rq, games, i, game);
+		if (!games.append(game))
+			throw std::runtime_error{"Append failed"};
 	}
 
-	return games;
+	return JS::ObjectValue(*JS::NewArrayObject(rq.cx, games));
 }
 
 bool SavedGames::DeleteSavedGame(const std::wstring& name)
@@ -297,7 +345,9 @@ bool SavedGames::DeleteSavedGame(const std::wstring& name)
 		return false; // Error
 
 	// Delete actual file
-	if (wunlink(realpath) != 0)
+	std::error_code ec{};
+	std::filesystem::remove(realpath.string(), ec);
+	if (ec)
 		return false; // Error
 
 	// Successfully deleted file

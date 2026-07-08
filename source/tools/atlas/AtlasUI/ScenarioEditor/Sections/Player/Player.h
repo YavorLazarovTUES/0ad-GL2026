@@ -1,4 +1,4 @@
-/* Copyright (C) 2011 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -15,36 +15,38 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "../Common/Sidebar.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/Sections/Common/Sidebar.h"
+#include "tools/atlas/GameInterface/SharedMemory.h"
 
-#include "GameInterface/Messages.h"
-
-#include "wx/collpane.h"
-#include "wx/spinctrl.h"
-
-using namespace AtlasMessage;
+#include <wx/dynarray.h>
+#include <wx/event.h>
+#include <wx/string.h>
 
 class PlayerNotebookPage;
 class PlayerSettingsControl;
+class ScenarioEditor;
+class wxButton;
+class wxChoice;
+class wxSpinCtrl;
+class wxTextCtrl;
+class wxWindow;
+
+using namespace AtlasMessage;
 
 class PlayerSidebar : public Sidebar
 {
 public:
 	PlayerSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContainer, wxWindow* bottomBarContainer);
 
-	virtual void OnMapReload();
+	void OnMapReload() override;
 
 protected:
-	virtual void OnFirstDisplay();
+	void OnFirstDisplay() override;
 
 private:
 	PlayerSettingsControl* m_PlayerSettingsCtrl;
 
-	void OnCollapse(wxCollapsiblePaneEvent& evt);
-
 	bool m_Loaded;
-
-	DECLARE_EVENT_TABLE();
 };
 
 // Controls present on each player page

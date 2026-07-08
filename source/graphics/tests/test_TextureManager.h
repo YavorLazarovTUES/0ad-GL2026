@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,18 +17,27 @@
 
 #include "lib/self_test.h"
 
+#include "graphics/Texture.h"
 #include "graphics/TextureManager.h"
-#include "lib/external_libraries/libsdl.h"
+#include "lib/file/file_system.h"
 #include "lib/file/vfs/vfs.h"
-#include "lib/tex/tex.h"
+#include "lib/path.h"
 #include "ps/ConfigDB.h"
+#include "ps/XMB/XMBStorage.h"
 #include "ps/XML/Xeromyces.h"
+#include "renderer/backend/IDevice.h"
 #include "renderer/backend/dummy/Device.h"
+
+#include <SDL_timer.h>
+#include <cstddef>
+#include <memory>
+#include <optional>
 
 class TestTextureManager : public CxxTest::TestSuite
 {
 	PIVFS m_VFS;
 	std::unique_ptr<Renderer::Backend::IDevice> m_Device;
+	std::optional<CXeromycesEngine> m_XeromycesEngine;
 
 public:
 
@@ -42,14 +51,14 @@ public:
 		TS_ASSERT_OK(m_VFS->Mount(L"", DataDir() / "mods" / "_test.tex" / "", VFS_MOUNT_MUST_EXIST));
 		TS_ASSERT_OK(m_VFS->Mount(L"cache/", DataDir() / "_testcache" / "", 0, VFS_MAX_PRIORITY));
 
-		CXeromyces::Startup();
+		m_XeromycesEngine.emplace();
 
 		m_Device = std::make_unique<Renderer::Backend::Dummy::CDevice>();
 	}
 
 	void tearDown()
 	{
-		CXeromyces::Terminate();
+		m_XeromycesEngine.reset();
 
 		m_VFS.reset();
 		DeleteDirectory(DataDir()/"_testcache");

@@ -3,8 +3,9 @@
  */
 class SavegameLoader
 {
-	constructor()
+	constructor(closePageCallback)
 	{
+		this.closePageCallback = closePageCallback;
 		this.confirmButton = Engine.GetGUIObjectByName("confirmButton");
 		this.confirmButton.caption = translate("Load");
 		this.confirmButton.enabled = false;
@@ -13,7 +14,8 @@ class SavegameLoader
 	onSelectionChange(gameID, metadata, label)
 	{
 		this.confirmButton.enabled = !!metadata;
-		this.confirmButton.onPress = () => {
+		this.confirmButton.onPress = () =>
+		{
 			this.loadGame(gameID, metadata);
 		};
 	}
@@ -21,27 +23,30 @@ class SavegameLoader
 	async loadGame(gameId, metadata)
 	{
 		// Check compatibility before really loading it
-		let engineInfo = Engine.GetEngineInfo();
-		let sameMods = hasSameMods(metadata.mods, engineInfo.mods);
-		let sameEngineVersion = metadata.engine_version && metadata.engine_version == engineInfo.engine_version;
+		const engineInfo = Engine.GetEngineInfo();
+		const sameMods = hasSameMods(metadata.mods, engineInfo.mods);
+		const compatibleEngineVersions = metadata.engine_serialization_version && metadata.engine_serialization_version == engineInfo.engine_serialization_version;
 
-		if (sameEngineVersion && sameMods)
+		if (compatibleEngineVersions && sameMods)
 		{
-			Engine.PopGuiPage(gameId);
+			this.closePageCallback(gameId);
 			return;
 		}
 
 		// Version not compatible ... ask for confirmation
 		let message = "";
 
-		if (!sameEngineVersion)
-			if (metadata.engine_version)
-				message += sprintf(translate("This savegame needs 0 A.D. version %(requiredVersion)s, while you are running version %(currentVersion)s."), {
-					"requiredVersion": metadata.engine_version,
-					"currentVersion": engineInfo.engine_version
+		if (!compatibleEngineVersions)
+		{
+			if (metadata.engine_serialization_version)
+				message += sprintf(translate("This savegame needs 0 A.D. version %(requiredCompatibleVersion)s or compatible. You are running version %(currentVersion)s, compatible down to %(compatibleVersion)s."), {
+					"requiredCompatibleVersion": metadata.engine_serialization_version,
+					"currentVersion": engineInfo.engine_version,
+					"compatibleVersion": engineInfo.engine_serialization_version,
 				}) + "\n";
 			else
 				message += translate("This savegame needs an older version of 0 A.D.") + "\n";
+		}
 
 		if (!sameMods)
 		{
@@ -60,6 +65,6 @@ class SavegameLoader
 			translate("Warning"),
 			[translate("No"), translate("Yes")]);
 		if (buttonIndex === 1)
-			Engine.PopGuiPage(gameId);
+			this.closePageCallback(gameId);
 	}
 }

@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,8 +19,8 @@
 #define INCLUDED_CGUISIZE
 
 #include "maths/Rect.h"
-#include "ps/CStrForward.h"
-#include "scriptinterface/ScriptForward.h"
+
+class CStr8;
 
 /**
  * This class represents a rectangle relative to a parent rectangle
@@ -66,9 +66,6 @@ public:
 	{
 		return pixel == other.pixel && percent == other.percent;
 	}
-
-	void ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret) const;
-	bool FromJSVal(const ScriptRequest& rq, JS::HandleValue v);
 };
 
 #endif // INCLUDED_CGUISIZE

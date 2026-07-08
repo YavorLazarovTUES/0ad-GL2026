@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -16,17 +16,31 @@
  */
 
 #include "precompiled.h"
+
 #include "Hotkey.h"
 
-#include <boost/tokenizer.hpp>
-
 #include "lib/external_libraries/libsdl.h"
-#include "ps/CConsole.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
 #include "ps/ConfigDB.h"
 #include "ps/Globals.h"
 #include "ps/KeyName.h"
+#include "ps/Profiler2.h"
+#include "ps/VideoMode.h"
+
+#include <SDL_events.h>
+#include <SDL_mouse.h>
+#include <SDL_scancode.h>
+#include <algorithm>
+#include <boost/iterator/iterator_categories.hpp>
+#include <boost/iterator/iterator_facade.hpp>
+#include <boost/token_functions.hpp>
+#include <boost/tokenizer.hpp>
+#include <cstddef>
+#include <map>
+#include <string>
+#include <type_traits>
+#include <utility>
 
 static bool unified[UNIFIED_LAST - UNIFIED_SHIFT];
 
@@ -58,7 +72,7 @@ namespace {
 	// Stores the 'specificity' of the newly pressed hotkeys.
 	size_t closestMapMatch = 0;
 	// This is merely used to ensure consistency in EventWillFireHotkey.
-	const SDL_Event_* currentEvent;
+	const SDL_Event* currentEvent;
 
 	// List of currently pressed hotkeys. This is used to quickly reset hotkeys.
 	// This is an unsorted vector because there will generally be very few elements,
@@ -71,7 +85,6 @@ namespace {
 
 static_assert(std::is_integral<std::underlying_type<SDL_Scancode>::type>::value, "SDL_Scancode is not an integral enum.");
 static_assert(SDL_USEREVENT_ == SDL_USEREVENT, "SDL_USEREVENT_ is not the same type as the real SDL_USEREVENT");
-static_assert(UNUSED_HOTKEY_CODE == SDL_SCANCODE_UNKNOWN);
 
 // Look up each key binding in the config file and set the mappings for
 // all key combinations that trigger it.
@@ -94,7 +107,7 @@ static void LoadConfigBindings(CConfigDB& configDB)
 
 		for (const CStr& hotkey : configPair.second)
 		{
-			std::vector<SKey> keyCombination;
+			PS::StaticVector<SKey, 8> keyCombination;
 
 			// Iterate through multiple-key bindings (e.g. Ctrl+I)
 			boost::char_separator<char> sep("+");
@@ -114,7 +127,7 @@ static void LoadConfigBindings(CConfigDB& configDB)
 				keyCombination.push_back(key);
 			}
 
-			std::vector<SKey>::iterator itKey, itKey2;
+			PS::StaticVector<SKey, 8>::iterator itKey, itKey2;
 			for (itKey = keyCombination.begin(); itKey != keyCombination.end(); ++itKey)
 			{
 				SHotkeyMapping bindCode;
@@ -134,6 +147,7 @@ static void LoadConfigBindings(CConfigDB& configDB)
 
 void LoadHotkeys(CConfigDB& configDB)
 {
+	PROFILE2("LoadHotkeys");
 	pressedHotkeys.clear();
 	LoadConfigBindings(configDB);
 }
@@ -161,16 +175,16 @@ bool isPressed(const SKey& key)
 		return false;
 }
 
-InReaction HotkeyStateChange(const SDL_Event_* ev)
+Input::Reaction HotkeyStateChange(const SDL_Event& ev)
 {
-	if (ev->ev.type == SDL_HOTKEYPRESS || ev->ev.type == SDL_HOTKEYPRESS_SILENT)
-		g_HotkeyStatus[static_cast<const char*>(ev->ev.user.data1)] = true;
-	else if (ev->ev.type == SDL_HOTKEYUP || ev->ev.type == SDL_HOTKEYUP_SILENT)
-		g_HotkeyStatus[static_cast<const char*>(ev->ev.user.data1)] = false;
-	return IN_PASS;
+	if (ev.type == SDL_HOTKEYPRESS || ev.type == SDL_HOTKEYPRESS_SILENT)
+		g_HotkeyStatus[static_cast<const char*>(ev.user.data1)] = true;
+	else if (ev.type == SDL_HOTKEYUP || ev.type == SDL_HOTKEYUP_SILENT)
+		g_HotkeyStatus[static_cast<const char*>(ev.user.data1)] = false;
+	return Input::Reaction::PASS;
 }
 
-InReaction HotkeyInputPrepHandler(const SDL_Event_* ev)
+Input::Reaction HotkeyInputPrepHandler(const SDL_Event& ev)
 {
 	int scancode = SDL_SCANCODE_UNKNOWN;
 
@@ -178,90 +192,90 @@ InReaction HotkeyInputPrepHandler(const SDL_Event_* ev)
 	newPressedHotkeys.clear();
 	currentEvent = nullptr;
 
-	switch(ev->ev.type)
+	switch(ev.type)
 	{
 	case SDL_KEYDOWN:
 	case SDL_KEYUP:
-		scancode = ev->ev.key.keysym.scancode;
+		scancode = ev.key.keysym.scancode;
 		break;
 
 	case SDL_MOUSEBUTTONDOWN:
 	case SDL_MOUSEBUTTONUP:
 		// Mousewheel events are no longer buttons, but we want to maintain the order
 		// expected by g_mouse_buttons for compatibility
-		if (ev->ev.button.button >= SDL_BUTTON_X1)
-			scancode = MOUSE_BASE + (int)ev->ev.button.button + 2;
+		if (ev.button.button >= SDL_BUTTON_X1)
+			scancode = MOUSE_BASE + static_cast<int>(ev.button.button) + 2;
 		else
-			scancode = MOUSE_BASE + (int)ev->ev.button.button;
+			scancode = MOUSE_BASE + static_cast<int>(ev.button.button);
 		break;
 
 	case SDL_MOUSEWHEEL:
-		if (ev->ev.wheel.y > 0)
+		if (ev.wheel.y > 0)
 		{
 			scancode = MOUSE_WHEELUP;
 			break;
 		}
-		else if (ev->ev.wheel.y < 0)
+		else if (ev.wheel.y < 0)
 		{
 			scancode = MOUSE_WHEELDOWN;
 			break;
 		}
-		else if (ev->ev.wheel.x > 0)
+		else if (ev.wheel.x > 0)
 		{
 			scancode = MOUSE_X2;
 			break;
 		}
-		else if (ev->ev.wheel.x < 0)
+		else if (ev.wheel.x < 0)
 		{
 			scancode = MOUSE_X1;
 			break;
 		}
-		return IN_PASS;
+		return Input::Reaction::PASS;
 
 
 	default:
-		return IN_PASS;
+		return Input::Reaction::PASS;
 	}
 
 	// Somewhat hackish:
 	// Create phantom 'unified-modifier' events when left- or right- modifier keys are pressed
 	// Just send them to this handler; don't let the imaginary event codes leak back to real SDL.
 
-	SDL_Event_ phantom;
-	phantom.ev.type = ((ev->ev.type == SDL_KEYDOWN) || (ev->ev.type == SDL_MOUSEBUTTONDOWN)) ? SDL_KEYDOWN : SDL_KEYUP;
-	if (phantom.ev.type == SDL_KEYDOWN)
-		phantom.ev.key.repeat = ev->ev.type == SDL_KEYDOWN ? ev->ev.key.repeat : 0;
+	SDL_Event phantom{};
+	phantom.type = ((ev.type == SDL_KEYDOWN) || (ev.type == SDL_MOUSEBUTTONDOWN)) ? SDL_KEYDOWN : SDL_KEYUP;
+	if (phantom.type == SDL_KEYDOWN)
+		phantom.key.repeat = ev.type == SDL_KEYDOWN ? ev.key.repeat : 0;
 
 	if (scancode == SDL_SCANCODE_LSHIFT || scancode == SDL_SCANCODE_RSHIFT)
 	{
-		phantom.ev.key.keysym.scancode = static_cast<SDL_Scancode>(UNIFIED_SHIFT);
-		unified[0] = (phantom.ev.type == SDL_KEYDOWN);
-		return HotkeyInputPrepHandler(&phantom);
+		phantom.key.keysym.scancode = static_cast<SDL_Scancode>(UNIFIED_SHIFT);
+		unified[0] = (phantom.type == SDL_KEYDOWN);
+		return HotkeyInputPrepHandler(phantom);
 	}
 	else if (scancode == SDL_SCANCODE_LCTRL || scancode == SDL_SCANCODE_RCTRL)
 	{
-		phantom.ev.key.keysym.scancode = static_cast<SDL_Scancode>(UNIFIED_CTRL);
-		unified[1] = (phantom.ev.type == SDL_KEYDOWN);
-		return HotkeyInputPrepHandler(&phantom);
+		phantom.key.keysym.scancode = static_cast<SDL_Scancode>(UNIFIED_CTRL);
+		unified[1] = (phantom.type == SDL_KEYDOWN);
+		return HotkeyInputPrepHandler(phantom);
 	}
 	else if (scancode == SDL_SCANCODE_LALT || scancode == SDL_SCANCODE_RALT)
 	{
-		phantom.ev.key.keysym.scancode = static_cast<SDL_Scancode>(UNIFIED_ALT);
-		unified[2] = (phantom.ev.type == SDL_KEYDOWN);
-		return HotkeyInputPrepHandler(&phantom);
+		phantom.key.keysym.scancode = static_cast<SDL_Scancode>(UNIFIED_ALT);
+		unified[2] = (phantom.type == SDL_KEYDOWN);
+		return HotkeyInputPrepHandler(phantom);
 	}
 	else if (scancode == SDL_SCANCODE_LGUI || scancode == SDL_SCANCODE_RGUI)
 	{
-		phantom.ev.key.keysym.scancode = static_cast<SDL_Scancode>(UNIFIED_SUPER);
-		unified[3] = (phantom.ev.type == SDL_KEYDOWN);
-		return HotkeyInputPrepHandler(&phantom);
+		phantom.key.keysym.scancode = static_cast<SDL_Scancode>(UNIFIED_SUPER);
+		unified[3] = (phantom.type == SDL_KEYDOWN);
+		return HotkeyInputPrepHandler(phantom);
 	}
 
 	// Check whether we have any hotkeys registered that include this scancode.
 	if (g_HotkeyMap.find(scancode) == g_HotkeyMap.end())
-		return IN_PASS;
+		return Input::Reaction::PASS;
 
-	currentEvent = ev;
+	currentEvent = &ev;
 
 	/**
 	 * Hotkey behaviour spec (see also tests):
@@ -286,9 +300,9 @@ InReaction HotkeyInputPrepHandler(const SDL_Event_* ev)
 	 * ...Yes, this is all surprisingly complex.
 	 */
 
-	bool isReleasedKey = ev->ev.type == SDL_KEYUP || ev->ev.type == SDL_MOUSEBUTTONUP;
+	bool isReleasedKey = ev.type == SDL_KEYUP || ev.type == SDL_MOUSEBUTTONUP;
 	// Wheel events are pressed & released in the same go.
-	bool isInstantaneous = ev->ev.type == SDL_MOUSEWHEEL;
+	bool isInstantaneous = ev.type == SDL_MOUSEWHEEL;
 
 	if (!isInstantaneous)
 	{
@@ -330,28 +344,28 @@ InReaction HotkeyInputPrepHandler(const SDL_Event_* ev)
 				continue;
 
 			// Check if this is an equally precise or more precise match
-			if (hotkey.required.size() + 1 >= closestMapMatch)
+			if (hotkey.required.size() + 1u >= closestMapMatch)
 			{
 				// Check if more precise
-				if (hotkey.required.size() + 1 > closestMapMatch)
+				if (hotkey.required.size() + 1u > closestMapMatch)
 				{
 					// Throw away the old less-precise matches
 					newPressedHotkeys.clear();
-					closestMapMatch = hotkey.required.size() + 1;
+					closestMapMatch = hotkey.required.size() + 1u;
 				}
 				newPressedHotkeys.emplace_back(&hotkey, isReleasedKey);
 			}
 		}
 
-	return IN_PASS;
+	return Input::Reaction::PASS;
 }
 
-InReaction HotkeyInputActualHandler(const SDL_Event_* ev)
+Input::Reaction HotkeyInputActualHandler(const SDL_Event& ev)
 {
 	if (!currentEvent)
-		return IN_PASS;
+		return Input::Reaction::PASS;
 
-	bool isInstantaneous = ev->ev.type == SDL_MOUSEWHEEL;
+	bool isInstantaneous = ev.type == SDL_MOUSEWHEEL;
 
 	// TODO: it's probably possible to break hotkeys somewhat if the "Up" event that would release a hotkey is handled
 	// by a priori handler - it might be safer to do that in the 'Prep' phase.
@@ -372,7 +386,7 @@ InReaction HotkeyInputActualHandler(const SDL_Event_* ev)
 				std::find_if(newPressedHotkeys.begin(), newPressedHotkeys.end(),
 							 [&hotkey](const PressedHotkey& v){ return v.mapping->name == hotkey.mapping->name; })->retriggered = hotkey.retriggered;
 			// If the already-pressed hotkey has a lower specificity than the new hotkey(s), de-activate it.
-			else if (hotkey.mapping->required.size() + 1 < closestMapMatch)
+			else if (hotkey.mapping->required.size() + 1u < closestMapMatch)
 			{
 				releasedHotkeys.emplace_back(hotkey.mapping->name.c_str(), hotkey.retriggered);
 				continue;
@@ -394,9 +408,9 @@ InReaction HotkeyInputActualHandler(const SDL_Event_* ev)
 				// If this hotkey has higher specificity than the new hotkeys we wanted to trigger/retrigger,
 				// then discard this new addition(s). This works because at any given time, all hotkeys
 				// active must have the same specificity.
-				if (hotkey.mapping->required.size() + 1 > closestMapMatch)
+				if (hotkey.mapping->required.size() + 1u > closestMapMatch)
 				{
-					closestMapMatch = hotkey.mapping->required.size() + 1;
+					closestMapMatch = hotkey.mapping->required.size() + 1u;
 					newPressedHotkeys.clear();
 					newPressedHotkeys.emplace_back(hotkey.mapping, hotkey.retriggered);
 				}
@@ -411,12 +425,12 @@ InReaction HotkeyInputActualHandler(const SDL_Event_* ev)
 	for (const PressedHotkey& hotkey : isInstantaneous ? newPressedHotkeys : pressedHotkeys)
 	{
 		// Send a KeyPress event when a hotkey is pressed initially and on mouseButton and mouseWheel events.
-		if (ev->ev.type != SDL_KEYDOWN || ev->ev.key.repeat == 0)
+		if (ev.type != SDL_KEYDOWN || ev.key.repeat == 0)
 		{
-			SDL_Event_ hotkeyPressNotification;
-			hotkeyPressNotification.ev.type = hotkey.retriggered ? SDL_HOTKEYPRESS_SILENT : SDL_HOTKEYPRESS;
-			hotkeyPressNotification.ev.user.data1 = const_cast<char*>(hotkey.mapping->name.c_str());
-			in_push_priority_event(&hotkeyPressNotification);
+			SDL_Event hotkeyPressNotification{};
+			hotkeyPressNotification.type = hotkey.retriggered ? SDL_HOTKEYPRESS_SILENT : SDL_HOTKEYPRESS;
+			hotkeyPressNotification.user.data1 = const_cast<char*>(hotkey.mapping->name.c_str());
+			g_VideoMode.m_InputManager.PushPriorityEvent(hotkeyPressNotification);
 		}
 
 		// Send a HotkeyDown event on every key, mouseButton and mouseWheel event.
@@ -426,12 +440,12 @@ InReaction HotkeyInputActualHandler(const SDL_Event_* ev)
 		// (It might be better to check for HotkeyIsPressed, however).
 		// For keys the event is repeated depending on hardware and OS configured interval.
 		// On linux, modifier keys (shift, alt, ctrl) are not repeated, see https://github.com/SFML/SFML/issues/122.
-		if (ev->ev.key.repeat == 0 && hotkey.retriggered)
+		if (ev.key.repeat == 0 && hotkey.retriggered)
 			continue;
-		SDL_Event_ hotkeyDownNotification;
-		hotkeyDownNotification.ev.type = SDL_HOTKEYDOWN;
-		hotkeyDownNotification.ev.user.data1 = const_cast<char*>(hotkey.mapping->name.c_str());
-		in_push_priority_event(&hotkeyDownNotification);
+		SDL_Event hotkeyDownNotification{};
+		hotkeyDownNotification.type = SDL_HOTKEYDOWN;
+		hotkeyDownNotification.user.data1 = const_cast<char*>(hotkey.mapping->name.c_str());
+		g_VideoMode.m_InputManager.PushPriorityEvent(hotkeyDownNotification);
 	}
 
 	// Release instantaneous events (e.g. mouse wheel) right away.
@@ -441,19 +455,19 @@ InReaction HotkeyInputActualHandler(const SDL_Event_* ev)
 
 	for (const ReleasedHotkey& hotkey : releasedHotkeys)
 	{
-		SDL_Event_ hotkeyNotification;
-		hotkeyNotification.ev.type = hotkey.wasRetriggered ? SDL_HOTKEYUP_SILENT : SDL_HOTKEYUP;
-		hotkeyNotification.ev.user.data1 = const_cast<char*>(hotkey.name);
-		in_push_priority_event(&hotkeyNotification);
+		SDL_Event hotkeyNotification{};
+		hotkeyNotification.type = hotkey.wasRetriggered ? SDL_HOTKEYUP_SILENT : SDL_HOTKEYUP;
+		hotkeyNotification.user.data1 = const_cast<char*>(hotkey.name);
+		g_VideoMode.m_InputManager.PushPriorityEvent(hotkeyNotification);
 	}
 
-	return IN_PASS;
+	return Input::Reaction::PASS;
 }
 
-bool EventWillFireHotkey(const SDL_Event_* ev, const CStr& keyname)
+bool EventWillFireHotkey(const SDL_Event& ev, const CStr& keyname)
 {
 	// Sanity check of sort. This parameter mostly exists because it looks right from the caller's perspective.
-	if (ev != currentEvent || !currentEvent)
+	if (&ev != currentEvent || !currentEvent)
 		return false;
 
 	return std::find_if(newPressedHotkeys.begin(), newPressedHotkeys.end(),
@@ -465,10 +479,10 @@ void ResetActiveHotkeys()
 	newPressedHotkeys.clear();
 	for (const PressedHotkey& hotkey : pressedHotkeys)
 	{
-		SDL_Event_ hotkeyNotification;
-		hotkeyNotification.ev.type = hotkey.retriggered ? SDL_HOTKEYUP_SILENT : SDL_HOTKEYUP;
-		hotkeyNotification.ev.user.data1 = const_cast<char*>(hotkey.mapping->name.c_str());
-		in_push_priority_event(&hotkeyNotification);
+		SDL_Event hotkeyNotification;
+		hotkeyNotification.type = hotkey.retriggered ? SDL_HOTKEYUP_SILENT : SDL_HOTKEYUP;
+		hotkeyNotification.user.data1 = const_cast<char*>(hotkey.mapping->name.c_str());
+		g_VideoMode.m_InputManager.PushPriorityEvent(hotkeyNotification);
 	}
 	pressedHotkeys.clear();
 	activeScancodes.clear();

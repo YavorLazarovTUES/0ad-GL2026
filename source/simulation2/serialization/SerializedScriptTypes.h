@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -57,13 +57,13 @@ enum
 
 struct SPrototypeSerialization
 {
-	std::string name = "";
+	std::wstring name;
 	bool hasCustomSerialize = false;
 	bool hasCustomDeserialize = false;
 	bool hasNullSerialize = false;
 };
 
-inline SPrototypeSerialization GetPrototypeInfo(const ScriptRequest& rq, JS::HandleObject prototype)
+inline SPrototypeSerialization GetPrototypeInfo(const Script::Request& rq, JS::HandleObject prototype, JS::PropertyKey ser, JS::PropertyKey deser)
 {
 	SPrototypeSerialization ret;
 
@@ -71,27 +71,26 @@ inline SPrototypeSerialization GetPrototypeInfo(const ScriptRequest& rq, JS::Han
 		throw PSERROR_Serialize_ScriptError("Could not get constructor name.");
 
 	// Nothing to do for basic Object objects.
-	if (ret.name == "Object")
+	if (ret.name == L"Object")
 		return ret;
 
-	if (!JS_HasProperty(rq.cx, prototype, "Serialize", &ret.hasCustomSerialize) ||
-	     !JS_HasProperty(rq.cx, prototype, "Deserialize", &ret.hasCustomDeserialize))
-		throw PSERROR_Serialize_ScriptError("JS_HasProperty failed");
+	JS::RootedValue serialize(rq.cx);
+	if (!JS_GetPropertyById(rq.cx, prototype, JS::Handle<jsid>::fromMarkedLocation(&ser), &serialize))
+		throw PSERROR_Serialize_ScriptError("JS_GetProperty failed");
 
-	if (ret.hasCustomSerialize)
+	if (serialize.isUndefined())
+		return ret;
+
+	ret.hasCustomSerialize = true;
+	if (serialize.isNull())
+		ret.hasNullSerialize = true;
+	if (!JS_HasPropertyById(rq.cx, prototype, JS::Handle<jsid>::fromMarkedLocation(&deser), &ret.hasCustomDeserialize) ||
+		(!ret.hasNullSerialize && !ret.hasCustomDeserialize))
 	{
-		JS::RootedValue serialize(rq.cx);
-		if (!JS_GetProperty(rq.cx, prototype, "Serialize", &serialize))
-			throw PSERROR_Serialize_ScriptError("JS_GetProperty failed");
-
-		if (serialize.isNull())
-			ret.hasNullSerialize = true;
-		else if (!ret.hasCustomDeserialize)
-		{
-			// Don't throw for this error: mods might need updating and this crashes as exceptions are not correctly handled.
-			LOGERROR("Error serializing object '%s': non-null Serialize() but no matching Deserialize().", ret.name);
-		}
+		// Don't throw for this error: mods might need updating and this crashes as exceptions are not correctly handled.
+		LOGERROR("Error serializing object '%s': non-null Serialize() but no matching Deserialize().", utf8_from_wstring(ret.name));
 	}
+
 	return ret;
 }
 

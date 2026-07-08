@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,17 +19,17 @@
 
 #include "DeviceSelection.h"
 
-#include "lib/code_annotation.h"
-#include "lib/config2.h"
-#include "renderer/backend/vulkan/Device.h"
+#include "ps/CLogger.h"
 #include "renderer/backend/vulkan/Utilities.h"
-#include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 
 #include <algorithm>
+#include <iterator>
+#include <js/RootingAPI.h>
+#include <js/Value.h>
 #include <limits>
+#include <span>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -323,10 +323,6 @@ bool ComparePhysicalDevices(
 	const uint32_t deviceTypeScore2 = GetDeviceTypeScore(device2.properties.deviceType);
 	if (deviceTypeScore1 != deviceTypeScore2)
 		return deviceTypeScore1 > deviceTypeScore2;
-	// We use a total device memory amount to compare. We assume that more memory
-	// means better performance as previous metrics are equal.
-	if (device1.deviceTotalMemory != device2.deviceTotalMemory)
-		return device1.deviceTotalMemory > device2.deviceTotalMemory;
 	return device1.index < device2.index;
 }
 
@@ -340,7 +336,7 @@ bool IsSurfaceFormatSupported(
 }
 
 void ReportAvailablePhysicalDevice(const SAvailablePhysicalDevice& device,
-	const ScriptRequest& rq, JS::HandleValue settings)
+	const Script::Request& rq, JS::HandleValue settings)
 {
 	Script::SetProperty(rq, settings, "name", device.properties.deviceName);
 	Script::SetProperty(rq, settings, "version",
@@ -358,32 +354,38 @@ void ReportAvailablePhysicalDevice(const SAvailablePhysicalDevice& device,
 	JS::RootedValue memory(rq.cx);
 	Script::CreateObject(rq, &memory);
 
-	JS::RootedValue memoryTypes(rq.cx);
-	Script::CreateArray(rq, &memoryTypes, device.memoryProperties.memoryTypeCount);
-	for (uint32_t memoryTypeIndex = 0; memoryTypeIndex < device.memoryProperties.memoryTypeCount; ++memoryTypeIndex)
+	JS::RootedValueVector memoryTypes{rq.cx};
+	if (!memoryTypes.reserve(device.memoryProperties.memoryTypeCount))
+		throw std::runtime_error{"Reserve failed"};
+	for (const VkMemoryType& type : std::span{device.memoryProperties.memoryTypes,
+		device.memoryProperties.memoryTypeCount})
 	{
-		const VkMemoryType& type = device.memoryProperties.memoryTypes[memoryTypeIndex];
 		JS::RootedValue memoryType(rq.cx);
 		Script::CreateObject(rq, &memoryType);
 		Script::SetProperty(rq, memoryType, "propertyFlags", static_cast<uint32_t>(type.propertyFlags));
 		Script::SetProperty(rq, memoryType, "heapIndex", type.heapIndex);
-		Script::SetPropertyInt(rq, memoryTypes, memoryTypeIndex, memoryType);
+		if (!memoryTypes.append(memoryType))
+			throw std::runtime_error{"Append failed"};
 	}
-	JS::RootedValue memoryHeaps(rq.cx);
-	Script::CreateArray(rq, &memoryHeaps, device.memoryProperties.memoryHeapCount);
-	for (uint32_t memoryHeapIndex = 0; memoryHeapIndex < device.memoryProperties.memoryHeapCount; ++memoryHeapIndex)
+	JS::RootedValueVector memoryHeaps{rq.cx};
+	if (!memoryHeaps.reserve(device.memoryProperties.memoryHeapCount))
+		throw std::runtime_error{"Reserve failed"};
+	for (const VkMemoryHeap& heap : std::span{device.memoryProperties.memoryHeaps,
+		device.memoryProperties.memoryHeapCount})
 	{
-		const VkMemoryHeap& heap = device.memoryProperties.memoryHeaps[memoryHeapIndex];
 		JS::RootedValue memoryHeap(rq.cx);
 		Script::CreateObject(rq, &memoryHeap);
 		// We can't serialize uint64_t in JS, so put data in KiB.
 		Script::SetProperty(rq, memoryHeap, "size", static_cast<uint32_t>(heap.size / 1024));
 		Script::SetProperty(rq, memoryHeap, "flags", static_cast<uint32_t>(heap.flags));
-		Script::SetPropertyInt(rq, memoryHeaps, memoryHeapIndex, memoryHeap);
+		if (!memoryHeaps.append(memoryHeap))
+			throw std::runtime_error{"Append failed"};
 	}
 
-	Script::SetProperty(rq, memory, "types", memoryTypes);
-	Script::SetProperty(rq, memory, "heaps", memoryHeaps);
+	Script::SetProperty(rq, memory, "types",
+		JS::RootedValue{rq.cx, JS::ObjectValue(*JS::NewArrayObject(rq.cx, memoryTypes))});
+	Script::SetProperty(rq, memory, "heaps",
+		JS::RootedValue{rq.cx, JS::ObjectValue(*JS::NewArrayObject(rq.cx, memoryHeaps))});
 	Script::SetProperty(rq, settings, "memory", memory);
 
 	JS::RootedValue constants(rq.cx);
@@ -451,6 +453,8 @@ void ReportAvailablePhysicalDevice(const SAvailablePhysicalDevice& device,
 	REPORT_LIMITS_CONSTANT(sampledImageDepthSampleCounts);
 	REPORT_LIMITS_CONSTANT(sampledImageStencilSampleCounts);
 	REPORT_LIMITS_CONSTANT(storageImageSampleCounts);
+	REPORT_LIMITS_CONSTANT(timestampComputeAndGraphics);
+	REPORT_LIMITS_CONSTANT(timestampPeriod);
 	REPORT_LIMITS_CONSTANT(optimalBufferCopyOffsetAlignment);
 	REPORT_LIMITS_CONSTANT(optimalBufferCopyRowPitchAlignment);
 #undef REPORT_LIMITS_CONSTANT
@@ -516,28 +520,33 @@ void ReportAvailablePhysicalDevice(const SAvailablePhysicalDevice& device,
 
 	Script::SetProperty(rq, settings, "features", features);
 
-	JS::RootedValue presentModes(rq.cx);
-	Script::CreateArray(rq, &presentModes, device.presentModes.size());
-	for (size_t index = 0; index < device.presentModes.size(); ++index)
+	JS::RootedValueVector presentModes{rq.cx};
+	if (!presentModes.reserve(device.presentModes.size()))
+		throw std::runtime_error{"Reserve failed"};
+	for (const VkPresentModeKHR& mode : device.presentModes)
 	{
-		Script::SetPropertyInt(
-			rq, presentModes, index, static_cast<uint32_t>(device.presentModes[index]));
+		if (!presentModes.append(JS::NumberValue(static_cast<uint32_t>(mode))))
+			throw std::runtime_error{"Append failed"};
 	}
-	Script::SetProperty(rq, settings, "present_modes", presentModes);
+	Script::SetProperty(rq, settings, "present_modes",
+		JS::RootedValue{rq.cx, JS::ObjectValue(*JS::NewArrayObject(rq.cx, presentModes))});
 
-	JS::RootedValue surfaceFormats(rq.cx);
-	Script::CreateArray(rq, &surfaceFormats, device.surfaceFormats.size());
-	for (size_t index = 0; index < device.surfaceFormats.size(); ++index)
+	JS::RootedValueVector surfaceFormats{rq.cx};
+	if (!surfaceFormats.reserve(device.surfaceFormats.size()))
+		throw std::runtime_error{"Reserve failed"};
+	for (const VkSurfaceFormatKHR& format : device.surfaceFormats)
 	{
 		JS::RootedValue surfaceFormat(rq.cx);
 		Script::CreateObject(rq, &surfaceFormat);
 		Script::SetProperty(
-			rq, surfaceFormat, "format", static_cast<uint32_t>(device.surfaceFormats[index].format));
+			rq, surfaceFormat, "format", static_cast<uint32_t>(format.format));
 		Script::SetProperty(
-			rq, surfaceFormat, "color_space", static_cast<uint32_t>(device.surfaceFormats[index].colorSpace));
-		Script::SetPropertyInt(rq, surfaceFormats, index, surfaceFormat);
+			rq, surfaceFormat, "color_space", static_cast<uint32_t>(format.colorSpace));
+		if (!surfaceFormats.append(surfaceFormat))
+			throw std::runtime_error{"Append failed"};
 	}
-	Script::SetProperty(rq, settings, "surface_formats", surfaceFormats);
+	Script::SetProperty(rq, settings, "surface_formats",
+		JS::RootedValue{rq.cx, JS::ObjectValue(*JS::NewArrayObject(rq.cx, surfaceFormats))});
 
 	JS::RootedValue surfaceCapabilities(rq.cx);
 	Script::CreateObject(rq, &surfaceCapabilities);

@@ -1,4 +1,4 @@
-/* Copyright (C) 2019 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,11 +17,12 @@
 
 #include "lib/self_test.h"
 
+#include "lib/types.h"
 #include "maths/Sqrt.h"
 
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/uniform_int_distribution.hpp>
-#include <boost/random/variate_generator.hpp>
+#include <cmath>
+#include <cstddef>
+#include <random>
 
 class TestSqrt : public CxxTest::TestSuite
 {
@@ -75,13 +76,12 @@ public:
 		// Test with some random u64s, to make sure the output agrees with floor(sqrt(double))
 		// (TODO: This might be making non-portable assumptions about sqrt(double))
 
-		boost::mt19937 rng;
-		boost::random::uniform_int_distribution<u64> ints(0, (u64)-1);
-		boost::variate_generator<boost::mt19937&, boost::random::uniform_int_distribution<u64>> gen(rng, ints);
+		std::mt19937 rng;
+		std::uniform_int_distribution<u64> ints(0, (u64)-1);
 
 		for (size_t i = 0; i < 1024; ++i)
 		{
-			u64 n = gen();
+			u64 n = ints(rng);
 			s(n, static_cast<u64>(sqrt(static_cast<double>(n))));
 		}
 	}

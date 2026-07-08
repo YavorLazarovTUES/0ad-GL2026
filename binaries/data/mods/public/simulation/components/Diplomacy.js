@@ -19,7 +19,7 @@ Diplomacy.prototype.Serialize = function()
 {
 	const state = {};
 	for (const key of this.SerializableAttributes)
-		if (this.hasOwnProperty(key))
+		if (Object.hasOwn(this, key))
 			state[key] = this[key];
 
 	return state;
@@ -81,6 +81,7 @@ Diplomacy.prototype.ChangeTeam = function(team)
 	if (this.team !== -1)
 		warn("A change in teams is requested while the player already had a team, previous alliances are maintained.");
 
+	const oldTeam = this.team;
 	this.team = team;
 
 	if (this.team !== -1)
@@ -97,9 +98,10 @@ Diplomacy.prototype.ChangeTeam = function(team)
 		}
 	}
 
-	Engine.BroadcastMessage(MT_DiplomacyChanged, {
+	Engine.BroadcastMessage(MT_TeamChanged, {
 		"player": playerID,
-		"otherPlayer": null
+		"oldTeam": oldTeam,
+		"newTeam": team
 	});
 };
 
@@ -136,7 +138,7 @@ Diplomacy.prototype.SetDiplomacy = function(dipl)
 {
 	const playerID = Engine.QueryInterface(this.entity, IID_Player)?.GetPlayerID();
 	if (playerID === undefined)
-		return
+		return;
 
 	this.diplomacy = dipl.slice();
 

@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,56 +17,56 @@
 
 #include "precompiled.h"
 
-#include "graphics/CinemaManager.h"
+#include "CinemaManager.h"
 
-#include "graphics/Camera.h"
 #include "graphics/Color.h"
-#include "graphics/GameView.h"
-#include "maths/MathUtil.h"
-#include "maths/Quaternion.h"
+#include "graphics/Terrain.h"
+#include "maths/FixedVector3D.h"
+#include "maths/NUSpline.h"
 #include "maths/Vector3D.h"
-#include "maths/Vector4D.h"
-#include "ps/CLogger.h"
-#include "ps/ConfigDB.h"
 #include "ps/CStr.h"
 #include "ps/Game.h"
-#include "ps/GameSetup/Config.h"
-#include "ps/Hotkey.h"
 #include "ps/World.h"
 #include "renderer/DebugRenderer.h"
 #include "renderer/Renderer.h"
-#include "simulation2/components/ICmpCinemaManager.h"
-#include "simulation2/components/ICmpOverlayRenderer.h"
-#include "simulation2/components/ICmpRangeManager.h"
-#include "simulation2/components/ICmpSelectable.h"
-#include "simulation2/components/ICmpTerritoryManager.h"
-#include "simulation2/helpers/CinemaPath.h"
-#include "simulation2/MessageTypes.h"
-#include "simulation2/system/ComponentManager.h"
+#include "renderer/RenderingOptions.h"
 #include "simulation2/Simulation2.h"
+#include "simulation2/components/ICmpCinemaManager.h"
+#include "simulation2/helpers/CinemaPath.h"
+#include "simulation2/system/Component.h"
 
-CCinemaManager::CCinemaManager()
-	: m_DrawPaths(false)
-{
-}
+#include <map>
+#include <utility>
+#include <vector>
 
-void CCinemaManager::Update(const float deltaRealTime) const
+void CCinemaManager::Update(const float deltaRealTime, CCamera& camera)
 {
 	CmpPtr<ICmpCinemaManager> cmpCinemaManager(g_Game->GetSimulation2()->GetSimContext().GetSystemEntity());
 	if (!cmpCinemaManager)
 		return;
 
 	if (IsPlaying())
-		cmpCinemaManager->PlayQueue(deltaRealTime, g_Game->GetView()->GetCamera());
+	{
+		if (g_RenderingOptions.GetSmoothLOS())
+		{
+			g_RenderingOptions.SetSmoothLOS(false);
+			m_SmoothLosOverridden = true;
+		}
+		cmpCinemaManager->UpdateActivePath(deltaRealTime, camera);
+		return;
+	}
+
+	if (std::exchange(m_SmoothLosOverridden, false))
+		g_RenderingOptions.SetSmoothLOS(true);
 }
 
-void CCinemaManager::Render() const
+void CCinemaManager::Render(Renderer::Backend::IDeviceCommandContext& deviceCommandContext) const
 {
-	if (!IsEnabled() && m_DrawPaths)
-		DrawPaths();
+	if (!IsPlaying() && m_DrawPaths)
+		DrawPaths(deviceCommandContext);
 }
 
-void CCinemaManager::DrawPaths() const
+void CCinemaManager::DrawPaths(Renderer::Backend::IDeviceCommandContext& deviceCommandContext) const
 {
 	CmpPtr<ICmpCinemaManager> cmpCinemaManager(g_Game->GetSimulation2()->GetSimContext().GetSystemEntity());
 	if (!cmpCinemaManager)
@@ -74,18 +74,18 @@ void CCinemaManager::DrawPaths() const
 
 	for (const std::pair<const CStrW, CCinemaPath>& p : cmpCinemaManager->GetPaths())
 	{
-		DrawSpline(p.second, CColor(0.2f, 0.2f, 1.f, 0.9f), 128);
-		DrawNodes(p.second, CColor(0.1f, 1.f, 0.f, 1.f));
+		DrawSpline(deviceCommandContext, p.second, CColor(0.2f, 0.2f, 1.f, 0.9f), 128);
+		DrawNodes(deviceCommandContext, p.second, CColor(0.1f, 1.f, 0.f, 1.f));
 
 		if (p.second.GetTargetSpline().GetAllNodes().empty())
 			continue;
 
-		DrawSpline(p.second.GetTargetSpline(), CColor(1.f, 0.3f, 0.4f, 0.9f), 128);
-		DrawNodes(p.second.GetTargetSpline(), CColor(1.f, 0.1f, 0.f, 1.f));
+		DrawSpline(deviceCommandContext, p.second.GetTargetSpline(), CColor(1.f, 0.3f, 0.4f, 0.9f), 128);
+		DrawNodes(deviceCommandContext, p.second.GetTargetSpline(), CColor(1.f, 0.1f, 0.f, 1.f));
 	}
 }
 
-void CCinemaManager::DrawSpline(const RNSpline& spline, const CColor& splineColor, int smoothness) const
+void CCinemaManager::DrawSpline(Renderer::Backend::IDeviceCommandContext& deviceCommandContext, const RNSpline& spline, const CColor& splineColor, int smoothness) const
 {
 	if (spline.GetAllNodes().size() < 2)
 		return;
@@ -100,7 +100,8 @@ void CCinemaManager::DrawSpline(const RNSpline& spline, const CColor& splineColo
 		const float time = start * i / spline.MaxDistance.ToFloat();
 		line.emplace_back(spline.GetPosition(time));
 	}
-	g_Renderer.GetDebugRenderer().DrawLine(line, splineColor, 0.2f, false);
+
+	g_Renderer.GetDebugRenderer().DrawLine(deviceCommandContext, line, splineColor, 0.2f, false);
 
 	// Height indicator
 	if (g_Game && g_Game->GetWorld())
@@ -110,30 +111,26 @@ void CCinemaManager::DrawSpline(const RNSpline& spline, const CColor& splineColo
 			const float time = start * i / spline.MaxDistance.ToFloat();
 			const CVector3D tmp = spline.GetPosition(time);
 			const float groundY = g_Game->GetWorld()->GetTerrain().GetExactGroundLevel(tmp.X, tmp.Z);
-			g_Renderer.GetDebugRenderer().DrawLine(tmp, CVector3D(tmp.X, groundY, tmp.Z), splineColor, 0.1f, false);
+			g_Renderer.GetDebugRenderer().DrawLine(deviceCommandContext, tmp, CVector3D(tmp.X, groundY, tmp.Z), splineColor, 0.1f, false);
 		}
 	}
 }
 
-void CCinemaManager::DrawNodes(const RNSpline& spline, const CColor& nodeColor) const
+void CCinemaManager::DrawNodes(Renderer::Backend::IDeviceCommandContext& deviceCommandContext, const RNSpline& spline, const CColor& nodeColor) const
 {
 	for (const SplineData& node : spline.GetAllNodes())
 	{
 		g_Renderer.GetDebugRenderer().DrawCircle(
+			deviceCommandContext,
 			CVector3D(node.Position.X.ToFloat(), node.Position.Y.ToFloat(), node.Position.Z.ToFloat()),
 			0.5f, nodeColor);
 	}
 }
 
-bool CCinemaManager::IsEnabled() const
-{
-	CmpPtr<ICmpCinemaManager> cmpCinemaManager(g_Game->GetSimulation2()->GetSimContext().GetSystemEntity());
-	return cmpCinemaManager && cmpCinemaManager->IsEnabled();
-}
-
 bool CCinemaManager::IsPlaying() const
 {
-	return IsEnabled() && g_Game && !g_Game->m_Paused;
+	CmpPtr<ICmpCinemaManager> cmpCinemaManager(g_Game->GetSimulation2()->GetSimContext().GetSystemEntity());
+	return cmpCinemaManager && cmpCinemaManager->IsPlayingQueue();
 }
 
 bool CCinemaManager::GetPathsDrawing() const

@@ -1,5 +1,5 @@
 // Number of rounds of firing per 2 seconds.
-const roundCount = 10;
+const roundCount = 20;
 const attackType = "Ranged";
 
 function BuildingAI() {}
@@ -28,20 +28,21 @@ BuildingAI.prototype.Init = function()
 	this.archersGarrisoned = 0;
 	this.arrowsLeft = 0;
 	this.targetUnits = [];
+	this.focusTargets = [];
 };
 
 BuildingAI.prototype.OnGarrisonedUnitsChanged = function(msg)
 {
-	let classes = this.template.GarrisonArrowClasses;
-	for (let ent of msg.added)
+	const classes = this.template.GarrisonArrowClasses;
+	for (const ent of msg.added)
 	{
-		let cmpIdentity = Engine.QueryInterface(ent, IID_Identity);
+		const cmpIdentity = Engine.QueryInterface(ent, IID_Identity);
 		if (cmpIdentity && MatchesClassList(cmpIdentity.GetClassesList(), classes))
 			++this.archersGarrisoned;
 	}
-	for (let ent of msg.removed)
+	for (const ent of msg.removed)
 	{
-		let cmpIdentity = Engine.QueryInterface(ent, IID_Identity);
+		const cmpIdentity = Engine.QueryInterface(ent, IID_Identity);
 		if (cmpIdentity && MatchesClassList(cmpIdentity.GetClassesList(), classes))
 			--this.archersGarrisoned;
 	}
@@ -50,6 +51,7 @@ BuildingAI.prototype.OnGarrisonedUnitsChanged = function(msg)
 BuildingAI.prototype.OnOwnershipChanged = function(msg)
 {
 	this.targetUnits = [];
+	this.focusTargets = [];
 	this.SetupRangeQuery();
 	this.SetupGaiaRangeQuery();
 };
@@ -69,13 +71,13 @@ BuildingAI.prototype.OnDestroy = function()
 {
 	if (this.timer)
 	{
-		let cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
+		const cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
 		cmpTimer.CancelTimer(this.timer);
 		this.timer = undefined;
 	}
 
 	// Clean up range queries.
-	let cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
+	const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
 	if (this.enemyUnitsQuery)
 		cmpRangeManager.DestroyActiveQuery(this.enemyUnitsQuery);
 	if (this.gaiaUnitsQuery)
@@ -176,8 +178,9 @@ BuildingAI.prototype.OnRangeUpdate = function(msg)
 	// Target enemy units except non-dangerous animals.
 	if (msg.tag == this.gaiaUnitsQuery)
 	{
-		msg.added = msg.added.filter(e => {
-			let cmpUnitAI = Engine.QueryInterface(e, IID_UnitAI);
+		msg.added = msg.added.filter(e =>
+		{
+			const cmpUnitAI = Engine.QueryInterface(e, IID_UnitAI);
 			return cmpUnitAI && (!cmpUnitAI.IsAnimal() || cmpUnitAI.IsDangerousAnimal());
 		});
 	}
@@ -185,14 +188,14 @@ BuildingAI.prototype.OnRangeUpdate = function(msg)
 		return;
 
 	// Add new targets.
-	for (let entity of msg.added)
+	for (const entity of msg.added)
 		if (cmpAttack.CanAttack(entity))
 			this.targetUnits.push(entity);
 
 	// Remove targets outside of vision-range.
-	for (let entity of msg.removed)
+	for (const entity of msg.removed)
 	{
-		let index = this.targetUnits.indexOf(entity);
+		const index = this.targetUnits.indexOf(entity);
 		if (index > -1)
 			this.targetUnits.splice(index, 1);
 	}
@@ -228,7 +231,7 @@ BuildingAI.prototype.GetMaxArrowCount = function()
 	if (!this.template.MaxArrowCount)
 		return Infinity;
 
-	let maxArrowCount = +this.template.MaxArrowCount;
+	const maxArrowCount = +this.template.MaxArrowCount;
 	return Math.round(ApplyValueModificationsToEntity("BuildingAI/MaxArrowCount", maxArrowCount, this.entity));
 };
 
@@ -253,7 +256,7 @@ BuildingAI.prototype.GetGarrisonArrowClasses = function()
  */
 BuildingAI.prototype.GetArrowCount = function()
 {
-	let count = this.GetDefaultArrowCount() +
+	const count = this.GetDefaultArrowCount() +
 		Math.round(this.archersGarrisoned * this.GetGarrisonArrowMultiplier());
 
 	return Math.min(count, this.GetMaxArrowCount());
@@ -267,6 +270,22 @@ BuildingAI.prototype.SetUnitAITarget = function(ent)
 };
 
 /**
+ * Adds index to keep track of the user-targeted units supporting a queue
+ * @param {ent} - Target of focus-fire from unit-actions if the selection is an enemy.
+ */
+BuildingAI.prototype.AddFocusTarget = function(ent, queued, push)
+{
+	if (!ent || this.targetUnits.indexOf(ent) === -1)
+		return;
+	if (queued)
+		this.focusTargets.push({ "entityId": ent });
+	else if (push)
+		this.focusTargets.unshift({ "entityId": ent });
+	else
+		this.focusTargets = [{ "entityId": ent }];
+};
+
+/**
  * Fire arrows with random temporal distribution on prefered targets.
  * Called 'roundCount' times every 'RepeatTime' seconds when there are units in the range.
  */
@@ -277,13 +296,13 @@ BuildingAI.prototype.FireArrows = function()
 		if (!this.timer)
 			return;
 
-		let cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
+		const cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
 		cmpTimer.CancelTimer(this.timer);
 		this.timer = undefined;
 		return;
 	}
 
-	let cmpAttack = Engine.QueryInterface(this.entity, IID_Attack);
+	const cmpAttack = Engine.QueryInterface(this.entity, IID_Attack);
 	if (!cmpAttack)
 		return;
 
@@ -293,13 +312,14 @@ BuildingAI.prototype.FireArrows = function()
 	if (this.currentRound == 0)
 		this.arrowsLeft = this.GetArrowCount();
 
-	let arrowsToFire = 0;
+	let arrowsToFire;
 	if (this.currentRound == roundCount - 1)
 		arrowsToFire = this.arrowsLeft;
 	else
 		arrowsToFire = Math.min(
-		    randIntInclusive(0, 2 * this.GetArrowCount() / roundCount),
-		    this.arrowsLeft
+			// shooting arrows in the first quarter of rounds results in a burst.
+			this.GetArrowCount() / (roundCount / 4),
+			this.arrowsLeft
 		);
 
 	if (arrowsToFire <= 0)
@@ -308,25 +328,39 @@ BuildingAI.prototype.FireArrows = function()
 		return;
 	}
 
-	// Add targets to a weighted list, to allow preferences.
-	let targets = new WeightedList();
-	let maxPreference = this.MAX_PREFERENCE_BONUS;
-	let addTarget = function(target)
+	// Add targets to a list.
+	let targets = [];
+	const addTarget = function(target)
 	{
-		let preference = cmpAttack.GetPreference(target);
-		let weight = 1;
-
-		if (preference !== null && preference !== undefined)
-			weight += maxPreference / (1 + preference);
-
-		targets.push(target, weight);
+		const pref = (cmpAttack.GetPreference(target) ?? 49);
+		targets.push({ "entityId": target, "preference": pref });
 	};
 
 	// Add the UnitAI target separately, as the UnitMotion and RangeManager implementations differ.
 	if (this.unitAITarget && this.targetUnits.indexOf(this.unitAITarget) == -1)
 		addTarget(this.unitAITarget);
-	for (let target of this.targetUnits)
-		addTarget(target);
+
+	else if (this.unitAITarget && this.targetUnits.indexOf(this.unitAITarget) != -1)
+		this.focusTargets = [{ "entityId": this.unitAITarget }];
+
+	if (!this.focusTargets.length)
+	{
+		for (const target of this.targetUnits)
+			addTarget(target);
+		// Sort targets by preference and then by proximity.
+		targets.sort((a, b) =>
+		{
+			if (a.preference > b.preference)
+				return 1;
+			else if (a.preference < b.preference)
+				return -1;
+			else if (PositionHelper.DistanceBetweenEntities(this.entity, a.entityId) > PositionHelper.DistanceBetweenEntities(this.entity, b.entityId))
+				return 1;
+			return -1;
+		});
+	}
+	else
+		targets = this.focusTargets;
 
 	// The obstruction manager performs approximate range checks.
 	// so we need to verify them here.
@@ -336,9 +370,11 @@ BuildingAI.prototype.FireArrows = function()
 	const yOrigin = cmpAttack.GetAttackYOrigin(attackType);
 
 	let firedArrows = 0;
-	while (firedArrows < arrowsToFire && targets.length())
+	let targetIndex = 0;
+	while (firedArrows < arrowsToFire && targetIndex < targets.length)
 	{
-		const selectedTarget = targets.randomItem();
+
+		const selectedTarget = targets[targetIndex].entityId;
 		if (this.CheckTargetVisible(selectedTarget) && cmpObstructionManager.IsInTargetParabolicRange(
 			this.entity,
 			selectedTarget,
@@ -350,13 +386,11 @@ BuildingAI.prototype.FireArrows = function()
 			cmpAttack.PerformAttack(attackType, selectedTarget);
 			PlaySound("attack_" + attackType.toLowerCase(), this.entity);
 			++firedArrows;
-			continue;
 		}
-
-		// Could not attack target, try a different target.
-		targets.remove(selectedTarget);
+		else
+			++targetIndex;// Could not attack target, try a different target.
 	}
-
+	targets.splice(0, targetIndex);
 	this.arrowsLeft -= firedArrows;
 	++this.currentRound;
 };
@@ -376,7 +410,7 @@ BuildingAI.prototype.CheckTargetVisible = function(target)
 		return true;
 
 	// Either visible directly, or visible in fog.
-	let cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
+	const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
 	return cmpRangeManager.GetLosVisibility(target, cmpOwnership.GetOwner()) != "hidden";
 };
 

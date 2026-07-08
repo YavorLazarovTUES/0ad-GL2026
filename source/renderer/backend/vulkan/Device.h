@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,21 +18,37 @@
 #ifndef INCLUDED_RENDERER_BACKEND_VULKAN_DEVICE
 #define INCLUDED_RENDERER_BACKEND_VULKAN_DEVICE
 
+#include "ps/CStr.h"
+#include "renderer/backend/Backend.h"
+#include "renderer/backend/IBuffer.h"
 #include "renderer/backend/IDevice.h"
+#include "renderer/backend/ITexture.h"
 #include "renderer/backend/vulkan/DeviceForward.h"
+#include "renderer/backend/vulkan/DeviceObjectUID.h"
 #include "renderer/backend/vulkan/DeviceSelection.h"
-#include "renderer/backend/vulkan/Texture.h"
 #include "renderer/backend/vulkan/VMA.h"
-#include "scriptinterface/ScriptForward.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <glad/vulkan.h>
-#include <memory>
+#include <js/TypeDecls.h>
 #include <limits>
+#include <memory>
 #include <queue>
+#include <span>
 #include <string>
-#include <tuple>
-#include <unordered_map>
+#include <utility>
 #include <vector>
+
+namespace Renderer::Backend { enum class Format; }
+namespace Renderer::Backend::Vulkan { class CBuffer; }
+namespace Renderer::Backend::Vulkan { class CDescriptorManager; }
+namespace Renderer::Backend::Vulkan { class CRenderPassManager; }
+namespace Renderer::Backend::Vulkan { class CRingCommandContext; }
+namespace Renderer::Backend::Vulkan { class CSamplerManager; }
+namespace Renderer::Backend::Vulkan { class CSubmitScheduler; }
+namespace Renderer::Backend::Vulkan { class CSwapChain; }
+namespace Renderer::Backend::Vulkan { class CTexture; }
 
 typedef struct SDL_Window SDL_Window;
 
@@ -46,15 +62,6 @@ namespace Vulkan
 {
 
 static constexpr size_t NUMBER_OF_FRAMES_IN_FLIGHT = 3;
-
-class CBuffer;
-class CDescriptorManager;
-class CFramebuffer;
-class CRenderPassManager;
-class CRingCommandContext;
-class CSamplerManager;
-class CSubmitScheduler;
-class CSwapChain;
 
 class CDevice final : public IDevice
 {
@@ -73,9 +80,16 @@ public:
 	const std::string& GetDriverInformation() const override { return m_DriverInformation; }
 	const std::vector<std::string>& GetExtensions() const override { return m_Extensions; }
 
-	void Report(const ScriptRequest& rq, JS::HandleValue settings) override;
+	void Report(const Script::Request& rq, JS::HandleValue settings) override;
 
 	std::unique_ptr<IDeviceCommandContext> CreateCommandContext() override;
+
+	std::unique_ptr<ISwapChain> CreateSwapChain(
+		const char* name, SDL_Window* window,
+		int surfaceDrawableWidth, int surfaceDrawableHeight,
+		const bool vsync, std::unique_ptr<ISwapChain> oldSwapChain) override;
+
+	void WaitUntilIdle() override;
 
 	std::unique_ptr<IGraphicsPipelineState> CreateGraphicsPipelineState(
 		const SGraphicsPipelineStateDesc& pipelineStateDesc) override;
@@ -84,7 +98,7 @@ public:
 		const SComputePipelineStateDesc& pipelineStateDesc) override;
 
 	std::unique_ptr<IVertexInputLayout> CreateVertexInputLayout(
-		const PS::span<const SVertexAttributeFormat> attributes) override;
+		const std::span<const SVertexAttributeFormat> attributes) override;
 
 	std::unique_ptr<ITexture> CreateTexture(
 		const char* name, const ITexture::Type type, const uint32_t usage,
@@ -109,18 +123,6 @@ public:
 	std::unique_ptr<IShaderProgram> CreateShaderProgram(
 		const CStr& name, const CShaderDefines& defines) override;
 
-	bool AcquireNextBackbuffer() override;
-
-	IFramebuffer* GetCurrentBackbuffer(
-		const AttachmentLoadOp colorAttachmentLoadOp,
-		const AttachmentStoreOp colorAttachmentStoreOp,
-		const AttachmentLoadOp depthStencilAttachmentLoadOp,
-		const AttachmentStoreOp depthStencilAttachmentStoreOp) override;
-
-	void Present() override;
-
-	void OnWindowResize(const uint32_t width, const uint32_t height) override;
-
 	bool IsTextureFormatSupported(const Format format) const override;
 
 	bool IsFramebufferFormatSupported(const Format format) const override;
@@ -128,11 +130,24 @@ public:
 	Format GetPreferredDepthStencilFormat(
 		const uint32_t usage, const bool depth, const bool stencil) const override;
 
+	bool IsQueryResultAvailable(const uint32_t handle) const override;
+
+	uint32_t AllocateQuery() override;
+
+	void FreeQuery(const uint32_t handle) override;
+
+	uint64_t GetQueryResult(const uint32_t handle) override;
+
 	const Capabilities& GetCapabilities() const override { return m_Capabilities; }
 
-	VkDevice GetVkDevice() { return m_Device; }
+	void CollectStatistics(StatisticsVector& statistics) const override;
+
+	VkDevice GetVkDevice() const { return m_Device; }
 
 	VmaAllocator GetVMAAllocator() { return m_VMAAllocator; }
+
+	void InsertTimestampQuery(
+		VkCommandBuffer commandBuffer, const uint32_t handle, const bool isScopeBegin);
 
 	void ScheduleObjectToDestroy(
 		VkObjectType type, const void* handle, const VmaAllocation allocation)
@@ -144,6 +159,10 @@ public:
 		VkObjectType type, const uint64_t handle, const VmaAllocation allocation);
 
 	void ScheduleTextureToDestroy(const DeviceObjectUID uid);
+
+	void ScheduleBufferToDestroy(const DeviceObjectUID uid);
+
+	void OnPresent();
 
 	void SetObjectName(VkObjectType type, const void* handle, const char* name)
 	{
@@ -162,19 +181,15 @@ public:
 
 	CDescriptorManager& GetDescriptorManager() { return *m_DescriptorManager; }
 
-	CTexture* GetCurrentBackbufferTexture();
-
-	CTexture* GetOrCreateBackbufferReadbackTexture();
-
 	DeviceObjectUID GenerateNextDeviceObjectUID();
+
+	uint32_t GetFrameID() const { return m_FrameID; }
 
 private:
 	CDevice();
 
-	void RecreateSwapChain();
-	bool IsSwapChainValid();
 	void ProcessObjectToDestroyQueue(const bool ignoreFrameID = false);
-	void ProcessTextureToDestroyQueue(const bool ignoreFrameID = false);
+	void ProcessDeviceObjectToDestroyQueue(const bool ignoreFrameID = false);
 
 	bool IsFormatSupportedForUsage(const Format format, const uint32_t usage) const;
 
@@ -202,8 +217,14 @@ private:
 	VkQueue m_GraphicsQueue = VK_NULL_HANDLE;
 	uint32_t m_GraphicsQueueFamilyIndex = std::numeric_limits<uint32_t>::max();
 
-	std::unique_ptr<CSwapChain> m_SwapChain;
-	std::unique_ptr<CTexture> m_BackbufferReadbackTexture;
+	VkQueryPool m_QueryPool{VK_NULL_HANDLE};
+	struct Query
+	{
+		uint32_t lastUsageFrameID{};
+		bool occupied{};
+		bool submitted{};
+	};
+	std::vector<Query> m_Queries;
 
 	uint32_t m_FrameID = 0;
 
@@ -216,6 +237,7 @@ private:
 	};
 	std::queue<ObjectToDestroy> m_ObjectToDestroyQueue;
 	std::queue<std::pair<uint32_t, DeviceObjectUID>> m_TextureToDestroyQueue;
+	std::queue<std::pair<uint32_t, DeviceObjectUID>> m_BufferToDestroyQueue;
 
 	std::unique_ptr<CRenderPassManager> m_RenderPassManager;
 	std::unique_ptr<CSamplerManager> m_SamplerManager;

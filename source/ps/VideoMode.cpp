@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,35 +19,58 @@
 
 #include "VideoMode.h"
 
+#include "graphics/Camera.h"
 #include "graphics/GameView.h"
+#include "graphics/ShaderDefines.h"
+#include "graphics/ShaderProgram.h"
 #include "gui/GUIManager.h"
 #include "lib/config2.h"
-#include "lib/external_libraries/libsdl.h"
+#include "lib/debug.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/path.h"
+#include "lib/status.h"
 #include "lib/sysdep/os.h"
 #include "lib/tex/tex.h"
+#include "lib/types.h"
 #include "ps/CConsole.h"
 #include "ps/CLogger.h"
-#include "ps/ConfigDB.h"
 #include "ps/CStr.h"
-#if OS_MACOSX && SDL_VERSION_ATLEAST(2, 0, 6)
-#include "ps/DllLoader.h"
-#endif
+#include "ps/ConfigDB.h"
 #include "ps/Filesystem.h"
 #include "ps/Game.h"
 #include "ps/GameSetup/Config.h"
+#include "ps/Hotkey.h"
 #include "ps/Pyrogenesis.h"
+#include "renderer/Renderer.h"
+#include "renderer/backend/IDevice.h"
+#include "renderer/backend/ISwapChain.h"
 #include "renderer/backend/dummy/DeviceForward.h"
 #include "renderer/backend/gl/DeviceForward.h"
-#include "renderer/backend/IDevice.h"
 #include "renderer/backend/vulkan/DeviceForward.h"
-#include "renderer/Renderer.h"
+#include "scriptinterface/Interface.h"
 
+#include <SDL.h>
+#include <SDL_error.h>
+#include <SDL_events.h>
+#include <SDL_mouse.h>
+#include <SDL_pixels.h>
+#include <SDL_stdinc.h>
+#include <SDL_surface.h>
+#include <SDL_version.h>
+#include <SDL_video.h>
+#include <algorithm>
+#include <cstdlib>
+#include <sstream>
+#include <string>
 #include <string_view>
 
 #if OS_MACOSX && SDL_VERSION_ATLEAST(2, 0, 6)
+#include "ps/DllLoader.h"
+
 #include <SDL_vulkan.h>
-#include <stdlib.h>
 #endif
+
+using namespace std::literals;
 
 namespace
 {
@@ -68,9 +91,6 @@ Renderer::Backend::Backend GetFallbackBackend(const Renderer::Backend::Backend b
 	switch (backend)
 	{
 	case Renderer::Backend::Backend::GL:
-		fallback = Renderer::Backend::Backend::GL_ARB;
-		break;
-	case Renderer::Backend::Backend::GL_ARB:
 		fallback = Renderer::Backend::Backend::DUMMY;
 		break;
 	case Renderer::Backend::Backend::DUMMY:
@@ -89,9 +109,6 @@ std::string_view GetBackendName(const Renderer::Backend::Backend backend)
 	{
 	case Renderer::Backend::Backend::GL:
 		name = "GL";
-		break;
-	case Renderer::Backend::Backend::GL_ARB:
-		name = "GL ARB";
 		break;
 	case Renderer::Backend::Backend::DUMMY:
 		name = "Dummy";
@@ -141,9 +158,7 @@ private:
 
 CVideoMode::CCursor::CCursor()
 {
-	std::string cursorBackend;
-	CFG_GET_VAL("cursorbackend", cursorBackend);
-	if (cursorBackend == "sdl")
+	if (g_ConfigDB.Get("cursorbackend", std::string{}) == "sdl")
 		m_CursorBackend = CursorBackend::SDL;
 	else
 		m_CursorBackend = CursorBackend::SYSTEM;
@@ -266,6 +281,36 @@ void CVideoMode::CCursor::ResetCursor()
 	SetCursor(DEFAULT_CURSOR_NAME);
 }
 
+Input::Reaction CVideoMode::InputHandler::operator()(const SDL_Event& ev)
+{
+	if (ev.type == SDL_HOTKEYPRESS)
+	{
+		if (static_cast<const char*>(ev.user.data1) == "mousegrabtoggle"sv)
+		{
+			SDL_Window* const window{videoMode.GetWindow()};
+			const SDL_bool willGrabMouse{SDL_GetWindowGrab(window) ? SDL_FALSE : SDL_TRUE};
+			SDL_SetWindowGrab(window, willGrabMouse);
+			return Input::Reaction::HANDLED;
+		}
+	}
+	if (ev.type == SDL_WINDOWEVENT && !videoMode.m_IsFullscreen)
+	{
+		switch (ev.window.event)
+		{
+		case SDL_WINDOWEVENT_RESIZED:
+			videoMode.m_ResizedW = ev.window.data1;
+			videoMode.m_ResizedH = ev.window.data2;
+			break;
+		case SDL_WINDOWEVENT_MOVED:
+			videoMode.m_WindowedX = ev.window.data1;
+			videoMode.m_WindowedY = ev.window.data2;
+			break;
+		}
+	}
+
+	return Input::Reaction::PASS;
+}
+
 CVideoMode::CVideoMode() :
 	m_WindowedW(DEFAULT_WINDOW_W), m_WindowedH(DEFAULT_WINDOW_H), m_WindowedX(0), m_WindowedY(0)
 {
@@ -275,24 +320,19 @@ CVideoMode::~CVideoMode() = default;
 
 void CVideoMode::ReadConfig()
 {
-	bool windowed = !m_ConfigFullscreen;
-	CFG_GET_VAL("windowed", windowed);
-	m_ConfigFullscreen = !windowed;
+	m_ConfigFullscreen = !g_ConfigDB.Get("windowed", !m_ConfigFullscreen);
 
-	CFG_GET_VAL("gui.scale", m_Scale);
+	m_Scale = g_ConfigDB.Get("gui.scale", m_Scale);
 
-	CFG_GET_VAL("xres", m_ConfigW);
-	CFG_GET_VAL("yres", m_ConfigH);
-	CFG_GET_VAL("bpp", m_ConfigBPP);
-	CFG_GET_VAL("display", m_ConfigDisplay);
-	CFG_GET_VAL("hidpi", m_ConfigEnableHiDPI);
-	CFG_GET_VAL("vsync", m_ConfigVSync);
+	m_ConfigW = g_ConfigDB.Get("xres", m_ConfigW);
+	m_ConfigH = g_ConfigDB.Get("yres", m_ConfigH);
+	m_ConfigBPP = g_ConfigDB.Get("bpp", m_ConfigBPP);
+	m_ConfigDisplay = g_ConfigDB.Get("display", m_ConfigDisplay);
+	m_ConfigEnableHiDPI = g_ConfigDB.Get("hidpi", m_ConfigEnableHiDPI);
+	m_ConfigVSync = g_ConfigDB.Get("vsync", m_ConfigVSync);
 
-	CStr rendererBackend;
-	CFG_GET_VAL("rendererbackend", rendererBackend);
-	if (rendererBackend == "glarb")
-		m_Backend = Renderer::Backend::Backend::GL_ARB;
-	else if (rendererBackend == "dummy")
+	const std::string rendererBackend{g_ConfigDB.Get("rendererbackend", std::string{})};
+	if (rendererBackend == "dummy")
 		m_Backend = Renderer::Backend::Backend::DUMMY;
 	else if (rendererBackend == "vulkan")
 		m_Backend = Renderer::Backend::Backend::VULKAN;
@@ -310,23 +350,15 @@ bool CVideoMode::SetVideoMode(int w, int h, int bpp, bool fullscreen)
 	Uint32 flags = 0;
 	if (fullscreen)
 	{
-		bool borderlessFullscreen = true;
-		CFG_GET_VAL("borderless.fullscreen", borderlessFullscreen);
-		flags |= borderlessFullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : SDL_WINDOW_FULLSCREEN;
+		flags |= g_ConfigDB.Get("borderless.fullscreen", true) ? SDL_WINDOW_FULLSCREEN_DESKTOP :
+			SDL_WINDOW_FULLSCREEN;
 	}
-	else
-	{
-		bool borderlessWindow = false;
-		CFG_GET_VAL("borderless.window", borderlessWindow);
-		if (borderlessWindow)
-			flags |= SDL_WINDOW_BORDERLESS;
-	}
+	else if (g_ConfigDB.Get("borderless.window", false))
+		flags |= SDL_WINDOW_BORDERLESS;
 
 	if (!m_Window)
 	{
-		const bool isGLBackend =
-			m_Backend == Renderer::Backend::Backend::GL ||
-			m_Backend == Renderer::Backend::Backend::GL_ARB;
+		const bool isGLBackend{m_Backend == Renderer::Backend::Backend::GL};
 		if (isGLBackend)
 		{
 			SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
@@ -334,21 +366,14 @@ bool CVideoMode::SetVideoMode(int w, int h, int bpp, bool fullscreen)
 			SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 			SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
-			bool debugContext = false;
-			CFG_GET_VAL("renderer.backend.debugcontext", debugContext);
-			if (debugContext)
+			if (g_ConfigDB.Get("renderer.backend.debugcontext", false))
 				SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
 
-			bool forceGLVersion = false;
-			CFG_GET_VAL("forceglversion", forceGLVersion);
-			if (forceGLVersion)
+			if (g_ConfigDB.Get("forceglversion", false))
 			{
-				CStr forceGLProfile = "compatibility";
-				int forceGLMajorVersion = 3;
-				int forceGLMinorVersion = 0;
-				CFG_GET_VAL("forceglprofile", forceGLProfile);
-				CFG_GET_VAL("forceglmajorversion", forceGLMajorVersion);
-				CFG_GET_VAL("forceglminorversion", forceGLMinorVersion);
+				const std::string forceGLProfile{g_ConfigDB.Get("forceglprofile", "compatibility"s)};
+				const int forceGLMajorVersion{g_ConfigDB.Get("forceglmajorversion", 3)};
+				const int forceGLMinorVersion{g_ConfigDB.Get("forceglminorversion", 0)};
 
 				int profile = SDL_GL_CONTEXT_PROFILE_COMPATIBILITY;
 				if (forceGLProfile == "es")
@@ -404,6 +429,7 @@ bool CVideoMode::SetVideoMode(int w, int h, int bpp, bool fullscreen)
 		{
 			// MoltenVK - enable full component swizzling support.
 			setenv("MVK_CONFIG_FULL_IMAGE_VIEW_SWIZZLE", "1", 1);
+			setenv("MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS", "0", 1);
 			CStr fullPathToVulkanLibrary = DllLoader::GenerateFilename("MoltenVK", "", ".dylib");
 			// MoltenVK - only print warnings and errors.
 			setenv("MVK_CONFIG_LOG_LEVEL", "2", 1);
@@ -480,9 +506,6 @@ bool CVideoMode::SetVideoMode(int w, int h, int bpp, bool fullscreen)
 			m_Window = nullptr;
 			return SetVideoMode(w, h, bpp, fullscreen);
 		}
-
-		if (isGLBackend)
-			SDL_GL_SetSwapInterval(m_ConfigVSync ? 1 : 0);
 	}
 	else
 	{
@@ -517,20 +540,15 @@ bool CVideoMode::SetVideoMode(int w, int h, int bpp, bool fullscreen)
 
 	// #545: we need to constrain the window in fullscreen mode to avoid mouse
 	// "falling out" of the window in case of multiple displays.
-	bool mouseGrabInFullscreen = true;
-	CFG_GET_VAL("window.mousegrabinfullscreen", mouseGrabInFullscreen);
-	bool mouseGrabInWindowMode = false;
-	CFG_GET_VAL("window.mousegrabinwindowmode", mouseGrabInWindowMode);
-
-	if (fullscreen ? mouseGrabInFullscreen : mouseGrabInWindowMode)
+	if (fullscreen ? g_ConfigDB.Get("window.mousegrabinfullscreen", true) :
+		g_ConfigDB.Get("window.mousegrabinwindowmode", false))
+	{
 		SDL_SetWindowGrab(m_Window, SDL_TRUE);
+	}
 	else
 		SDL_SetWindowGrab(m_Window, SDL_FALSE);
 
 	m_IsFullscreen = fullscreen;
-
-	g_xres = m_CurrentW;
-	g_yres = m_CurrentH;
 
 	return true;
 }
@@ -593,7 +611,8 @@ bool CVideoMode::InitSDL()
 	// Calling SDL_Quit twice appears to be harmless, though, and avoids the problem
 	// by destroying the context *before* the driver's atexit hook is called.
 	// (Note that atexit hooks are guaranteed to be called in reverse order of their registration.)
-	atexit(SDL_Quit);
+	if (m_Backend == Renderer::Backend::Backend::GL)
+		atexit(SDL_Quit);
 	// End work around.
 
 	m_IsInitialised = true;
@@ -630,6 +649,14 @@ void CVideoMode::Shutdown()
 
 	m_IsFullscreen = false;
 	m_IsInitialised = false;
+
+	if (m_BackendDevice)
+	{
+		// We need to wait before we can destroy the device.
+		m_BackendDevice->WaitUntilIdle();
+	}
+
+	m_SwapChain.reset();
 	m_BackendDevice.reset();
 	if (m_Window)
 	{
@@ -657,10 +684,7 @@ bool CVideoMode::TryCreateBackendDevice(SDL_Window* window)
 	switch (m_Backend)
 	{
 	case Renderer::Backend::Backend::GL:
-		m_BackendDevice = Renderer::Backend::GL::CreateDevice(window, false);
-		break;
-	case Renderer::Backend::Backend::GL_ARB:
-		m_BackendDevice = Renderer::Backend::GL::CreateDevice(window, true);
+		m_BackendDevice = Renderer::Backend::GL::CreateDevice(window);
 		break;
 	case Renderer::Backend::Backend::DUMMY:
 		m_BackendDevice = Renderer::Backend::Dummy::CreateDevice(window);
@@ -668,7 +692,27 @@ bool CVideoMode::TryCreateBackendDevice(SDL_Window* window)
 		break;
 	case Renderer::Backend::Backend::VULKAN:
 		m_BackendDevice = Renderer::Backend::Vulkan::CreateDevice(window);
+		// HACK: the repository doesn't have prebuilt SPIR-V shaders. So some
+		// users might get an error in case of missing shaders.
+		if (m_BackendDevice)
+		{
+			// We must not use CShaderManager here to avoid caching.
+			std::unique_ptr<Renderer::Backend::IShaderProgram> shaderProgram =
+				m_BackendDevice->CreateShaderProgram("spirv/canvas2d", CShaderDefines{});
+			if (!shaderProgram)
+			{
+				m_BackendDevice.reset();
+			}
+		}
 		break;
+	}
+	// We don't need to wait because we don't have any swapchain in use.
+	RecreateSwapChain();
+	if (m_BackendDevice && (!m_SwapChain || !m_SwapChain->IsValid()))
+	{
+		// Currently we assume that we should have a valid swapchain on the device
+		// creation.
+		m_BackendDevice.reset();
 	}
 	return static_cast<bool>(m_BackendDevice);
 }
@@ -681,27 +725,62 @@ void CVideoMode::DowngradeBackendSettingAfterCreationFailure()
 	m_Backend = fallback;
 }
 
-bool CVideoMode::ResizeWindow(int w, int h)
+void CVideoMode::RecreateSwapChain()
+{
+	if (m_BackendDevice)
+	{
+		char nameBuffer[64];
+		snprintf(nameBuffer, std::size(nameBuffer), "SwapChain: %dx%d", m_CurrentW, m_CurrentH);
+		m_SwapChain = m_BackendDevice->CreateSwapChain(
+			nameBuffer, m_Window, m_CurrentW, m_CurrentH, m_ConfigVSync, std::move(m_SwapChain));
+	}
+}
+
+Renderer::Backend::ISwapChain* CVideoMode::GetOrCreateSwapChain()
+{
+#if !OS_MACOSX
+	const bool vsync{g_ConfigDB.Get("vsync", false)};
+	const bool vsyncChanged{m_ConfigVSync != vsync};
+	if (vsyncChanged)
+		m_ConfigVSync = vsync;
+#else
+	// Currently there is a bug in MoltenVK which doesn't allow to recreate
+	// a swapchain with the same size (it makes it 1x1):
+	//  https://github.com/KhronosGroup/MoltenVK/pull/2722
+	const bool vsyncChanged{false};
+#endif
+	const bool shouldRecreate{
+		!m_SwapChain || !m_SwapChain->IsValid() || vsyncChanged};
+	if (shouldRecreate)
+	{
+		if (m_SwapChain)
+		{
+			// We need to wait until we can destroy the swapchain because it
+			// might be in use.
+			m_BackendDevice->WaitUntilIdle();
+		}
+		RecreateSwapChain();
+	}
+	return m_SwapChain.get();
+}
+
+bool CVideoMode::OnceAFrameWork()
 {
 	ENSURE(m_IsInitialised);
 
-	// Ignore if not windowed
-	if (m_IsFullscreen)
-		return true;
-
 	// Ignore if the size hasn't changed
-	if (w == m_WindowedW && h == m_WindowedH)
+	if ((m_ResizedH == 0 && m_ResizedW == 0) || (m_ResizedW == m_WindowedW && m_ResizedH == m_WindowedH))
 		return true;
 
 	int bpp = GetBestBPP();
 
-	if (!SetVideoMode(w, h, bpp, false))
+	if (!SetVideoMode(m_ResizedW, m_ResizedH, bpp, false))
 		return false;
 
-	m_WindowedW = w;
-	m_WindowedH = h;
+	m_WindowedW = m_ResizedW;
+	m_WindowedH = m_ResizedH;
 
-	UpdateRenderer(w, h);
+	UpdateRenderer(m_ResizedW, m_ResizedH);
 
 	return true;
 }
@@ -789,27 +868,27 @@ bool CVideoMode::IsInFullscreen() const
 	return m_IsFullscreen;
 }
 
-void CVideoMode::UpdatePosition(int x, int y)
-{
-	if (!m_IsFullscreen)
-	{
-		m_WindowedX = x;
-		m_WindowedY = y;
-	}
-}
-
 void CVideoMode::UpdateRenderer(int w, int h)
 {
 	if (w < 2) w = 2; // avoid GL errors caused by invalid sizes
 	if (h < 2) h = 2;
 
-	g_xres = w;
-	g_yres = h;
+	m_CurrentW = w;
+	m_CurrentH = h;
 
 	SViewPort vp = { 0, 0, w, h };
 
-	if (g_VideoMode.GetBackendDevice())
-		g_VideoMode.GetBackendDevice()->OnWindowResize(w, h);
+	if (g_VideoMode.m_BackendDevice)
+	{
+		// TODO: implement freeing window size dependent resources before
+		// waiting to reduce a memory spike.
+
+		// We need to wait until we can destroy the swapchain because it
+		// might be in use.
+		g_VideoMode.m_BackendDevice->WaitUntilIdle();
+
+		g_VideoMode.RecreateSwapChain();
+	}
 
 	if (CRenderer::IsInitialised())
 		g_Renderer.Resize(w, h);
@@ -833,13 +912,13 @@ int CVideoMode::GetBestBPP()
 	return 32;
 }
 
-int CVideoMode::GetXRes() const
+int CVideoMode::GetWindowWidth() const
 {
 	ENSURE(m_IsInitialised);
 	return m_CurrentW;
 }
 
-int CVideoMode::GetYRes() const
+int CVideoMode::GetWindowHeight() const
 {
 	ENSURE(m_IsInitialised);
 	return m_CurrentH;

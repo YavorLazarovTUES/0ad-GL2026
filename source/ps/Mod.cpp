@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,35 +17,45 @@
 
 #include "precompiled.h"
 
-#include "ps/Mod.h"
+#include "Mod.h"
 
-#include "i18n/L10n.h"
 #include "lib/file/file_system.h"
 #include "lib/file/vfs/vfs.h"
+#include "lib/path.h"
 #include "lib/sysdep/os.h"
 #include "lib/utf8.h"
+#include "ps/CLogger.h"
+#include "ps/Errors.h"
 #include "ps/Filesystem.h"
-#include "ps/GameSetup/GameSetup.h"
+#include "ps/GameSetup/CmdLineArgs.h"
 #include "ps/GameSetup/Paths.h"
 #include "ps/Profiler2.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptExceptions.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Request.h"
 
-#if !OS_WIN
+#include <algorithm>
+#include <boost/algorithm/string/classification.hpp>
+#include <boost/algorithm/string/constants.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <cstddef>
+#include <fstream>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <sstream>
+#include <string>
+#include <unordered_map>
+#include <utility>
+
+#if OS_WIN
+#include <filesystem>
+#else
 #include "lib/os_path.h"
 #endif
 
-#include <algorithm>
-#include <boost/algorithm/string/split.hpp>
-#include <boost/algorithm/string/classification.hpp>
-#if OS_WIN
-#include <filesystem>
-#endif
-#include <fstream>
-#include <sstream>
-#include <unordered_map>
+namespace Script { class Interface; }
 
 namespace
 {
@@ -102,7 +112,7 @@ bool LoadModJSON(const PIVFS& vfs, OsPath modsPath, OsPath mod, std::string& tex
 	}
 }
 
-bool ParseModJSON(const ScriptRequest& rq, const PIVFS& vfs, OsPath modsPath, OsPath mod, Mod::ModData& data)
+bool ParseModJSON(const Script::Request& rq, const PIVFS& vfs, OsPath modsPath, OsPath mod, Mod::ModData& data)
 {
 	std::string text;
 	if (!LoadModJSON(vfs, modsPath, mod, text))
@@ -235,7 +245,7 @@ bool Mod::AreModsPlayCompatible(const std::vector<const Mod::ModData*>& modsA, c
 	return true;
 }
 
-void Mod::UpdateAvailableMods(const ScriptInterface& scriptInterface)
+void Mod::UpdateAvailableMods(const Script::Interface& scriptInterface)
 {
 	PROFILE2("UpdateAvailableMods");
 
@@ -255,7 +265,7 @@ void Mod::UpdateAvailableMods(const ScriptInterface& scriptInterface)
 
 	PIVFS vfs = CreateVfs();
 
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 	for (DirectoryNames::iterator iter = modDirs.begin(); iter != modDirs.end(); ++iter)
 	{
 		ModData data;

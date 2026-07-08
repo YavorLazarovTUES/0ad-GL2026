@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,14 +25,23 @@
 #include "graphics/Material.h"
 #include "graphics/MeshManager.h"
 #include "graphics/ModelAbstract.h"
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
+#include "lib/posix/posix_types.h"
+#include "maths/BoundingBoxAligned.h"
+#include "simulation2/helpers/Player.h"
 
+#include <cstddef>
+#include <memory>
+#include <string>
 #include <vector>
 
-struct SPropPoint;
+class CMatrix3D;
 class CObjectEntry;
+class CSimulation2;
 class CSkeletonAnim;
 class CSkeletonAnimDef;
-class CSimulation2;
+struct SPropPoint;
 
 // Holds world information for a particular instance of a model in the game.
 class CModel : public CModelAbstract
@@ -106,7 +115,9 @@ public:
 	void AddFlagsRec(int flags);
 	// remove shadow casting and receiving, recursively through props
 	// TODO: replace with more generic shader define + flags setting
-	void RemoveShadowsRec();
+	void RemoveShadowsCast();
+	void RemoveShadowsReceive();
+
 
 	void SetTerrainDirty(ssize_t i0, ssize_t j0, ssize_t i1, ssize_t j1) override
 	{

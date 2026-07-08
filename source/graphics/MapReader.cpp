@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,30 +20,45 @@
 #include "MapReader.h"
 
 #include "graphics/Camera.h"
-#include "graphics/CinemaManager.h"
+#include "graphics/Color.h"
 #include "graphics/Entity.h"
 #include "graphics/GameView.h"
 #include "graphics/MapGenerator.h"
+#include "graphics/MapIO.h"
+#include "graphics/MiniPatch.h"
 #include "graphics/Patch.h"
 #include "graphics/Terrain.h"
 #include "graphics/TerrainTextureEntry.h"
 #include "graphics/TerrainTextureManager.h"
+#include "lib/alignment.h"
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
+#include "lib/path.h"
 #include "lib/timer.h"
+#include "lib/utf8.h"
+#include "maths/Fixed.h"
+#include "maths/FixedVector3D.h"
 #include "maths/MathUtil.h"
+#include "maths/Matrix3D.h"
+#include "maths/NUSpline.h"
 #include "ps/CLogger.h"
+#include "ps/Filesystem.h"
+#include "ps/Future.h"
 #include "ps/Loader.h"
 #include "ps/Profiler2.h"
 #include "ps/TaskManager.h"
 #include "ps/World.h"
+#include "ps/XMB/XMBData.h"
 #include "ps/XML/Xeromyces.h"
 #include "renderer/PostprocManager.h"
 #include "renderer/SkyManager.h"
 #include "renderer/WaterManager.h"
-#include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
 #include "scriptinterface/JSON.h"
+#include "scriptinterface/Object.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
+#include "scriptinterface/StructuredClone.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpCinemaManager.h"
 #include "simulation2/components/ICmpGarrisonHolder.h"
@@ -56,8 +71,21 @@
 #include "simulation2/components/ICmpTurretHolder.h"
 #include "simulation2/components/ICmpVisual.h"
 #include "simulation2/components/ICmpWaterManager.h"
+#include "simulation2/helpers/CinemaPath.h"
+#include "simulation2/helpers/Position.h"
+#include "simulation2/system/CmpPtr.h"
 
-#include <boost/algorithm/string/predicate.hpp>
+#include <algorithm>
+#include <atomic>
+#include <functional>
+#include <js/PropertyAndElement.h>
+#include <numeric>
+#include <ranges>
+#include <string>
+#include <string_view>
+#include <utility>
+
+extern bool IsQuitRequested();
 
 #if defined(_MSC_VER) && _MSC_VER > 1900
 #pragma warning(disable: 4456) // Declaration hides previous local declaration.
@@ -70,7 +98,7 @@ constexpr int MAP_GENERATION_CONTEXT_SIZE{96 * MiB};
 CMapReader::CMapReader() = default;
 
 // LoadMap: try to load the map from given file; reinitialise the scene to new data if successful
-void CMapReader::LoadMap(const VfsPath& pathname, const ScriptContext& cx,  JS::HandleValue settings, CTerrain *pTerrain_,
+void CMapReader::LoadMap(const VfsPath& pathname, const Script::Context& cx,  JS::HandleValue settings, CTerrain *pTerrain_,
 						 WaterManager* pWaterMan_, SkyManager* pSkyMan_,
 						 CLightEnv *pLightEnv_, CGameView *pGameView_, CCinemaManager* pCinema_, CTriggerManager* pTrigMan_, CPostprocManager* pPostproc_,
 						 CSimulation2 *pSimulation2_, const CSimContext* pSimContext_, int playerID_, bool skipEntities)
@@ -90,13 +118,13 @@ void CMapReader::LoadMap(const VfsPath& pathname, const ScriptContext& cx,  JS::
 	m_StartingCameraTarget = INVALID_ENTITY;
 	m_ScriptSettings.init(cx.GetGeneralJSContext(), settings);
 
-	filename_xml = pathname.ChangeExtension(L".xml");
+	m_FilenameXml = pathname.ChangeExtension(L".xml");
 
 	// In some cases (particularly tests) we don't want to bother storing a large
 	// mostly-empty .pmp file, so we let the XML file specify basic terrain instead.
 	// If there's an .xml file and no .pmp, then we're probably in this XML-only mode
 	only_xml = false;
-	if (!VfsFileExists(pathname) && VfsFileExists(filename_xml))
+	if (!VfsFileExists(pathname) && VfsFileExists(m_FilenameXml))
 	{
 		only_xml = true;
 	}
@@ -124,62 +152,62 @@ void CMapReader::LoadMap(const VfsPath& pathname, const ScriptContext& cx,  JS::
 
 	// load map or script settings script
 	if (settings.isUndefined())
-		LDR_Register([this](const double)
+		PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 		{
-			return LoadScriptSettings();
-		}, L"CMapReader::LoadScriptSettings", 50);
+			co_return mapReader->LoadScriptSettings();
+		}, this), L"CMapReader::LoadScriptSettings", 50);
 	else
-		LDR_Register([this](const double)
+		PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 		{
-			return LoadRMSettings();
-		}, L"CMapReader::LoadRMSettings", 50);
+			co_return mapReader->LoadRMSettings();
+		}, this), L"CMapReader::LoadRMSettings", 50);
 
 	// load player settings script (must be done before reading map)
-	LDR_Register([this](const double)
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return LoadPlayerSettings();
-	}, L"CMapReader::LoadPlayerSettings", 50);
+		co_return mapReader->LoadPlayerSettings();
+	}, this), L"CMapReader::LoadPlayerSettings", 50);
 
 	// unpack the data
 	if (!only_xml)
-		LDR_Register([this](const double)
+		PS::Loader::Register([this]
 		{
 			return UnpackTerrain();
 		}, L"CMapReader::UnpackMap", 1200);
 
 	// read the corresponding XML file
-	LDR_Register([this](const double)
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return ReadXML();
-	}, L"CMapReader::ReadXML", 50);
+		co_return mapReader->ReadXML();
+	}, this), L"CMapReader::ReadXML", 50);
 
 	// apply terrain data to the world
-	LDR_Register([this](const double)
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return ApplyTerrainData();
-	}, L"CMapReader::ApplyTerrainData", 5);
+		co_return mapReader->ApplyTerrainData();
+	}, this), L"CMapReader::ApplyTerrainData", 5);
 
 	// read entities
-	LDR_Register([this](const double)
+	PS::Loader::Register([this]
 	{
 		return ReadXMLEntities();
 	}, L"CMapReader::ReadXMLEntities", 5800);
 
 	// apply misc data to the world
-	LDR_Register([this](const double)
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return ApplyData();
-	}, L"CMapReader::ApplyData", 5);
+		co_return mapReader->ApplyData();
+	}, this), L"CMapReader::ApplyData", 5);
 
 	// load map settings script (must be done after reading map)
-	LDR_Register([this](const double)
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return LoadMapSettings();
-	}, L"CMapReader::LoadMapSettings", 5);
+		co_return mapReader->LoadMapSettings();
+	}, this), L"CMapReader::LoadMapSettings", 5);
 }
 
 // LoadRandomMap: try to load the map data; reinitialise the scene to new data if successful
-void CMapReader::LoadRandomMap(const CStrW& scriptFile, const ScriptContext& cx, JS::HandleValue settings, CTerrain *pTerrain_,
+void CMapReader::LoadRandomMap(const CStrW& scriptFile, const Script::Context& cx, JS::HandleValue settings, CTerrain *pTerrain_,
 						 WaterManager* pWaterMan_, SkyManager* pSkyMan_,
 						 CLightEnv *pLightEnv_, CGameView *pGameView_, CCinemaManager* pCinema_, CTriggerManager* pTrigMan_, CPostprocManager* pPostproc_,
 						 CSimulation2 *pSimulation2_, int playerID_)
@@ -206,82 +234,70 @@ void CMapReader::LoadRandomMap(const CStrW& scriptFile, const ScriptContext& cx,
 	only_xml = false;
 
 	// copy random map settings (before entity creation)
-	LDR_Register([this](const double)
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return LoadRMSettings();
-	}, L"CMapReader::LoadRMSettings", 50);
+		co_return mapReader->LoadRMSettings();
+	}, this), L"CMapReader::LoadRMSettings", 50);
 
 	// load player settings script (must be done before reading map)
-	LDR_Register([this](const double)
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return LoadPlayerSettings();
-	}, L"CMapReader::LoadPlayerSettings", 50);
+		co_return mapReader->LoadPlayerSettings();
+	}, this), L"CMapReader::LoadPlayerSettings", 50);
 
 	// load map generator with random map script
-	LDR_Register([this, scriptFile](const double)
+	PS::Loader::Register([this, scriptFile]
 	{
-		return StartMapGeneration(scriptFile);
-	}, L"CMapReader::StartMapGeneration", 1);
-
-	LDR_Register([this](const double)
-	{
-		return PollMapGeneration();
-	}, L"CMapReader::PollMapGeneration", 19999);
+		return RunMapGeneration(scriptFile);
+	}, L"CMapReader::RunMapGeneration", 20000);
 
 	// parse RMS results into terrain structure
-	LDR_Register([this](const double)
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return ParseTerrain();
-	}, L"CMapReader::ParseTerrain", 500);
+		co_return mapReader->ParseTerrain();
+	}, this), L"CMapReader::ParseTerrain", 500);
 
 	// parse RMS results into environment settings
-	LDR_Register([this](const double)
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return ParseEnvironment();
-	}, L"CMapReader::ParseEnvironment", 5);
+		co_return mapReader->ParseEnvironment();
+	}, this), L"CMapReader::ParseEnvironment", 5);
 
 	// parse RMS results into camera settings
-	LDR_Register([this](const double)
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return ParseCamera();
-	}, L"CMapReader::ParseCamera", 5);
+		co_return mapReader->ParseCamera();
+	}, this), L"CMapReader::ParseCamera", 5);
 
 	// apply terrain data to the world
-	LDR_Register([this](const double)
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return ApplyTerrainData();
-	}, L"CMapReader::ApplyTerrainData", 5);
+		co_return mapReader->ApplyTerrainData();
+	}, this), L"CMapReader::ApplyTerrainData", 5);
 
 	// parse RMS results into entities
-	LDR_Register([this](const double)
+	PS::Loader::Register([this]
 	{
 		return ParseEntities();
-	}, L"CMapReader::ParseEntities", 1000);
+	}, L"CMapReader::ParseEntities", 1010);
 
 	// apply misc data to the world
-	LDR_Register([this](const double)
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return ApplyData();
-	}, L"CMapReader::ApplyData", 5);
+		co_return mapReader->ApplyData();
+	}, this), L"CMapReader::ApplyData", 5);
 
 	// load map settings script (must be done after reading map)
-	LDR_Register([this](const double)
+	PS::Loader::Register(std::bind_front([](CMapReader* mapReader) -> PS::Loader::Task
 	{
-		return LoadMapSettings();
-	}, L"CMapReader::LoadMapSettings", 5);
+		co_return mapReader->LoadMapSettings();
+	}, this), L"CMapReader::LoadMapSettings", 5);
 }
 
 // UnpackTerrain: unpack the terrain from the end of the input data stream
 //		- data: map size, heightmap, list of textures used by map, texture tile assignments
-int CMapReader::UnpackTerrain()
+PS::Loader::Task CMapReader::UnpackTerrain()
 {
-	// yield after this time is reached. balances increased progress bar
-	// smoothness vs. slowing down loading.
-	const double end_time = timer_Time() + 200e-3;
-
-	// first call to generator (this is skipped after first call,
-	// i.e. when the loop below was interrupted)
-	if (cur_terrain_tex == 0)
 	{
 		m_PatchesPerSide = (ssize_t)unpacker.UnpackSize();
 
@@ -289,15 +305,15 @@ int CMapReader::UnpackTerrain()
 		size_t verticesPerSide = m_PatchesPerSide*PATCH_SIZE+1;
 		m_Heightmap.resize(SQR(verticesPerSide));
 		unpacker.UnpackRaw(&m_Heightmap[0], SQR(verticesPerSide)*sizeof(u16));
-
-		// unpack # textures
-		num_terrain_tex = unpacker.UnpackSize();
-		m_TerrainTextures.reserve(num_terrain_tex);
 	}
+
+	// unpack # textures
+	const std::size_t numTerrainTex{unpacker.UnpackSize()};
+	m_TerrainTextures.reserve(numTerrainTex);
 
 	// unpack texture names; find handle for each texture.
 	// interruptible.
-	while (cur_terrain_tex < num_terrain_tex)
+	for (std::size_t curTerrainTex{0}; curTerrainTex != numTerrainTex; ++curTerrainTex)
 	{
 		CStr texturename;
 		unpacker.UnpackString(texturename);
@@ -308,8 +324,7 @@ int CMapReader::UnpackTerrain()
 			m_TerrainTextures.push_back(texentry);
 		}
 
-		cur_terrain_tex++;
-		LDR_CHECK_TIMEOUT(cur_terrain_tex, num_terrain_tex);
+		co_yield 100 * (curTerrainTex + 1) / numTerrainTex;
 	}
 
 	// unpack tile data [3ms]
@@ -317,10 +332,7 @@ int CMapReader::UnpackTerrain()
 	m_Tiles.resize(size_t(SQR(tilesPerSide)));
 	unpacker.UnpackRaw(&m_Tiles[0], sizeof(STileDesc)*m_Tiles.size());
 
-	// reset generator state.
-	cur_terrain_tex = 0;
-
-	return 0;
+	co_return 0;
 }
 
 int CMapReader::ApplyTerrainData()
@@ -376,7 +388,7 @@ int CMapReader::ApplyData()
 	if (pGameView && cmpPlayerManager)
 	{
 		// Default to global camera (with constraints)
-		pGameView->ResetCameraTarget(pGameView->GetCamera()->GetFocus());
+		pGameView->ResetCameraTarget(pGameView->GetCamera().GetFocus());
 
 		// TODO: Starting rotation?
 		CmpPtr<ICmpPlayer> cmpPlayer(*pSimContext, cmpPlayerManager->GetPlayerByID(m_PlayerID));
@@ -437,9 +449,9 @@ PSRETURN CMapSummaryReader::LoadMap(const VfsPath& pathname)
 	return PSRETURN_OK;
 }
 
-void CMapSummaryReader::GetMapSettings(const ScriptInterface& scriptInterface, JS::MutableHandleValue ret)
+void CMapSummaryReader::GetMapSettings(const Script::Interface& scriptInterface, JS::MutableHandleValue ret)
 {
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 
 	Script::CreateObject(rq, ret);
 
@@ -473,11 +485,12 @@ public:
 	// read everything except for entities
 	void ReadXML();
 
-	// return semantics: see Loader.cpp!LoadFunc.
-	int ProgressiveReadEntities();
+	CXeromyces xmb_file;
+	XMBElementList nodes; // children of root
+
+	void ReadEntities(XMBElement parent, CSimulation2& sim);
 
 private:
-	CXeromyces xmb_file;
 
 	CMapReader& m_MapReader;
 
@@ -497,15 +510,6 @@ private:
 	int at_seed;
 	int at_turret;
 
-	XMBElementList nodes; // children of root
-
-	// loop counters
-	size_t node_idx;
-	size_t entity_idx;
-
-	// # entities+nonentities processed and total (for progress calc)
-	int completed_jobs, total_jobs;
-
 	// maximum used entity ID, so we can safely allocate new ones
 	entity_id_t max_uid;
 
@@ -516,15 +520,11 @@ private:
 	void ReadCamera(XMBElement parent);
 	void ReadPaths(XMBElement parent);
 	void ReadTriggers(XMBElement parent);
-	int ReadEntities(XMBElement parent, double end_time);
 };
 
 
 void CXMLReader::Init(const VfsPath& xml_filename)
 {
-	// must only assign once, so do it here
-	node_idx = entity_idx = 0;
-
 	if (xmb_file.Load(g_VFS, xml_filename, "scenario") != PSRETURN_OK)
 		throw PSERROR_Game_World_MapLoadFailed("Could not read map XML file!");
 
@@ -556,13 +556,6 @@ void CXMLReader::Init(const VfsPath& xml_filename)
 	XMBElement root = xmb_file.GetRoot();
 	ENSURE(xmb_file.GetElementStringView(root.GetNodeName()) == "Scenario");
 	nodes = root.GetChildNodes();
-
-	// find out total number of entities+nonentities
-	// (used when calculating progress)
-	completed_jobs = 0;
-	total_jobs = 0;
-	for (XMBElement node : nodes)
-		total_jobs += node.GetChildNodes().size();
 
 	// Find the maximum entity ID, so we can safely allocate new IDs without conflicts
 
@@ -874,10 +867,12 @@ void CXMLReader::ReadCamera(XMBElement parent)
 
 	if (m_MapReader.pGameView)
 	{
-		m_MapReader.pGameView->GetCamera()->m_Orientation.SetXRotation(declination);
-		m_MapReader.pGameView->GetCamera()->m_Orientation.RotateY(rotation);
-		m_MapReader.pGameView->GetCamera()->m_Orientation.Translate(translation);
-		m_MapReader.pGameView->GetCamera()->UpdateFrustum();
+		CCamera camera{m_MapReader.pGameView->GetCamera()};
+		camera.m_Orientation.SetXRotation(declination);
+		camera.m_Orientation.RotateY(rotation);
+		camera.m_Orientation.Translate(translation);
+		camera.UpdateFrustum();
+		m_MapReader.pGameView->SetCamera(camera);
 	}
 }
 
@@ -989,194 +984,182 @@ void CXMLReader::ReadPaths(XMBElement parent)
 	}
 }
 
-void CXMLReader::ReadTriggers(XMBElement UNUSED(parent))
+void CXMLReader::ReadTriggers(XMBElement /*parent*/)
 {
 }
 
-int CXMLReader::ReadEntities(XMBElement parent, double end_time)
+void CXMLReader::ReadEntities(XMBElement entity, CSimulation2& sim)
 {
-	XMBElementList entities = parent.GetChildNodes();
+	ENSURE(entity.GetNodeName() == el_entity);
 
-	ENSURE(m_MapReader.pSimulation2);
-	CSimulation2& sim = *m_MapReader.pSimulation2;
-	CmpPtr<ICmpPlayerManager> cmpPlayerManager(sim, SYSTEM_ENTITY);
+	XMBAttributeList attrs = entity.GetAttributes();
+	CStr uid = attrs.GetNamedItem(at_uid);
+	ENSURE(!uid.empty());
+	int EntityUid = uid.ToInt();
 
-	while (entity_idx < entities.size())
+	CStrW TemplateName;
+	int PlayerID = 0;
+	std::vector<entity_id_t> Garrison;
+	std::vector<std::pair<std::string, entity_id_t>> Turrets;
+	CFixedVector3D Position;
+	CFixedVector3D Orientation;
+	long Seed = -1;
+
+	// Obstruction control groups.
+	entity_id_t ControlGroup = INVALID_ENTITY;
+	entity_id_t ControlGroup2 = INVALID_ENTITY;
+
+	XERO_ITER_EL(entity, setting)
 	{
-		// all new state at this scope and below doesn't need to be
-		// wrapped, since we only yield after a complete iteration.
+		int element_name = setting.GetNodeName();
 
-		XMBElement entity = entities[entity_idx++];
-		ENSURE(entity.GetNodeName() == el_entity);
-
-		XMBAttributeList attrs = entity.GetAttributes();
-		CStr uid = attrs.GetNamedItem(at_uid);
-		ENSURE(!uid.empty());
-		int EntityUid = uid.ToInt();
-
-		CStrW TemplateName;
-		int PlayerID = 0;
-		std::vector<entity_id_t> Garrison;
-		std::vector<std::pair<std::string, entity_id_t>> Turrets;
-		CFixedVector3D Position;
-		CFixedVector3D Orientation;
-		long Seed = -1;
-
-		// Obstruction control groups.
-		entity_id_t ControlGroup = INVALID_ENTITY;
-		entity_id_t ControlGroup2 = INVALID_ENTITY;
-
-		XERO_ITER_EL(entity, setting)
+		// <template>
+		if (element_name == el_template)
 		{
-			int element_name = setting.GetNodeName();
-
-			// <template>
-			if (element_name == el_template)
-			{
-				TemplateName = setting.GetText().FromUTF8();
-			}
-			// <player>
-			else if (element_name == el_player)
-			{
-				PlayerID = setting.GetText().ToInt();
-			}
-			// <position>
-			else if (element_name == el_position)
-			{
-				XMBAttributeList positionAttrs = setting.GetAttributes();
-				Position = CFixedVector3D(
-					fixed::FromString(positionAttrs.GetNamedItem(at_x)),
-					fixed::FromString(positionAttrs.GetNamedItem(at_y)),
-					fixed::FromString(positionAttrs.GetNamedItem(at_z)));
-			}
-			// <orientation>
-			else if (element_name == el_orientation)
-			{
-				XMBAttributeList orientationAttrs = setting.GetAttributes();
-				Orientation = CFixedVector3D(
-					fixed::FromString(orientationAttrs.GetNamedItem(at_x)),
-					fixed::FromString(orientationAttrs.GetNamedItem(at_y)),
-					fixed::FromString(orientationAttrs.GetNamedItem(at_z)));
-				// TODO: what happens if some attributes are missing?
-			}
-			// <obstruction>
-			else if (element_name == el_obstruction)
-			{
-				XMBAttributeList obstructionAttrs = setting.GetAttributes();
-				ControlGroup = obstructionAttrs.GetNamedItem(at_group).ToInt();
-				ControlGroup2 = obstructionAttrs.GetNamedItem(at_group2).ToInt();
-			}
-			// <garrison>
-			else if (element_name == el_garrison)
-			{
-				XMBElementList garrison = setting.GetChildNodes();
-				Garrison.reserve(garrison.size());
-				for (const XMBElement& garr_ent : garrison)
-				{
-					XMBAttributeList garrisonAttrs = garr_ent.GetAttributes();
-					Garrison.push_back(garrisonAttrs.GetNamedItem(at_uid).ToInt());
-				}
-			}
-			// <turrets>
-			else if (element_name == el_turrets)
-			{
-				XMBElementList turrets = setting.GetChildNodes();
-				Turrets.reserve(turrets.size());
-				for (const XMBElement& turretPoint : turrets)
-				{
-					XMBAttributeList turretAttrs = turretPoint.GetAttributes();
-					Turrets.emplace_back(
-						turretAttrs.GetNamedItem(at_turret),
-						turretAttrs.GetNamedItem(at_uid).ToInt()
-					);
-				}
-			}
-			// <actor>
-			else if (element_name == el_actor)
-			{
-				XMBAttributeList attrs = setting.GetAttributes();
-				CStr seedStr = attrs.GetNamedItem(at_seed);
-				if (!seedStr.empty())
-				{
-					Seed = seedStr.ToLong();
-					ENSURE(Seed >= 0);
-				}
-			}
-			else
-				debug_warn(L"Invalid map XML data");
+			TemplateName = setting.GetText().FromUTF8();
 		}
-
-		entity_id_t ent = sim.AddEntity(TemplateName, EntityUid);
-		entity_id_t player = cmpPlayerManager->GetPlayerByID(PlayerID);
-		if (ent == INVALID_ENTITY || player == INVALID_ENTITY)
-		{	// Don't add entities with invalid player IDs
-			LOGERROR("Failed to load entity template '%s'", utf8_from_wstring(TemplateName));
+		// <player>
+		else if (element_name == el_player)
+		{
+			PlayerID = setting.GetText().ToInt();
+		}
+		// <position>
+		else if (element_name == el_position)
+		{
+			XMBAttributeList positionAttrs = setting.GetAttributes();
+			Position = CFixedVector3D(
+				fixed::FromString(positionAttrs.GetNamedItem(at_x)),
+				fixed::FromString(positionAttrs.GetNamedItem(at_y)),
+				fixed::FromString(positionAttrs.GetNamedItem(at_z)));
+		}
+		// <orientation>
+		else if (element_name == el_orientation)
+		{
+			XMBAttributeList orientationAttrs = setting.GetAttributes();
+			Orientation = CFixedVector3D(
+				fixed::FromString(orientationAttrs.GetNamedItem(at_x)),
+				fixed::FromString(orientationAttrs.GetNamedItem(at_y)),
+				fixed::FromString(orientationAttrs.GetNamedItem(at_z)));
+			// TODO: what happens if some attributes are missing?
+		}
+		// <obstruction>
+		else if (element_name == el_obstruction)
+		{
+			XMBAttributeList obstructionAttrs = setting.GetAttributes();
+			ControlGroup = obstructionAttrs.GetNamedItem(at_group).ToInt();
+			ControlGroup2 = obstructionAttrs.GetNamedItem(at_group2).ToInt();
+		}
+		// <garrison>
+		else if (element_name == el_garrison)
+		{
+			XMBElementList garrison = setting.GetChildNodes();
+			Garrison.reserve(garrison.size());
+			for (const XMBElement& garr_ent : garrison)
+			{
+				XMBAttributeList garrisonAttrs = garr_ent.GetAttributes();
+				Garrison.push_back(garrisonAttrs.GetNamedItem(at_uid).ToInt());
+			}
+		}
+		// <turrets>
+		else if (element_name == el_turrets)
+		{
+			XMBElementList turrets = setting.GetChildNodes();
+			Turrets.reserve(turrets.size());
+			for (const XMBElement& turretPoint : turrets)
+			{
+				XMBAttributeList turretAttrs = turretPoint.GetAttributes();
+				Turrets.emplace_back(
+					turretAttrs.GetNamedItem(at_turret),
+					turretAttrs.GetNamedItem(at_uid).ToInt()
+				);
+			}
+		}
+		// <actor>
+		else if (element_name == el_actor)
+		{
+			XMBAttributeList attrs = setting.GetAttributes();
+			CStr seedStr = attrs.GetNamedItem(at_seed);
+			if (!seedStr.empty())
+			{
+				Seed = seedStr.ToLong();
+				ENSURE(Seed >= 0);
+			}
 		}
 		else
-		{
-			CmpPtr<ICmpPosition> cmpPosition(sim, ent);
-			if (cmpPosition)
-			{
-				cmpPosition->JumpTo(Position.X, Position.Z);
-				cmpPosition->SetYRotation(Orientation.Y);
-				// TODO: other parts of the position
-			}
-
-			if (!Garrison.empty())
-			{
-				CmpPtr<ICmpGarrisonHolder> cmpGarrisonHolder(sim, ent);
-				if (cmpGarrisonHolder)
-					cmpGarrisonHolder->SetInitEntities(std::move(Garrison));
-				else
-					LOGERROR("CXMLMapReader::ReadEntities() entity '%d' of player '%d' has no GarrisonHolder component and thus cannot garrison units.", ent, PlayerID);
-			}
-
-			// Needs to be before ownership changes to prevent initialising
-			// subunits too soon.
-			if (!Turrets.empty())
-			{
-				CmpPtr<ICmpTurretHolder> cmpTurretHolder(sim, ent);
-				if (cmpTurretHolder)
-					cmpTurretHolder->SetInitEntities(std::move(Turrets));
-				else
-					LOGERROR("CXMLMapReader::ReadEntities() entity '%d' of player '%d' has no TurretHolder component and thus cannot use turrets.", ent, PlayerID);
-			}
-
-			CmpPtr<ICmpOwnership> cmpOwnership(sim, ent);
-			if (cmpOwnership)
-				cmpOwnership->SetOwner(PlayerID);
-
-			CmpPtr<ICmpObstruction> cmpObstruction(sim, ent);
-			if (cmpObstruction)
-			{
-				if (ControlGroup != INVALID_ENTITY)
-					cmpObstruction->SetControlGroup(ControlGroup);
-				if (ControlGroup2 != INVALID_ENTITY)
-					cmpObstruction->SetControlGroup2(ControlGroup2);
-
-				cmpObstruction->ResolveFoundationCollisions();
-			}
-
-			CmpPtr<ICmpVisual> cmpVisual(sim, ent);
-			if (cmpVisual)
-			{
-				if (Seed != -1)
-					cmpVisual->SetActorSeed((u32)Seed);
-				// TODO: variation/selection strings
-			}
-
-			if (PlayerID == m_MapReader.m_PlayerID && (boost::algorithm::ends_with(TemplateName, L"civil_centre") || m_MapReader.m_StartingCameraTarget == INVALID_ENTITY))
-			{
-				// Focus on civil centre or first entity owned by player
-				m_MapReader.m_StartingCameraTarget = ent;
-			}
-		}
-
-		completed_jobs++;
-		LDR_CHECK_TIMEOUT(completed_jobs, total_jobs);
+			debug_warn(L"Invalid map XML data");
 	}
 
-	return 0;
+	CmpPtr<ICmpPlayerManager> cmpPlayerManager(sim, SYSTEM_ENTITY);
+	entity_id_t player = cmpPlayerManager->GetPlayerByID(PlayerID);
+	CmpPtr<ICmpPlayer> cmpPlayer(sim, player);
+
+	// Don't add entities for removed players.
+	if (cmpPlayer && cmpPlayer->IsRemoved())
+		return;
+
+	entity_id_t ent = sim.AddEntity(TemplateName, EntityUid);
+	if (ent == INVALID_ENTITY || player == INVALID_ENTITY)
+	{
+		// Don't add entities with invalid player IDs
+		LOGERROR("Failed to load entity template '%s'", utf8_from_wstring(TemplateName));
+		return;
+	}
+	CmpPtr<ICmpPosition> cmpPosition(sim, ent);
+	if (cmpPosition)
+	{
+		cmpPosition->JumpTo(Position.X, Position.Z);
+		cmpPosition->SetYRotation(Orientation.Y);
+		// TODO: other parts of the position
+	}
+
+	if (!Garrison.empty())
+	{
+		CmpPtr<ICmpGarrisonHolder> cmpGarrisonHolder(sim, ent);
+		if (cmpGarrisonHolder)
+			cmpGarrisonHolder->SetInitEntities(std::move(Garrison));
+		else
+			LOGERROR("CXMLMapReader::ReadEntities() entity '%d' of player '%d' has no GarrisonHolder component and thus cannot garrison units.", ent, PlayerID);
+	}
+
+	// Needs to be before ownership changes to prevent initialising
+	// subunits too soon.
+	if (!Turrets.empty())
+	{
+		CmpPtr<ICmpTurretHolder> cmpTurretHolder(sim, ent);
+		if (cmpTurretHolder)
+			cmpTurretHolder->SetInitEntities(std::move(Turrets));
+		else
+			LOGERROR("CXMLMapReader::ReadEntities() entity '%d' of player '%d' has no TurretHolder component and thus cannot use turrets.", ent, PlayerID);
+	}
+
+	CmpPtr<ICmpOwnership> cmpOwnership(sim, ent);
+	if (cmpOwnership)
+		cmpOwnership->SetOwner(PlayerID);
+
+	CmpPtr<ICmpObstruction> cmpObstruction(sim, ent);
+	if (cmpObstruction)
+	{
+		if (ControlGroup != INVALID_ENTITY)
+			cmpObstruction->SetControlGroup(ControlGroup);
+		if (ControlGroup2 != INVALID_ENTITY)
+			cmpObstruction->SetControlGroup2(ControlGroup2);
+
+		cmpObstruction->ResolveFoundationCollisions();
+	}
+
+	CmpPtr<ICmpVisual> cmpVisual(sim, ent);
+	if (cmpVisual)
+	{
+		if (Seed != -1)
+			cmpVisual->SetActorSeed((u32)Seed);
+		// TODO: variation/selection strings
+	}
+
+	if (PlayerID == m_MapReader.m_PlayerID && (TemplateName.ends_with(L"civil_centre") || m_MapReader.m_StartingCameraTarget == INVALID_ENTITY))
+	{
+		// Focus on civil centre or first entity owned by player
+		m_MapReader.m_StartingCameraTarget = ent;
+	}
 }
 
 void CXMLReader::ReadXML()
@@ -1202,7 +1185,7 @@ void CXMLReader::ReadXML()
 		}
 		else if (name == "Entities")
 		{
-			// Handled by ProgressiveReadEntities instead
+			// Handled by ReadXMLEntities instead
 		}
 		else if (name == "Paths")
 		{
@@ -1225,34 +1208,6 @@ void CXMLReader::ReadXML()
 	}
 }
 
-int CXMLReader::ProgressiveReadEntities()
-{
-	// yield after this time is reached. balances increased progress bar
-	// smoothness vs. slowing down loading.
-	const double end_time = timer_Time() + 200e-3;
-
-	int ret;
-
-	while (node_idx < nodes.size())
-	{
-		XMBElement node = nodes[node_idx];
-		CStr name = xmb_file.GetElementString(node.GetNodeName());
-		if (name == "Entities")
-		{
-			if (!m_MapReader.m_SkipEntities)
-			{
-				ret = ReadEntities(node, end_time);
-				if (ret != 0)	// error or timed out
-					return ret;
-			}
-		}
-
-		node_idx++;
-	}
-
-	return 0;
-}
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1261,12 +1216,12 @@ int CXMLReader::ProgressiveReadEntities()
 // load script settings from map
 int CMapReader::LoadScriptSettings()
 {
-	if (!xml_reader)
-		xml_reader = new CXMLReader(filename_xml, *this);
+	if (!m_XmlReader)
+		m_XmlReader = std::make_unique<CXMLReader>(m_FilenameXml, *this);
 
 	// parse the script settings
 	if (pSimulation2)
-		pSimulation2->SetMapSettings(xml_reader->ReadScriptSettings());
+		pSimulation2->SetMapSettings(m_XmlReader->ReadScriptSettings());
 
 	return 0;
 }
@@ -1289,28 +1244,48 @@ int CMapReader::LoadMapSettings()
 
 int CMapReader::ReadXML()
 {
-	if (!xml_reader)
-		xml_reader = new CXMLReader(filename_xml, *this);
+	if (!m_XmlReader)
+		m_XmlReader = std::make_unique<CXMLReader>(m_FilenameXml, *this);
 
-	xml_reader->ReadXML();
+	m_XmlReader->ReadXML();
 
 	return 0;
 }
 
 // progressive
-int CMapReader::ReadXMLEntities()
+PS::Loader::Task CMapReader::ReadXMLEntities()
 {
-	if (!xml_reader)
-		xml_reader = new CXMLReader(filename_xml, *this);
+	if (m_SkipEntities)
+		co_return 0;
 
-	int ret = xml_reader->ProgressiveReadEntities();
-	// finished or failed
-	if (ret <= 0)
+	if (!m_XmlReader)
+		m_XmlReader = std::make_unique<CXMLReader>(m_FilenameXml, *this);
+
+	const std::size_t totalJobs{std::transform_reduce(m_XmlReader->nodes.begin(),
+		m_XmlReader->nodes.end(), static_cast<std::size_t>(0), std::plus<>{}, [](XMBElement node)
 	{
-		SAFE_DELETE(xml_reader);
+		return node.GetChildNodes().size();
+	})};
+	ENSURE(pSimulation2 || totalJobs == 0);
+	std::size_t completedJobs{0};
+	for (XMBElement node : m_XmlReader->nodes)
+	{
+		CStr name = m_XmlReader->xmb_file.GetElementString(node.GetNodeName());
+		if (name != "Entities")
+			continue;
+
+		for (XMBElement child : node.GetChildNodes())
+		{
+			m_XmlReader->ReadEntities(child, *pSimulation2);
+
+			completedJobs++;
+			co_yield 100 * completedJobs / totalJobs;
+		}
 	}
 
-	return ret;
+	m_XmlReader.reset();
+
+	co_return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1327,56 +1302,54 @@ int CMapReader::LoadRMSettings()
 	return 0;
 }
 
-struct CMapReader::GeneratorState
-{
-	std::atomic<int> progress{1};
-	Future<Script::StructuredClone> task;
-};
-
-int CMapReader::StartMapGeneration(const CStrW& scriptFile)
-{
-	ScriptRequest rq(pSimulation2->GetScriptInterface());
-
-	m_GeneratorState = std::make_unique<GeneratorState>();
-
-	// The settings are stringified to pass them to the task.
-	m_GeneratorState->task = Threading::TaskManager::Instance().PushTask(
-		[&progress = m_GeneratorState->progress, scriptFile,
-			settings = Script::StringifyJSON(rq, &m_ScriptSettings)]
-		{
-			PROFILE2("Map Generation");
-
-			const CStrW scriptPath{scriptFile.empty() ? L"" : L"maps/random/" + scriptFile};
-
-			const std::shared_ptr<ScriptContext> mapgenContext{ScriptContext::CreateContext(
-				MAP_GENERATION_CONTEXT_SIZE)};
-			ScriptInterface mapgenInterface{"Engine", "MapGenerator", mapgenContext};
-
-			return RunMapGenerationScript(progress, mapgenInterface, scriptPath, settings);
-		});
-
-	return 0;
-}
-
 [[noreturn]] void ThrowMapGenerationError()
 {
 	throw PSERROR_Game_World_MapLoadFailed{
 		"Error generating random map.\nCheck application log for details."};
-};
+}
 
-int CMapReader::PollMapGeneration()
+PS::Loader::Task CMapReader::RunMapGeneration(const CStrW& scriptFile)
 {
-	ENSURE(m_GeneratorState);
+	std::atomic<int> progress{1};
 
-	if (!m_GeneratorState->task.IsReady())
-		return m_GeneratorState->progress.load();
+	// The settings are stringified to pass them to the task.
+	Future<Script::StructuredClone> task = {g_TaskManager,
+		[&progress, scriptFile, settings = Script::StringifyJSON(Script::Request{
+			pSimulation2->GetScriptInterface()}, &m_ScriptSettings)](const StopToken stopToken)
+		{
+			PROFILE2("Map Generation");
 
-	const Script::StructuredClone results{m_GeneratorState->task.Get()};
+			const VfsPath scriptPath{scriptFile.empty() ? L"" :
+				static_cast<std::wstring>(RANDOM_MAP_PREFIX) + scriptFile};
+
+			Script::Context mapgenContext{MAP_GENERATION_CONTEXT_SIZE};
+			Script::Interface mapgenInterface{"Engine", "MapGenerator", mapgenContext,
+				[](const VfsPath& path){
+					// Only allow to load modules inside the maps folder.
+					return path.string().find(RANDOM_MAP_PREFIX) == 0;
+				}};
+
+			return RunMapGenerationScript(stopToken, progress, mapgenInterface, scriptPath, settings);
+		}};
+
+	while (!task.IsDone())
+	{
+		co_yield progress.load();
+		co_await std::suspend_always{};
+
+		if (IsQuitRequested())
+		{
+			LOGWARNING("Quit requested!");
+			co_return -1;
+		}
+	}
+
+	const Script::StructuredClone results{task.Get()};
 	if (!results)
 		ThrowMapGenerationError();
 
 	// Parse data into simulation context
-	ScriptRequest rq(pSimulation2->GetScriptInterface());
+	Script::Request rq(pSimulation2->GetScriptInterface());
 	JS::RootedValue data{rq.cx};
 	Script::ReadStructuredClone(rq, results, &data);
 
@@ -1385,57 +1358,59 @@ int CMapReader::PollMapGeneration()
 
 	m_MapData.init(rq.cx, data);
 
-	return 0;
+	co_return 0;
 };
 
 
 int CMapReader::ParseTerrain()
 {
-	TIMER(L"ParseTerrain");
-	ScriptRequest rq(pSimulation2->GetScriptInterface());
+	PROFILE2("ParseTerrain");
+	Script::Request rq(pSimulation2->GetScriptInterface());
 
 	// parse terrain from map data
 	//	an error here should stop the loading process
-#define GET_TERRAIN_PROPERTY(val, prop, out)\
-if (!Script::GetProperty(rq, val, #prop, out))\
-		{	LOGERROR("CMapReader::ParseTerrain() failed to get '%s' property", #prop);\
-			throw PSERROR_Game_World_MapLoadFailed("Error parsing terrain data.\nCheck application log for details"); }
+	const auto getTerrainProperty = [&](JS::HandleValue val, const char* prop, auto&& out)
+	{
+		if (Script::GetProperty(rq, val, prop, std::forward<decltype(out)>(out)))
+			return;
+
+		LOGERROR("CMapReader::ParseTerrain() failed to get '%s' property", prop);
+		throw PSERROR_Game_World_MapLoadFailed(
+			"Error parsing terrain data.\nCheck application log for details");
+	};
 
 	u32 size;
-	GET_TERRAIN_PROPERTY(m_MapData, size, size)
+	getTerrainProperty(m_MapData, "size", size);
 
 	m_PatchesPerSide = size / PATCH_SIZE;
 
 	// flat heightmap of u16 data
-	GET_TERRAIN_PROPERTY(m_MapData, height, m_Heightmap)
+	getTerrainProperty(m_MapData, "height", m_Heightmap);
 
 	// load textures
 	std::vector<std::string> textureNames;
-	GET_TERRAIN_PROPERTY(m_MapData, textureNames, textureNames)
-	num_terrain_tex = textureNames.size();
+	getTerrainProperty(m_MapData, "textureNames", textureNames);
 
-	while (cur_terrain_tex < num_terrain_tex)
+	for (const std::string& textureName : textureNames)
 	{
 		if (CTerrainTextureManager::IsInitialised())
 		{
-			CTerrainTextureEntry* texentry = g_TexMan.FindTexture(textureNames[cur_terrain_tex]);
+			CTerrainTextureEntry* texentry = g_TexMan.FindTexture(textureName);
 			m_TerrainTextures.push_back(texentry);
 		}
-
-		cur_terrain_tex++;
 	}
 
 	// build tile data
 	m_Tiles.resize(SQR(size));
 
 	JS::RootedValue tileData(rq.cx);
-	GET_TERRAIN_PROPERTY(m_MapData, tileData, &tileData)
+	getTerrainProperty(m_MapData, "tileData", &tileData);
 
 	// parse tile data object into flat arrays
 	std::vector<u16> tileIndex;
 	std::vector<u16> tilePriority;
-	GET_TERRAIN_PROPERTY(tileData, index, tileIndex);
-	GET_TERRAIN_PROPERTY(tileData, priority, tilePriority);
+	getTerrainProperty(tileData, "index", tileIndex);
+	getTerrainProperty(tileData, "priority", tilePriority);
 
 	ENSURE(SQR(size) == tileIndex.size() && SQR(size) == tilePriority.size());
 
@@ -1458,40 +1433,45 @@ if (!Script::GetProperty(rq, val, #prop, out))\
 		}
 	}
 
-	// reset generator state
-	cur_terrain_tex = 0;
-
-#undef GET_TERRAIN_PROPERTY
-
 	return 0;
 }
 
-int CMapReader::ParseEntities()
+struct ParseEntitiesState
 {
-	TIMER(L"ParseEntities");
-	ScriptRequest rq(pSimulation2->GetScriptInterface());
-
-	// parse entities from map data
+	Script::Request rq;
+	CmpPtr<ICmpPlayerManager> cmpPlayerManager;
 	std::vector<Entity> entities;
+	size_t currentEntityIndex{0};
 
+	ParseEntitiesState(CSimulation2& sim)
+		: rq(sim.GetScriptInterface()), cmpPlayerManager(sim, SYSTEM_ENTITY) {}
+};
+
+PS::Loader::Task CMapReader::ParseEntities()
+{
+	PROFILE2("ParseEntities");
+
+	CSimulation2& sim{*pSimulation2};
+	Script::Request rq{sim.GetScriptInterface()};
+	CmpPtr<ICmpPlayerManager> cmpPlayerManager{sim, SYSTEM_ENTITY};
+
+	std::vector<Entity> entities;
 	if (!Script::GetProperty(rq, m_MapData, "entities", entities))
 		LOGWARNING("CMapReader::ParseEntities() failed to get 'entities' property");
 
-	CSimulation2& sim = *pSimulation2;
-	CmpPtr<ICmpPlayerManager> cmpPlayerManager(sim, SYSTEM_ENTITY);
-
-	size_t entity_idx = 0;
-	size_t num_entities = entities.size();
-
-	Entity currEnt;
-
-	while (entity_idx < num_entities)
+	for (std::size_t index{0}; index != entities.size(); ++index)
 	{
-		// Get current entity struct
-		currEnt = entities[entity_idx];
+		co_yield Clamp<int>(index * 80 / entities.size(), 20, 100);
 
-		entity_id_t ent = pSimulation2->AddEntity(currEnt.templateName, currEnt.entityID);
+		const Entity& currEnt{entities[index]};
+		// Get current entity struct
 		entity_id_t player = cmpPlayerManager->GetPlayerByID(currEnt.playerID);
+		CmpPtr<ICmpPlayer> cmpPlayer(sim, player);
+		// Don't add entities for removed players.
+		if (cmpPlayer && cmpPlayer->IsRemoved())
+			continue;
+
+		entity_id_t ent = sim.AddEntity(currEnt.templateName, currEnt.entityID);
 		if (ent == INVALID_ENTITY || player == INVALID_ENTITY)
 		{	// Don't add entities with invalid player IDs
 			LOGERROR("Failed to load entity template '%s'", utf8_from_wstring(currEnt.templateName));
@@ -1517,30 +1497,30 @@ int CMapReader::ParseEntities()
 			if (cmpObstruction)
 				cmpObstruction->ResolveFoundationCollisions();
 
-			if (currEnt.playerID == m_PlayerID && (boost::algorithm::ends_with(currEnt.templateName, L"civil_centre") || m_StartingCameraTarget == INVALID_ENTITY))
+			if (currEnt.playerID == m_PlayerID && (currEnt.templateName.ends_with(L"civil_centre") || m_StartingCameraTarget == INVALID_ENTITY))
 			{
 				// Focus on civil centre or first entity owned by player
 				m_StartingCameraTarget = currEnt.entityID;
 			}
 		}
-
-		entity_idx++;
 	}
 
-	return 0;
+	co_return 0;
 }
 
 int CMapReader::ParseEnvironment()
 {
 	// parse environment settings from map data
-	ScriptRequest rq(pSimulation2->GetScriptInterface());
+	Script::Request rq(pSimulation2->GetScriptInterface());
 
-#define GET_ENVIRONMENT_PROPERTY(val, prop, out)\
-	if (!Script::GetProperty(rq, val, #prop, out))\
-		LOGWARNING("CMapReader::ParseEnvironment() failed to get '%s' property", #prop);
+	const auto getEnvironmentProperty = [&](JS::HandleValue val, const char* prop, auto&& out)
+	{
+		if (!Script::GetProperty(rq, val, prop, std::forward<decltype(out)>(out)))
+			LOGWARNING("CMapReader::ParseEnvironment() failed to get '%s' property", prop);
+	};
 
 	JS::RootedValue envObj(rq.cx);
-	GET_ENVIRONMENT_PROPERTY(m_MapData, Environment, &envObj)
+	getEnvironmentProperty(m_MapData, "Environment", &envObj);
 
 	if (envObj.isUndefined())
 	{
@@ -1552,31 +1532,31 @@ int CMapReader::ParseEnvironment()
 		pPostproc->SetPostEffect(L"default");
 
 	std::wstring skySet;
-	GET_ENVIRONMENT_PROPERTY(envObj, SkySet, skySet)
+	getEnvironmentProperty(envObj, "SkySet", skySet);
 	if (pSkyMan)
 		pSkyMan->SetSkySet(skySet);
 
 	CColor sunColor;
-	GET_ENVIRONMENT_PROPERTY(envObj, SunColor, sunColor)
+	getEnvironmentProperty(envObj, "SunColor", sunColor);
 	m_LightEnv.m_SunColor = RGBColor(sunColor.r, sunColor.g, sunColor.b);
 
-	GET_ENVIRONMENT_PROPERTY(envObj, SunElevation, m_LightEnv.m_Elevation)
-	GET_ENVIRONMENT_PROPERTY(envObj, SunRotation, m_LightEnv.m_Rotation)
+	getEnvironmentProperty(envObj, "SunElevation", m_LightEnv.m_Elevation);
+	getEnvironmentProperty(envObj, "SunRotation", m_LightEnv.m_Rotation);
 
 	CColor ambientColor;
-	GET_ENVIRONMENT_PROPERTY(envObj, AmbientColor, ambientColor)
+	getEnvironmentProperty(envObj, "AmbientColor", ambientColor);
 	m_LightEnv.m_AmbientColor = RGBColor(ambientColor.r, ambientColor.g, ambientColor.b);
 
 	// Water properties
 	JS::RootedValue waterObj(rq.cx);
-	GET_ENVIRONMENT_PROPERTY(envObj, Water, &waterObj)
+	getEnvironmentProperty(envObj, "Water", &waterObj);
 
 	JS::RootedValue waterBodyObj(rq.cx);
-	GET_ENVIRONMENT_PROPERTY(waterObj, WaterBody, &waterBodyObj)
+	getEnvironmentProperty(waterObj, "WaterBody", &waterBodyObj);
 
 	// Water level - necessary
 	float waterHeight;
-	GET_ENVIRONMENT_PROPERTY(waterBodyObj, Height, waterHeight)
+	getEnvironmentProperty(waterBodyObj, "Height", waterHeight);
 
 	CmpPtr<ICmpWaterManager> cmpWaterManager(*pSimulation2, SYSTEM_ENTITY);
 	ENSURE(cmpWaterManager);
@@ -1585,87 +1565,83 @@ int CMapReader::ParseEnvironment()
 	// If we have graphics, get rest of settings
 	if (pWaterMan)
 	{
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj, Type, pWaterMan->m_WaterType)
+		getEnvironmentProperty(waterBodyObj, "Type", pWaterMan->m_WaterType);
 		if (pWaterMan->m_WaterType == L"default")
 			pWaterMan->m_WaterType = L"ocean";
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj, Color, pWaterMan->m_WaterColor)
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj, Tint, pWaterMan->m_WaterTint)
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj, Waviness, pWaterMan->m_Waviness)
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj, Murkiness, pWaterMan->m_Murkiness)
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj, WindAngle, pWaterMan->m_WindAngle)
+		getEnvironmentProperty(waterBodyObj, "Color", pWaterMan->m_WaterColor);
+		getEnvironmentProperty(waterBodyObj, "Tint", pWaterMan->m_WaterTint);
+		getEnvironmentProperty(waterBodyObj, "Waviness", pWaterMan->m_Waviness);
+		getEnvironmentProperty(waterBodyObj, "Murkiness", pWaterMan->m_Murkiness);
+		getEnvironmentProperty(waterBodyObj, "WindAngle", pWaterMan->m_WindAngle);
 	}
 
 	JS::RootedValue fogObject(rq.cx);
-	GET_ENVIRONMENT_PROPERTY(envObj, Fog, &fogObject);
+	getEnvironmentProperty(envObj, "Fog", &fogObject);
 
-	GET_ENVIRONMENT_PROPERTY(fogObject, FogFactor, m_LightEnv.m_FogFactor);
-	GET_ENVIRONMENT_PROPERTY(fogObject, FogThickness, m_LightEnv.m_FogMax);
+	getEnvironmentProperty(fogObject, "FogFactor", m_LightEnv.m_FogFactor);
+	getEnvironmentProperty(fogObject, "FogThickness", m_LightEnv.m_FogMax);
 
 	CColor fogColor;
-	GET_ENVIRONMENT_PROPERTY(fogObject, FogColor, fogColor);
+	getEnvironmentProperty(fogObject, "FogColor", fogColor);
 	m_LightEnv.m_FogColor = RGBColor(fogColor.r, fogColor.g, fogColor.b);
 
 	JS::RootedValue postprocObject(rq.cx);
-	GET_ENVIRONMENT_PROPERTY(envObj, Postproc, &postprocObject);
+	getEnvironmentProperty(envObj, "Postproc", &postprocObject);
 
 	std::wstring postProcEffect;
-	GET_ENVIRONMENT_PROPERTY(postprocObject, PostprocEffect, postProcEffect);
+	getEnvironmentProperty(postprocObject, "PostprocEffect", postProcEffect);
 
 	if (pPostproc)
 		pPostproc->SetPostEffect(postProcEffect);
 
-	GET_ENVIRONMENT_PROPERTY(postprocObject, Brightness, m_LightEnv.m_Brightness);
-	GET_ENVIRONMENT_PROPERTY(postprocObject, Contrast, m_LightEnv.m_Contrast);
-	GET_ENVIRONMENT_PROPERTY(postprocObject, Saturation, m_LightEnv.m_Saturation);
-	GET_ENVIRONMENT_PROPERTY(postprocObject, Bloom, m_LightEnv.m_Bloom);
+	getEnvironmentProperty(postprocObject, "Brightness", m_LightEnv.m_Brightness);
+	getEnvironmentProperty(postprocObject, "Contrast", m_LightEnv.m_Contrast);
+	getEnvironmentProperty(postprocObject, "Saturation", m_LightEnv.m_Saturation);
+	getEnvironmentProperty(postprocObject, "Bloom", m_LightEnv.m_Bloom);
 
 	m_LightEnv.CalculateSunDirection();
-
-#undef GET_ENVIRONMENT_PROPERTY
-
 	return 0;
 }
 
 int CMapReader::ParseCamera()
 {
-	ScriptRequest rq(pSimulation2->GetScriptInterface());
+	Script::Request rq(pSimulation2->GetScriptInterface());
 
 	// parse camera settings from map data
 	// defaults if we don't find player starting camera
 	float declination = DEGTORAD(30.f), rotation = DEGTORAD(-45.f);
 	CVector3D translation = CVector3D(100, 150, -100);
 
-#define GET_CAMERA_PROPERTY(val, prop, out)\
-	if (!Script::GetProperty(rq, val, #prop, out))\
-		LOGWARNING("CMapReader::ParseCamera() failed to get '%s' property", #prop);
+	const auto getCameraProperty = [&](JS::HandleValue val, const char* prop, auto&& out)
+	{
+		if (!Script::GetProperty(rq, val, prop, std::forward<decltype(out)>(out)))
+			LOGWARNING("CMapReader::ParseCamera() failed to get '%s' property", prop);
+	};
 
 	JS::RootedValue cameraObj(rq.cx);
-	GET_CAMERA_PROPERTY(m_MapData, Camera, &cameraObj)
+	getCameraProperty(m_MapData, "Camera", &cameraObj);
 
 	if (!cameraObj.isUndefined())
 	{	// If camera property exists, read values
 		CFixedVector3D pos;
-		GET_CAMERA_PROPERTY(cameraObj, Position, pos)
+		getCameraProperty(cameraObj, "Position", pos);
 		translation = pos;
 
-		GET_CAMERA_PROPERTY(cameraObj, Rotation, rotation)
-		GET_CAMERA_PROPERTY(cameraObj, Declination, declination)
+		getCameraProperty(cameraObj, "Rotation", rotation);
+		getCameraProperty(cameraObj, "Declination", declination);
 	}
-#undef GET_CAMERA_PROPERTY
 
 	if (pGameView)
 	{
-		pGameView->GetCamera()->m_Orientation.SetXRotation(declination);
-		pGameView->GetCamera()->m_Orientation.RotateY(rotation);
-		pGameView->GetCamera()->m_Orientation.Translate(translation);
-		pGameView->GetCamera()->UpdateFrustum();
+		CCamera camera{pGameView->GetCamera()};
+		camera.m_Orientation.SetXRotation(declination);
+		camera.m_Orientation.RotateY(rotation);
+		camera.m_Orientation.Translate(translation);
+		camera.UpdateFrustum();
+		pGameView->SetCamera(camera);
 	}
 
 	return 0;
 }
 
-CMapReader::~CMapReader()
-{
-	// Cleaup objects
-	delete xml_reader;
-}
+CMapReader::~CMapReader() = default;

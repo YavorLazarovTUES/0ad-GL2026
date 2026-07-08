@@ -79,6 +79,14 @@
 				"name": "Previous tab",
 				"desc": "Show the previous tab."
 			},
+            "item.next": {
+				"name": "Next item",
+				"desc": "Show the next item."
+			},
+			"item.prev": {
+				"name": "Previous item",
+				"desc": "Show the previous item."
+			},
 			"text.delete.left": {
 				"name": "Delete before cursor",
 				"desc": "Delete word to the left of cursor."
@@ -94,6 +102,42 @@
 			"text.move.right": {
 				"name": "Move cursor to right word",
 				"desc": "Move cursor to start of word to the right of cursor."
+			},
+			"mousegrabtoggle": {
+				"name": "Toggle mouse grab",
+				"desc": "Constrain to window boundaries or release the mouse."
+			},
+			"structree": {
+				"name": "Open Structure Tree window",
+				"desc": "Open Structure Tree window."
+			},
+			"civinfo": {
+				"name": "Open Civilization Overview window",
+				"desc": "Open Civilization Overview window."
+			},
+			"catafalque": {
+				"name": "Open Catafalque Overview",
+				"desc": "Open Catafalque Overview window."
+			},
+			"mapbrowser": {
+				"name": "Open Map Browser window",
+				"desc": "Open Map Browser window."
+			},
+			"manual": {
+				"name": "Open the 0 A.D. Game Manual",
+				"desc": "Open the 0 A.D. Game Manual."
+			},
+			"tips": {
+				"name": "Open Tips and Tricks window",
+				"desc": "Open Tips and Tricks window."
+			},
+			"hotkeys": {
+				"name": "Open Hotkeys window",
+				"desc": "Open Hotkeys window."
+			},
+			"options": {
+				"name": "Open Options window",
+				"desc": "Open Options window."
 			}
 		}
 	}

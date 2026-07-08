@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,24 +20,29 @@
 #include "Selection.h"
 
 #include "graphics/Camera.h"
-#include "ps/CLogger.h"
+#include "lib/debug.h"
+#include "maths/Frustum.h"
+#include "maths/Vector2D.h"
+#include "maths/Vector3D.h"
 #include "ps/Profiler2.h"
 #include "simulation2/components/ICmpIdentity.h"
 #include "simulation2/components/ICmpOwnership.h"
 #include "simulation2/components/ICmpRangeManager.h"
-#include "simulation2/components/ICmpTemplateManager.h"
 #include "simulation2/components/ICmpSelectable.h"
-#include "simulation2/components/ICmpVisual.h"
+#include "simulation2/components/ICmpTemplateManager.h"
 #include "simulation2/components/ICmpUnitRenderer.h"
-#include "simulation2/system/ComponentManager.h"
+#include "simulation2/components/ICmpVisual.h"
+#include "simulation2/system/Component.h"
 
+#include <algorithm>
+#include <cstddef>
 #include <string_view>
+#include <unordered_map>
 
 entity_id_t EntitySelection::PickEntityAtPoint(CSimulation2& simulation, const CCamera& camera, int screenX, int screenY, player_id_t player, bool allowEditorSelectables)
 {
 	PROFILE2("PickEntityAtPoint");
-	CVector3D origin, dir;
-	camera.BuildCameraRay(screenX, screenY, origin, dir);
+	const auto [origin, dir] = camera.BuildCameraRay(screenX, screenY);
 
 	CmpPtr<ICmpUnitRenderer> cmpUnitRenderer(simulation.GetSimContext().GetSystemEntity());
 	ENSURE(cmpUnitRenderer);
@@ -115,10 +120,9 @@ bool CheckEntityInRect(CEntityHandle handle, const CCamera& camera, int sx0, int
 		return false;
 
 	// Compare screen-space coordinates
-	float x, y;
-	camera.GetScreenCoordinates(position, x, y);
-	int ix = (int)x;
-	int iy = (int)y;
+	const CVector2D screenPos{camera.GetScreenCoordinates(position)};
+	int ix = static_cast<int>(screenPos.X);
+	int iy = static_cast<int>(screenPos.Y);
 	return sx0 <= ix && ix <= sx1 && sy0 <= iy && iy <= sy1;
 }
 

@@ -2,9 +2,9 @@ Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
-	setSelectedBiome();
+	setBiome(mapSettings.Biome);
 
 	const tMainTerrain = g_Terrains.mainTerrain;
 	const tForestFloor1 = g_Terrains.forestFloor1;
@@ -86,7 +86,13 @@ function* GenerateMap()
 			new TileClassPainter(clLand)
 		]);
 
-	const [playerIDs, playerPosition] = playerPlacementCircle(fractionToTiles(0.25));
+	const { playerIDs, playerPosition } =
+		playerPlacementByPattern(
+			mapSettings.PlayerPlacement,
+			fractionToTiles(0.25),
+			fractionToTiles(0.1),
+			randomAngle(),
+			undefined);
 
 	g_Map.log("Ensuring initial player land");
 	for (let i = 0; i < numPlayers; ++i)
@@ -255,9 +261,9 @@ function* GenerateMap()
 			[new SimpleObject(oFish, 2, 3, 0, 2)]
 		],
 		[
-			25 * numPlayers
+			50 * numPlayers
 		],
-		avoidClasses(clLand, 2, clFood, 20),
+		avoidClasses(clLand, 2, clFood, 10),
 		clFood);
 
 	yield 85;

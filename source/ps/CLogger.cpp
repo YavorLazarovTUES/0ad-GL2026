@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,23 +20,27 @@
 #include "CLogger.h"
 
 #include "graphics/Canvas2D.h"
+#include "graphics/Color.h"
 #include "graphics/FontMetrics.h"
 #include "graphics/TextRenderer.h"
+#include "lib/debug.h"
 #include "lib/os_path.h"
+#include "lib/path.h"
+#include "lib/secure_crt.h"
 #include "lib/timer.h"
-#include "lib/utf8.h"
+#include "maths/Vector2D.h"
 #include "ps/CConsole.h"
 #include "ps/CStr.h"
-#include "ps/CStrInternStatic.h"
+#include "ps/CStrIntern.h"
 #include "ps/Profile.h"
 #include "ps/Pyrogenesis.h"
 
+#include <boost/algorithm/string/replace.hpp>
+#include <cstring>
 #include <ctime>
 #include <fstream>
 #include <iostream>
 #include <utility>
-
-#include <boost/algorithm/string/replace.hpp>
 
 CStrW g_UniqueLogPostfix;
 static const double RENDER_TIMEOUT = 10.0; // seconds before messages are deleted
@@ -73,8 +77,8 @@ CLogger::CLogger(std::ostream& mainLog, std::ostream& interestingLog, const bool
 	m_InterestingLog{interestingLog},
 	m_UseDebugPrintf{useDebugPrintf}
 {
-	m_MainLog << html_header0 << engine_version << ") Main log" << html_header1;
-	m_InterestingLog << html_header0 << engine_version << ") Main log (warnings and errors only)" << html_header1;
+	m_MainLog << html_header0 << PS_VERSION << ") Main log" << html_header1;
+	m_InterestingLog << html_header0 << PS_VERSION << ") Main log (warnings and errors only)" << html_header1;
 }
 
 CLogger::~CLogger()
@@ -169,20 +173,20 @@ void CLogger::WriteWarning(const char* message)
 
 void CLogger::Render(CCanvas2D& canvas)
 {
-	PROFILE3_GPU("logger");
+	PROFILE3("logger");
 
 	CleanupRenderQueue();
 
-	CStrIntern font_name("mono-stroke-10");
-	CFontMetrics font(font_name);
-	int lineSpacing = font.GetLineSpacing();
+	CStrIntern font_name{"mono-stroke-10"};
+	CFontMetrics font{font_name};
+	float height{font.GetHeight()};
 
 	CTextRenderer textRenderer;
-	textRenderer.SetCurrentFont(font_name);
+	textRenderer.SetCurrentFont(font_name, CStrIntern{});
 	textRenderer.SetCurrentColor(CColor(1.0f, 1.0f, 1.0f, 1.0f));
 
 	// Offset by an extra 35px vertically to avoid the top bar.
-	textRenderer.Translate(4.0f, 35.0f + lineSpacing);
+	textRenderer.Translate(4.0f, 35.0f + height);
 
 	// (Lock must come after loading the CFont, since that might log error messages
 	// and attempt to lock the mutex recursively which is forbidden)
@@ -216,7 +220,7 @@ void CLogger::Render(CCanvas2D& canvas)
 
 		textRenderer.ResetTranslate(savedTranslate);
 
-		textRenderer.Translate(0.0f, (float)lineSpacing);
+		textRenderer.Translate(0.0f, height);
 	}
 
 	canvas.DrawText(textRenderer);
@@ -291,7 +295,7 @@ std::ofstream OpenLogFile(const wchar_t* filePrefix, const char* logName)
 {
 	OsPath path{psLogDir() / (filePrefix + g_UniqueLogPostfix + L".html")};
 	debug_printf("FILES| %s written to '%s'\n", logName, path.string8().c_str());
-	return std::ofstream{OsString(path).c_str(), std::ofstream::trunc};
+	return std::ofstream{OsString(path), std::ofstream::trunc};
 }
 }
 

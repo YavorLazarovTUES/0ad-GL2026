@@ -56,45 +56,58 @@ var g_NetworkOutOfSyncHandlers = new Set();
  * Handle all netmessage types that can occur.
  */
 var g_NetMessageTypes = {
-	"netstatus": msg => {
+	"netstatus": msg =>
+	{
 		handleNetStatusMessage(msg);
 	},
-	"netwarn": msg => {
+	"netwarn": msg =>
+	{
 		addNetworkWarning(msg);
 	},
-	"out-of-sync": msg => {
-		for (let handler of g_NetworkOutOfSyncHandlers)
+	"out-of-sync": msg =>
+	{
+		for (const handler of g_NetworkOutOfSyncHandlers)
 			handler(msg);
 	},
-	"players": msg => {
+	"players": msg =>
+	{
 		handlePlayerAssignmentsMessage(msg);
 	},
-	"paused": msg => {
+	"paused": msg =>
+	{
 		g_PauseControl.setClientPauseState(msg.guid, msg.pause);
 	},
-	"clients-loading": msg => {
-		for (let handler of g_ClientsLoadingHandlers)
+	"clients-loading": msg =>
+	{
+		for (const handler of g_ClientsLoadingHandlers)
 			handler(msg.guids);
 	},
-	"rejoined": msg => {
+	"rejoined": msg =>
+	{
 		addChatMessage({
 			"type": "rejoined",
 			"guid": msg.guid
 		});
 	},
-	"kicked": msg => {
+	"kicked": msg =>
+	{
 		addChatMessage({
 			"type": "kicked",
 			"username": msg.username,
 			"banned": msg.banned
 		});
 	},
-	"chat": msg => {
+	"chat": msg =>
+	{
 		addChatMessage({
 			"type": "message",
 			"guid": msg.guid,
 			"text": msg.text
 		});
+	},
+	"flare": msg =>
+	{
+		handleFlare(msg);
 	},
 	"gamesetup": msg => {}, // Needed for autostart
 	"start": msg => {}
@@ -113,216 +126,193 @@ var g_LastAttack;
  * handled in the same turn can't access the GUI objects anymore.
  */
 var g_NotificationsTypes =
-{
-	"aichat": function(notification, player)
 	{
-		let message = {
-			"type": "message",
-			"text": notification.message,
-			"guid": findGuidForPlayerID(player) || -1,
-			"player": player,
-			"translate": true
-		};
-
-		if (notification.translateParameters)
+		"aichat": function(notification, player)
 		{
-			message.translateParameters = notification.translateParameters;
-			message.parameters = notification.parameters;
-			colorizePlayernameParameters(notification.parameters);
-		}
+			const message = {
+				"type": "message",
+				"text": notification.message,
+				"guid": findGuidForPlayerID(player) || -1,
+				"player": player,
+				"translate": true
+			};
 
-		addChatMessage(message);
-	},
-	"defeat": function(notification, player)
-	{
-		playersFinished(notification.allies, notification.message, false);
-	},
-	"won": function(notification, player)
-	{
-		playersFinished(notification.allies, notification.message, true);
-	},
-	"diplomacy": function(notification, player)
-	{
-		updatePlayerData();
-		g_DiplomacyColors.onDiplomacyChange();
-
-		addChatMessage({
-			"type": "diplomacy",
-			"sourcePlayer": player,
-			"targetPlayer": notification.targetPlayer,
-			"status": notification.status
-		});
-	},
-	"ceasefire-ended": function(notification, player)
-	{
-		updatePlayerData();
-		for (let handler of g_CeasefireEndedHandlers)
-			handler();
-	},
-	"tutorial": function(notification, player)
-	{
-		updateTutorial(notification);
-	},
-	"tribute": function(notification, player)
-	{
-		addChatMessage({
-			"type": "tribute",
-			"sourcePlayer": notification.donator,
-			"targetPlayer": player,
-			"amounts": notification.amounts
-		});
-	},
-	"barter": function(notification, player)
-	{
-		addChatMessage({
-			"type": "barter",
-			"player": player,
-			"amountGiven": notification.amountGiven,
-			"amountGained": notification.amountGained,
-			"resourceGiven": notification.resourceGiven,
-			"resourceGained": notification.resourceGained
-		});
-	},
-	"spy-response": function(notification, player)
-	{
-		g_DiplomacyDialog.onSpyResponse(notification, player);
-
-		if (notification.entity && g_ViewedPlayer == player)
-		{
-			g_DiplomacyDialog.close();
-			setCameraFollow(notification.entity);
-		}
-	},
-	"attack": function(notification, player)
-	{
-		if (player != g_ViewedPlayer)
-			return;
-
-		// Focus camera on attacks
-		if (g_FollowPlayer)
-		{
-			setCameraFollow(notification.target);
-
-			g_Selection.reset();
-			if (notification.target)
-				g_Selection.addList([notification.target]);
-		}
-
-		g_LastAttack = { "target": notification.target, "position": notification.position };
-
-		if (Engine.ConfigDB_GetValue("user", "gui.session.notifications.attack") !== "true")
-			return;
-
-		addChatMessage({
-			"type": "attack",
-			"player": player,
-			"attacker": notification.attacker,
-			"target": notification.target,
-			"position": notification.position,
-			"targetIsDomesticAnimal": notification.targetIsDomesticAnimal
-		});
-	},
-	"phase": function(notification, player)
-	{
-		addChatMessage({
-			"type": "phase",
-			"player": player,
-			"phaseName": notification.phaseName,
-			"phaseState": notification.phaseState
-		});
-	},
-	"upgrade": function(notification, player)
-	{
-		addChatMessage({
-			"type": "upgrade",
-			"player": player,
-			"upgradeName": notification.upgradeName
-		});
-	},
-	"dialog": function(notification, player)
-	{
-		if (player == Engine.GetPlayerID())
-			openDialog(notification.dialogName, notification.data, player);
-	},
-	"playercommand": function(notification, player)
-	{
-		// For observers, focus the camera on units commanded by the selected player
-		if (!g_FollowPlayer || player != g_ViewedPlayer)
-			return;
-
-		let cmd = notification.cmd;
-
-		// Ignore rallypoint commands of trained animals
-		let entState = cmd.entities && cmd.entities[0] && GetEntityState(cmd.entities[0]);
-		if (g_ViewedPlayer != 0 &&
-		    entState && entState.identity && entState.identity.classes &&
-		    entState.identity.classes.indexOf("Animal") != -1)
-			return;
-
-		// Focus the structure to build.
-		if (cmd.type == "repair")
-		{
-			let targetState = GetEntityState(cmd.target);
-			if (targetState)
-				Engine.CameraMoveTo(targetState.position.x, targetState.position.z);
-		}
-		else if (cmd.type == "delete-entities" && notification.position)
-			Engine.CameraMoveTo(notification.position.x, notification.position.y);
-		// Focus commanded entities, but don't lose previous focus when training units
-		else if (cmd.type != "train" && cmd.type != "research" && entState)
-			setCameraFollow(cmd.entities[0]);
-
-		if (["walk", "attack-walk", "patrol"].indexOf(cmd.type) != -1)
-			DrawTargetMarker(cmd);
-
-		// Select units affected by that command
-		let selection = [];
-		if (cmd.entities)
-			selection = cmd.entities;
-		if (cmd.target)
-			selection.push(cmd.target);
-
-		// Allow gaia in selection when gathering
-		g_Selection.reset();
-		g_Selection.addList(selection, false, cmd.type == "gather");
-	},
-	"play-tracks": function(notification, player)
-	{
-		if (notification.lock)
-		{
-			global.music.storeTracks(notification.tracks.map(track => ({ "Type": "custom", "File": track })));
-			global.music.setState(global.music.states.CUSTOM);
-		}
-
-		global.music.setLocked(notification.lock);
-	},
-	"map-flare": function(notification, player)
-	{
-		// Don't display for the player that did the flare because they will see it immediately
-		if (player != Engine.GetPlayerID() && g_Players[player].isMutualAlly[Engine.GetPlayerID()])
-		{
-			let now = Date.now();
-			if (g_FlareRateLimitLastTimes.length)
+			if (notification.translateParameters)
 			{
-				g_FlareRateLimitLastTimes = g_FlareRateLimitLastTimes.filter(t => now - t < g_FlareRateLimitScope * 1000);
-				if (g_FlareRateLimitLastTimes.length >= g_FlareRateLimitMaximumFlares)
-				{
-					warn("Received too many flares. Dropping a flare request by '" + g_Players[player].name + "'.");
-					return;
-				}
+				message.translateParameters = notification.translateParameters;
+				message.parameters = notification.parameters;
+				colorizePlayernameParameters(notification.parameters);
 			}
-			g_FlareRateLimitLastTimes.push(now);
 
-			displayFlare(notification.position, player);
-			Engine.PlayUISound(g_FlareSound, false);
+			addChatMessage(message);
+		},
+		"defeat": function(notification, player)
+		{
+			playersFinished(notification.allies, notification.message, false);
+		},
+		"won": function(notification, player)
+		{
+			playersFinished(notification.allies, notification.message, true);
+		},
+		"diplomacy": function(notification, player)
+		{
+			updatePlayerData();
+			g_DiplomacyColors.onDiplomacyChange();
+
+			addChatMessage({
+				"type": "diplomacy",
+				"sourcePlayer": player,
+				"targetPlayer": notification.targetPlayer,
+				"status": notification.status
+			});
+		},
+		"ceasefire-ended": function(notification, player)
+		{
+			updatePlayerData();
+			for (const handler of g_CeasefireEndedHandlers)
+				handler();
+		},
+		"tutorial": function(notification, player)
+		{
+			updateTutorial(notification);
+		},
+		"tribute": function(notification, player)
+		{
+			addChatMessage({
+				"type": "tribute",
+				"sourcePlayer": notification.donator,
+				"targetPlayer": player,
+				"amounts": notification.amounts
+			});
+		},
+		"barter": function(notification, player)
+		{
+			addChatMessage({
+				"type": "barter",
+				"player": player,
+				"amountGiven": notification.amountGiven,
+				"amountGained": notification.amountGained,
+				"resourceGiven": notification.resourceGiven,
+				"resourceGained": notification.resourceGained
+			});
+		},
+		"spy-response": function(notification, player)
+		{
+			g_DiplomacyDialog.onSpyResponse(notification, player);
+
+			if (notification.entity && g_ViewedPlayer == player && (!g_IsObserver || g_FollowPlayer))
+			{
+				g_DiplomacyDialog.close();
+				setCameraFollow(notification.entity);
+			}
+		},
+		"attack": function(notification, player)
+		{
+			if (player != g_ViewedPlayer)
+				return;
+
+			// Focus camera on attacks
+			if (g_FollowPlayer)
+			{
+				setCameraFollow(notification.target);
+
+				g_Selection.reset();
+				if (notification.target)
+					g_Selection.addList([notification.target]);
+			}
+
+			g_LastAttack = { "target": notification.target, "position": notification.position };
+
+			if (Engine.ConfigDB_GetValue("user", "gui.session.notifications.attack") !== "true")
+				return;
+
+			addChatMessage({
+				"type": "attack",
+				"player": player,
+				"attacker": notification.attacker,
+				"target": notification.target,
+				"position": notification.position,
+				"targetIsDomesticAnimal": notification.targetIsDomesticAnimal
+			});
+		},
+		"phase": function(notification, player)
+		{
+			addChatMessage({
+				"type": "phase",
+				"player": player,
+				"phaseName": notification.phaseName,
+				"phaseState": notification.phaseState
+			});
+		},
+		"upgrade": function(notification, player)
+		{
+			addChatMessage({
+				"type": "upgrade",
+				"player": player,
+				"upgradeName": notification.upgradeName
+			});
+		},
+		"dialog": function(notification, player)
+		{
+			if (player == Engine.GetPlayerID())
+				openDialog(notification.dialogName, notification.data, player);
+		},
+		"playercommand": function(notification, player)
+		{
+			// For observers, focus the camera on units commanded by the selected player
+			if (!g_FollowPlayer || player != g_ViewedPlayer)
+				return;
+
+			const cmd = notification.cmd;
+
+			// Ignore commands executed because of units following rally points
+			if (cmd.fromRallyPoint)
+				return;
+
+			const entState = cmd.entities && cmd.entities[0] && GetEntityState(cmd.entities[0]);
+
+			// Focus the structure to build.
+			if (cmd.type == "repair")
+			{
+				const targetState = GetEntityState(cmd.target);
+				if (targetState)
+					Engine.CameraMoveTo(targetState.position.x, targetState.position.z);
+			}
+			else if (cmd.type == "delete-entities" && notification.position)
+				Engine.CameraMoveTo(notification.position.x, notification.position.y);
+			// Focus commanded entities, but don't lose previous focus when training units
+			else if (cmd.type != "train" && cmd.type != "research" && entState)
+				setCameraFollow(cmd.entities[0]);
+
+			if (["walk", "attack-walk", "patrol"].indexOf(cmd.type) != -1)
+				DrawTargetMarker(cmd);
+
+			// Select units affected by that command
+			let selection = [];
+			if (cmd.entities)
+				selection = cmd.entities;
+			if (cmd.target)
+				selection.push(cmd.target);
+
+			// Allow gaia in selection when gathering
+			g_Selection.reset();
+			g_Selection.addList(selection, false, cmd.type == "gather");
+		},
+		"play-tracks": function(notification, player)
+		{
+			if (notification.lock)
+			{
+				global.music.storeTracks(notification.tracks.map(track => ({ "Type": "custom", "File": track })));
+				global.music.setState(global.music.states.CUSTOM);
+			}
+
+			global.music.setLocked(notification.lock);
+		},
+		"camera-shake": function(notification, player)
+		{
+			Engine.StartCameraShake(notification.duration);
 		}
-	},
-
-	"camera-shake": function(notification, player)
-	{
-		Engine.StartCameraShake(notification.duration);
-	},
-};
+	};
 
 function registerPlayerAssignmentsChangeHandler(handler)
 {
@@ -357,9 +347,9 @@ function findGuidForPlayerID(playerID)
 /**
  * Processes all pending notifications sent from the GUIInterface simulation component.
  */
-function handleNotifications()
+function handleNotifications(closePageCallback)
 {
-	for (let notification of Engine.GuiInterfaceCall("GetNotifications"))
+	for (const notification of Engine.GuiInterfaceCall("GetNotifications"))
 	{
 		if (!notification.players || !notification.type || !g_NotificationsTypes[notification.type])
 		{
@@ -367,8 +357,8 @@ function handleNotifications()
 			continue;
 		}
 
-		for (let player of notification.players)
-			g_NotificationsTypes[notification.type](notification, player);
+		for (const player of notification.players)
+			g_NotificationsTypes[notification.type](notification, player, closePageCallback);
 	}
 }
 
@@ -389,14 +379,14 @@ function focusAttack(attack)
 
 function toggleTutorial()
 {
-	let tutorialPanel = Engine.GetGUIObjectByName("tutorialPanel");
+	const tutorialPanel = Engine.GetGUIObjectByName("tutorialPanel");
 	tutorialPanel.hidden = !tutorialPanel.hidden || !Engine.GetGUIObjectByName("tutorialText").caption;
 }
 
 /**
  * Updates the tutorial panel when a new goal.
  */
-function updateTutorial(notification)
+function updateTutorial(notification, closePageCallback)
 {
 	// Show the tutorial panel if not yet done
 	Engine.GetGUIObjectByName("tutorialPanel").hidden = false;
@@ -407,10 +397,10 @@ function updateTutorial(notification)
 		return;
 	}
 
-	let notificationText =
+	const notificationText =
 		notification.instructions.reduce((instructions, item) =>
-			instructions + (typeof item == "string" ? translate(item) : colorizeHotkey(translate(item.text), item.hotkey)),
-			"");
+			instructions + (typeof item === "string" ? translate(item) : colorizeHotkey(translate(item.text), item.hotkey)),
+		"");
 
 	Engine.GetGUIObjectByName("tutorialText").caption = g_TutorialMessages.concat(setStringTags(notificationText, g_TutorialNewMessageTags)).join("\n");
 	g_TutorialMessages.push(notificationText);
@@ -422,7 +412,11 @@ function updateTutorial(notification)
 		{
 			Engine.GetGUIObjectByName("tutorialWarning").caption = translate("Click to quit this tutorial.");
 			Engine.GetGUIObjectByName("tutorialReady").caption = translate("Quit");
-			Engine.GetGUIObjectByName("tutorialReady").onPress = () => { endGame(true); };
+
+			Engine.GetGUIObjectByName("tutorialReady").onPress = () =>
+			{
+				closePageCallback({ [Engine.openRequest]: endGame(true) });
+			};
 		}
 		else
 			Engine.GetGUIObjectByName("tutorialWarning").caption = translate("Click when ready.");
@@ -438,11 +432,11 @@ function updateTutorial(notification)
  * Process every CNetMessage (see NetMessage.h, NetMessages.h) sent by the CNetServer.
  * Saves the received object to mainlog.html.
  */
-function handleNetMessages()
+async function handleNetMessages()
 {
 	while (true)
 	{
-		let msg = Engine.PollNetworkClient();
+		const msg = await Engine.PollNetworkClient();
 		if (!msg)
 			return;
 
@@ -451,7 +445,7 @@ function handleNetMessages()
 		if (g_NetMessageTypes[msg.type])
 			g_NetMessageTypes[msg.type](msg);
 		else
-			error("Unrecognised net message type '" + msg.type + "'");
+			error("Unrecognized net message type '" + msg.type + "'");
 	}
 }
 
@@ -465,29 +459,29 @@ function handleNetStatusMessage(message)
 	if (message.status == "disconnected")
 	{
 		g_Disconnected = true;
-		updateCinemaPath();
 		closeOpenDialogs();
 	}
 
-	for (let handler of g_NetworkStatusChangeHandlers)
+	for (const handler of g_NetworkStatusChangeHandlers)
 		handler(message);
 }
 
 function handlePlayerAssignmentsMessage(message)
 {
-	for (let guid in g_PlayerAssignments)
+	for (const guid in g_PlayerAssignments)
 		if (!message.newAssignments[guid])
 			onClientLeave(guid);
 
-	let joins = Object.keys(message.newAssignments).filter(guid => !g_PlayerAssignments[guid]);
+	const joins = Object.keys(message.newAssignments).filter(guid => !g_PlayerAssignments[guid]);
 
 	g_PlayerAssignments = message.newAssignments;
 
-	joins.forEach(guid => {
+	joins.forEach(guid =>
+	{
 		onClientJoin(guid);
 	});
 
-	for (let handler of g_PlayerAssignmentsChangeHandlers)
+	for (const handler of g_PlayerAssignmentsChangeHandlers)
 		handler();
 
 	// TODO: use subscription instead
@@ -496,7 +490,7 @@ function handlePlayerAssignmentsMessage(message)
 
 function onClientJoin(guid)
 {
-	let playerID = g_PlayerAssignments[guid].player;
+	const playerID = g_PlayerAssignments[guid].player;
 
 	if (g_Players[playerID])
 	{
@@ -515,7 +509,7 @@ function onClientLeave(guid)
 {
 	g_PauseControl.setClientPauseState(guid, false);
 
-	for (let id in g_Players)
+	for (const id in g_Players)
 		if (g_Players[id].guid == guid)
 			g_Players[id].offline = true;
 
@@ -535,25 +529,49 @@ function clearChatMessages()
 	g_Chat.ChatOverlay.clearChatMessages();
 }
 
+function handleFlare(data)
+{
+	const playerID = g_PlayerAssignments[data.guid].player;
+	const shouldSeeFlare = g_IsObserver || g_Players[playerID]?.isMutualAlly[Engine.GetPlayerID()];
+
+	// Don't display for the player that sent the flare because they will see it immediately.
+	if (!shouldSeeFlare || data.guid == Engine.GetPlayerGUID())
+		return;
+
+	const now = Date.now();
+	if (g_FlareRateLimitLastTimes.length)
+	{
+		g_FlareRateLimitLastTimes = g_FlareRateLimitLastTimes.filter(t => now - t < g_FlareRateLimitScope * 1000);
+		if (g_FlareRateLimitLastTimes.length >= g_FlareRateLimitMaximumFlares)
+		{
+			warn("Received too many flares. Dropping a flare request by '" + g_PlayerAssignments[data.guid].name + "'.");
+			return;
+		}
+	}
+	g_FlareRateLimitLastTimes.push(now);
+
+	renderAndPlayFlare(data.position, data.guid);
+}
+
 /**
  * This function is used for AIs, whose names don't exist in g_PlayerAssignments.
  */
 function colorizePlayernameByID(playerID)
 {
-	let username = g_Players[playerID] && escapeText(g_Players[playerID].name);
+	const username = g_Players[playerID] && escapeText(g_Players[playerID].name);
 	return colorizePlayernameHelper(username, playerID);
 }
 
 function colorizePlayernameByGUID(guid)
 {
-	let username = g_PlayerAssignments[guid] ? g_PlayerAssignments[guid].name : "";
-	let playerID = g_PlayerAssignments[guid] ? g_PlayerAssignments[guid].player : -1;
+	const username = g_PlayerAssignments[guid] ? g_PlayerAssignments[guid].name : "";
+	const playerID = g_PlayerAssignments[guid] ? g_PlayerAssignments[guid].player : -1;
 	return colorizePlayernameHelper(username, playerID);
 }
 
 function colorizePlayernameHelper(username, playerID)
 {
-	let playerColor = playerID > -1 ? g_DiplomacyColors.getPlayerColor(playerID) : "white";
+	const playerColor = playerID > -1 ? g_DiplomacyColors.getPlayerColor(playerID) : "white";
 	return coloredText(username || translate("Unknown Player"), playerColor);
 }
 
@@ -562,7 +580,7 @@ function colorizePlayernameHelper(username, playerID)
  */
 function colorizePlayernameParameters(parameters)
 {
-	for (let param in parameters)
+	for (const param in parameters)
 		if (param.startsWith("_player_"))
 			parameters[param] = colorizePlayernameByID(parameters[param]);
 }
@@ -588,7 +606,7 @@ function sendDialogAnswer(guiObject, dialogName)
  */
 function openDialog(dialogName, data, player)
 {
-	let dialog = Engine.GetGUIObjectByName(dialogName + "-dialog");
+	const dialog = Engine.GetGUIObjectByName(dialogName + "-dialog");
 	if (!dialog)
 	{
 		warn("messages.js: Unknown dialog with name " + dialogName);
@@ -596,24 +614,24 @@ function openDialog(dialogName, data, player)
 	}
 	dialog.hidden = false;
 
-	for (let objName in data)
+	for (const objName in data)
 	{
-		let obj = Engine.GetGUIObjectByName(dialogName + "-dialog-" + objName);
+		const obj = Engine.GetGUIObjectByName(dialogName + "-dialog-" + objName);
 		if (!obj)
 		{
 			warn("messages.js: Key '" + objName + "' not found in '" + dialogName + "' dialog.");
 			continue;
 		}
 
-		for (let key in data[objName])
+		for (const key in data[objName])
 		{
-			let n = data[objName][key];
-			if (typeof n == "object" && n.message)
+			const n = data[objName][key];
+			if (typeof n === "object" && n.message)
 			{
 				let message = n.message;
 				if (n.translateMessage)
 					message = translate(message);
-				let parameters = n.parameters || {};
+				const parameters = n.parameters || {};
 				if (n.translateParameters)
 					translateObjectKeys(parameters, n.translateParameters);
 				obj[key] = sprintf(message, parameters);

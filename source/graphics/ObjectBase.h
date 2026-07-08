@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,22 +18,25 @@
 #ifndef INCLUDED_OBJECTBASE
 #define INCLUDED_OBJECTBASE
 
+#include "lib/code_annotation.h"
 #include "lib/file/vfs/vfs_path.h"
+#include "lib/path.h"
+#include "lib/types.h"
 #include "ps/CStr.h"
 #include "ps/CStrIntern.h"
 
-class CActorDef;
-class CObjectEntry;
-class CObjectManager;
-class CXeromyces;
-class XMBElement;
-
-#include <boost/random/mersenne_twister.hpp>
+#include <cstdint>
 #include <map>
 #include <memory>
+#include <random>
 #include <set>
 #include <unordered_set>
 #include <vector>
+
+class CActorDef;
+class CObjectManager;
+class CXeromyces;
+class XMBElement;
 
 /**
  * Maintains the tree of possible objects from a specific actor definition at a given quality level.
@@ -159,6 +162,8 @@ public:
 
 
 	struct {
+		// whether and how to adapt the rotation to the terrrain slope below
+		CStr m_AnchorType;
 		// cast shadows from this object
 		bool m_CastShadows;
 		// float on top of water
@@ -183,7 +188,7 @@ private:
 	// A low-quality RNG like rand48 causes visible non-random patterns (particularly
 	// in large grids of the same actor with consecutive seeds, e.g. forests),
 	// so use a better one that appears to avoid those patterns
-	using rng_t = boost::mt19937;
+	using rng_t = std::mt19937;
 	std::set<CStr> CalculateRandomRemainingSelections(rng_t& rng, const std::vector<std::set<CStr>>& initialSelections) const;
 
 	/**

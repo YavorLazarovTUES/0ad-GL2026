@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -23,21 +23,22 @@
 #if CONFIG2_AUDIO
 
 #include "ISoundManager.h"
-#include "data/SoundData.h"
 #include "items/ISoundItem.h"
-#include "scripting/SoundGroup.h"
-
-#include "lib/external_libraries/openal.h"
+#include "lib/code_annotation.h"
 #include "lib/file/vfs/vfs_path.h"
+#include "lib/status.h"
 #include "ps/CStr.h"
-#include "ps/Profiler2.h"
+#include "scripting/SoundGroup.h"
 #include "simulation2/system/Entity.h"
 
+#include <AL/al.h>
+#include <AL/alc.h>
 #include <map>
 #include <mutex>
+#include <string>
 #include <vector>
 
-#define AL_CHECK CSoundManager::al_check(__func__, __LINE__)
+class CSoundData;
 
 struct ALSourceHolder
 {
@@ -76,8 +77,6 @@ protected:
 	float m_ActionGain;
 	float m_UIGain;
 	bool m_Enabled;
-	long m_BufferSize;
-	int m_BufferCount;
 	bool m_SoundEnabled;
 	bool m_MusicEnabled;
 
@@ -134,8 +133,6 @@ public:
 	void IdleTask();
 
 	void SetMemoryUsage(long bufferSize, int bufferCount);
-	long GetBufferCount();
-	long GetBufferSize();
 	CStr8 GetSoundCardNames() const;
 	CStr8 GetOpenALVersion() const;
 
@@ -171,8 +168,10 @@ protected:
 	void SetMusicItem(ISoundItem* anItem);
 
 private:
-	CSoundManager(CSoundManager* UNUSED(other)){};
+	CSoundManager(CSoundManager* /*other*/){};
 };
+
+#define AL_CHECK CSoundManager::al_check(__func__, __LINE__)
 
 #else // !CONFIG2_AUDIO
 

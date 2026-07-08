@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@
 #include "NetEnet.h"
 
 #include "ps/ConfigDB.h"
-#include "ps/containers/Span.h"
+#include <span>
 
 namespace PS
 {
@@ -48,10 +48,8 @@ ENetHost* CreateHost(const ENetAddress* address, size_t peerCount, size_t channe
 
 	// Public ENet API doesn't offer a means to change MTU, so do it in a
 	// way least likely to break with ENet updates.
-	enet_uint32 mtu = HOST_DEFAULT_MTU;
-	CFG_GET_VAL("network.enetmtu", mtu);
-	host->mtu = mtu;
-	for (ENetPeer& p : PS::span{host->peers, host->peerCount})
+	host->mtu = g_ConfigDB.Get("network.enetmtu", HOST_DEFAULT_MTU);
+	for (ENetPeer& p : std::span{host->peers, host->peerCount})
 		enet_peer_reset(&p);
 
 	return host;

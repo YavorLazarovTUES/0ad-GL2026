@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,40 +19,54 @@
 
 #include "CMiniMap.h"
 
+#include "graphics/Camera.h"
 #include "graphics/Canvas2D.h"
 #include "graphics/GameView.h"
 #include "graphics/MiniMapTexture.h"
-#include "graphics/MiniPatch.h"
 #include "graphics/Terrain.h"
-#include "graphics/TerrainTextureEntry.h"
-#include "graphics/TerrainTextureManager.h"
 #include "graphics/TextureManager.h"
 #include "gui/CGUI.h"
 #include "gui/GUIManager.h"
-#include "lib/bits.h"
-#include "lib/external_libraries/libsdl.h"
+#include "gui/SGUIMessage.h"
+#include "lib/debug.h"
+#include "lib/path.h"
 #include "lib/timer.h"
 #include "maths/MathUtil.h"
+#include "maths/Matrix3D.h"
+#include "maths/Rect.h"
+#include "maths/Size2D.h"
+#include "maths/Vector3D.h"
 #include "ps/CLogger.h"
-#include "ps/ConfigDB.h"
-#include "ps/Filesystem.h"
 #include "ps/Game.h"
-#include "ps/GameSetup/Config.h"
 #include "ps/Profile.h"
 #include "ps/World.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
 #include "renderer/WaterManager.h"
 #include "scriptinterface/Object.h"
-#include "simulation2/Simulation2.h"
-#include "simulation2/components/ICmpMinimap.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/components/ICmpRangeManager.h"
-#include "simulation2/helpers/Los.h"
-#include "simulation2/system/ParamNode.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
 
+#include <SDL_mouse.h>
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <fmt/printf.h>
+#include <js/GCVector.h>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <js/ValueArray.h>
+#include <memory>
+#include <string>
+#include <tuple>
 #include <vector>
+
+class CSimulation2;
 
 namespace
 {
@@ -105,7 +119,10 @@ CMiniMap::CMiniMap(CGUI& pGUI) :
 	m_MouseHovering = false;
 }
 
-CMiniMap::~CMiniMap() = default;
+void CMiniMap::Tick()
+{
+	g_Game->GetView()->GetMiniMapTexture().RequestRendering();
+}
 
 void CMiniMap::HandleMessage(SGUIMessage& Message)
 {
@@ -189,9 +206,9 @@ bool CMiniMap::IsMouseOver() const
 {
 	const CVector2D& mousePos = m_pGUI.GetMousePos();
 	// Take the magnitude of the difference of the mouse position and minimap center.
-	const float distanceFromCenter = (mousePos - m_CachedActualSize.CenterPoint()).Length();
+	const float distanceFromCenter = (mousePos - GetActualSize().CenterPoint()).Length();
 	// If the distance is less then the radius of the minimap (half the width) the mouse is over the minimap.
-	return distanceFromCenter < m_CachedActualSize.GetWidth() / 2.0;
+	return distanceFromCenter < GetActualSize().GetWidth() / 2.0;
 }
 
 void CMiniMap::GetMouseWorldCoordinates(float& x, float& z) const
@@ -199,8 +216,8 @@ void CMiniMap::GetMouseWorldCoordinates(float& x, float& z) const
 	// Determine X and Z according to proportion of mouse position and minimap.
 	const CVector2D& mousePos = m_pGUI.GetMousePos();
 
-	float px = (mousePos.X - m_CachedActualSize.left) / m_CachedActualSize.GetWidth();
-	float py = (m_CachedActualSize.bottom - mousePos.Y) / m_CachedActualSize.GetHeight();
+	float px = (mousePos.X - GetActualSize().left) / GetActualSize().GetWidth();
+	float py = (GetActualSize().bottom - mousePos.Y) / GetActualSize().GetHeight();
 
 	float angle = GetAngle();
 
@@ -221,7 +238,7 @@ void CMiniMap::SetCameraPositionFromMousePosition()
 
 float CMiniMap::GetAngle() const
 {
-	CVector3D cameraIn = g_Game->GetView()->GetCamera()->GetOrientation().GetIn();
+	CVector3D cameraIn = g_Game->GetView()->GetCamera().GetOrientation().GetIn();
 	return -atan2(cameraIn.X, cameraIn.Z);
 }
 
@@ -239,13 +256,13 @@ CVector2D CMiniMap::WorldSpaceToMiniMapSpace(const CVector3D& worldPosition) con
 
 	// Calculate coordinates in GUI space.
 	return CVector2D(
-		m_CachedActualSize.left + (0.5f + rotatedX) * m_CachedActualSize.GetWidth(),
-		m_CachedActualSize.bottom - (0.5f + rotatedY) * m_CachedActualSize.GetHeight());
+		GetActualSize().left + (0.5f + rotatedX) * GetActualSize().GetWidth(),
+		GetActualSize().bottom - (0.5f + rotatedY) * GetActualSize().GetHeight());
 }
 
-bool CMiniMap::FireWorldClickEvent(int button, int UNUSED(clicks))
+bool CMiniMap::FireWorldClickEvent(int button, int /*clicks*/)
 {
-	ScriptRequest rq(g_GUI->GetActiveGUI()->GetScriptInterface());
+	Script::Request rq(g_GUI->GetActiveGUI()->GetScriptInterface());
 
 	float x, z;
 	GetMouseWorldCoordinates(x, z);
@@ -257,10 +274,10 @@ bool CMiniMap::FireWorldClickEvent(int button, int UNUSED(clicks))
 	Script::ToJSVal(rq, &buttonJs, button);
 
 	JS::RootedValueVector paramData(rq.cx);
-	ignore_result(paramData.append(coords));
-	ignore_result(paramData.append(buttonJs));
+	std::ignore = paramData.append(coords);
+	std::ignore = paramData.append(buttonJs);
 
-	return ScriptEventWithReturn(EventNameWorldClick, paramData);
+	return ScriptEvent(EventNameWorldClick, paramData);
 }
 
 // This sets up and draws the rectangle on the minimap
@@ -271,12 +288,12 @@ void CMiniMap::DrawViewRect(CCanvas2D& canvas) const
 	// Use the water height as a fixed base height, which should be the lowest we can go
 	const float sampleHeight = g_Renderer.GetSceneRenderer().GetWaterManager().m_WaterHeight;
 
-	const CCamera* camera = g_Game->GetView()->GetCamera();
+	const CCamera& camera{g_Game->GetView()->GetCamera()};
 	const std::array<CVector3D, 4> hitPoints = {
-		camera->GetWorldCoordinates(0, g_Renderer.GetHeight(), sampleHeight),
-		camera->GetWorldCoordinates(g_Renderer.GetWidth(), g_Renderer.GetHeight(), sampleHeight),
-		camera->GetWorldCoordinates(g_Renderer.GetWidth(), 0, sampleHeight),
-		camera->GetWorldCoordinates(0, 0, sampleHeight)
+		camera.GetWorldCoordinates(0, g_Renderer.GetHeight(), sampleHeight),
+		camera.GetWorldCoordinates(g_Renderer.GetWidth(), g_Renderer.GetHeight(), sampleHeight),
+		camera.GetWorldCoordinates(g_Renderer.GetWidth(), 0, sampleHeight),
+		camera.GetWorldCoordinates(0, 0, sampleHeight)
 	};
 
 	std::vector<CVector3D> worldSpaceLines;
@@ -347,7 +364,7 @@ void CMiniMap::Draw(CCanvas2D& canvas)
 		return;
 
 	if (!m_Mask)
-		canvas.DrawRect(m_CachedActualSize, CColor(0.0f, 0.0f, 0.0f, 1.0f));
+		canvas.DrawRect(GetActualSize(), CColor(0.0f, 0.0f, 0.0f, 1.0f));
 
 	CSimulation2* sim = g_Game->GetSimulation2();
 	CmpPtr<ICmpRangeManager> cmpRangeManager(*sim, SYSTEM_ENTITY);
@@ -362,13 +379,13 @@ void CMiniMap::Draw(CCanvas2D& canvas)
 	CMiniMapTexture& miniMapTexture = g_Game->GetView()->GetMiniMapTexture();
 	if (miniMapTexture.GetTexture())
 	{
-		const CVector2D center = m_CachedActualSize.CenterPoint();
+		const CVector2D center = GetActualSize().CenterPoint();
 		const CRect source(
 			0,
 			miniMapTexture.IsFlipped() ? 0 : miniMapTexture.GetTexture()->GetHeight(),
 			miniMapTexture.GetTexture()->GetWidth(),
 			miniMapTexture.IsFlipped() ? miniMapTexture.GetTexture()->GetHeight() : 0);
-		const CSize2D size(m_CachedActualSize.GetSize() / m_MapScale);
+		const CSize2D size(GetActualSize().GetSize() / m_MapScale);
 		const CRect destination(center - size / 2.0f, size);
 		canvas.DrawRotatedTexture(
 			miniMapTexture.GetTexture(), destination, source,

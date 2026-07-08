@@ -1,4 +1,4 @@
-/* Copyright (C) 2019 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,17 +21,24 @@
 
 #include "ps/Filesystem.h"
 #include "ps/Profile.h"
+#include "renderer/backend/IDevice.h"
 #include "renderer/Scene.h"
 
+#include <cstddef>
+#include <memory>
 #include <unordered_map>
+#include <utility>
+#include <vector>
+
+class CFrustum;
 
 static Status ReloadChangedFileCB(void* param, const VfsPath& path)
 {
 	return static_cast<CParticleManager*>(param)->ReloadChangedFile(path);
 }
 
-CParticleManager::CParticleManager() :
-	m_CurrentTime(0.f)
+CParticleManager::CParticleManager(Renderer::Backend::IDevice& device)
+	: m_UseInstancing{device.GetCapabilities().instancing}
 {
 	RegisterFileReloadFunc(ReloadChangedFileCB, this);
 }
@@ -54,6 +61,7 @@ CParticleEmitterTypePtr CParticleManager::LoadEmitterType(const VfsPath& path)
 
 void CParticleManager::AddUnattachedEmitter(const CParticleEmitterPtr& emitter)
 {
+	emitter->m_Active = false;
 	m_UnattachedEmitters.push_back(emitter);
 }
 
@@ -82,7 +90,7 @@ struct EmitterHasNoParticles
 	}
 };
 
-void CParticleManager::RenderSubmit(SceneCollector& collector, const CFrustum& UNUSED(frustum))
+void CParticleManager::RenderSubmit(SceneCollector& collector, const CFrustum&)
 {
 	PROFILE("submit unattached particles");
 

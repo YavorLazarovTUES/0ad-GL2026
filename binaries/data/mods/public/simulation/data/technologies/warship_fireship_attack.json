@@ -8,16 +8,20 @@
 	"requirements": {
 		"all": [
 			{ "tech": "phase_city" },
-			{
-				"any": [
-					{ "civ": "brit" },
-					{ "civ": "gaul" },
-					{ "civ": "iber" }
-				]
-			}
+			{ "notciv": "achae" },
+			{ "notciv": "athen" },
+			{ "notciv": "cart" },
+			{ "notciv": "han" },
+			{ "notciv": "kush" },
+			{ "notciv": "mace" },
+			{ "notciv": "maur" },
+			{ "notciv": "ptol" },
+			{ "notciv": "rome" },
+			{ "notciv": "sele" },
+			{ "notciv": "spart" }
 		]
 	},
-	"requirementsTooltip": "Unlocked in City Phase. Requires “Naval Construction.”",
+	"requirementsTooltip": "Unlocked in City Phase.",
 	"icon": "incendiary_weapons.png",
 	"researchTime": 40,
 	"tooltip": "Fire Ships +25% health and +25% attack damage.",
@@ -26,5 +30,6 @@
 		{ "value": "Health/Max", "multiply": 1.25 }
 	],
 	"affects": ["Ignited"],
+	"placeBelow": "{AffectedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,12 +20,23 @@
 
 #include "graphics/ModelAbstract.h"
 #include "graphics/ParticleEmitterType.h"
+#include "graphics/SColor.h"
+#include "lib/posix/posix_types.h"
+#include "maths/BoundingBoxAligned.h"
 #include "maths/Quaternion.h"
-#include "renderer/backend/IDeviceCommandContext.h"
-#include "renderer/backend/IShaderProgram.h"
+#include "maths/Vector3D.h"
 #include "renderer/VertexArray.h"
 
+#include <cstddef>
 #include <map>
+#include <memory>
+#include <string>
+#include <vector>
+
+class CParticleEmitter;
+namespace Renderer::Backend { class IDeviceCommandContext; }
+namespace Renderer::Backend { class IShaderProgram; }
+namespace Renderer::Backend { class IVertexInputLayout; }
 
 /**
  * Simulation state for a single particle.
@@ -41,6 +52,7 @@ struct SParticle
 	SColor4ub color;
 	float age;
 	float maxAge;
+	CVector3D axisX, axisY;
 };
 
 typedef std::shared_ptr<CParticleEmitter> CParticleEmitterPtr;
@@ -138,21 +150,12 @@ public:
 	void RenderArray(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
 
-	/**
-	 * Stop this emitter emitting new particles, and pass responsibility for rendering
-	 * to the CParticleManager. This should be called before dropping the last std::shared_ptr
-	 * to this object so that it will carry on rendering (until all particles have dissipated)
-	 * even when it's no longer attached to a model.
-	 * @param self the std::shared_ptr you're about to drop
-	 */
-	void Unattach(const CParticleEmitterPtr& self);
-
 	void SetEntityVariable(const std::string& name, float value);
 
 	CParticleEmitterTypePtr m_Type;
 
 	/// Whether this emitter is still emitting new particles
-	bool m_Active;
+	bool m_Active{true};
 
 	CVector3D m_Pos;
 	CQuaternion m_Rot;
@@ -160,10 +163,11 @@ public:
 	std::map<std::string, float> m_EntityVariables;
 
 	std::vector<SParticle> m_Particles;
-	size_t m_NextParticleIdx;
+	uint32_t m_NextParticleIdx{0};
+	uint32_t m_NumberOfVisibleParticles{0};
 
 	float m_LastUpdateTime;
-	float m_EmissionRoundingError;
+	float m_EmissionRoundingError{0.0f};
 
 private:
 	/// Bounding box of the current particle center points
@@ -173,13 +177,15 @@ private:
 
 	VertexArray m_VertexArray;
 	VertexArray::Attribute m_AttributePos;
-	VertexArray::Attribute m_AttributeAxis;
-	VertexArray::Attribute m_AttributeUV;
 	VertexArray::Attribute m_AttributeColor;
+	VertexArray::Attribute m_AttributeAxisX, m_AttributeAxisY;
+	VertexArray m_VertexUVArray;
+	VertexArray::Attribute m_AttributeUV;
 
 	Renderer::Backend::IVertexInputLayout* m_VertexInputLayout = nullptr;
 
 	int m_LastFrameNumber;
+	bool m_UseInstancing{false};
 };
 
 /**
@@ -199,7 +205,7 @@ public:
 
 	std::unique_ptr<CModelAbstract> Clone() const override;
 
-	void SetTerrainDirty(ssize_t UNUSED(i0), ssize_t UNUSED(j0), ssize_t UNUSED(i1), ssize_t UNUSED(j1)) override
+	void SetTerrainDirty(ssize_t /*i0*/, ssize_t /*j0*/, ssize_t /*i1*/, ssize_t /*j1*/) override
 	{
 	}
 

@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,10 +19,13 @@
 
 #include "Buffer.h"
 
+#include "lib/debug.h"
+#include "ps/CLogger.h"
 #include "renderer/backend/vulkan/Device.h"
 #include "renderer/backend/vulkan/Utilities.h"
 
 #include <tuple>
+#include <utility>
 
 namespace Renderer
 {
@@ -37,9 +40,11 @@ VkBufferUsageFlags ToVkBufferUsageFlags(const uint32_t usage)
 {
 	VkBufferUsageFlags usageFlags = 0;
 	if (usage & IBuffer::Usage::TRANSFER_SRC)
-		usageFlags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+		usageFlags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	if (usage & IBuffer::Usage::TRANSFER_DST)
-		usageFlags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+		usageFlags |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	if (usage & IBuffer::Usage::STORAGE)
+		usageFlags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 	return usageFlags;
 }
 
@@ -51,19 +56,20 @@ std::tuple<VkBufferUsageFlags, VkMemoryPropertyFlags, VmaMemoryUsage> MakeCreati
 	switch (type)
 	{
 	case IBuffer::Type::VERTEX:
-		ENSURE(usage & IBuffer::Usage::TRANSFER_DST);
+		ENSURE(usage & (IBuffer::Usage::TRANSFER_DST | IBuffer::Usage::STORAGE));
 		return {
 			commonFlags | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE};
 	case IBuffer::Type::INDEX:
-		ENSURE(usage & IBuffer::Usage::TRANSFER_DST);
+		ENSURE(usage & (IBuffer::Usage::TRANSFER_DST | IBuffer::Usage::STORAGE));
 		return {
 			commonFlags | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE};
 	case IBuffer::Type::UPLOAD:
 		ENSURE(usage & IBuffer::Usage::TRANSFER_SRC);
+		ENSURE(!(usage & IBuffer::Usage::STORAGE));
 		return {
 			commonFlags,
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
@@ -86,6 +92,7 @@ std::unique_ptr<CBuffer> CBuffer::Create(
 {
 	std::unique_ptr<CBuffer> buffer(new CBuffer());
 	buffer->m_Device = device;
+	buffer->m_UID = device->GenerateNextDeviceObjectUID();
 	buffer->m_Type = type;
 	buffer->m_Size = size;
 	buffer->m_Usage = usage;
@@ -130,6 +137,8 @@ CBuffer::~CBuffer()
 	if (m_Allocation != VK_NULL_HANDLE)
 		m_Device->ScheduleObjectToDestroy(
 			VK_OBJECT_TYPE_BUFFER, m_Buffer, m_Allocation);
+
+	m_Device->ScheduleBufferToDestroy(m_UID);
 }
 
 IDevice* CBuffer::GetDevice()

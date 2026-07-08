@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,69 +21,80 @@
 
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/JSON.h"
-#include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/Object.h"
-#include "simulation2/serialization/ISerializer.h"
-#include "simulation2/serialization/IDeserializer.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Message.h"
 
-CComponentTypeScript::CComponentTypeScript(const ScriptInterface& scriptInterface, JS::HandleValue instance) :
-	m_ScriptInterface(scriptInterface)
-{
-	m_Instance.init(ScriptRequest(m_ScriptInterface).cx, instance);
-}
+#include <string>
 
-void CComponentTypeScript::Init(const CParamNode& paramNode, entity_id_t ent)
+namespace Script { class Interface; }
+
+CComponentTypeScript::CComponentTypeScript(const Script::Interface& scriptInterface, JS::HandleValue instance) :
+	m_ScriptInterface(scriptInterface), m_Instance(instance)
+{}
+
+void CComponentTypeScript::Init(CComponentManager& cmpMgr, const CParamNode& paramNode, entity_id_t ent)
 {
-	ScriptRequest rq(m_ScriptInterface);
-	Script::SetProperty(rq, m_Instance, "entity", (int)ent, true, false);
-	Script::SetProperty(rq, m_Instance, "template", paramNode, true, false);
-	ScriptFunction::CallVoid(rq, m_Instance, "Init");
+	cmpMgr.RegisterTrace(ent, m_Instance);
+	Script::Request rq(m_ScriptInterface);
+	Script::SetProperty(rq, GetInstance(), "entity", (int)ent, true, false);
+	Script::SetProperty(rq, GetInstance(), "template", paramNode, true, false);
+	Script::Function::CallVoid(rq, GetInstance(), "Init");
 }
 
 void CComponentTypeScript::Deinit()
 {
-	ScriptRequest rq(m_ScriptInterface);
-	ScriptFunction::CallVoid(rq, m_Instance, "Deinit");
+	Script::Request rq(m_ScriptInterface);
+	Script::Function::CallVoid(rq, GetInstance(), "Deinit");
+}
+
+bool CComponentTypeScript::HasMessageHandler(const CMessage& msg, const bool global)
+{
+	const Script::Request rq(m_ScriptInterface);
+	return Script::HasProperty(rq, GetInstance(), global ? msg.GetScriptGlobalHandlerName() :
+		msg.GetScriptHandlerName());
 }
 
 void CComponentTypeScript::HandleMessage(const CMessage& msg, bool global)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 
 	const char* name = global ? msg.GetScriptGlobalHandlerName() : msg.GetScriptHandlerName();
 
 	JS::RootedValue msgVal(rq.cx, msg.ToJSValCached(rq));
 
-	if (!ScriptFunction::CallVoid(rq, m_Instance, name, msgVal))
+	if (!Script::Function::CallVoid(rq, GetInstance(), name, msgVal))
 		LOGERROR("Script message handler %s failed", name);
 }
 
 void CComponentTypeScript::Serialize(ISerializer& serialize)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 
 	try
 	{
-		serialize.ScriptVal("comp", &m_Instance);
+		serialize.ScriptVal("comp", GetMutInstance());
 	}
 	catch(PSERROR_Serialize& err)
 	{
 		int ent = INVALID_ENTITY;
-		Script::GetProperty(rq, m_Instance, "entity", ent);
+		Script::GetProperty(rq, GetInstance(), "entity", ent);
 		std::string name = "(error)";
-		Script::GetObjectClassName(rq, m_Instance, name);
-		LOGERROR("Script component %s of entity %i failed to serialize: %s\nSerializing:\n%s", name, ent, err.what(), Script::ToString(rq, &m_Instance));
+		Script::GetObjectClassName(rq, GetInstance(), name);
+		LOGERROR("Script component %s of entity %i failed to serialize: %s\nSerializing:\n%s", name, ent, err.what(), Script::ToString(rq, GetMutInstance()));
 		// Rethrow now that we added more details
 		throw;
 	}
 }
 
-void CComponentTypeScript::Deserialize(const CParamNode& paramNode, IDeserializer& deserialize, entity_id_t ent)
+void CComponentTypeScript::Deserialize(CComponentManager& cmpMgr, const CParamNode& paramNode, IDeserializer& deserialize, entity_id_t ent)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	cmpMgr.RegisterTrace(ent, m_Instance);
 
-	Script::SetProperty(rq, m_Instance, "entity", (int)ent, true, false);
-	Script::SetProperty(rq, m_Instance, "template", paramNode, true, false);
+	Script::Request rq(m_ScriptInterface);
 
-	deserialize.ScriptObjectAssign("comp", m_Instance);
+	Script::SetProperty(rq, GetInstance(), "entity", (int)ent, true, false);
+	Script::SetProperty(rq, GetInstance(), "template", paramNode, true, false);
+
+	deserialize.ScriptObjectAssign("comp", GetInstance());
 }

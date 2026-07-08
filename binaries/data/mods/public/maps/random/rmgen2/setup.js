@@ -1,3 +1,5 @@
+Engine.LoadLibrary("rmgen");
+
 var g_Amounts = {
 	"scarce": 0.2,
 	"few": 0.5,
@@ -22,9 +24,9 @@ var g_Sizes = {
 	"huge": 1.5,
 };
 
-var g_AllAmounts = Object.keys(g_Amounts);
-var g_AllMixes = Object.keys(g_Mixes);
-var g_AllSizes = Object.keys(g_Sizes);
+export const allAmounts = Object.keys(g_Amounts);
+export const allMixes = Object.keys(g_Mixes);
+export const allSizes = Object.keys(g_Sizes);
 
 var g_DefaultTileClasses = [
 	"animals",
@@ -52,16 +54,22 @@ var g_DefaultTileClasses = [
 	"water"
 ];
 
-var g_TileClasses;
+globalThis.g_TileClasses = undefined;
 
-var g_PlayerbaseTypes = {
-	"line": {
+export const playerbaseTypes = {
+	"groupedLines": {
 		"getPosition": (distance, groupedDistance, startAngle) => placeLine(getTeamsArray(), distance, groupedDistance, startAngle),
 		"distance": fractionToTiles(randFloat(0.2, 0.35)),
 		"groupedDistance": fractionToTiles(randFloat(0.08, 0.1)),
 		"walls": false
 	},
-	"radial": {
+	"river": {
+		"getPosition": (distance, groupedDistance, startAngle) => playerPlacementRiver(startAngle, distance),
+		"distance": fractionToTiles(randFloat(0.25, 0.35)),
+		"groupedDistance": fractionToTiles(randFloat(0.08, 0.1)),
+		"walls": true
+	},
+	"circle": {
 		"getPosition": (distance, groupedDistance, startAngle) => playerPlacementCircle(distance, startAngle),
 		"distance": fractionToTiles(randFloat(0.25, 0.35)),
 		"groupedDistance": fractionToTiles(randFloat(0.08, 0.1)),
@@ -74,7 +82,8 @@ var g_PlayerbaseTypes = {
 		"walls": true
 	},
 	"stronghold": {
-		"getPosition": (distance, groupedDistance, startAngle) => placeStronghold(getTeamsArray(), distance, groupedDistance, startAngle),
+		"getPosition": (distance, groupedDistance, startAngle) =>
+			placeStronghold(getTeamsArray(), distance, groupedDistance * 1.7, startAngle),
 		"distance": fractionToTiles(randFloat(0.2, 0.35)),
 		"groupedDistance": fractionToTiles(randFloat(0.08, 0.1)),
 		"walls": false
@@ -84,7 +93,7 @@ var g_PlayerbaseTypes = {
 /**
  * Adds an array of elements to the map.
  */
-function addElements(elements)
+export function addElements(elements)
 {
 	for (const element of elements)
 		element.func(
@@ -150,7 +159,7 @@ function createBasesByPattern(type, distance, groupedDistance, startAngle)
 {
 	error("createBasesByPattern() has been deprecated. Use playerPlacementByPattern() instead.");
 	return createBases(
-		...playerPlacementByPattern(
+		playerPlacementByPattern(
 			type,			// patternName
 			distance,		// distance
 			groupedDistance,
@@ -159,7 +168,7 @@ function createBasesByPattern(type, distance, groupedDistance, startAngle)
 		undefined);			// walls
 }
 
-function createBases(playerIDs, playerPosition, walls)
+export function createBases({ playerIDs, playerPosition }, walls)
 {
 	g_Map.log("Creating bases");
 
@@ -175,7 +184,7 @@ function createBases(playerIDs, playerPosition, walls)
  * @param {Object} player - contains id, angle, x, z
  * @param {boolean} walls - Whether or not iberian gets starting walls
  */
-function createBase(playerID, playerPosition, walls)
+export function createBase(playerID, playerPosition, walls)
 {
 	placePlayerBase({
 		"playerID": playerID,
@@ -217,9 +226,8 @@ function createBase(playerID, playerPosition, walls)
  * Creates tileClass for the default classes and every class given.
  *
  * @param {Array} newClasses
- * @returns {Object} - maps from classname to ID
  */
-function initTileClasses(newClasses)
+export function initTileClasses(newClasses)
 {
 	let classNames = g_DefaultTileClasses;
 
@@ -227,6 +235,6 @@ function initTileClasses(newClasses)
 		classNames = classNames.concat(newClasses);
 
 	g_TileClasses = {};
-	for (let className of classNames)
+	for (const className of classNames)
 		g_TileClasses[className] = g_Map.createTileClass();
 }

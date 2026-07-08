@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,10 +18,16 @@
 #ifndef INCLUDED_SAVEDGAME
 #define INCLUDED_SAVEDGAME
 
-#include "ps/CStr.h"
+#include "lib/status.h"
 #include "scriptinterface/StructuredClone.h"
 
+#include <js/Value.h>
+#include <optional>
+#include <string>
+
 class CSimulation2;
+class CStrW;
+namespace Script { class Interface; }
 
 /**
  * @file
@@ -59,26 +65,32 @@ namespace SavedGames
 	 */
 	Status SavePrefix(const CStrW& prefix, const CStrW& description, CSimulation2& simulation, const Script::StructuredClone& guiMetadataClone);
 
+	struct LoadResult
+	{
+		// Object containing metadata associated with saved game,
+		// parsed from metadata.json inside the archive.
+		JS::Value metadata;
+		// Serialized simulation state stored as string of bytes,
+		// loaded from simulation.dat inside the archive.
+		std::string savedState;
+	};
+
 	/**
 	 * Load saved game archive with the given name
 	 *
 	 * @param name filename of saved game (without path or extension)
 	 * @param scriptInterface
-	 * @param[out] metadata object containing metadata associated with saved game,
-	 *	parsed from metadata.json inside the archive.
-	 * @param[out] savedState serialized simulation state stored as string of bytes,
-	 *	loaded from simulation.dat inside the archive.
-	 * @return INFO::OK if successfully loaded, else an error Status
+	 * @return An empty `std::optional` if an error ocoured.
 	 */
-	Status Load(const std::wstring& name, const ScriptInterface& scriptInterface, JS::MutableHandleValue metadata, std::string& savedState);
+	std::optional<LoadResult> Load(const Script::Interface& scriptInterface, const std::wstring& name);
 
 	/**
 	 * Get list of saved games for GUI script usage
 	 *
-	 * @param scriptInterface the ScriptInterface in which to create the return data.
+	 * @param scriptInterface the Script::Interface in which to create the return data.
 	 * @return array of objects containing saved game data
 	 */
-	JS::Value GetSavedGames(const ScriptInterface& scriptInterface);
+	JS::Value GetSavedGames(const Script::Interface& scriptInterface);
 
 	/**
 	 * Permanently deletes the saved game archive with the given name

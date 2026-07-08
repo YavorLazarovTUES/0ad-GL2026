@@ -41,10 +41,8 @@
   "AISeed": 0,
   "AllyView": false,
   "CircularMap": true,
-  "Description": "isth·mus\n/ˈis(TH)məs/\nnoun\na narrow strip of land with sea on either side, forming a link between two larger areas of land.\n\nThis is the Ithmus at Corinth in Greece. The land is rich in raw resources and treasure, and the seas on either side of the isthmus are stocked with fish. Mercenary Camps can be found as well as large Metal Mine deposits.\n\nWatch out for pirate ships and brigands, though, as war-torn Greece is not without its share of dangers. And the enemy, marshalling their forces across the isthmus on the opposing landmass, will be looking for opportunities to invade your lands and take the strategic Corinthian Isthmus for themselves!",
-  "Keywords": [
-    "new"
-  ],
+  "Description": "isth·mus\n/ˈis(TH)məs/\nnoun\na narrow strip of land with sea on either side, forming a link between two larger areas of land.\n\nThis is the Ithmus at Corinth in Greece. The land is rich in raw resources and treasure, and the seas on either side of the isthmus are stocked with fish. Mercenary Camps can be found as well as large Metal Mine deposits.\n\nWatch out for pirate ships and brigands, though, as war-torn Greece is not without its share of dangers. And the enemy, marshaling their forces across the isthmus on the opposing landmass, will be looking for opportunities to invade your lands and take the strategic Corinthian Isthmus for themselves!",
+  "Keywords": [],
   "LockTeams": false,
   "Name": "Isthmus of Corinth (2)",
   "PlayerData": [
@@ -11161,14 +11159,14 @@
 			<Actor seed="10908"/>
 		</Entity>
 		<Entity uid="1726">
-			<Template>gaia/treasure/food_persian_big</Template>
+			<Template>gaia/treasure/food_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="208.1894" z="751.59711"/>
 			<Orientation y="-3.48035"/>
 			<Actor seed="47778"/>
 		</Entity>
 		<Entity uid="1729">
-			<Template>gaia/treasure/food_persian_big</Template>
+			<Template>gaia/treasure/food_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="1098.261" z="500.67469"/>
 			<Orientation y="-3.48035"/>
@@ -37199,56 +37197,56 @@
 			<Actor seed="50819"/>
 		</Entity>
 		<Entity uid="6324">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>1</Player>
 			<Position x="670.02015" z="948.82215"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="21168"/>
 		</Entity>
 		<Entity uid="6325">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>1</Player>
 			<Position x="673.07172" z="951.40033"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="37002"/>
 		</Entity>
 		<Entity uid="6326">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>1</Player>
 			<Position x="675.73243" z="954.45014"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="36845"/>
 		</Entity>
 		<Entity uid="6327">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>1</Player>
 			<Position x="678.71192" z="957.12757"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="26064"/>
 		</Entity>
 		<Entity uid="6328">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>2</Player>
 			<Position x="631.13593" z="284.23578"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="25390"/>
 		</Entity>
 		<Entity uid="6329">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>2</Player>
 			<Position x="633.45313" z="286.57688"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="61650"/>
 		</Entity>
 		<Entity uid="6330">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>2</Player>
 			<Position x="635.84748" z="289.22217"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="61650"/>
 		</Entity>
 		<Entity uid="6331">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>2</Player>
 			<Position x="638.41297" z="292.2042"/>
 			<Orientation y="2.35621"/>
@@ -37256,84 +37254,84 @@
 		</Entity>
 		<Entity uid="6332">
 			<Template>gaia/tree/carob</Template>
-			<Player>1</Player>
+			<Player>0</Player>
 			<Position x="606.06861" z="864.55854"/>
 			<Orientation y="-3.1089"/>
 			<Actor seed="48612"/>
 		</Entity>
 		<Entity uid="6333">
 			<Template>gaia/tree/carob</Template>
-			<Player>1</Player>
+			<Player>0</Player>
 			<Position x="614.48444" z="854.1388"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="58937"/>
 		</Entity>
 		<Entity uid="6334">
 			<Template>gaia/tree/carob</Template>
-			<Player>1</Player>
+			<Player>0</Player>
 			<Position x="625.74012" z="851.07392"/>
 			<Orientation y="0.38529"/>
 			<Actor seed="58937"/>
 		</Entity>
 		<Entity uid="6335">
 			<Template>gaia/tree/carob</Template>
-			<Player>1</Player>
+			<Player>0</Player>
 			<Position x="625.81733" z="864.59168"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="58937"/>
 		</Entity>
 		<Entity uid="6336">
 			<Template>gaia/tree/carob</Template>
-			<Player>1</Player>
+			<Player>0</Player>
 			<Position x="615.60016" z="862.92554"/>
 			<Orientation y="-2.01844"/>
 			<Actor seed="62701"/>
 		</Entity>
 		<Entity uid="6337">
 			<Template>gaia/tree/carob</Template>
-			<Player>1</Player>
+			<Player>0</Player>
 			<Position x="630.63892" z="856.47474"/>
 			<Orientation y="1.21845"/>
 			<Actor seed="62701"/>
 		</Entity>
 		<Entity uid="6338">
 			<Template>gaia/tree/carob</Template>
-			<Player>1</Player>
+			<Player>0</Player>
 			<Position x="737.11414" z="885.21302"/>
 			<Orientation y="-1.80336"/>
 			<Actor seed="50843"/>
 		</Entity>
 		<Entity uid="6339">
 			<Template>gaia/tree/carob</Template>
-			<Player>1</Player>
+			<Player>0</Player>
 			<Position x="722.29444" z="883.89576"/>
 			<Orientation y="3.14002"/>
 			<Actor seed="29699"/>
 		</Entity>
 		<Entity uid="6340">
 			<Template>gaia/tree/carob</Template>
-			<Player>1</Player>
+			<Player>0</Player>
 			<Position x="718.6435" z="875.3628"/>
 			<Orientation y="3.07102"/>
 			<Actor seed="29699"/>
 		</Entity>
 		<Entity uid="6341">
 			<Template>gaia/tree/carob</Template>
-			<Player>1</Player>
+			<Player>0</Player>
 			<Position x="722.31641" z="864.73017"/>
 			<Orientation y="2.7963"/>
 			<Actor seed="29699"/>
 		</Entity>
 		<Entity uid="6342">
 			<Template>gaia/tree/carob</Template>
-			<Player>1</Player>
+			<Player>0</Player>
 			<Position x="734.6385" z="862.97376"/>
 			<Orientation y="0.27884"/>
 			<Actor seed="58092"/>
 		</Entity>
 		<Entity uid="6343">
 			<Template>gaia/tree/carob</Template>
-			<Player>1</Player>
+			<Player>0</Player>
 			<Position x="738.83271" z="871.84418"/>
 			<Orientation y="-2.24103"/>
 			<Actor seed="58092"/>

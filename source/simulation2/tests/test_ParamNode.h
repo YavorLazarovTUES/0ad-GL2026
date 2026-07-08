@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,22 +17,26 @@
 
 #include "lib/self_test.h"
 
-#include "simulation2/system/ParamNode.h"
-
 #include "ps/CLogger.h"
+#include "ps/Errors.h"
 #include "ps/XML/Xeromyces.h"
+#include "simulation2/system/Component.h"
+
+#include <optional>
+#include <string>
 
 class TestParamNode : public CxxTest::TestSuite
 {
+	std::optional<CXeromycesEngine> xeromycesEngine;
 public:
 	void setUp()
 	{
-		CXeromyces::Startup();
+		xeromycesEngine.emplace();
 	}
 
 	void tearDown()
 	{
-		CXeromyces::Terminate();
+		xeromycesEngine.reset();
 	}
 
 	void test_basic()

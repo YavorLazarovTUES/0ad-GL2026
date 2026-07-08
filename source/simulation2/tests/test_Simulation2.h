@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,15 +17,23 @@
 
 #include "lib/self_test.h"
 
-#include "scriptinterface/ScriptInterface.h"
-#include "simulation2/Simulation2.h"
-#include "simulation2/MessageTypes.h"
-#include "simulation2/components/ICmpTest.h"
-
 #include "graphics/Terrain.h"
-#include "ps/CLogger.h"
+#include "lib/file/file_system.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/path.h"
+#include "lib/types.h"
 #include "ps/Filesystem.h"
 #include "ps/XML/Xeromyces.h"
+#include "scriptinterface/Interface.h"
+#include "simulation2/MessageTypes.h"
+#include "simulation2/Simulation2.h"
+#include "simulation2/components/ICmpTest.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+
+#include <cstddef>
+#include <memory>
+#include <string>
 
 class TestSimulation2 : public CxxTest::TestSuite
 {
@@ -45,21 +53,19 @@ public:
 		g_VFS = CreateVfs();
 		TS_ASSERT_OK(g_VFS->Mount(L"", DataDir() / "mods" / "_test.sim" / "", VFS_MOUNT_MUST_EXIST));
 		TS_ASSERT_OK(g_VFS->Mount(L"cache", DataDir() / "_testcache" / "", 0, VFS_MAX_PRIORITY));
-		CXeromyces::Startup();
 	}
 
 	void tearDown()
 	{
-		CXeromyces::Terminate();
 		g_VFS.reset();
 		DeleteDirectory(DataDir()/"_testcache");
 	}
 
 	void test_AddEntity()
 	{
-		CSimulation2 sim{nullptr, *g_ScriptContext, &m_Terrain};
-		TS_ASSERT(sim.LoadScripts(L"simulation/components/addentity/"));
-
+		CXeromycesEngine xeromycesEngine;
+		CSimulation2 sim{nullptr, *g_ScriptContext, &m_Terrain,
+			{{L"simulation/components/addentity/"}}};
 		sim.ResetState(true, true);
 
 		entity_id_t ent1 = sim.AddEntity(L"test1");
@@ -77,9 +83,9 @@ public:
 
 	void test_DestroyEntity()
 	{
-		CSimulation2 sim{nullptr, *g_ScriptContext, &m_Terrain};
-		TS_ASSERT(sim.LoadScripts(L"simulation/components/addentity/"));
-
+		CXeromycesEngine xeromycesEngine;
+		CSimulation2 sim{nullptr, *g_ScriptContext, &m_Terrain,
+			{{L"simulation/components/addentity/"}}};
 		sim.ResetState(true, true);
 
 		entity_id_t ent1 = sim.AddEntity(L"test1");
@@ -133,15 +139,15 @@ public:
 
 	void test_hotload_scripts()
 	{
-		CSimulation2 sim{nullptr, *g_ScriptContext, &m_Terrain};
+		CXeromycesEngine xeromycesEngine;
 
 		TS_ASSERT_OK(CreateDirectories(DataDir()/"mods"/"_test.sim"/"simulation"/"components"/"hotload"/"", 0700));
 
 		copyFile(L"simulation/components/test-hotload1.js", L"simulation/components/hotload/hotload.js");
 		TS_ASSERT_OK(g_VFS->RemoveFile(L"simulation/components/hotload/hotload.js"));
 		TS_ASSERT_OK(g_VFS->RepopulateDirectory(L"simulation/components/hotload/"));
-		TS_ASSERT(sim.LoadScripts(L"simulation/components/hotload/"));
 
+		CSimulation2 sim{nullptr, *g_ScriptContext, &m_Terrain, {{L"simulation/components/hotload/"}}};
 		sim.ResetState(true, true);
 
 		entity_id_t ent = sim.AddEntity(L"hotload");

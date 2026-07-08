@@ -1,4 +1,4 @@
-/* Copyright (C) 2019 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -15,22 +15,25 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef NETHOST_H
-#define NETHOST_H
-
-#include "ps/CStr.h"
-
-#include <map>
-
 /**
  * @file
  * Various declarations shared by networking code.
  */
 
+#ifndef NETHOST_H
+#define NETHOST_H
+
+#include "lib/external_libraries/enet.h"
+#include "lib/types.h"
+#include "ps/CStr.h"
+
+#include <map>
+
+class CNetMessage;
+
 typedef struct _ENetPeer ENetPeer;
 typedef struct _ENetPacket ENetPacket;
 typedef struct _ENetHost ENetHost;
-class CNetMessage;
 
 struct PlayerAssignment
 {
@@ -62,6 +65,7 @@ typedef std::map<CStr, PlayerAssignment> PlayerAssignmentMap; // map from GUID -
 enum NetDisconnectReason
 {
 	NDR_UNKNOWN = 0,
+	NDR_CONNECTION_REQUEST_TIMED_OUT,
 	NDR_SERVER_SHUTDOWN,
 	NDR_INCORRECT_PROTOCOL_VERSION,
 	NDR_SERVER_LOADING,
@@ -76,7 +80,25 @@ enum NetDisconnectReason
 	NDR_INCORRECT_READY_TURN_SIMULATED,
 	NDR_SERVER_REFUSED,
 	NDR_STUN_PORT_FAILED,
-	NDR_STUN_ENDPOINT_FAILED
+	NDR_STUN_ENDPOINT_FAILED,
+	NDR_INCORRECT_SOFTWARE_VERSION
+};
+
+struct DestroyHost
+{
+	void operator()(ENetHost* host) const noexcept
+	{
+		enet_host_destroy(host);
+	}
+};
+
+struct DestroyPeer
+{
+	void operator()(ENetPeer* peer) const noexcept
+	{
+		// Disconnect immediately (we can't wait for acks)
+		enet_peer_disconnect_now(peer, NDR_SERVER_SHUTDOWN);
+	}
 };
 
 class CNetHost

@@ -2346,7 +2346,7 @@
 			<Orientation y="7.52288"/>
 		</Entity>
 		<Entity uid="529">
-			<Template>gaia/ore/temperate_large</Template>
+			<Template>gaia/ore/temperate_01</Template>
 			<Player>0</Player>
 			<Position x="448.78278" z="448.00684"/>
 			<Orientation y="-2.23205"/>
@@ -3465,7 +3465,7 @@
 			<Orientation y="0.34404"/>
 		</Entity>
 		<Entity uid="761">
-			<Template>gaia/ore/temperate_large</Template>
+			<Template>gaia/ore/temperate_01</Template>
 			<Player>0</Player>
 			<Position x="86.91231" z="367.11158"/>
 			<Orientation y="-1.9757"/>
@@ -4356,19 +4356,19 @@
 			<Orientation y="2.60128"/>
 		</Entity>
 		<Entity uid="954">
-			<Template>gaia/ore/temperate_small</Template>
+			<Template>gaia/ore/temperate_small_01</Template>
 			<Player>0</Player>
 			<Position x="723.38093" z="665.09186"/>
 			<Orientation y="-2.925"/>
 		</Entity>
 		<Entity uid="955">
-			<Template>gaia/ore/temperate_small</Template>
+			<Template>gaia/ore/temperate_small_01</Template>
 			<Player>0</Player>
 			<Position x="713.27668" z="664.7201"/>
 			<Orientation y="2.59592"/>
 		</Entity>
 		<Entity uid="956">
-			<Template>gaia/ore/temperate_small</Template>
+			<Template>gaia/ore/temperate_small_01</Template>
 			<Player>0</Player>
 			<Position x="718.79548" z="677.18812"/>
 			<Orientation y="0.58988"/>
@@ -7129,25 +7129,25 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1488">
-			<Template>gaia/ore/temperate_small</Template>
+			<Template>gaia/ore/temperate_small_01</Template>
 			<Player>0</Player>
 			<Position x="589.9488" z="968.9004"/>
 			<Orientation y="-0.98746"/>
 		</Entity>
 		<Entity uid="1489">
-			<Template>gaia/ore/temperate_small</Template>
+			<Template>gaia/ore/temperate_small_01</Template>
 			<Player>0</Player>
 			<Position x="588.63678" z="978.70911"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1490">
-			<Template>gaia/ore/temperate_small</Template>
+			<Template>gaia/ore/temperate_small_01</Template>
 			<Player>0</Player>
 			<Position x="596.6073" z="969.94727"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1491">
-			<Template>gaia/ore/temperate_small</Template>
+			<Template>gaia/ore/temperate_small_01</Template>
 			<Player>0</Player>
 			<Position x="594.7746" z="977.31318"/>
 			<Orientation y="2.35621"/>
@@ -12918,7 +12918,7 @@
 			<Orientation y="-0.59008"/>
 		</Entity>
 		<Entity uid="2585">
-			<Template>gaia/ore/temperate_large</Template>
+			<Template>gaia/ore/temperate_01</Template>
 			<Player>0</Player>
 			<Position x="621.89405" z="1127.91956"/>
 			<Orientation y="2.35621"/>
@@ -20908,37 +20908,37 @@
 			<Orientation y="2.58384"/>
 		</Entity>
 		<Entity uid="4132">
-			<Template>gaia/ore/temperate_large</Template>
+			<Template>gaia/ore/temperate_01</Template>
 			<Player>0</Player>
 			<Position x="863.20435" z="235.61783"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="4133">
-			<Template>gaia/ore/temperate_large</Template>
+			<Template>gaia/ore/temperate_01</Template>
 			<Player>0</Player>
 			<Position x="600.40113" z="127.08045"/>
 			<Orientation y="-0.07514"/>
 		</Entity>
 		<Entity uid="4134">
-			<Template>gaia/ore/temperate_large</Template>
+			<Template>gaia/ore/temperate_01</Template>
 			<Player>0</Player>
 			<Position x="1149.6233" z="501.08814"/>
 			<Orientation y="-2.68267"/>
 		</Entity>
 		<Entity uid="4135">
-			<Template>gaia/ore/temperate_large</Template>
+			<Template>gaia/ore/temperate_01</Template>
 			<Player>0</Player>
 			<Position x="99.30745" z="778.7552"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="4136">
-			<Template>gaia/ore/temperate_large</Template>
+			<Template>gaia/ore/temperate_01</Template>
 			<Player>0</Player>
 			<Position x="262.06849" z="628.07612"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="4137">
-			<Template>gaia/ore/temperate_large</Template>
+			<Template>gaia/ore/temperate_01</Template>
 			<Player>0</Player>
 			<Position x="294.28666" z="1093.55433"/>
 			<Orientation y="-2.64702"/>

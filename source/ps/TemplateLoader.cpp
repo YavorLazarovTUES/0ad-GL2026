@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,10 +19,24 @@
 
 #include "TemplateLoader.h"
 
+#include "lib/code_annotation.h"
+#include "lib/file/vfs/vfs_util.h"
+#include "lib/path.h"
+#include "lib/status.h"
 #include "lib/utf8.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
+#include "ps/Errors.h"
 #include "ps/Filesystem.h"
+#include "ps/XMB/XMBData.h"
+#include "ps/XMB/XMBStorage.h"
 #include "ps/XML/Xeromyces.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <utility>
+
+class CFileInfo;
 
 static const wchar_t TEMPLATE_ROOT[] = L"simulation/templates/";
 static const wchar_t ACTOR_ROOT[] = L"art/actors/";
@@ -84,7 +98,7 @@ bool CTemplateLoader::LoadTemplateFile(CParamNode& node, std::string_view templa
 	return true;
 }
 
-static Status AddToTemplates(const VfsPath& pathname, const CFileInfo& UNUSED(fileInfo), const uintptr_t cbData)
+static Status AddToTemplates(const VfsPath& pathname, const CFileInfo&, const uintptr_t cbData)
 {
 	std::vector<std::string>& templates = *(std::vector<std::string>*)cbData;
 
@@ -105,7 +119,7 @@ static Status AddToTemplates(const VfsPath& pathname, const CFileInfo& UNUSED(fi
 	return INFO::OK;
 }
 
-static Status AddToTemplatesUnrestricted(const VfsPath& pathname, const CFileInfo& UNUSED(fileInfo), const uintptr_t cbData)
+static Status AddToTemplatesUnrestricted(const VfsPath& pathname, const CFileInfo&, const uintptr_t cbData)
 {
 	std::vector<std::string>& templates = *(std::vector<std::string>*)cbData;
 
@@ -120,7 +134,7 @@ static Status AddToTemplatesUnrestricted(const VfsPath& pathname, const CFileInf
 	return INFO::OK;
 }
 
-static Status AddActorToTemplates(const VfsPath& pathname, const CFileInfo& UNUSED(fileInfo), const uintptr_t cbData)
+static Status AddActorToTemplates(const VfsPath& pathname, const CFileInfo&, const uintptr_t cbData)
 {
 	std::vector<std::string>& templates = *(std::vector<std::string>*)cbData;
 

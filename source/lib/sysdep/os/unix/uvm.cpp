@@ -1,4 +1,4 @@
-/* Copyright (C) 2011 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -21,9 +21,16 @@
  */
 
 #include "precompiled.h"
+
 #include "lib/sysdep/vm.h"
 
-#include "lib/alignment.h"
+#include "lib/debug.h"
+#include "lib/posix/posix_mman.h"
+#include "lib/status.h"
+
+#include <cerrno>
+#include <cstddef>
+#include <cstdint>
 
 // "anonymous" effectively means mapping /dev/zero, but is more efficient.
 // MAP_ANONYMOUS is not in SUSv3, but is a very common extension.
@@ -37,7 +44,7 @@ static const int mmap_flags = MAP_PRIVATE|MAP_ANONYMOUS;
 
 namespace vm {
 
-void* ReserveAddressSpace(size_t size, size_t UNUSED(commitSize), PageType UNUSED(pageType), int UNUSED(prot))
+void* ReserveAddressSpace(size_t size, size_t /*commitSize*/, PageType /*pageType*/, int /*prot*/)
 {
 	errno = 0;
 	void* p = mmap(0, size, PROT_NONE, mmap_flags|MAP_NORESERVE, -1, 0);
@@ -56,7 +63,7 @@ void ReleaseAddressSpace(void* p, size_t size)
 }
 
 
-bool Commit(uintptr_t address, size_t size, PageType UNUSED(pageType), int prot)
+bool Commit(uintptr_t address, size_t size, PageType, int prot)
 {
 	if(prot == PROT_NONE)	// would be understood as a request to decommit
 	{

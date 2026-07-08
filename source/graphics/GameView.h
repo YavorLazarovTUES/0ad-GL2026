@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,20 +18,20 @@
 #ifndef INCLUDED_GAMEVIEW
 #define INCLUDED_GAMEVIEW
 
-#include "renderer/backend/IDeviceCommandContext.h"
+#include "lib/code_annotation.h"
 #include "renderer/Scene.h"
 #include "simulation2/system/Entity.h"
-
-#include "lib/input.h" // InReaction - can't forward-declare enum
 
 class CCamera;
 class CCinemaManager;
 class CGame;
+class CGameViewImpl;
 class CObjectManager;
 class CVector3D;
+namespace Renderer::Backend { class IDevice; }
+namespace Renderer::Backend { class IDeviceCommandContext; }
 struct SViewPort;
-
-class CGameViewImpl;
+union SDL_Event;
 
 class CGameView : private Scene
 {
@@ -60,8 +60,6 @@ public:
 	void Render(Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
 	void RenderOverlays(Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
 
-	InReaction HandleEvent(const SDL_Event_* ev);
-
 	CVector3D GetCameraPivot() const;
 	CVector3D GetCameraPosition() const;
 	CVector3D GetCameraRotation() const;
@@ -83,7 +81,9 @@ public:
 
 	#undef DECLARE_BOOLEAN_SETTING
 
-	CCamera* GetCamera();
+	const CCamera& GetCamera() const;
+	void SetCamera(const CCamera& camera);
+
 	CCinemaManager* GetCinema();
 	CObjectManager& GetObjectManager();
 
@@ -99,7 +99,5 @@ private:
 
 	CGameViewImpl* m;
 };
-
-extern InReaction game_view_handler(const SDL_Event_* ev);
 
 #endif // INCLUDED_GAMEVIEW

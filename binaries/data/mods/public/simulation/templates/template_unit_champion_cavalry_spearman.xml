@@ -4,34 +4,33 @@
     <Melee>
       <AttackName>Spear</AttackName>
       <Damage>
-        <Hack>8</Hack>
-        <Pierce>6</Pierce>
+        <Hack>12</Hack>
+        <Pierce>10</Pierce>
       </Damage>
       <MaxRange>4</MaxRange>
       <Bonuses>
         <BonusCavMelee>
           <Classes>Cavalry</Classes>
-          <Multiplier>2</Multiplier>
+          <Multiplier>1.75</Multiplier>
         </BonusCavMelee>
       </Bonuses>
       <PrepareTime>500</PrepareTime>
       <RepeatTime>1250</RepeatTime>
-      <PreferredClasses datatype="tokens">Human</PreferredClasses>
+      <PreferredClasses datatype="tokens">Unit+!Ship</PreferredClasses>
     </Melee>
   </Attack>
   <Health>
-    <Max>300</Max>
+    <Max>260</Max>
   </Health>
   <Identity>
     <GenericName>Champion Cavalry Spearman</GenericName>
-    <Tooltip>Counters: 2× vs Cavalry.</Tooltip>
+    <Tooltip>Counters: 1.75× vs Cavalry.</Tooltip>
     <VisibleClasses datatype="tokens">Melee Spearman</VisibleClasses>
   </Identity>
   <Resistance>
     <Entity>
       <Damage>
-        <Hack op="add">1</Hack>
-        <Pierce op="add">2</Pierce>
+        <Pierce op="add">1</Pierce>
       </Damage>
     </Entity>
   </Resistance>

@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,30 +19,53 @@
 
 #include "StdDeserializer.h"
 
+#include "lib/alignment.h"
 #include "lib/byte_order.h"
+#include "lib/debug.h"
 #include "lib/utf8.h"
-#include "ps/CLogger.h"
 #include "ps/CStr.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptExtraHeaders.h" // For typed arrays and ArrayBuffer
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/serialization/ISerializer.h"
 #include "simulation2/serialization/SerializedScriptTypes.h"
-#include "simulation2/serialization/StdSerializer.h" // for DEBUG_SERIALIZER_ANNOTATE
+#include "simulation2/serialization/StdSerializer.h"
 
-CStdDeserializer::CStdDeserializer(const ScriptInterface& scriptInterface, std::istream& stream) :
+#include <cstdint>
+#include <cstdlib>
+#include <istream>
+#include <js/Array.h>
+#include <js/ArrayBuffer.h>
+#include <js/CallAndConstruct.h>
+#include <js/ComparisonOperators.h>
+#include <js/GCAPI.h>
+#include <js/MapAndSet.h>
+#include <js/PropertyAndElement.h>
+#include <js/RootingAPI.h>
+#include <js/String.h>
+#include <js/TracingAPI.h>
+#include <js/ValueArray.h>
+#include <js/experimental/TypedData.h>
+#include <jsapi.h>
+#include <jspubtd.h>
+
+class JSObject;
+
+CStdDeserializer::CStdDeserializer(const Script::Interface& scriptInterface, std::istream& stream) :
 	m_ScriptInterface(scriptInterface), m_Stream(stream)
 {
-	JS_AddExtraGCRootsTracer(ScriptRequest(scriptInterface).cx, CStdDeserializer::Trace, this);
+	Script::Request rq(m_ScriptInterface);
+	JS_AddExtraGCRootsTracer(rq.cx, CStdDeserializer::Trace, this);
+	m_SerializePropId = JS::PropertyKey::fromPinnedString(JS_AtomizeAndPinString(rq.cx, "Serialize"));
+	m_DeserializePropId = JS::PropertyKey::fromPinnedString(JS_AtomizeAndPinString(rq.cx, "Deserialize"));
+
 	// Insert a dummy object in front, as valid tags start at 1.
 	m_ScriptBackrefs.emplace_back(nullptr);
 }
 
 CStdDeserializer::~CStdDeserializer()
 {
-	JS_RemoveExtraGCRootsTracer(ScriptRequest(m_ScriptInterface).cx, CStdDeserializer::Trace, this);
+	JS_RemoveExtraGCRootsTracer(Script::Request(m_ScriptInterface).cx, CStdDeserializer::Trace, this);
 }
 
 void CStdDeserializer::Trace(JSTracer *trc, void *data)
@@ -56,7 +79,7 @@ void CStdDeserializer::TraceMember(JSTracer *trc)
 		JS::TraceEdge(trc, &backref, "StdDeserializer::m_ScriptBackrefs");
 }
 
-void CStdDeserializer::Get(const char* name, u8* data, size_t len)
+void CStdDeserializer::Get([[maybe_unused]] const char* name, u8* data, size_t len)
 {
 #if DEBUG_SERIALIZER_ANNOTATE
 	std::string strName;
@@ -71,8 +94,6 @@ void CStdDeserializer::Get(const char* name, u8* data, size_t len)
 			strName += c;
 	}
 	ENSURE(strName == name);
-#else
-	UNUSED2(name);
 #endif
 	m_Stream.read((char*)data, (std::streamsize)len);
 	if (!m_Stream.good())
@@ -117,9 +138,9 @@ void CStdDeserializer::GetScriptBackref(size_t tag, JS::MutableHandleObject ret)
 
 ////////////////////////////////////////////////////////////////
 
-JS::Value CStdDeserializer::ReadScriptVal(const char* UNUSED(name), JS::HandleObject preexistingObject)
+JS::Value CStdDeserializer::ReadScriptVal(const char* /*name*/, JS::HandleObject preexistingObject)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 
 	uint8_t type;
 	NumberU8_Unbounded("type", type);
@@ -157,7 +178,7 @@ JS::Value CStdDeserializer::ReadScriptVal(const char* UNUSED(name), JS::HandleOb
 			else
 			{
 				JS::RootedValue constructor(rq.cx);
-				if (!ScriptInterface::GetGlobalProperty(rq, prototypeName.ToUTF8(), &constructor))
+				if (!Script::Interface::GetGlobalProperty(rq, prototypeName.ToUTF8(), &constructor))
 					throw PSERROR_Deserialize_ScriptError("Deserializer failed to get constructor object");
 
 				JS::RootedObject newObj(rq.cx);
@@ -168,9 +189,9 @@ JS::Value CStdDeserializer::ReadScriptVal(const char* UNUSED(name), JS::HandleOb
 
 			JS::RootedObject prototype(rq.cx);
 			JS_GetPrototype(rq.cx, obj, &prototype);
-			SPrototypeSerialization info = GetPrototypeInfo(rq, prototype);
+			SPrototypeSerialization info = GetPrototypeInfo(rq, prototype, m_SerializePropId, m_DeserializePropId);
 
-			if (preexistingObject != nullptr && prototypeName != wstring_from_utf8(info.name))
+			if (preexistingObject != nullptr && prototypeName != info.name)
 				throw PSERROR_Deserialize_ScriptError("Deserializer failed: incorrect pre-existing object");
 
 
@@ -184,7 +205,7 @@ JS::Value CStdDeserializer::ReadScriptVal(const char* UNUSED(name), JS::HandleOb
 					ScriptVal("data", &data);
 
 				JS::RootedValue objVal(rq.cx, JS::ObjectValue(*obj));
-				ScriptFunction::CallVoid(rq, objVal, "Deserialize", data);
+				Script::Function::CallVoid(rq, objVal, "Deserialize", data);
 
 				return JS::ObjectValue(*obj);
 			}
@@ -389,10 +410,12 @@ JS::Value CStdDeserializer::ReadScriptVal(const char* UNUSED(name), JS::HandleOb
 #if BYTE_ORDER != LITTLE_ENDIAN
 #error TODO: need to convert JS ArrayBuffer data from little-endian
 #endif
-		void* contents = malloc(length);
-		ENSURE(contents);
-		RawBytes("buffer data", (u8*)contents, length);
-		JS::RootedObject bufferObj(rq.cx, JS::NewArrayBufferWithContents(rq.cx, length, contents));
+		void* bufferData = js_malloc(length);
+		ENSURE(bufferData);
+		RawBytes("buffer data", (u8*)bufferData, length);
+
+		mozilla::UniquePtr<void, JS::FreePolicy> contents{ bufferData };
+		JS::RootedObject bufferObj(rq.cx, JS::NewArrayBufferWithContents(rq.cx, length, std::move(contents)));
 		AddScriptBackref(bufferObj);
 
 		return JS::ObjectValue(*bufferObj);
@@ -459,7 +482,7 @@ void CStdDeserializer::ScriptString(const char* name, JS::MutableHandleString ou
 #error TODO: probably need to convert JS strings from little-endian
 #endif
 
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 
 	bool isLatin1;
 	Bool("isLatin1", isLatin1);
@@ -490,7 +513,7 @@ void CStdDeserializer::ScriptVal(const char* name, JS::MutableHandleValue out)
 
 void CStdDeserializer::ScriptObjectAssign(const char* name, JS::HandleValue objVal)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 
 	if (!objVal.isObject())
 		throw PSERROR_Deserialize_ScriptError();

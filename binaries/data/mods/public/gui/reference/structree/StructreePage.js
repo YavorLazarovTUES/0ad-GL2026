@@ -5,9 +5,9 @@
  */
 class StructreePage extends ReferencePage
 {
-	constructor(data)
+	constructor(closePageCallback)
 	{
-		super();
+		super(closePageCallback);
 
 		this.structureBoxes = [];
 		this.trainerBoxes = [];
@@ -29,17 +29,14 @@ class StructreePage extends ReferencePage
 		}
 		this.civSelection.registerHandler(this.selectCiv.bind(this));
 
-		let civInfoButton = new CivInfoButton(this);
-		let closeButton = new CloseButton(this);
+		const civInfoButton = new CivInfoButton(this);
+		const closeButton = new CloseButton(this);
 		Engine.SetGlobalHotkey("structree", "Press", this.closePage.bind(this));
-
-		this.StructreePage.onWindowResized = this.updatePageWidth.bind(this);
-		this.width = 0;
 	}
 
 	closePage()
 	{
-		Engine.PopGuiPage({
+		this.closePageCallback({
 			"page": "page_structree.xml",
 			"args": {
 				"civ": this.activeCiv
@@ -55,34 +52,9 @@ class StructreePage extends ReferencePage
 		this.CivName.caption = this.civData[this.activeCiv].Name;
 		this.CivHistory.caption = this.civData[this.activeCiv].History || "";
 
-		let templateLists = this.TemplateLister.getTemplateLists(this.activeCiv);
-		this.TreeSection.draw(templateLists.structures, this.activeCiv);
+		const templateLists = this.TemplateLister.getTemplateLists(this.activeCiv);
 		this.TrainerSection.draw(templateLists.units, this.activeCiv);
-
-		this.width = this.TreeSection.width + -this.TreeSection.rightMargin;
-		if (this.TrainerSection.isVisible())
-			this.width += this.TrainerSection.width + this.SectionGap;
-		this.updatePageWidth();
-		this.updatePageHeight();
-	}
-
-	updatePageHeight()
-	{
-		let y = (this.TreeSection.height + this.TreeSection.vMargin) / 2;
-		let pageSize = this.StructreePage.size;
-		pageSize.top = -y;
-		pageSize.bottom = y;
-		this.StructreePage.size = pageSize;
-	}
-
-	updatePageWidth()
-	{
-		let screenSize = this.Background.getComputedSize();
-		let pageSize = this.StructreePage.size;
-		let x = Math.min(this.width, screenSize.right - this.BorderMargin * 2) / 2;
-		pageSize.left = -x;
-		pageSize.right = x;
-		this.StructreePage.size = pageSize;
+		this.TreeSection.draw(templateLists.structures, this.activeCiv);
 	}
 }
 

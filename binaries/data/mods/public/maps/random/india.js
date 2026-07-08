@@ -1,7 +1,7 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
 	const tGrass1 = "savanna_grass_a";
 	const tDirt1 = "savanna_dirt_a";
@@ -44,8 +44,16 @@ function* GenerateMap()
 	const clFood = g_Map.createTileClass();
 	const clBaseResource = g_Map.createTileClass();
 
+	const { playerIDs, playerPosition } =
+		playerPlacementByPattern(
+			mapSettings.PlayerPlacement,
+			fractionToTiles(0.35),
+			fractionToTiles(0.1),
+			randomAngle(),
+			undefined);
+
 	placePlayerBases({
-		"PlayerPlacement": playerPlacementCircle(fractionToTiles(0.35)),
+		"PlayerPlacement": [playerIDs, playerPosition],
 		"PlayerTileClass": clPlayer,
 		"BaseResourceClass": clBaseResource,
 		// No city patch
@@ -214,9 +222,9 @@ function* GenerateMap()
 			[new SimpleObject(oFish, 2, 3, 0, 2)]
 		],
 		[
-			25 * numPlayers
+			40 * numPlayers
 		],
-		[avoidClasses(clFood, 20), stayClasses(clWater, 2)],
+		[avoidClasses(clFood, 10), stayClasses(clWater, 2)],
 		clFood);
 
 	g_Map.log("Creating berry bush");

@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,18 +19,50 @@
 
 #include "Map.h"
 
-#include "AtlasObject/AtlasObject.h"
-#include "AtlasObject/JSONSpiritInclude.h"
-#include "GameInterface/Messages.h"
-#include "MapResizeDialog/MapResizeDialog.h"
-#include "ScenarioEditor/ScenarioEditor.h"
-#include "ScenarioEditor/Tools/Common/Tools.h"
+#include "tools/atlas/AtlasObject/AtlasObject.h"
+#include "tools/atlas/AtlasUI/CustomControls/MapResizeDialog/MapResizeDialog.h"
+#include "tools/atlas/AtlasUI/General/AtlasWindowCommandProc.h"
+#include "tools/atlas/AtlasUI/General/Observable.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/ScenarioEditor.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/Sections/Common/Sidebar.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/StyleSheet.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/Tools.h"
+#include "tools/atlas/GameInterface/MessagePasser.h"
+#include "tools/atlas/GameInterface/Messages.h"
+#include "tools/atlas/GameInterface/Shareable.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <ctime>
+#include <map>
 #include <random>
+#include <set>
+#include <string>
+#include <utility>
+#include <vector>
 #include <wx/busyinfo.h>
-#include <wx/filename.h>
+#include <wx/button.h>
+#include <wx/chartype.h>
+#include <wx/checkbox.h>
+#include <wx/choice.h>
+#include <wx/clntdata.h>
+#include <wx/debug.h>
+#include <wx/gdicmn.h>
+#include <wx/log.h>
+#include <wx/object.h>
+#include <wx/panel.h>
+#include <wx/scrolwin.h>
+#include <wx/sizer.h>
+#include <wx/statbox.h>
+#include <wx/stattext.h>
+#include <wx/string.h>
+#include <wx/textctrl.h>
+#include <wx/toolbar.h>
+#include <wx/translation.h>
+#include <wx/utils.h>
+#include <wx/valtext.h>
+#include <wx/window.h>
+#include <wx/wxcrt.h>
 
 #define CREATE_CHECKBOX(window, parentSizer, name, description, ID) \
 	parentSizer->Add(new wxStaticText(window, wxID_ANY, _(name)), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT)); \
@@ -51,6 +83,7 @@ enum
 	ID_MapKW_Trigger,
 	ID_RandomScript,
 	ID_RandomSize,
+	ID_RandomBiome,
 	ID_RandomNomad,
 	ID_RandomSeed,
 	ID_RandomReseed,
@@ -61,6 +94,7 @@ enum
 	ID_SimSlow,
 	ID_SimPause,
 	ID_SimReset,
+	ID_PlayerPlacement,
 	ID_OpenPlayerPanel
 };
 
@@ -90,7 +124,6 @@ class AtObjClientData : public wxClientData
 {
 public:
 	AtObjClientData(const AtObj& obj) : obj(obj) {}
-	virtual ~AtObjClientData() {}
 	AtObj GetValue() { return obj; }
 private:
 	AtObj obj;
@@ -145,40 +178,40 @@ MapSettingsControl::MapSettingsControl(wxWindow* parent, ScenarioEditor& scenari
 
 void MapSettingsControl::CreateWidgets()
 {
-	wxSizer* sizer = GetSizer();
+	wxStaticBoxSizer* topSizer = static_cast<wxStaticBoxSizer*>(GetSizer());
+	wxStaticBox* topBox = topSizer->GetStaticBox();
+
+	wxFlexGridSizer* grid = new wxFlexGridSizer(1, 5, 5);
+	grid->AddGrowableCol(0);
+
+	topSizer->Add(grid, wxSizerFlags().Border(wxALL, Atlas::Style::STATICBOX_PADDING).Expand());
 
 	/////////////////////////////////////////////////////////////////////////
 	// Map settings
 	wxBoxSizer* nameSizer = new wxBoxSizer(wxHORIZONTAL);
-	nameSizer->Add(new wxStaticText(this, wxID_ANY, _("Name")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
-	nameSizer->Add(8, 0);
-	nameSizer->Add(Tooltipped(new wxTextCtrl(this, ID_MapName),
+	nameSizer->Add(new wxStaticText(topBox, wxID_ANY, _("Name")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL));
+	nameSizer->AddSpacer(8);
+	nameSizer->Add(Tooltipped(new wxTextCtrl(topBox, ID_MapName),
 			_("Displayed name of the map")), wxSizerFlags().Proportion(1));
-	sizer->Add(nameSizer, wxSizerFlags().Expand());
+	grid->Add(nameSizer, wxSizerFlags().Expand());
 
-	sizer->Add(0, 2);
-
-	sizer->Add(new wxStaticText(this, wxID_ANY, _("Description")));
-	sizer->Add(Tooltipped(new wxTextCtrl(this, ID_MapDescription, wxEmptyString, wxDefaultPosition, wxSize(-1, 100), wxTE_MULTILINE),
+	grid->Add(new wxStaticText(topBox, wxID_ANY, _("Description")));
+	grid->Add(Tooltipped(new wxTextCtrl(topBox, ID_MapDescription, wxEmptyString, wxDefaultPosition, wxSize(-1, 100), wxTE_MULTILINE),
 			_("Short description used on the map selection screen")), wxSizerFlags().Expand());
-
-	sizer->AddSpacer(5);
 
 	wxFlexGridSizer* gridSizer = new wxFlexGridSizer(2, 5, 5);
 	gridSizer->AddGrowableCol(1);
 
 	// TODO: have preview selector tool?
-	gridSizer->Add(new wxStaticText(this, wxID_ANY, _("Preview")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT));
-	gridSizer->Add(Tooltipped(new wxTextCtrl(this, ID_MapPreview, wxEmptyString),
+	gridSizer->Add(new wxStaticText(topBox, wxID_ANY, _("Preview")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT));
+	gridSizer->Add(Tooltipped(new wxTextCtrl(topBox, ID_MapPreview, wxEmptyString),
 		_("Texture used for map preview")), wxSizerFlags().Expand());
-	CREATE_CHECKBOX(this, gridSizer, "Reveal map", "If checked, players won't need to explore", ID_MapReveal);
-	CREATE_CHECKBOX(this, gridSizer, "Ally view", "If checked, players will be able to see what their teammates see and won't need to research cartography", ID_MapAlly);
-	CREATE_CHECKBOX(this, gridSizer, "Lock teams", "If checked, teams will be locked", ID_MapTeams);
-	sizer->Add(gridSizer, wxSizerFlags().Expand());
+	CREATE_CHECKBOX(topBox, gridSizer, "Reveal map", "If checked, players won't need to explore", ID_MapReveal);
+	CREATE_CHECKBOX(topBox, gridSizer, "Ally view", "If checked, players will be able to see what their teammates see and won't need to research cartography", ID_MapAlly);
+	CREATE_CHECKBOX(topBox, gridSizer, "Lock teams", "If checked, teams will be locked", ID_MapTeams);
+	grid->Add(gridSizer, wxSizerFlags().Expand());
 
-	sizer->AddSpacer(5);
-
-	wxStaticBoxSizer* victoryConditionSizer = new wxStaticBoxSizer(wxVERTICAL, this, _("Victory Conditions"));
+	wxStaticBoxSizer* victoryConditionSizer = new wxStaticBoxSizer(wxVERTICAL, topBox, _("Victory Conditions"));
 	wxFlexGridSizer* vcGridSizer = new wxFlexGridSizer(2, 0, 5);
 	vcGridSizer->AddGrowableCol(1);
 
@@ -196,23 +229,24 @@ void MapSettingsControl::CreateWidgets()
 		AtObj updateCondition = *(victoryCondition["Data"]["Title"]);
 		updateCondition.setString(escapedTitle.c_str());
 		m_VictoryConditions.insert(std::pair<long, AtObj>(index, victoryCondition));
-		CREATE_CHECKBOX(this, vcGridSizer, title, "Select " + title + " victory condition.", index);
+		CREATE_CHECKBOX(victoryConditionSizer->GetStaticBox(), vcGridSizer, title, "Select " + title + " victory condition.", index);
 	}
 
-	victoryConditionSizer->Add(vcGridSizer);
-	sizer->Add(victoryConditionSizer, wxSizerFlags().Expand());
+	victoryConditionSizer->Add(vcGridSizer, wxSizerFlags().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
+	grid->Add(victoryConditionSizer, wxSizerFlags().Expand());
 
-	sizer->AddSpacer(5);
+	//sizer->AddSpacer(5);
 
-	wxStaticBoxSizer* keywordsSizer = new wxStaticBoxSizer(wxVERTICAL, this, _("Keywords"));
+	wxStaticBoxSizer* keywordsSizer = new wxStaticBoxSizer(wxVERTICAL, topBox, _("Keywords"));
+	wxStaticBox* keywordsBox = keywordsSizer->GetStaticBox();
 	wxFlexGridSizer* kwGridSizer = new wxFlexGridSizer(4, 5, 15);
-	CREATE_CHECKBOX(this, kwGridSizer, "Demo", "If checked, map will only be visible using filters in game setup", ID_MapKW_Demo);
-	CREATE_CHECKBOX(this, kwGridSizer, "Naval", "If checked, map will only be visible using filters in game setup", ID_MapKW_Naval);
-	CREATE_CHECKBOX(this, kwGridSizer, "New", "If checked, the map will appear in the list of new maps", ID_MapKW_New);
-	CREATE_CHECKBOX(this, kwGridSizer, "Trigger", "If checked, the map will appear in the list of maps with trigger scripts", ID_MapKW_Trigger);
+	CREATE_CHECKBOX(keywordsBox, kwGridSizer, "Demo", "If checked, map will only be visible using filters in game setup", ID_MapKW_Demo);
+	CREATE_CHECKBOX(keywordsBox, kwGridSizer, "Naval", "If checked, map will only be visible using filters in game setup", ID_MapKW_Naval);
+	CREATE_CHECKBOX(keywordsBox, kwGridSizer, "New", "If checked, the map will appear in the list of new maps", ID_MapKW_New);
+	CREATE_CHECKBOX(keywordsBox, kwGridSizer, "Trigger", "If checked, the map will appear in the list of maps with trigger scripts", ID_MapKW_Trigger);
 
-	keywordsSizer->Add(kwGridSizer);
-	sizer->Add(keywordsSizer, wxSizerFlags().Expand());
+	keywordsSizer->Add(kwGridSizer, wxSizerFlags().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
+	grid->Add(keywordsSizer, wxSizerFlags().Expand());
 }
 
 void MapSettingsControl::ReadFromEngine()
@@ -442,95 +476,88 @@ void MapSettingsControl::SendToEngine()
 MapSidebar::MapSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContainer, wxWindow* bottomBarContainer)
 	: Sidebar(scenarioEditor, sidebarContainer, bottomBarContainer), m_SimState(SimInactive)
 {
-	wxSizer* scrollSizer = new wxBoxSizer(wxVERTICAL);
-	wxScrolledWindow* scrolledWindow = new wxScrolledWindow(this);
-	scrolledWindow->SetScrollRate(10, 10);
-	scrolledWindow->SetSizer(scrollSizer);
-	m_MainSizer->Add(scrolledWindow, wxSizerFlags().Expand().Proportion(1));
-
-	m_MapSettingsCtrl = new MapSettingsControl(scrolledWindow, m_ScenarioEditor);
-	scrollSizer->Add(m_MapSettingsCtrl, wxSizerFlags().Expand());
+	m_MapSettingsCtrl = new MapSettingsControl(this, m_ScenarioEditor);
+	m_MainSizer->Add(m_MapSettingsCtrl, wxSizerFlags().Expand());
 
 	{
 		/////////////////////////////////////////////////////////////////////////
 		// Random map settings
-		wxStaticBoxSizer* sizer = new wxStaticBoxSizer(wxVERTICAL, scrolledWindow, _("Random map"));
-		scrollSizer->Add(sizer, wxSizerFlags().Expand());
+		wxStaticBoxSizer* topSizer = new wxStaticBoxSizer(wxVERTICAL, this, _("Random map"));
+		wxStaticBox* topBox = topSizer->GetStaticBox();
 
-		sizer->Add(new wxChoice(scrolledWindow, ID_RandomScript), wxSizerFlags().Expand());
+		wxFlexGridSizer* grid = new wxFlexGridSizer(1, 10, 10);
+		grid->AddGrowableCol(0);
 
-		sizer->AddSpacer(5);
+		topSizer->Add(grid, wxSizerFlags().Border(wxALL, Atlas::Style::STATICBOX_PADDING).Expand());
 
-		sizer->Add(new wxButton(scrolledWindow, ID_OpenPlayerPanel, _T("Change players")), wxSizerFlags().Expand());
+		m_MainSizer->Add(topSizer, wxSizerFlags().Expand());
 
-		sizer->AddSpacer(5);
+		grid->Add(new wxChoice(topBox, ID_RandomScript), wxSizerFlags().Expand());
+
+		grid->Add(new wxButton(topBox, ID_OpenPlayerPanel, _T("Change players")), wxSizerFlags().Expand());
+
 
 		wxFlexGridSizer* gridSizer = new wxFlexGridSizer(2, 5, 5);
 		gridSizer->AddGrowableCol(1);
 
-		wxChoice* sizeChoice = new wxChoice(scrolledWindow, ID_RandomSize);
-		gridSizer->Add(new wxStaticText(scrolledWindow, wxID_ANY, _("Map size")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT));
+		gridSizer->Add(new wxStaticText(topBox, wxID_ANY, _("Biome")),
+			wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT));
+		gridSizer->Add(new wxChoice(topBox, ID_RandomBiome), wxSizerFlags().Expand());
+
+		gridSizer->Add(new wxStaticText(topBox, wxID_ANY, _("Player Placement")),
+			wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT));
+		gridSizer->Add(new wxChoice(topBox, ID_PlayerPlacement), wxSizerFlags().Expand());
+
+		wxChoice* sizeChoice = new wxChoice(topBox, ID_RandomSize);
+		gridSizer->Add(new wxStaticText(topBox, wxID_ANY, _("Map size")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT));
 		gridSizer->Add(sizeChoice, wxSizerFlags().Expand());
 
-		CREATE_CHECKBOX(scrolledWindow, gridSizer, "Nomad", "Place only some units instead of starting bases.", ID_RandomNomad);
+		CREATE_CHECKBOX(topBox, gridSizer, "Nomad", "Place only some units instead of starting bases.", ID_RandomNomad);
 
-		gridSizer->Add(new wxStaticText(scrolledWindow, wxID_ANY, _("Random seed")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT));
+		gridSizer->Add(new wxStaticText(topBox, wxID_ANY, _("Random seed")), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT));
 		wxBoxSizer* seedSizer = new wxBoxSizer(wxHORIZONTAL);
-		seedSizer->Add(Tooltipped(new wxTextCtrl(scrolledWindow, ID_RandomSeed, _T("0"), wxDefaultPosition, wxDefaultSize, 0, wxTextValidator(wxFILTER_NUMERIC)),
+		seedSizer->Add(Tooltipped(new wxTextCtrl(topBox, ID_RandomSeed, _T("0"), wxDefaultPosition, wxDefaultSize, 0, wxTextValidator(wxFILTER_NUMERIC)),
 			_("Seed value for random map")), wxSizerFlags(1).Expand());
-		seedSizer->Add(Tooltipped(new wxButton(scrolledWindow, ID_RandomReseed, _("R"), wxDefaultPosition, wxSize(40, -1)),
+		seedSizer->Add(Tooltipped(new wxButton(topBox, ID_RandomReseed, _("R"), wxDefaultPosition, wxSize(40, -1)),
 			_("New random seed")));
 		gridSizer->Add(seedSizer, wxSizerFlags().Expand());
 
-		sizer->Add(gridSizer, wxSizerFlags().Expand());
+		grid->Add(gridSizer, wxSizerFlags().Expand());
 
-		sizer->AddSpacer(5);
-
-		sizer->Add(Tooltipped(new wxButton(scrolledWindow, ID_RandomGenerate, _("Generate map")),
+		grid->Add(Tooltipped(new wxButton(topBox, ID_RandomGenerate, _("Generate map")),
 			_("Run selected random map script")), wxSizerFlags().Expand());
 	}
 
 	{
 		/////////////////////////////////////////////////////////////////////////
 		// Misc tools
-		wxSizer* sizer = new wxStaticBoxSizer(wxVERTICAL, scrolledWindow, _("Misc tools"));
-		sizer->Add(new wxButton(scrolledWindow, ID_ResizeMap, _("Resize/Recenter map")), wxSizerFlags().Expand());
-		scrollSizer->Add(sizer, wxSizerFlags().Expand().Border(wxTOP, 10));
+		wxStaticBoxSizer* sizer = new wxStaticBoxSizer(wxVERTICAL, this, _("Misc tools"));
+		sizer->Add(new wxButton(sizer->GetStaticBox(), ID_ResizeMap, _("Resize/Recenter map")), wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
+		m_MainSizer->Add(sizer, wxSizerFlags().Expand());
 	}
 
 	{
 		/////////////////////////////////////////////////////////////////////////
 		// Simulation buttons
-		wxStaticBoxSizer* sizer = new wxStaticBoxSizer(wxVERTICAL, scrolledWindow, _("Simulation test"));
-		scrollSizer->Add(sizer, wxSizerFlags().Expand().Border(wxTOP, 8));
+		wxStaticBoxSizer* topSizer = new wxStaticBoxSizer(wxVERTICAL, this, _("Simulation test"));
+		wxStaticBox* topBox = topSizer->GetStaticBox();
 
-		wxGridSizer* gridSizer = new wxGridSizer(5);
-		gridSizer->Add(Tooltipped(new wxButton(scrolledWindow, ID_SimPlay, _("Play"), wxDefaultPosition, wxSize(48, -1)),
+		m_MainSizer->Add(topSizer, wxSizerFlags().Expand());
+
+		wxGridSizer* gridSizer = new wxGridSizer(5, 5, 5);
+		gridSizer->Add(Tooltipped(new wxButton(topBox, ID_SimPlay, _("Play"), wxDefaultPosition, wxSize(48, -1)),
 			_("Run the simulation at normal speed")), wxSizerFlags().Expand());
-		gridSizer->Add(Tooltipped(new wxButton(scrolledWindow, ID_SimFast, _("Fast"), wxDefaultPosition, wxSize(48, -1)),
+		gridSizer->Add(Tooltipped(new wxButton(topBox, ID_SimFast, _("Fast"), wxDefaultPosition, wxSize(48, -1)),
 			_("Run the simulation at 8x speed")), wxSizerFlags().Expand());
-		gridSizer->Add(Tooltipped(new wxButton(scrolledWindow, ID_SimSlow, _("Slow"), wxDefaultPosition, wxSize(48, -1)),
+		gridSizer->Add(Tooltipped(new wxButton(topBox, ID_SimSlow, _("Slow"), wxDefaultPosition, wxSize(48, -1)),
 			_("Run the simulation at 1/8x speed")), wxSizerFlags().Expand());
-		gridSizer->Add(Tooltipped(new wxButton(scrolledWindow, ID_SimPause, _("Pause"), wxDefaultPosition, wxSize(48, -1)),
+		gridSizer->Add(Tooltipped(new wxButton(topBox, ID_SimPause, _("Pause"), wxDefaultPosition, wxSize(48, -1)),
 			_("Pause the simulation")), wxSizerFlags().Expand());
-		gridSizer->Add(Tooltipped(new wxButton(scrolledWindow, ID_SimReset, _("Reset"), wxDefaultPosition, wxSize(48, -1)),
+		gridSizer->Add(Tooltipped(new wxButton(topBox, ID_SimReset, _("Reset"), wxDefaultPosition, wxSize(48, -1)),
 			_("Reset the editor to initial state")), wxSizerFlags().Expand());
-		sizer->Add(gridSizer, wxSizerFlags().Expand());
+		topSizer->Add(gridSizer, wxSizerFlags().Expand().Border(wxALL, Atlas::Style::STATICBOX_PADDING));
 		UpdateSimButtons();
 	}
-}
-
-void MapSidebar::OnCollapse(wxCollapsiblePaneEvent& WXUNUSED(evt))
-{
-	Freeze();
-
-	// Toggling the collapsing doesn't seem to update the sidebar layout
-	// automatically, so do it explicitly here
-	Layout();
-
-	Refresh(); // fixes repaint glitch on Windows
-
-	Thaw();
 }
 
 void MapSidebar::OnFirstDisplay()
@@ -545,7 +572,7 @@ void MapSidebar::OnFirstDisplay()
 	AtObj sizes = AtlasObject::LoadFromJSON(*qrySizes.sizes);
 	wxChoice* sizeChoice = wxDynamicCast(FindWindow(ID_RandomSize), wxChoice);
 	for (AtIter s = sizes["Data"]["item"]; s.defined(); ++s)
-		sizeChoice->Append(wxString::FromUTF8(s["Name"]), reinterpret_cast<void*>((*s["Tiles"]).getLong()));
+		sizeChoice->Append(wxString::FromUTF8(s["Name"]), reinterpret_cast<void*>(static_cast<intptr_t>((*s["Tiles"]).getLong())));
 	sizeChoice->SetSelection(0);
 
 	// Load the RMS script list
@@ -669,6 +696,54 @@ void MapSidebar::OnSimReset(wxCommandEvent& WXUNUSED(event))
 	UpdateSimButtons();
 }
 
+void MapSidebar::OnRandomScript(wxCommandEvent& WXUNUSED(evt))
+{
+	wxChoice* biomeChoice = wxDynamicCast(FindWindow(ID_RandomBiome), wxChoice);
+	wxChoice* scriptChoice = wxDynamicCast(FindWindow(ID_RandomScript), wxChoice);
+
+	if (scriptChoice->GetSelection() < 0)
+		return;
+
+	biomeChoice->Clear();
+
+	AtObj mapSettings = dynamic_cast<AtObjClientData*>(scriptChoice->GetClientObject(
+		scriptChoice->GetSelection()))->GetValue();
+	std::vector<std::string> biomes;
+	if (mapSettings["SupportedBiomes"]["@array"].defined())
+	{
+		for (AtIter it = mapSettings["SupportedBiomes"]["item"]; it.defined(); ++it)
+			biomes.push_back(static_cast<const char*>(*it));
+	}
+	else
+	{
+		std::string singleBiome{static_cast<const char*>(*mapSettings["SupportedBiomes"])};
+		if (!singleBiome.empty())
+			biomes.push_back(singleBiome);
+	}
+
+	if (std::any_of(biomes.begin(), biomes.end(), [](const std::string& biome)
+		{
+			return !biome.empty() && biome.back() == '/';
+		}))
+	{
+		AtlasMessage::qExpandBiomes qry;
+		qry.biomes = std::move(biomes);
+		qry.Post();
+		biomes = *qry.biomes;
+	}
+
+	for (const std::string& biome : biomes)
+		biomeChoice->Append(wxString::FromUTF8(biome.c_str()));
+
+	biomeChoice->SetSelection(0);
+
+	wxChoice* playerPlacementChoice = wxDynamicCast(FindWindow(ID_PlayerPlacement), wxChoice);
+	playerPlacementChoice->Clear();
+	for (AtIter it = mapSettings["PlayerPlacements"]["item"]; it.defined(); ++it)
+		playerPlacementChoice->Append(wxString::FromUTF8(static_cast<const char*>(*it)));
+	playerPlacementChoice->SetSelection(0);
+}
+
 void MapSidebar::OnRandomReseed(wxCommandEvent& WXUNUSED(evt))
 {
 	std::mt19937 engine(std::time(nullptr));
@@ -707,6 +782,15 @@ void MapSidebar::OnRandomGenerate(wxCommandEvent& WXUNUSED(evt))
 	settings.setBool("Nomad", wxDynamicCast(FindWindow(ID_RandomNomad), wxCheckBox)->GetValue());
 
 	settings.setInt("Seed", wxAtoi(wxDynamicCast(FindWindow(ID_RandomSeed), wxTextCtrl)->GetValue()));
+
+	const wxString biome{wxDynamicCast(FindWindow(ID_RandomBiome), wxChoice)->GetStringSelection()};
+	if (!biome.IsEmpty())
+		settings.set("Biome", biome.utf8_str());
+
+	const wxString playerPlacement{
+		wxDynamicCast(FindWindow(ID_PlayerPlacement), wxChoice)->GetStringSelection()};
+	if (!playerPlacement.empty())
+		settings.set("PlayerPlacement", playerPlacement.utf8_str());
 
 	std::string json = AtlasObject::SaveToJSON(settings);
 
@@ -754,7 +838,6 @@ void MapSidebar::OnResizeMap(wxCommandEvent& WXUNUSED(evt))
 }
 
 BEGIN_EVENT_TABLE(MapSidebar, Sidebar)
-	EVT_COLLAPSIBLEPANE_CHANGED(wxID_ANY, MapSidebar::OnCollapse)
 	EVT_BUTTON(ID_SimPlay, MapSidebar::OnSimPlay)
 	EVT_BUTTON(ID_SimFast, MapSidebar::OnSimPlay)
 	EVT_BUTTON(ID_SimSlow, MapSidebar::OnSimPlay)
@@ -764,4 +847,5 @@ BEGIN_EVENT_TABLE(MapSidebar, Sidebar)
 	EVT_BUTTON(ID_RandomGenerate, MapSidebar::OnRandomGenerate)
 	EVT_BUTTON(ID_ResizeMap, MapSidebar::OnResizeMap)
 	EVT_BUTTON(ID_OpenPlayerPanel, MapSidebar::OnOpenPlayerPanel)
-END_EVENT_TABLE();
+	EVT_CHOICE(ID_RandomScript, MapSidebar::OnRandomScript)
+END_EVENT_TABLE()

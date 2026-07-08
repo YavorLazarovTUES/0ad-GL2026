@@ -2,9 +2,9 @@ Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
-	setSelectedBiome();
+	setBiome(mapSettings.Biome);
 
 	const tMainTerrain = g_Terrains.mainTerrain;
 	const tForestFloor1 = g_Terrains.forestFloor1;
@@ -71,7 +71,15 @@ function* GenerateMap()
 	const clFood = g_Map.createTileClass();
 	const clBaseResource = g_Map.createTileClass();
 
-	const [playerIDs, playerPosition] = playerPlacementCircle(fractionToTiles(0.35));
+	const pattern = mapSettings.PlayerPlacement;
+	const teamDist = (pattern == 'river') ? 0.55 : 0.35;
+	const { playerIDs, playerPosition } =
+		playerPlacementByPattern(
+			pattern,
+			fractionToTiles(teamDist),
+			fractionToTiles(0.1),
+			randomAngle(),
+			undefined);
 
 	g_Map.log("Preventing water in player territory");
 	for (let i = 0; i < numPlayers; ++i)
@@ -247,9 +255,9 @@ function* GenerateMap()
 			[new SimpleObject(oFish, 2, 3, 0, 2)]
 		],
 		[
-			25 * numPlayers
+			65 * numPlayers
 		],
-		[avoidClasses(clFood, 20), stayClasses(clWater, 6)],
+		[avoidClasses(clFood, 12), stayClasses(clWater, 4)],
 		clFood);
 
 	yield 85;

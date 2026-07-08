@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,15 +17,20 @@
 
 #include "precompiled.h"
 
-#include "NetMessage.h"
 #include "NetServerTurnManager.h"
-#include "NetServer.h"
-#include "NetSession.h"
 
+#include "lib/debug.h"
 #include "lib/utf8.h"
+#include "network/NetHost.h"
+#include "network/NetMessage.h"
+#include "network/NetServer.h"
+#include "network/NetServerSession.h"
 #include "ps/CLogger.h"
 #include "ps/ConfigDB.h"
 #include "simulation2/system/TurnManager.h"
+
+#include <limits>
+#include <utility>
 
 #if 0
 #include "ps/Util.h"
@@ -64,6 +69,7 @@ void CNetServerTurnManager::NotifyFinishedClientCommands(CNetServerSession& sess
 			m_ClientsData[client].readyTurn + 1);
 
 		session.Disconnect(NDR_INCORRECT_READY_TURN_COMMANDS);
+		return;
 	}
 
 	m_ClientsData[client].readyTurn = turn;
@@ -74,8 +80,7 @@ void CNetServerTurnManager::NotifyFinishedClientCommands(CNetServerSession& sess
 
 void CNetServerTurnManager::CheckClientsReady()
 {
-	int max_observer_lag = -1;
-	CFG_GET_VAL("network.observermaxlag", max_observer_lag);
+	int max_observer_lag{g_ConfigDB.Get("network.observermaxlag", -1)};
 	// Clamp to 0-10000 turns, below/above that is no limit.
 	max_observer_lag = max_observer_lag < 0 ? -1 : max_observer_lag > 10000 ? -1 : max_observer_lag;
 
@@ -98,7 +103,7 @@ void CNetServerTurnManager::CheckClientsReady()
 	CEndCommandBatchMessage msg;
 	msg.m_TurnLength = m_TurnLength;
 	msg.m_Turn = m_ReadyTurn;
-	m_NetServer.Broadcast(&msg, { NSS_INGAME });
+	m_NetServer.Multicast(&msg, { NSS_INGAME });
 
 	ENSURE(m_SavedTurnLengths.size() == m_ReadyTurn);
 	m_SavedTurnLengths.push_back(m_TurnLength);
@@ -120,6 +125,7 @@ void CNetServerTurnManager::NotifyFinishedClientUpdate(CNetServerSession& sessio
 			m_ClientsData[client].simulatedTurn + 1);
 
 		session.Disconnect(NDR_INCORRECT_READY_TURN_SIMULATED);
+		return;
 	}
 
 	m_ClientsData[client].simulatedTurn = turn;
@@ -172,7 +178,7 @@ void CNetServerTurnManager::NotifyFinishedClientUpdate(CNetServerSession& sessio
 				h.m_Name = oosPlayername;
 				msg.m_PlayerNames.push_back(h);
 			}
-			m_NetServer.Broadcast(&msg, { NSS_INGAME });
+			m_NetServer.Multicast(&msg, { NSS_INGAME });
 			break;
 		}
 	}
@@ -199,6 +205,9 @@ void CNetServerTurnManager::UninitialiseClient(int client)
 	ENSURE(m_ClientsData.find(client) != m_ClientsData.end());
 	bool checkOOS = m_ClientsData[client].isOOS;
 	m_ClientsData.erase(client);
+
+	for (std::pair<const u32, std::map<int, std::string>>& clientStateHash : m_ClientStateHashes)
+		clientStateHash.second.erase(client);
 
 	// Check whether we're ready for the next turn now that we're not
 	// waiting for this client any more

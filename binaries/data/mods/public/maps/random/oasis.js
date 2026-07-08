@@ -1,7 +1,7 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 
-function* GenerateMap()
+export function* generateMap()
 {
 	const tSand = [
 		"desert_sand_dunes_100",
@@ -91,7 +91,7 @@ function* GenerateMap()
 	const shoreDistance = scaleByMapSize(4, 10);
 	const forestDistance = scaleByMapSize(6, 20);
 
-	const [playerIDs, playerPosition] = playerPlacementCircle(fractionToTiles(0.35));
+	const { playerIDs, playerPosition } = playerPlacementCircle(fractionToTiles(0.35));
 
 	g_Map.log("Creating small oasis near the players...");
 	const forestDist = 1.2 * defaultPlayerBaseRadius();

@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,40 +19,48 @@
 
 #include "ActorViewer.h"
 
-#include "View.h"
-
+#include "graphics/Camera.h"
 #include "graphics/Canvas2D.h"
 #include "graphics/ColladaManager.h"
+#include "graphics/Color.h"
 #include "graphics/LOSTexture.h"
+#include "graphics/MeshManager.h"
 #include "graphics/MiniMapTexture.h"
+#include "graphics/MiniPatch.h"
 #include "graphics/Model.h"
-#include "graphics/ModelDef.h"
+#include "graphics/ModelAbstract.h"
 #include "graphics/ObjectManager.h"
+#include "graphics/Overlay.h"
 #include "graphics/ParticleManager.h"
 #include "graphics/Patch.h"
 #include "graphics/SkeletonAnimManager.h"
 #include "graphics/Terrain.h"
-#include "graphics/TerrainTextureEntry.h"
 #include "graphics/TerrainTextureManager.h"
 #include "graphics/TerritoryTexture.h"
 #include "graphics/Unit.h"
 #include "graphics/UnitManager.h"
-#include "graphics/Overlay.h"
-#include "maths/MathUtil.h"
-#include "ps/Filesystem.h"
+#include "lib/debug.h"
+#include "lib/posix/posix_types.h"
+#include "maths/BoundingBoxAligned.h"
+#include "maths/Fixed.h"
+#include "maths/FixedVector3D.h"
+#include "maths/Matrix3D.h"
+#include "maths/Vector3D.h"
 #include "ps/CLogger.h"
-#include "ps/GameSetup/Config.h"
+#include "ps/CStr.h"
+#include "ps/Filesystem.h"
 #include "ps/ProfileViewer.h"
 #include "ps/VideoMode.h"
-#include "renderer/backend/IDevice.h"
-#include "renderer/backend/IDeviceCommandContext.h"
 #include "renderer/Renderer.h"
 #include "renderer/RenderingOptions.h"
 #include "renderer/Scene.h"
 #include "renderer/SceneRenderer.h"
 #include "renderer/SkyManager.h"
 #include "renderer/WaterManager.h"
-#include "scriptinterface/ScriptContext.h"
+#include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/IFramebuffer.h"
+#include "renderer/backend/ISwapChain.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpAttack.h"
 #include "simulation2/components/ICmpOwnership.h"
@@ -62,9 +70,16 @@
 #include "simulation2/components/ICmpUnitMotion.h"
 #include "simulation2/components/ICmpVisual.h"
 #include "simulation2/components/ICmpWaterManager.h"
+#include "simulation2/helpers/Position.h"
 #include "simulation2/helpers/Render.h"
+#include "simulation2/system/Component.h"
+#include "tools/atlas/GameInterface/View.h"
 
-extern int g_xres, g_yres;
+#include <cstddef>
+#include <memory>
+#include <vector>
+
+class CTerrainTextureEntry;
 
 struct ActorViewerImpl : public Scene
 {
@@ -77,7 +92,7 @@ public:
 		MeshManager(ColladaManager),
 		SkeletonAnimManager(ColladaManager),
 		UnitManager(),
-		Simulation2{&UnitManager, *g_ScriptContext, &Terrain},
+		Simulation2{&UnitManager, *g_ScriptContext, &Terrain, CSimulation2::DEFAULT_SCRIPTS},
 		ObjectManager(MeshManager, SkeletonAnimManager, Simulation2),
 		LOSTexture(Simulation2),
 		TerritoryTexture(Simulation2),
@@ -303,7 +318,6 @@ ActorViewer::ActorViewer()
 	}
 
 	// Prepare the simulation
-	m.Simulation2.LoadDefaultScripts();
 	m.Simulation2.ResetState();
 
 	// Set player data
@@ -318,7 +332,7 @@ ActorViewer::ActorViewer()
 	// Remove FOW since we're in Atlas
 	CmpPtr<ICmpRangeManager> cmpRangeManager(m.Simulation2, SYSTEM_ENTITY);
 	if (cmpRangeManager)
-		cmpRangeManager->SetLosRevealAll(-1, true);
+		cmpRangeManager->SetLosRevealWholeMapForAll(true);
 
 	m.Simulation2.InitGame();
 }
@@ -512,6 +526,11 @@ void ActorViewer::Render()
 {
 	// TODO: ActorViewer should reuse CRenderer code and not duplicate it.
 
+	Renderer::Backend::ISwapChain* swapChain{
+		g_VideoMode.GetOrCreateSwapChain()};
+	if (!swapChain || !swapChain->IsValid())
+		return;
+
 	CSceneRenderer& sceneRenderer = g_Renderer.GetSceneRenderer();
 
 	// Set simulation context for rendering purposes
@@ -541,7 +560,7 @@ void ActorViewer::Render()
 	sceneRenderer.PrepareScene(deviceCommandContext, m);
 
 	Renderer::Backend::IFramebuffer* backbuffer =
-		deviceCommandContext->GetDevice()->GetCurrentBackbuffer(
+		swapChain->GetCurrentBackbuffer(
 			Renderer::Backend::AttachmentLoadOp::DONT_CARE,
 			Renderer::Backend::AttachmentStoreOp::STORE,
 			Renderer::Backend::AttachmentLoadOp::CLEAR,
@@ -557,7 +576,7 @@ void ActorViewer::Render()
 	sceneRenderer.RenderSceneOverlays(deviceCommandContext);
 
 	{
-		CCanvas2D canvas(g_xres, g_yres, g_VideoMode.GetScale(), deviceCommandContext);
+		CCanvas2D canvas(g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight(), g_VideoMode.GetScale(), deviceCommandContext);
 		g_Logger->Render(canvas);
 		g_ProfileViewer.RenderProfile(canvas);
 	}

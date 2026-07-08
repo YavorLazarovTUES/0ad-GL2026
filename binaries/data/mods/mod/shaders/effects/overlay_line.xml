@@ -1,15 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <effect>
     <technique>
-        <require shaders="arb"/>
-        <pass shader="arb/overlayline"/>
-    </technique>
-    <technique>
         <require shaders="glsl"/>
-        <pass shader="glsl/overlayline"/>
-    </technique>
-    <technique>
         <require shaders="spirv"/>
-        <pass shader="spirv/overlayline"/>
+        <pass shader="overlayline"/>
     </technique>
 </effect>

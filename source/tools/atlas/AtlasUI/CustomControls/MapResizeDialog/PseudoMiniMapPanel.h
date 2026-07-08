@@ -1,4 +1,4 @@
-/* Copyright (C) 2020 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,7 +20,13 @@
 #define INCLUDED_PSEUDOMINIMAPPANEL
 
 #include <map>
+#include <wx/bitmap.h>
+#include <wx/event.h>
+#include <wx/gdicmn.h>
+#include <wx/image.h>
 #include <wx/panel.h>
+
+class wxWindow;
 
 class PseudoMiniMapPanel : public wxPanel
 {

@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,30 +18,38 @@
 #include "precompiled.h"
 
 #include "MessageHandler.h"
-#include "../GameLoop.h"
-#include "../View.h"
 
-#include "maths/MathUtil.h"
-#include "maths/Vector3D.h"
-#include "maths/Quaternion.h"
-#include "ps/Game.h"
-#include "renderer/Renderer.h"
-#include "graphics/GameView.h"
+#include "graphics/Camera.h"
 #include "graphics/CinemaManager.h"
-
-#include "ps/World.h"
+#include "graphics/GameView.h"
 #include "graphics/Terrain.h"
+#include "lib/debug.h"
+#include "maths/MathUtil.h"
+#include "maths/Matrix3D.h"
+#include "maths/Quaternion.h"
+#include "maths/Vector3D.h"
+#include "ps/Game.h"
+#include "ps/World.h"
+#include "renderer/Renderer.h"
+#include "tools/atlas/GameInterface/GameLoop.h"
+#include "tools/atlas/GameInterface/Messages.h"
+#include "tools/atlas/GameInterface/Shareable.h"
+#include "tools/atlas/GameInterface/SharedTypes.h"
+#include "tools/atlas/GameInterface/View.h"
 
-#include <assert.h>
+namespace
+{
+bool g_BirdEyeView{false};
+} // namespace
 
 namespace AtlasMessage {
 
 MESSAGEHANDLER(CameraReset)
 {
-	if (!g_Game || g_Game->GetView()->GetCinema()->IsEnabled())
+	if (!g_Game || g_Game->GetView()->GetCinema()->IsPlaying())
 		return;
 
-	CVector3D focus = g_Game->GetView()->GetCamera()->GetFocus();
+	CVector3D focus = g_Game->GetView()->GetCamera().GetFocus();
 
 	CVector3D target;
 	if (!g_Game->GetWorld()->GetTerrain().IsOnMap(focus.X, focus.Z))
@@ -58,12 +66,12 @@ MESSAGEHANDLER(CameraReset)
 
 	g_Game->GetView()->ResetCameraTarget(target);
 
-	UNUSED2(msg);
+	g_BirdEyeView = false;
 }
 
 MESSAGEHANDLER(ScrollConstant)
 {
-	if (!g_Game || g_Game->GetView()->GetCinema()->IsEnabled())
+	if (!g_Game || g_Game->GetView()->GetCinema()->IsPlaying())
 		return;
 
 	if (msg->dir < 0 || msg->dir > 5)
@@ -81,20 +89,20 @@ MESSAGEHANDLER(ScrollConstant)
 
 MESSAGEHANDLER(Scroll)
 {
-	if (!g_Game || g_Game->GetView()->GetCinema()->IsEnabled()) // TODO: do this better (probably a separate AtlasView class for cinematics)
+	if (!g_Game || g_Game->GetView()->GetCinema()->IsPlaying()) // TODO: do this better (probably a separate AtlasView class for cinematics)
 		return;
 
 	static CVector3D targetPos;
 	static float targetDistance = 0.f;
 
-	CMatrix3D& camera = g_Game->GetView()->GetCamera()->m_Orientation;
+	CCamera camera{g_Game->GetView()->GetCamera()};
 
-	static CVector3D lastCameraPos = camera.GetTranslation();
+	static CVector3D lastCameraPos{camera.m_Orientation.GetTranslation()};
 
 	// Ensure roughly correct motion when dragging is combined with other
 	// movements.
-	if (lastCameraPos != camera.GetTranslation())
-		targetPos += camera.GetTranslation() - lastCameraPos;
+	if (lastCameraPos != camera.m_Orientation.GetTranslation())
+		targetPos += camera.m_Orientation.GetTranslation() - lastCameraPos;
 
 	// General operation:
 	//
@@ -110,28 +118,28 @@ MESSAGEHANDLER(Scroll)
 	if (msg->type == eScrollType::FROM)
 	{
 		targetPos = msg->pos->GetWorldSpace();
-		targetDistance = (targetPos - camera.GetTranslation()).Length();
+		targetDistance = (targetPos - camera.m_Orientation.GetTranslation()).Length();
 	}
 	else if (msg->type == eScrollType::TO)
 	{
-		CVector3D origin, dir;
 		float x, y;
 		msg->pos->GetScreenSpace(x, y);
-		g_Game->GetView()->GetCamera()->BuildCameraRay((int)x, (int)y, origin, dir);
+		auto [origin, dir] = g_Game->GetView()->GetCamera().BuildCameraRay((int)x, (int)y);
 		dir *= targetDistance;
-		camera.Translate(targetPos - dir - origin);
-		g_Game->GetView()->GetCamera()->UpdateFrustum();
+		camera.m_Orientation.Translate(targetPos - dir - origin);
+		camera.UpdateFrustum();
+		g_Game->GetView()->SetCamera(camera);
 	}
 	else
 	{
 		debug_warn(L"Scroll: Invalid type");
 	}
-	lastCameraPos = camera.GetTranslation();
+	lastCameraPos = camera.m_Orientation.GetTranslation();
 }
 
 MESSAGEHANDLER(SmoothZoom)
 {
-	if (!g_Game || g_Game->GetView()->GetCinema()->IsEnabled())
+	if (!g_Game || g_Game->GetView()->GetCinema()->IsPlaying())
 		return;
 
 	g_AtlasGameLoop->input.zoomDelta += msg->amount;
@@ -139,13 +147,13 @@ MESSAGEHANDLER(SmoothZoom)
 
 MESSAGEHANDLER(RotateAround)
 {
-	if (!g_Game || g_Game->GetView()->GetCinema()->IsEnabled())
+	if (!g_Game || g_Game->GetView()->GetCinema()->IsPlaying() || g_BirdEyeView)
 		return;
 
 	static CVector3D focusPos;
 	static float lastX = 0.f, lastY = 0.f;
 
-	CMatrix3D& camera = g_Game->GetView()->GetCamera()->m_Orientation;
+	CCamera camera{g_Game->GetView()->GetCamera()};
 
 	if (msg->type == eRotateAroundType::FROM)
 	{
@@ -162,24 +170,25 @@ MESSAGEHANDLER(RotateAround)
 		float rotY = 6.f * (x-lastX) / g_Renderer.GetWidth();
 
 		CQuaternion q0, q1;
-		q0.FromAxisAngle(camera.GetLeft(), -rotX);
+		q0.FromAxisAngle(camera.m_Orientation.GetLeft(), -rotX);
 		q1.FromAxisAngle(CVector3D(0.f, 1.f, 0.f), rotY);
 		CQuaternion q = q0*q1;
 
-		CVector3D origin = camera.GetTranslation();
+		CVector3D origin = camera.m_Orientation.GetTranslation();
 		CVector3D offset = q.Rotate(origin - focusPos);
 
-		q *= camera.GetRotation();
+		q *= camera.m_Orientation.GetRotation();
 		q.Normalize(); // to avoid things blowing up when turning upside-down, for some reason I don't understand
-		q.ToMatrix(camera);
+		q.ToMatrix(camera.m_Orientation);
 
 		// Make sure up is still pointing up, regardless of any rounding errors.
 		// (Maybe this distorts the camera in other ways, but at least the errors
 		// are far less noticeable to me.)
-		camera._21 = 0.f; // (_21 = Y component returned by GetLeft())
+		camera.m_Orientation._21 = 0.f; // (_21 = Y component returned by GetLeft())
 
-		camera.Translate(focusPos + offset);
-		g_Game->GetView()->GetCamera()->UpdateFrustum();
+		camera.m_Orientation.Translate(focusPos + offset);
+		camera.UpdateFrustum();
+		g_Game->GetView()->SetCamera(camera);
 
 		lastX = x;
 		lastY = y;
@@ -193,7 +202,7 @@ MESSAGEHANDLER(RotateAround)
 MESSAGEHANDLER(LookAt)
 {
 	// TODO: different camera depending on msg->view
-	CCamera& camera = AtlasView::GetView_Actor()->GetCamera();
+	CCamera camera{AtlasView::GetView_Actor()->GetCamera()};
 
 	CVector3D tgt = msg->target->GetWorldSpace();
 	CVector3D eye = msg->pos->GetWorldSpace();
@@ -218,6 +227,8 @@ MESSAGEHANDLER(LookAt)
 	camera.m_Orientation.Translate(-eye);
 
 	camera.UpdateFrustum();
+
+	AtlasView::GetView_Actor()->SetCamera(camera);
 }
 
 QUERYHANDLER(GetView)
@@ -225,14 +236,14 @@ QUERYHANDLER(GetView)
 	if (!g_Game)
 		return;
 
-	CVector3D focus = g_Game->GetView()->GetCamera()->GetFocus();
+	CVector3D focus = g_Game->GetView()->GetCamera().GetFocus();
 	sCameraInfo info;
 
 	info.pX = focus.X;
 	info.pY = focus.Y;
 	info.pZ = focus.Z;
 
-	CQuaternion quatRot = g_Game->GetView()->GetCamera()->GetOrientation().GetRotation();
+	CQuaternion quatRot = g_Game->GetView()->GetCamera().GetOrientation().GetRotation();
 	quatRot.Normalize();
 	CVector3D rotation = quatRot.ToEulerAngles();
 
@@ -245,17 +256,55 @@ QUERYHANDLER(GetView)
 
 MESSAGEHANDLER(SetView)
 {
-	if (!g_Game || g_Game->GetView()->GetCinema()->IsEnabled())
+	if (!g_Game || g_Game->GetView()->GetCinema()->IsPlaying())
 		return;
 
 	CGameView* view = g_Game->GetView();
-	view->ResetCameraTarget(view->GetCamera()->GetFocus());
+	view->ResetCameraTarget(view->GetCamera().GetFocus());
 
 	sCameraInfo cam = msg->info;
 
 	view->ResetCameraTarget(CVector3D(cam.pX, cam.pY, cam.pZ));
 
 	// TODO: Rotation
+}
+
+MESSAGEHANDLER(ToggleBirdsEyeView)
+{
+	if (!g_Game || g_Game->GetView()->GetCinema()->IsPlaying())
+		return;
+
+	static float declination{0.f};
+
+	CCamera camera{AtlasView::GetView_Game()->GetCamera()};
+	CMatrix3D& orientation{camera.GetOrientation()};
+	const CVector3D focus{camera.GetFocus()};
+
+	if (!g_BirdEyeView)
+	{
+		CVector3D in = orientation.GetIn();
+		declination = atan2(sqrt(in.X*in.X + in.Z*in.Z), in.Y) - std::numbers::pi_v<float> / 2.f;
+	}
+
+	CQuaternion q;
+	// If really 90° then the camera movement bugs out as it has no clear
+	// forward anymore, so stick with 89°.
+	q.FromAxisAngle(orientation.GetLeft(), g_BirdEyeView ?
+		DEGTORAD(89.f) - declination : DEGTORAD(-89.f) + declination);
+
+	CVector3D origin = orientation.GetTranslation();
+	CVector3D offset = q.Rotate(origin - focus);
+
+	q *= orientation.GetRotation();
+	q.Normalize();
+	q.ToMatrix(orientation);
+
+	orientation.Translate(focus + offset);
+
+	camera.UpdateFrustum();
+	g_Game->GetView()->SetCamera(camera);
+
+	g_BirdEyeView = !g_BirdEyeView;
 }
 
 }

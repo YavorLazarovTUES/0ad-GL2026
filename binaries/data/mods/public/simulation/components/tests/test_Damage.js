@@ -32,12 +32,12 @@ function Test_Generic()
 {
 	ResetState();
 
-	let cmpTimer = ConstructComponent(SYSTEM_ENTITY, "Timer");
+	const cmpTimer = ConstructComponent(SYSTEM_ENTITY, "Timer");
 	cmpTimer.OnUpdate({ "turnLength": 1 });
-	let attacker = 11;
+	const attacker = 11;
 	let atkPlayerEntity = 1;
-	let attackerOwner = 6;
-	let cmpAttack = ConstructComponent(attacker, "Attack",
+	const attackerOwner = 6;
+	const cmpAttack = ConstructComponent(attacker, "Attack",
 		{
 			"Ranged": {
 				"Damage": {
@@ -55,17 +55,17 @@ function Test_Generic()
 				}
 			}
 		});
-	let damage = 5;
-	let target = 21;
-	let targetOwner = 7;
-	let targetPos = new Vector3D(3, 0, 3);
+	const damage = 5;
+	const target = 21;
+	const targetOwner = 7;
+	const targetPos = new Vector3D(3, 0, 3);
 
 	let type = "Melee";
 	let damageTaken = false;
 
 	cmpAttack.GetAttackStrengths = attackType => ({ "Hack": 0, "Pierce": 0, "Crush": damage });
 
-	let data = {
+	const data = {
 		"type": "Melee",
 		"attackData": {
 			"Damage": { "Hack": 0, "Pierce": 0, "Crush": damage },
@@ -101,14 +101,16 @@ function Test_Generic()
 	});
 
 	AddMock(target, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			damageTaken = true;
 			return { "healthChange": -amount };
 		},
 	});
 
 	AddMock(SYSTEM_ENTITY, IID_DelayedDamage, {
-		"Hit": () => {
+		"Hit": () =>
+		{
 			damageTaken = true;
 		},
 	});
@@ -181,7 +183,7 @@ function TestLinearSplashDamage()
 
 	const origin = new Vector2D(0, 0);
 
-	let data = {
+	const data = {
 		"type": "Ranged",
 		"attackData": { "Damage": { "Hack": 100, "Pierce": 0, "Crush": 0 } },
 		"attacker": attacker,
@@ -193,12 +195,12 @@ function TestLinearSplashDamage()
 		"friendlyFire": false,
 	};
 
-	let fallOff = function(x, y)
+	const fallOff = function(x, y)
 	{
 		return (1 - x * x / (data.radius * data.radius)) * (1 - 25 * y * y / (data.radius * data.radius));
 	};
 
-	let hitEnts = new Set();
+	const hitEnts = new Set();
 
 	AddMock(attackerOwner, IID_Diplomacy, {
 		"GetEnemies": () => [2]
@@ -234,7 +236,8 @@ function TestLinearSplashDamage()
 	});
 
 	AddMock(60, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			hitEnts.add(60);
 			TS_ASSERT_EQUALS(amount, 100 * fallOff(3, -0.5));
 			return { "healthChange": -amount };
@@ -242,7 +245,8 @@ function TestLinearSplashDamage()
 	});
 
 	AddMock(61, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			hitEnts.add(61);
 			TS_ASSERT_EQUALS(amount, 100 * fallOff(0, 0));
 			return { "healthChange": -amount };
@@ -250,7 +254,8 @@ function TestLinearSplashDamage()
 	});
 
 	AddMock(62, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			hitEnts.add(62);
 			// Minor numerical precision issues make this necessary
 			TS_ASSERT(amount < 0.00001);
@@ -267,7 +272,8 @@ function TestLinearSplashDamage()
 	data.direction = new Vector3D(0.6, 747, 0.8);
 
 	AddMock(60, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			hitEnts.add(60);
 			TS_ASSERT_EQUALS(amount, 100 * fallOff(1, 2));
 			return { "healthChange": -amount };
@@ -289,9 +295,9 @@ function TestCircularSplashDamage()
 	Engine.PostMessage = (ent, iid, message) => {};
 
 	const radius = 10;
-	let attackerOwner = 1;
+	const attackerOwner = 1;
 
-	let fallOff = function(r)
+	const fallOff = function(r)
 	{
 		return 1 - r * r / (radius * radius);
 	};
@@ -347,47 +353,53 @@ function TestCircularSplashDamage()
 	});
 
 	AddMock(60, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			TS_ASSERT_EQUALS(amount, 100 * fallOff(0));
 			return { "healthChange": -amount };
 		}
 	});
 
 	AddMock(61, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			TS_ASSERT_EQUALS(amount, 100 * fallOff(5));
 			return { "healthChange": -amount };
 		}
 	});
 
 	AddMock(62, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			TS_ASSERT_EQUALS(amount, 100 * fallOff(1));
 			return { "healthChange": -amount };
 		}
 	});
 
 	AddMock(63, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			TS_ASSERT(false);
 		}
 	});
 
-	let cmphealth64 = AddMock(64, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+	const cmphealth64 = AddMock(64, IID_Health, {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			TS_ASSERT_EQUALS(amount, 0);
 			return { "healthChange": -amount };
 		}
 	});
-	let spy64 = new Spy(cmphealth64, "TakeDamage");
+	const spy64 = new Spy(cmphealth64, "TakeDamage");
 
-	let cmpHealth65 = AddMock(65, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+	const cmpHealth65 = AddMock(65, IID_Health, {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			TS_ASSERT_EQUALS(amount, 100 * fallOff(2));
 			return { "healthChange": -amount };
 		}
 	});
-	let spy65 = new Spy(cmpHealth65, "TakeDamage");
+	const spy65 = new Spy(cmpHealth65, "TakeDamage");
 
 	AttackHelper.CauseDamageOverArea({
 		"type": "Ranged",
@@ -411,12 +423,12 @@ function Test_MissileHit()
 	ResetState();
 	Engine.PostMessage = (ent, iid, message) => {};
 
-	let cmpDelayedDamage = ConstructComponent(SYSTEM_ENTITY, "DelayedDamage");
+	const cmpDelayedDamage = ConstructComponent(SYSTEM_ENTITY, "DelayedDamage");
 
-	let target = 60;
-	let targetOwner = 1;
-	let targetPos = new Vector3D(3, 10, 0);
-	let hitEnts = new Set();
+	const target = 60;
+	const targetOwner = 1;
+	const targetPos = new Vector3D(3, 10, 0);
+	const hitEnts = new Set();
 
 	AddMock(SYSTEM_ENTITY, IID_Timer, {
 		"GetLatestTurnLength": () => 500
@@ -424,7 +436,7 @@ function Test_MissileHit()
 
 	const radius = 10;
 
-	let data = {
+	const data = {
 		"type": "Ranged",
 		"attackData": { "Damage": { "Hack": 0, "Pierce": 100, "Crush": 0 } },
 		"target": 60,
@@ -454,7 +466,8 @@ function Test_MissileHit()
 	});
 
 	AddMock(60, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			hitEnts.add(60);
 			TS_ASSERT_EQUALS(amount, 100);
 			return { "healthChange": -amount };
@@ -500,7 +513,8 @@ function Test_MissileHit()
 	});
 
 	AddMock(61, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			hitEnts.add(61);
 			TS_ASSERT_EQUALS(amount, 100);
 			return { "healthChange": -amount };
@@ -530,7 +544,8 @@ function Test_MissileHit()
 	});
 
 	AddMock(60, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			TS_ASSERT_EQUALS(false);
 			return { "healthChange": -amount };
 		}
@@ -564,7 +579,8 @@ function Test_MissileHit()
 
 	let dealtDamage = 0;
 	AddMock(61, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			hitEnts.add(61);
 			dealtDamage += amount;
 			return { "healthChange": -amount };
@@ -579,7 +595,8 @@ function Test_MissileHit()
 	});
 
 	AddMock(62, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			hitEnts.add(62);
 			TS_ASSERT_EQUALS(amount, 200 * 0.75);
 			return { "healthChange": -amount };
@@ -608,8 +625,8 @@ function Test_MissileHit()
 		"DistanceToPoint": (ent) => 0
 	});
 
-	let bonus = { "BonusCav": { "Classes": "Cavalry", "Multiplier": 400 } };
-	let splashBonus = { "BonusCav": { "Classes": "Cavalry", "Multiplier": 10000 } };
+	const bonus = { "BonusCav": { "Classes": "Cavalry", "Multiplier": 400 } };
+	const splashBonus = { "BonusCav": { "Classes": "Cavalry", "Multiplier": 10000 } };
 
 	AddMock(61, IID_Identity, {
 		"GetClassesList": () => ["Cavalry"],
@@ -671,7 +688,8 @@ function Test_MissileHit()
 
 	dealtDamage = 0;
 	AddMock(61, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			hitEnts.add(61);
 			dealtDamage += amount;
 			return { "healthChange": -amount };
@@ -686,7 +704,8 @@ function Test_MissileHit()
 	});
 
 	AddMock(62, IID_Health, {
-		"TakeDamage": (amount, __, ___) => {
+		"TakeDamage": (amount, __, ___) =>
+		{
 			hitEnts.add(62);
 			TS_ASSERT_EQUALS(amount, 200 * 0.75);
 			return { "healtChange": -amount };

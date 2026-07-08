@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -15,15 +15,34 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "maths/Matrix3D.h"
-#include "simulation2/system/ComponentTest.h"
-#include "simulation2/components/ICmpRangeManager.h"
-#include "simulation2/components/ICmpObstruction.h"
-#include "simulation2/components/ICmpPosition.h"
-#include "simulation2/components/ICmpVision.h"
+#include "lib/self_test.h"
 
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/uniform_real_distribution.hpp>
+#include "maths/Fixed.h"
+#include "maths/FixedVector2D.h"
+#include "maths/FixedVector3D.h"
+#include "maths/Matrix3D.h"
+#include "ps/CStr.h"
+#include "ps/XML/Xeromyces.h"
+#include "scriptinterface/Interface.h"
+#include "simulation2/MessageTypes.h"
+#include "simulation2/components/ICmpObstruction.h"
+#include "simulation2/components/ICmpObstructionManager.h"
+#include "simulation2/components/ICmpPosition.h"
+#include "simulation2/components/ICmpRangeManager.h"
+#include "simulation2/components/ICmpVision.h"
+#include "simulation2/helpers/Player.h"
+#include "simulation2/helpers/Position.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/ComponentTest.h"
+#include "simulation2/system/Entity.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <random>
+#include <string>
+#include <vector>
 
 class MockVisionRgm : public ICmpVision
 {
@@ -39,38 +58,39 @@ class MockPositionRgm : public ICmpPosition
 public:
 	DEFAULT_MOCK_COMPONENT()
 
-	void SetTurretParent(entity_id_t UNUSED(id), const CFixedVector3D& UNUSED(pos)) override {}
+	void SetTurretParent(entity_id_t /*id*/, const CFixedVector3D& /*pos*/) override {}
 	entity_id_t GetTurretParent() const override {return INVALID_ENTITY;}
 	void UpdateTurretPosition() override {}
 	std::set<entity_id_t>* GetTurrets() override { return nullptr; }
 	bool IsInWorld() const override { return true; }
 	void MoveOutOfWorld() override { }
-	void MoveTo(entity_pos_t UNUSED(x), entity_pos_t UNUSED(z)) override { }
-	void MoveAndTurnTo(entity_pos_t UNUSED(x), entity_pos_t UNUSED(z), entity_angle_t UNUSED(a)) override { }
-	void JumpTo(entity_pos_t UNUSED(x), entity_pos_t UNUSED(z)) override { }
-	void SetHeightOffset(entity_pos_t UNUSED(dy)) override { }
+	void MoveTo(entity_pos_t /*x*/, entity_pos_t /*z*/) override { }
+	void MoveAndTurnTo(entity_pos_t /*x*/, entity_pos_t /*z*/, entity_angle_t /*a*/) override { }
+	void JumpTo(entity_pos_t /*x*/, entity_pos_t /*z*/) override { }
+	void SetHeightOffset(entity_pos_t /*dy*/) override { }
 	entity_pos_t GetHeightOffset() const override { return entity_pos_t::Zero(); }
-	void SetHeightFixed(entity_pos_t UNUSED(y)) override { }
+	void SetHeightFixed(entity_pos_t /*y*/) override { }
 	entity_pos_t GetHeightFixed() const override { return entity_pos_t::Zero(); }
 	entity_pos_t GetHeightAtFixed(entity_pos_t, entity_pos_t) const override { return entity_pos_t::Zero(); }
 	bool IsHeightRelative() const override { return true; }
-	void SetHeightRelative(bool UNUSED(relative)) override { }
+	void SetHeightRelative(bool /*relative*/) override { }
 	bool CanFloat() const override { return false; }
-	void SetFloating(bool UNUSED(flag)) override { }
-	void SetActorFloating(bool UNUSED(flag)) override { }
-	void SetConstructionProgress(fixed UNUSED(progress)) override { }
+	void SetFloating(bool /*flag*/) override { }
+	void SetActorFloating(bool /*flag*/) override { }
+	void SetActorAnchor(const CStr& /*anchor*/) override { }
+	void SetConstructionProgress(fixed /*progress*/) override { }
 	CFixedVector3D GetPosition() const override { return m_Pos; }
 	CFixedVector2D GetPosition2D() const override { return CFixedVector2D(m_Pos.X, m_Pos.Z); }
 	CFixedVector3D GetPreviousPosition() const override { return CFixedVector3D(); }
 	CFixedVector2D GetPreviousPosition2D() const override { return CFixedVector2D(); }
 	fixed GetTurnRate() const override { return fixed::Zero(); }
-	void TurnTo(entity_angle_t UNUSED(y)) override { }
-	void SetYRotation(entity_angle_t UNUSED(y)) override { }
-	void SetXZRotation(entity_angle_t UNUSED(x), entity_angle_t UNUSED(z)) override { }
+	void TurnTo(entity_angle_t /*y*/) override { }
+	void SetYRotation(entity_angle_t /*y*/) override { }
+	void SetXZRotation(entity_angle_t /*x*/, entity_angle_t /*z*/) override { }
 	CFixedVector3D GetRotation() const override { return CFixedVector3D(); }
 	fixed GetDistanceTravelled() const override { return fixed::Zero(); }
-	void GetInterpolatedPosition2D(float UNUSED(frameOffset), float& x, float& z, float& rotY) const override { x = z = rotY = 0; }
-	CMatrix3D GetInterpolatedTransform(float UNUSED(frameOffset)) const override { return CMatrix3D(); }
+	void GetInterpolatedPosition2D(float /*frameOffset*/, float& x, float& z, float& rotY) const override { x = z = rotY = 0; }
+	CMatrix3D GetInterpolatedTransform(float /*frameOffset*/) const override { return CMatrix3D(); }
 
 	CFixedVector3D m_Pos;
 };
@@ -114,15 +134,16 @@ private:
 
 class TestCmpRangeManager : public CxxTest::TestSuite
 {
+	std::optional<CXeromycesEngine> xeromycesEngine;
 public:
 	void setUp()
 	{
-		CXeromyces::Startup();
+		xeromycesEngine.emplace();
 	}
 
 	void tearDown()
 	{
-		CXeromyces::Terminate();
+		xeromycesEngine.reset();
 	}
 
 	// TODO It would be nice to call Verify() with the shore revealing system
@@ -171,11 +192,11 @@ public:
 		{ CMessagePositionChanged msg(100, true, entity_pos_t::FromInt(348), entity_pos_t::FromInt(83), entity_angle_t::Zero()); cmp->HandleMessage(msg, false); }
 		cmp->Verify();
 
-		boost::mt19937 rng;
+		std::mt19937 rng;
 		for (size_t i = 0; i < 1024; ++i)
 		{
-			double x = boost::random::uniform_real_distribution<double>(0.0, 512.0)(rng);
-			double z = boost::random::uniform_real_distribution<double>(0.0, 512.0)(rng);
+			double x = std::uniform_real_distribution<double>(0.0, 512.0)(rng);
+			double z = std::uniform_real_distribution<double>(0.0, 512.0)(rng);
 			{ CMessagePositionChanged msg(100, true, entity_pos_t::FromDouble(x), entity_pos_t::FromDouble(z), entity_angle_t::Zero()); cmp->HandleMessage(msg, false); }
 			cmp->Verify();
 		}

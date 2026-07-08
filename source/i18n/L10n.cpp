@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -25,17 +25,36 @@
 #include "i18n/L10n.h"
 
 #include "gui/GUIManager.h"
-#include "lib/external_libraries/tinygettext.h"
-#include "lib/file/file_system.h"
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
+#include "lib/file/vfs/vfs_util.h"
+#include "lib/path.h"
 #include "lib/utf8.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
 #include "ps/ConfigDB.h"
+#include "ps/Errors.h"
 #include "ps/Filesystem.h"
 #include "ps/GameSetup/GameSetup.h"
+#include "scriptinterface/Interface.h"
 
-#include <boost/algorithm/string/predicate.hpp>
+#include <algorithm>
+#include <cstdint>
+#include <cstring>
+#include <exception>
 #include <sstream>
 #include <string>
+#include <tinygettext/dictionary.hpp>
+#include <tinygettext/log.hpp>
+#include <tinygettext/po_parser.hpp>
+#include <unicode/bytestream.h>
+#include <unicode/calendar.h>
+#include <unicode/numfmt.h>
+#include <unicode/smpdtfmt.h>
+#include <unicode/timezone.h>
+#include <unicode/unistr.h>
+#include <unicode/unum.h>
+#include <utility>
 
 namespace
 {
@@ -127,7 +146,7 @@ std::unique_ptr<icu::DateFormat> CreateDateTimeInstance(const L10n::DateTimeType
 		return std::unique_ptr<icu::DateFormat>{
 			icu::SimpleDateFormat::createTimeInstance(style, locale)};
 
-	case L10n::DateTime: FALLTHROUGH;
+	case L10n::DateTime:
 	default:
 		return std::unique_ptr<icu::DateFormat>{
 			icu::SimpleDateFormat::createDateTimeInstance(style, style, locale)};
@@ -141,9 +160,7 @@ L10n::L10n()
 {
 	// Determine whether or not to print tinygettext messages to the standard
 	// error output, which it tinygettext's default behavior, but not ours.
-	bool tinygettext_debug = false;
-	CFG_GET_VAL("tinygettext.debug", tinygettext_debug);
-	if (!tinygettext_debug)
+	if (!g_ConfigDB.Get("tinygettext.debug", false))
 	{
 		tinygettext::Log::log_info_callback = 0;
 		tinygettext::Log::log_warning_callback = 0;
@@ -170,11 +187,6 @@ const icu::Locale& L10n::GetCurrentLocale() const
 
 bool L10n::SaveLocale(const std::string& localeCode) const
 {
-	if (localeCode == "long" && InDevelopmentCopy())
-	{
-		g_ConfigDB.SetValueString(CFG_USER, "locale", "long");
-		return true;
-	}
 	return SaveLocale(icu::Locale(icu::Locale::createCanonical(localeCode.c_str())));
 }
 
@@ -287,22 +299,11 @@ void L10n::GetDictionaryLocale(const std::string& configLocaleString, icu::Local
 // Try to find the best dictionary locale based on user configuration and system locale, set the currentLocale and reload the dictionary.
 void L10n::ReevaluateCurrentLocaleAndReload()
 {
-	std::string locale;
-	CFG_GET_VAL("locale", locale);
+	const std::string locale{g_ConfigDB.Get("locale", std::string{})};
 
-	if (locale == "long")
-	{
-		// Set ICU to en_US to have a valid language for displaying dates
-		m_CurrentLocale = icu::Locale::getUS();
-		m_CurrentLocaleIsOriginalGameLocale = false;
-		m_UseLongStrings = true;
-	}
-	else
-	{
-		GetDictionaryLocale(locale, m_CurrentLocale);
-		m_CurrentLocaleIsOriginalGameLocale = (m_CurrentLocale == icu::Locale::getUS()) == 1;
-		m_UseLongStrings = false;
-	}
+	GetDictionaryLocale(locale, m_CurrentLocale);
+	m_CurrentLocaleIsOriginalGameLocale = (m_CurrentLocale == icu::Locale::getUS()) == 1;
+
 	LoadDictionaryForCurrentLocale();
 }
 
@@ -317,11 +318,6 @@ std::vector<std::string> L10n::GetAllLocales() const
 	return ret;
 }
 
-
-bool L10n::UseLongStrings() const
-{
-	return m_UseLongStrings;
-};
 
 std::vector<std::string> L10n::GetSupportedLocaleBaseNames() const
 {
@@ -521,7 +517,7 @@ VfsPath L10n::LocalizePath(const VfsPath& sourcePath) const
 
 Status L10n::ReloadChangedFile(const VfsPath& path)
 {
-	if (!boost::algorithm::starts_with(path.string(), L"l10n/"))
+	if (!path.string().starts_with(L"l10n/"))
 		return INFO::OK;
 
 	if (path.Extension() != L".po")
@@ -532,8 +528,6 @@ Status L10n::ReloadChangedFile(const VfsPath& path)
 		return INFO::OK;
 
 	std::wstring dictName = GetFallbackToAvailableDictLocale(m_CurrentLocale);
-	if (m_UseLongStrings)
-		dictName = L"long";
 	if (dictName.empty())
 		return INFO::OK;
 
@@ -564,19 +558,11 @@ void L10n::LoadDictionaryForCurrentLocale()
 	m_Dictionary = std::make_unique<tinygettext::Dictionary>();
 	VfsPaths filenames;
 
-	if (m_UseLongStrings)
+	std::wstring dictName = GetFallbackToAvailableDictLocale(m_CurrentLocale);
+	if (vfs::GetPathnames(g_VFS, L"l10n/", dictName.append(L".*.po").c_str(), filenames) < 0)
 	{
-		if (vfs::GetPathnames(g_VFS, L"l10n/", L"long.*.po", filenames) < 0)
-			return;
-	}
-	else
-	{
-		std::wstring dictName = GetFallbackToAvailableDictLocale(m_CurrentLocale);
-		if (vfs::GetPathnames(g_VFS, L"l10n/", dictName.append(L".*.po").c_str(), filenames) < 0)
-		{
-			LOGERROR("No files for the dictionary found, but at this point the input should already be validated!");
-			return;
-		}
+		LOGERROR("No files for the dictionary found, but at this point the input should already be validated!");
+		return;
 	}
 
 	for (const VfsPath& path : filenames)

@@ -92,7 +92,7 @@
 			<Actor seed="50970"/>
 		</Entity>
 		<Entity uid="15">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="691.59113" z="243.41901"/>
 			<Orientation y="-0.69141"/>
@@ -876,7 +876,7 @@
 			<Actor seed="22054"/>
 		</Entity>
 		<Entity uid="136">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="275.6424" z="734.5218"/>
 			<Orientation y="2.35621"/>
@@ -2891,14 +2891,14 @@
 			<Actor seed="35176"/>
 		</Entity>
 		<Entity uid="458">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="785.14991" z="1308.90662"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="25878"/>
 		</Entity>
 		<Entity uid="459">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="1198.34571" z="730.80817"/>
 			<Orientation y="2.35621"/>
@@ -11346,14 +11346,14 @@
 			<Actor seed="50602"/>
 		</Entity>
 		<Entity uid="1829">
-			<Template>gaia/ore/badlands_large</Template>
+			<Template>gaia/ore/badlands_01</Template>
 			<Player>0</Player>
 			<Position x="1379.68616" z="1184.89454"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="47864"/>
 		</Entity>
 		<Entity uid="1830">
-			<Template>gaia/ore/badlands_large</Template>
+			<Template>gaia/ore/badlands_01</Template>
 			<Player>0</Player>
 			<Position x="1394.06971" z="1128.81031"/>
 			<Orientation y="2.35621"/>
@@ -13173,14 +13173,14 @@
 			<Actor seed="24698"/>
 		</Entity>
 		<Entity uid="2090">
-			<Template>gaia/ore/alpine_large</Template>
+			<Template>gaia/ore/temperate_01</Template>
 			<Player>0</Player>
 			<Position x="527.91504" z="651.79383"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="5390"/>
 		</Entity>
 		<Entity uid="2091">
-			<Template>gaia/ore/alpine_large</Template>
+			<Template>gaia/ore/temperate_01</Template>
 			<Player>0</Player>
 			<Position x="541.61335" z="553.87104"/>
 			<Orientation y="2.35621"/>
@@ -15887,28 +15887,28 @@
 			<Actor seed="56646"/>
 		</Entity>
 		<Entity uid="2579">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>2</Player>
 			<Position x="753.81586" z="1269.66187"/>
 			<Orientation y="-1.75614"/>
 			<Actor seed="54344"/>
 		</Entity>
 		<Entity uid="2580">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>2</Player>
 			<Position x="755.74238" z="1267.3169"/>
 			<Orientation y="-1.94765"/>
 			<Actor seed="18"/>
 		</Entity>
 		<Entity uid="2581">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>2</Player>
 			<Position x="758.0445" z="1265.4922"/>
 			<Orientation y="-1.95127"/>
 			<Actor seed="38268"/>
 		</Entity>
 		<Entity uid="2582">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>2</Player>
 			<Position x="760.09321" z="1263.80909"/>
 			<Orientation y="-2.02797"/>
@@ -15957,28 +15957,28 @@
 			<Actor seed="56646"/>
 		</Entity>
 		<Entity uid="2589">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>1</Player>
 			<Position x="1222.4098" z="722.19813"/>
 			<Orientation y="-1.75614"/>
 			<Actor seed="54344"/>
 		</Entity>
 		<Entity uid="2590">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>1</Player>
 			<Position x="1224.33631" z="719.85328"/>
 			<Orientation y="-1.94765"/>
 			<Actor seed="18"/>
 		</Entity>
 		<Entity uid="2591">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>1</Player>
 			<Position x="1226.63843" z="718.02845"/>
 			<Orientation y="-1.95127"/>
 			<Actor seed="38268"/>
 		</Entity>
 		<Entity uid="2592">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>1</Player>
 			<Position x="1228.68714" z="716.34546"/>
 			<Orientation y="-2.02797"/>
@@ -16027,28 +16027,28 @@
 			<Actor seed="56646"/>
 		</Entity>
 		<Entity uid="2599">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>3</Player>
 			<Position x="289.85413" z="727.35761"/>
 			<Orientation y="-1.75614"/>
 			<Actor seed="54344"/>
 		</Entity>
 		<Entity uid="2600">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>3</Player>
 			<Position x="291.78064" z="725.01276"/>
 			<Orientation y="-1.94765"/>
 			<Actor seed="18"/>
 		</Entity>
 		<Entity uid="2601">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>3</Player>
 			<Position x="294.08277" z="723.18793"/>
 			<Orientation y="-1.95127"/>
 			<Actor seed="38268"/>
 		</Entity>
 		<Entity uid="2602">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>3</Player>
 			<Position x="296.13147" z="721.50495"/>
 			<Orientation y="-2.02797"/>
@@ -16097,28 +16097,28 @@
 			<Actor seed="56646"/>
 		</Entity>
 		<Entity uid="2609">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>4</Player>
 			<Position x="723.36927" z="231.78605"/>
 			<Orientation y="-1.75614"/>
 			<Actor seed="54344"/>
 		</Entity>
 		<Entity uid="2610">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>4</Player>
 			<Position x="725.29578" z="229.4412"/>
 			<Orientation y="-1.94765"/>
 			<Actor seed="18"/>
 		</Entity>
 		<Entity uid="2611">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>4</Player>
 			<Position x="727.59791" z="227.61637"/>
 			<Orientation y="-1.95127"/>
 			<Actor seed="38268"/>
 		</Entity>
 		<Entity uid="2612">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>4</Player>
 			<Position x="729.64661" z="225.93339"/>
 			<Orientation y="-2.02797"/>
@@ -16419,7 +16419,7 @@
 			<Actor seed="52394"/>
 		</Entity>
 		<Entity uid="2663">
-			<Template>gaia/ore/alpine_large</Template>
+			<Template>gaia/ore/temperate_01</Template>
 			<Player>0</Player>
 			<Position x="418.48191" z="177.35056"/>
 			<Orientation y="2.35622"/>
@@ -16703,7 +16703,7 @@
 			<Actor seed="28614"/>
 		</Entity>
 		<Entity uid="2711">
-			<Template>gaia/ore/alpine_large</Template>
+			<Template>gaia/ore/temperate_01</Template>
 			<Player>0</Player>
 			<Position x="576.8888" z="1024.53345"/>
 			<Orientation y="2.35622"/>

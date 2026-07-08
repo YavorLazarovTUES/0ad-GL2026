@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@
 
 // Opens namespace AtlasMessage, closes it on second inclusion!
 #ifndef MESSAGES_SKIP_SETUP
-#include "MessagesSetup.h"
+#include "MessagesSetup.h" // IWYU pragma: keep
 #endif
 
 // TODO: organisation, documentation, etc
@@ -57,6 +57,10 @@ struct eRenderView { enum renderViews { NONE, GAME, ACTOR }; };
 
 MESSAGE(RenderEnable,
 		((int, view)) // eRenderView
+		);
+
+MESSAGE(SetSmoothFramerate,
+		((bool, enabled))
 		);
 
 // SetViewParam: used for hints to the renderer, e.g. to set wireframe mode;
@@ -155,7 +159,7 @@ MESSAGE(ResizeScreen,
 		);
 
 QUERY(RenderLoop, ,
-	  ((bool, wantHighFPS))
+	  ((bool, smoothFramerate))
 	  ((double, timeSinceActivity))
 	  );
 
@@ -220,6 +224,11 @@ QUERY(RasterizeMinimap,
 QUERY(GetRMSData,
 		,
 		((std::vector<std::string>, data))
+		);
+
+QUERY(ExpandBiomes,
+		,
+		((std::vector<std::string>, biomes))
 		);
 
 COMMAND(ResizeMap, NOMERGE,
@@ -463,6 +472,8 @@ QUERY(GetView,
 MESSAGE(SetView,
 		((sCameraInfo, info))
 		);
+
+MESSAGE(ToggleBirdsEyeView, );
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -741,7 +752,7 @@ QUERY(GetSelectedObjectsTemplateNames,
 
 
 #ifndef MESSAGES_SKIP_SETUP
-#include "MessagesSetup.h"
+#include "MessagesSetup.h" // IWYU pragma: keep
 #endif
 
 #endif // INCLUDED_MESSAGES

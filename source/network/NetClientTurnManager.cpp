@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,17 +17,25 @@
 
 #include "precompiled.h"
 
-#include "NetClientTurnManager.h"
 #include "NetClient.h"
-
+#include "NetClientTurnManager.h"
+#include "lib/debug.h"
+#include "lib/os_path.h"
+#include "lib/path.h"
+#include "lib/utf8.h"
+#include "network/NetMessage.h"
 #include "ps/CLogger.h"
+#include "ps/Profile.h"
 #include "ps/Pyrogenesis.h"
 #include "ps/Replay.h"
-#include "ps/Profile.h"
 #include "ps/Util.h"
 #include "simulation2/Simulation2.h"
 
+#include <cstddef>
 #include <fstream>
+#include <js/RootingAPI.h>
+#include <sstream>
+#include <string>
 
 #if 0
 #define NETCLIENTTURN_LOG(...) debug_printf(__VA_ARGS__)
@@ -71,7 +79,7 @@ void CNetClientTurnManager::NotifyFinishedOwnCommands(u32 turn)
 	m_NetClient.SendMessage(&msg);
 }
 
-void CNetClientTurnManager::NotifyFinishedUpdate(u32 turn)
+void CNetClientTurnManager::NotifyFinishedUpdate(u32 turn, const UpdateCallback&)
 {
 	bool quick = !TurnNeedsFullHash(turn);
 	std::string hash;
@@ -114,13 +122,13 @@ void CNetClientTurnManager::OnSyncError(u32 turn, const CStr& expectedHash, cons
 	ENSURE(m_Simulation2.ComputeStateHash(hash, !TurnNeedsFullHash(turn)));
 
 	OsPath oosdumpPath(psLogDir() / (L"oos_dump" + g_UniqueLogPostfix + L".txt"));
-	std::ofstream file (OsString(oosdumpPath).c_str(), std::ofstream::out | std::ofstream::trunc);
+	std::ofstream file (OsString(oosdumpPath), std::ofstream::out | std::ofstream::trunc);
 	file << "oos turn: " << turn << std::endl;
 	file << "net client turn: " << m_CurrentTurn << std::endl;
 	m_Simulation2.DumpDebugState(file);
 	file.close();
 
-	std::ofstream binfile (OsString(oosdumpPath.ChangeExtension(L".dat")).c_str(), std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
+	std::ofstream binfile (OsString(oosdumpPath.ChangeExtension(L".dat")), std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
 	m_Simulation2.SerializeState(binfile);
 	binfile.close();
 

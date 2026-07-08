@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -26,12 +26,25 @@
 
 #include "precompiled.h"
 
-#include "lib/external_libraries/png.h"
-
-#include "lib/byte_order.h"
 #include "tex_codec.h"
+
+#include "lib/alignment.h"
+#include "lib/allocators/dynarray.h"
 #include "lib/allocators/shared_ptr.h"
-#include "lib/timer.h"
+#include "lib/byte_order.h"
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
+#include "lib/external_libraries/png.h"
+#include "lib/os_path.h"
+#include "lib/status.h"
+#include "lib/sysdep/compiler.h"
+#include "lib/tex/tex.h"
+#include "lib/types.h"
+
+#include <csetjmp>
+#include <cstring>
+#include <memory>
+#include <vector>
 
 #if MSC_VERSION
 
@@ -99,7 +112,7 @@ static void io_write(png_struct* png_ptr, u8* data, png_size_t length)
 }
 
 
-static void io_flush(png_structp UNUSED(png_ptr))
+static void io_flush(png_structp)
 {
 }
 
@@ -107,7 +120,7 @@ static void io_flush(png_structp UNUSED(png_ptr))
 
 //-----------------------------------------------------------------------------
 
-Status TexCodecPng::transform(Tex* UNUSED(t), size_t UNUSED(transforms)) const
+Status TexCodecPng::transform(Tex*, size_t /*transforms*/) const
 {
 	return INFO::TEX_CODEC_CANNOT_HANDLE;
 }
@@ -252,27 +265,23 @@ bool TexCodecPng::is_ext(const OsPath& extension) const
 }
 
 
-size_t TexCodecPng::hdr_size(const u8* UNUSED(file)) const
+size_t TexCodecPng::hdr_size(const u8* /*file*/) const
 {
 	return 0;	// libpng returns decoded image data; no header
 }
 
-static void user_warning_fn(png_structp UNUSED(png_ptr), png_const_charp warning_msg)
+static void user_warning_fn(png_structp, png_const_charp warning_msg)
 {
 	// Suppress this warning because it's useless and occurs on a large number of files
-	// see http://trac.wildfiregames.com/ticket/2184
+	// see https://gitea.wildfiregames.com/0ad/0ad/issues/2184
 	if (strcmp(warning_msg, "iCCP: known incorrect sRGB profile") == 0)
 		return;
 	debug_printf("libpng warning: %s\n", warning_msg);
 }
 
-TIMER_ADD_CLIENT(tc_png_decode);
-
 // limitation: palette images aren't supported
 Status TexCodecPng::decode(u8* RESTRICT data, size_t size, Tex* RESTRICT t) const
 {
-	TIMER_ACCRUE(tc_png_decode);
-
 	png_infop info_ptr = 0;
 
 	// allocate PNG structures; use default stderr and longjmp error handler, use custom

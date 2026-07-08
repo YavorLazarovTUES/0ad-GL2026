@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,36 +17,50 @@
 
 #include "lib/self_test.h"
 
-#include "simulation2/system/ComponentManager.h"
-
-#include "simulation2/components/ICmpTemplateManager.h"
-#include "simulation2/components/ICmpTest.h"
-#include "simulation2/MessageTypes.h"
-#include "simulation2/system/ParamNode.h"
-#include "simulation2/system/SimContext.h"
-#include "simulation2/Simulation2.h"
-
 #include "graphics/Terrain.h"
-#include "ps/Filesystem.h"
+#include "lib/file/file_system.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/path.h"
 #include "ps/CLogger.h"
+#include "ps/Filesystem.h"
+#include "ps/TemplateLoader.h"
 #include "ps/XML/Xeromyces.h"
 #include "scriptinterface/JSON.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
+#include "simulation2/Simulation2.h"
+#include "simulation2/components/ICmpTemplateManager.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+
+#include <algorithm>
+#include <cstdio>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <map>
+#include <memory>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
 
 class TestCmpTemplateManager : public CxxTest::TestSuite
 {
+	std::optional<CXeromycesEngine> xeromycesEngine;
 public:
 	void setUp()
 	{
 		g_VFS = CreateVfs();
 		TS_ASSERT_OK(g_VFS->Mount(L"", DataDir() / "mods" / "_test.sim" / "", VFS_MOUNT_MUST_EXIST));
 		TS_ASSERT_OK(g_VFS->Mount(L"cache", DataDir() / "_testcache" / "", 0, VFS_MAX_PRIORITY));
-		CXeromyces::Startup();
+		xeromycesEngine.emplace();
 	}
 
 	void tearDown()
 	{
-		CXeromyces::Terminate();
+		xeromycesEngine.reset();
 		g_VFS.reset();
 		DeleteDirectory(DataDir()/"_testcache");
 	}
@@ -101,7 +115,7 @@ public:
 		TS_ASSERT(tempMan != NULL);
 		tempMan->DisableValidation();
 
-		ScriptRequest rq(man.GetScriptInterface());
+		Script::Request rq(man.GetScriptInterface());
 
 		// This is testing some bugs in the template JS object caching
 
@@ -226,34 +240,32 @@ public:
 		TS_ASSERT_OK(g_VFS->Mount(L"", DataDir() / "mods" / "mod" / "", VFS_MOUNT_MUST_EXIST));
 		TS_ASSERT_OK(g_VFS->Mount(L"", DataDir() / "mods" / "public" / "", VFS_MOUNT_MUST_EXIST));
 		TS_ASSERT_OK(g_VFS->Mount(L"cache", DataDir()/"_testcache" / "", 0, VFS_MAX_PRIORITY));
-		CXeromyces::Startup();
 	}
 
 	void tearDown()
 	{
-		CXeromyces::Terminate();
 		g_VFS.reset();
 		DeleteDirectory(DataDir()/"_testcache");
 	}
 
 	// This just attempts loading every public entity, to check there's no validation errors
-	void test_load_all_DISABLED() // disabled since it's a bit slow and noisy
+	void test_load_all()
 	{
+		CXeromycesEngine xeromycesEngine;
 		CTerrain dummy;
-		CSimulation2 sim{nullptr, *g_ScriptContext, &dummy};
-		sim.LoadDefaultScripts();
+		CSimulation2 sim{nullptr, *g_ScriptContext, &dummy, CSimulation2::DEFAULT_SCRIPTS};
 		sim.ResetState();
 
 		CmpPtr<ICmpTemplateManager> cmpTemplateManager(sim, SYSTEM_ENTITY);
 		TS_ASSERT(cmpTemplateManager);
 
-		std::vector<std::string> templates = cmpTemplateManager->FindAllTemplates(true);
-		for (size_t i = 0; i < templates.size(); ++i)
+		const CTemplateLoader templateLoader{};
+		const auto tryLoadTemplate = [&](const std::string& name)
 		{
-			std::string name = templates[i];
-			printf("# %s\n", name.c_str());
 			const CParamNode* p = cmpTemplateManager->GetTemplate(name);
-			TS_ASSERT(p != NULL);
-		}
+			TS_ASSERT(p != nullptr);
+		};
+		std::ranges::for_each(cmpTemplateManager->FindAllTemplates(true), tryLoadTemplate);
+		std::ranges::for_each(templateLoader.FindTemplatesUnrestricted("special/players/", false), tryLoadTemplate);
 	}
 };

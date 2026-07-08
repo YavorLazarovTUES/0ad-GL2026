@@ -11,7 +11,7 @@ var g_ChangedKeys;
 /**
  * Vertical size of a tab button.
  */
-var g_TabButtonHeight = 30;
+var g_TabButtonHeight = 34;
 
 /**
  * Vertical space between two tab buttons.
@@ -58,7 +58,8 @@ var g_OptionType = {
 	"boolean":
 	{
 		"configToValue": config => config == "true",
-		"valueToGui": (value, control) => {
+		"valueToGui": (value, control) =>
+		{
 			control.checked = value;
 		},
 		"guiToValue": control => control.checked,
@@ -67,7 +68,8 @@ var g_OptionType = {
 	"string":
 	{
 		"configToValue": value => value,
-		"valueToGui": (value, control) => {
+		"valueToGui": (value, control) =>
+		{
 			control.caption = value;
 		},
 		"guiToValue": control => control.caption,
@@ -76,12 +78,15 @@ var g_OptionType = {
 	"color":
 	{
 		"configToValue": value => value,
-		"valueToGui": (value, control) => {
+		"valueToGui": (value, control) =>
+		{
 			control.caption = value;
 		},
-		"initGUI": (option, control) => {
-			control.children[2].onPress = async() => {
-				const color = await Engine.PushGuiPage("page_colormixer.xml", control.caption);
+		"initGUI": (option, control) =>
+		{
+			control.children[2].onPress = async() =>
+			{
+				const color = await Engine.OpenChildPage("page_colormixer.xml", control.caption);
 
 				if (color != control.caption)
 				{
@@ -92,9 +97,10 @@ var g_OptionType = {
 		},
 		"guiToValue": control => control.caption,
 		"guiSetter": "onTextEdit",
-		"sanitizeValue": (value, control, option) => {
-			let color = guiToRgbColor(value);
-			let sanitized = rgbToGuiColor(color);
+		"sanitizeValue": (value, control, option) =>
+		{
+			const color = guiToRgbColor(value);
+			const sanitized = rgbToGuiColor(color);
 			if (control)
 			{
 				control.sprite = sanitized == value ? "ModernDarkBoxWhite" : "ModernDarkBoxWhiteInvalid";
@@ -110,13 +116,15 @@ var g_OptionType = {
 	"number":
 	{
 		"configToValue": value => value,
-		"valueToGui": (value, control) => {
+		"valueToGui": (value, control) =>
+		{
 			control.caption = value;
 		},
 		"guiToValue": control => control.caption,
 		"guiSetter": "onTextEdit",
-		"sanitizeValue": (value, control, option) => {
-			let sanitized =
+		"sanitizeValue": (value, control, option) =>
+		{
+			const sanitized =
 				Math.min(option.max !== undefined ? option.max : +Infinity,
 					Math.max(option.min !== undefined ? option.min : -Infinity,
 						isNaN(+value) ? 0 : value));
@@ -130,11 +138,11 @@ var g_OptionType = {
 			sprintf(
 				option.min !== undefined && option.max !== undefined ?
 					translateWithContext("option number", "Min: %(min)s, Max: %(max)s") :
-				option.min !== undefined && option.max === undefined ?
-					translateWithContext("option number", "Min: %(min)s") :
-				option.min === undefined && option.max !== undefined ?
-					translateWithContext("option number", "Max: %(max)s") :
-					"",
+					option.min !== undefined && option.max === undefined ?
+						translateWithContext("option number", "Min: %(min)s") :
+						option.min === undefined && option.max !== undefined ?
+							translateWithContext("option number", "Max: %(max)s") :
+							"",
 				{
 					"min": option.min,
 					"max": option.max
@@ -143,16 +151,19 @@ var g_OptionType = {
 	"dropdown":
 	{
 		"configToValue": value => value,
-		"valueToGui": (value, control) => {
+		"valueToGui": (value, control) =>
+		{
 			control.selected = control.list_data.indexOf(value);
 		},
 		"guiToValue": control => control.list_data[control.selected],
 		"guiSetter": "onSelectionChange",
-		"initGUI": (option, control) => {
+		"initGUI": (option, control) =>
+		{
 			control.list = option.list.map(e => e.label);
 			control.list_data = option.list.map(e => e.value);
-			control.onHoverChange = () => {
-				let item = option.list[control.hovered];
+			control.onHoverChange = () =>
+			{
+				const item = option.list[control.hovered];
 				control.tooltip = item && item.tooltip || option.tooltip;
 			};
 		}
@@ -160,20 +171,24 @@ var g_OptionType = {
 	"dropdownNumber":
 	{
 		"configToValue": value => +value,
-		"valueToGui": (value, control) => {
+		"valueToGui": (value, control) =>
+		{
 			control.selected = control.list_data.indexOf("" + value);
 		},
 		"guiToValue": control => +control.list_data[control.selected],
 		"guiSetter": "onSelectionChange",
-		"initGUI": (option, control) => {
+		"initGUI": (option, control) =>
+		{
 			control.list = option.list.map(e => e.label);
 			control.list_data = option.list.map(e => e.value);
-			control.onHoverChange = () => {
+			control.onHoverChange = () =>
+			{
 				const item = option.list[control.hovered];
 				control.tooltip = item && item.tooltip || option.tooltip;
 			};
 		},
-		"timeout": async(option, oldValue, hasChanges, newValue) => {
+		"timeout": async(option, oldValue, hasChanges, newValue) =>
+		{
 			if (!option.timeout)
 				return;
 			const buttonIndex = await timedConfirmation(
@@ -185,18 +200,20 @@ var g_OptionType = {
 				[translate("No"), translate("Yes")]);
 
 			if (buttonIndex === 0)
-				this.revertChange(option, +oldValue, hasChanges);
+				revertChange(option, +oldValue, hasChanges);
 		}
 	},
 	"slider":
 	{
 		"configToValue": value => +value,
-		"valueToGui": (value, control) => {
+		"valueToGui": (value, control) =>
+		{
 			control.value = +value;
 		},
 		"guiToValue": control => control.value,
 		"guiSetter": "onValueChange",
-		"initGUI": (option, control) => {
+		"initGUI": (option, control) =>
+		{
 			control.max_value = option.max;
 			control.min_value = option.min;
 		},
@@ -209,7 +226,7 @@ var g_OptionType = {
 	}
 };
 
-function init(data, hotloadData)
+async function init(data, hotloadData)
 {
 	g_ChangedKeys = hotloadData ? hotloadData.changedKeys : new Set();
 	g_TabCategorySelected = hotloadData ? hotloadData.tabCategorySelected : 0;
@@ -217,7 +234,9 @@ function init(data, hotloadData)
 	g_Options = Engine.ReadJSONFile("gui/options/options.json");
 	translateObjectKeys(g_Options, ["label", "tooltip"]);
 	deepfreeze(g_Options);
-
+	Engine.SetGlobalHotkey("options", "Press", () =>
+		Engine.GetGUIObjectByName("closeButton").onPress()
+	);
 	placeTabButtons(
 		g_Options,
 		false,
@@ -225,6 +244,13 @@ function init(data, hotloadData)
 		g_TabButtonDist,
 		selectPanel,
 		displayOptions);
+
+	while (true)
+	{
+		await new Promise(resolve => { Engine.GetGUIObjectByName("closeButton").onPress = resolve; });
+		if (await shouldClosePage())
+			return g_ChangedKeys;
+	}
 }
 
 function getHotloadData()
@@ -241,10 +267,10 @@ function getHotloadData()
 function displayOptions()
 {
 	// Hide all controls
-	for (let body of Engine.GetGUIObjectByName("option_controls").children)
+	for (const body of Engine.GetGUIObjectByName("option_controls").children)
 	{
 		body.hidden = true;
-		for (let control of body.children)
+		for (const control of body.children)
 			control.hidden = true;
 	}
 
@@ -252,20 +278,18 @@ function displayOptions()
 	for (let i = 0; i < g_Options[g_TabCategorySelected].options.length; ++i)
 	{
 		// Position vertically
-		let body = Engine.GetGUIObjectByName("option_control[" + i + "]");
-		let bodySize = body.size;
-		bodySize.top = g_OptionControlOffset + i * (g_OptionControlHeight + g_OptionControlDist);
-		bodySize.bottom = bodySize.top + g_OptionControlHeight;
-		body.size = bodySize;
+		const body = Engine.GetGUIObjectByName("option_control[" + i + "]");
+		body.size.top = g_OptionControlOffset + i * (g_OptionControlHeight + g_OptionControlDist);
+		body.size.bottom = body.size.top + g_OptionControlHeight;
 		body.hidden = false;
 
 		// Load option data
-		let option = g_Options[g_TabCategorySelected].options[i];
-		let optionType = g_OptionType[option.type];
-		let value = optionType.configToValue(Engine.ConfigDB_GetValue("user", option.config));
+		const option = g_Options[g_TabCategorySelected].options[i];
+		const optionType = g_OptionType[option.type];
+		const value = optionType.configToValue(Engine.ConfigDB_GetValue("user", option.config));
 
 		// Setup control
-		let control = Engine.GetGUIObjectByName("option_control_" + option.type + "[" + i + "]");
+		const control = Engine.GetGUIObjectByName("option_control_" + option.type + "[" + i + "]");
 		control.tooltip = option.tooltip + (optionType.tooltip ? "\n" + optionType.tooltip(value, option) : "");
 		control.hidden = false;
 
@@ -277,42 +301,41 @@ function displayOptions()
 		if (optionType.sanitizeValue)
 			optionType.sanitizeValue(value, control, option);
 
-		control[optionType.guiSetter] = function() {
+		control[optionType.guiSetter] = function()
+		{
 
-			let value = optionType.guiToValue(control);
+			const newValue = optionType.guiToValue(control);
 
 			if (optionType.sanitizeValue)
-				optionType.sanitizeValue(value, control, option);
+				optionType.sanitizeValue(newValue, control, option);
 
 			const oldValue = optionType.configToValue(Engine.ConfigDB_GetValue("user", option.config));
 
-			control.tooltip = option.tooltip + (optionType.tooltip ? "\n" + optionType.tooltip(value, option) : "");
+			control.tooltip = option.tooltip + (optionType.tooltip ? "\n" + optionType.tooltip(newValue, option) : "");
 
 			const hasChanges = Engine.ConfigDB_HasChanges("user");
-			Engine.ConfigDB_CreateValue("user", option.config, String(value));
+			Engine.ConfigDB_CreateValue("user", option.config, String(newValue));
 
 			g_ChangedKeys.add(option.config);
 			fireConfigChangeHandlers(new Set([option.config]));
 
 			if (option.timeout)
-				optionType.timeout(option, oldValue, hasChanges, value);
+				optionType.timeout(option, oldValue, hasChanges, newValue);
 
 			if (option.function)
-				Engine[option.function](value);
+				Engine[option.function](newValue);
 
 			enableButtons();
 		};
 
 		// Setup label
-		let label = Engine.GetGUIObjectByName("option_label[" + i + "]");
+		const label = Engine.GetGUIObjectByName("option_label[" + i + "]");
 		label.caption = option.label;
 		label.tooltip = option.tooltip;
 		label.hidden = false;
 
-		let labelSize = label.size;
-		labelSize.left = option.dependencies ? g_DependentLabelIndentation : 0;
-		labelSize.rright = control.size.rleft;
-		label.size = labelSize;
+		label.size.left = option.dependencies ? g_DependentLabelIndentation : 0;
+		label.size.rright = control.size.rleft;
 	}
 
 	enableButtons();
@@ -323,8 +346,10 @@ function displayOptions()
  */
 function enableButtons()
 {
-	g_Options[g_TabCategorySelected].options.forEach((option, i) => {
-		const isDependencyMet = dependency => {
+	g_Options[g_TabCategorySelected].options.forEach((option, i) =>
+	{
+		const isDependencyMet = dependency =>
+		{
 			if (typeof dependency === "string")
 				return Engine.ConfigDB_GetValue("user", dependency) == "true";
 			else if (typeof dependency === "object")
@@ -357,7 +382,7 @@ function enableButtons()
 
 async function setDefaults()
 {
-	const buttonIndex = messageBox(
+	const buttonIndex = await messageBox(
 		500, 200,
 		translate("Resetting the options will erase your saved settings. Do you want to continue?"),
 		translate("Warning"),
@@ -366,8 +391,8 @@ async function setDefaults()
 	if (buttonIndex === 0)
 		return;
 
-	for (let category in g_Options)
-		for (let option of g_Options[category].options)
+	for (const category in g_Options)
+		for (const option of g_Options[category].options)
 		{
 			Engine.ConfigDB_RemoveValue("user", option.config);
 			g_ChangedKeys.add(option.config);
@@ -394,8 +419,8 @@ function revertChanges()
 {
 	Engine.ConfigDB_Reload("user");
 
-	for (let category in g_Options)
-		for (let option of g_Options[category].options)
+	for (const category in g_Options)
+		for (const option of g_Options[category].options)
 			if (option.function)
 				Engine[option.function](
 					g_OptionType[option.type].configToValue(
@@ -406,13 +431,15 @@ function revertChanges()
 
 async function saveChanges()
 {
-	const category = Object.keys(g_Options).find(key => {
-		return g_Options[key].options.some(option => {
-			let optionType = g_OptionType[option.type];
+	const category = Object.keys(g_Options).find(key =>
+	{
+		return g_Options[key].options.some(option =>
+		{
+			const optionType = g_OptionType[option.type];
 			if (!optionType.sanitizeValue)
 				return false;
 
-			let value = optionType.configToValue(Engine.ConfigDB_GetValue("user", option.config));
+			const value = optionType.configToValue(Engine.ConfigDB_GetValue("user", option.config));
 			return value != optionType.sanitizeValue(value, undefined, option);
 		});
 	});
@@ -436,20 +463,18 @@ async function saveChanges()
 }
 
 /**
- * Close GUI page and inform the parent GUI page which options changed.
- **/
-async function closePage()
+ * Asks the user if this page really should be closed.
+ */
+async function shouldClosePage()
 {
-	if (Engine.ConfigDB_HasChanges("user"))
-	{
-		const buttonIndex = await messageBox(
-			500, 200,
-			translate("You have unsaved changes, do you want to close this window?"),
-			translate("Warning"),
-			[translate("No"), translate("Yes")]);
-		if (buttonIndex === 0)
-			return;
-	}
+	if (!Engine.ConfigDB_HasChanges("user"))
+		return true;
 
-	Engine.PopGuiPage(g_ChangedKeys);
+	const buttonIndex = await messageBox(
+		500, 200,
+		translate("You have unsaved changes, do you want to close this window?"),
+		translate("Warning"),
+		[translate("No"), translate("Yes")]);
+
+	return buttonIndex === 1;
 }

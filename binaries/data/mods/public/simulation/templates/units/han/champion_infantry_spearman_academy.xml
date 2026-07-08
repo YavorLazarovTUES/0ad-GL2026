@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Entity parent="template_unit_champion_infantry_spearman">
+<Entity parent="spec_champ|template_unit_champion_infantry_spearman">
   <Identity>
     <Civ>han</Civ>
-    <GenericName>Palace Guard Spearman</GenericName>
+    <GenericName>Tiger Guard Spearman</GenericName>
     <SpecificName>Hǔ Bēn</SpecificName>
     <SelectionGroupName>units/han/champion_infantry_spearman</SelectionGroupName>
     <Icon>units/han/champion_infantry_swordsman.png</Icon>

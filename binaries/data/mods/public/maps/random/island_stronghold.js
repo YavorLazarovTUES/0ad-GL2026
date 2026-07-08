@@ -1,14 +1,13 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
-Engine.LoadLibrary("rmgen2");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
 	const g_InitialMineDistance = 14;
 	const g_InitialTrees = 50;
 
-	setSelectedBiome();
+	setBiome(mapSettings.Biome);
 
 	const tMainTerrain = g_Terrains.mainTerrain;
 	const tForestFloor1 = g_Terrains.forestFloor1;
@@ -89,7 +88,7 @@ function* GenerateMap()
 
 	for (let i = 0; i < teams.length; ++i)
 	{
-		if (!teams[i] || isNomad())
+		if (!teams[i] || mapSettings.Nomad)
 			continue;
 
 		++teamNo;
@@ -213,8 +212,8 @@ function* GenerateMap()
 	g_Map.log("Creating big islands");
 	createAreas(
 		new ChainPlacer(
-			Math.floor(scaleByMapSize(4, 8) * (isNomad() ? 2 : 1)),
-			Math.floor(scaleByMapSize(8, 16) * (isNomad() ? 2 : 1)),
+			Math.floor(scaleByMapSize(4, 8) * (mapSettings.Nomad ? 2 : 1)),
+			Math.floor(scaleByMapSize(8, 16) * (mapSettings.Nomad ? 2 : 1)),
 			Math.floor(scaleByMapSize(25, 60)),
 			0.07,
 			undefined,
@@ -225,7 +224,7 @@ function* GenerateMap()
 			new TileClassPainter(clLand)
 		],
 		avoidClasses(clLand, 3, clPlayer, 3),
-		scaleByMapSize(4, 14) * (isNomad() ? 2 : 1),
+		scaleByMapSize(4, 14) * (mapSettings.Nomad ? 2 : 1),
 		1);
 
 	g_Map.log("Creating small islands");

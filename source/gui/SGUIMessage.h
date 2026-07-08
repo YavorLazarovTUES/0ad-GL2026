@@ -1,4 +1,4 @@
-/* Copyright (C) 2020 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,6 +18,7 @@
 #ifndef INCLUDED_SGUIMESSAGE
 #define INCLUDED_SGUIMESSAGE
 
+#include "lib/code_annotation.h"
 #include "ps/CStr.h"
 
 /**
@@ -35,13 +36,15 @@ enum EGUIMessageType
 	GUIM_MOUSE_DOWN_LEFT,
 	GUIM_MOUSE_DOWN_RIGHT,
 	GUIM_MOUSE_DBLCLICK_LEFT,
-	GUIM_MOUSE_DBLCLICK_LEFT_ITEM, // Triggered when doubleclicking on a list item
+	GUIM_MOUSE_DBLCLICK_LEFT_ITEM, // Triggered when doubleclicking on a list item.
 	GUIM_MOUSE_DBLCLICK_RIGHT,
 	GUIM_MOUSE_RELEASE_LEFT,
 	GUIM_MOUSE_RELEASE_RIGHT,
 	GUIM_MOUSE_WHEEL_UP,
 	GUIM_MOUSE_WHEEL_DOWN,
-	GUIM_SETTINGS_UPDATED,	// SGUIMessage.m_Value = name of setting
+	GUIM_MOUSE_WHEEL_LEFT,
+	GUIM_MOUSE_WHEEL_RIGHT,
+	GUIM_SETTINGS_UPDATED,	// SGUIMessage.m_Value = name of setting.
 	GUIM_PRESSED,
 	GUIM_KEYDOWN,
 	GUIM_RELEASED,
@@ -55,8 +58,10 @@ enum EGUIMessageType
 	GUIM_DOUBLE_PRESSED_MOUSE_RIGHT,
 	GUIM_PRESSED_MOUSE_RELEASE,
 	GUIM_PRESSED_MOUSE_RELEASE_RIGHT,
-	GUIM_TAB,				// Used by CInput
-	GUIM_TEXTEDIT
+	GUIM_TAB,				// Used by CInput.
+	GUIM_TEXTEDIT,
+	GUIM_CHILD_RESIZED,  // SGUIMessage.m_Value = name of the object that changed size, used for inform to parent.
+	GUIM_CHILD_TOGGLE_VISIBILITY, // SGUIMessage.m_Value = name of the object that changed visibility used for inform to parent.
 };
 
 /**

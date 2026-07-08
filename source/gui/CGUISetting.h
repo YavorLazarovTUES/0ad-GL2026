@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,11 +18,15 @@
 #ifndef INCLUDED_CGUISETTINGS
 #define INCLUDED_CGUISETTINGS
 
+#include "lib/code_annotation.h"
 #include "ps/CStr.h"
-#include "scriptinterface/ScriptForward.h"
 
+#include <js/TypeDecls.h>
+
+#include <utility>
 
 class IGUIObject;
+namespace Script { class Request; }
 
 /**
  * This setting interface allows GUI objects to call setting function functions without having to know the setting type.
@@ -43,12 +47,12 @@ public:
 	/**
 	 * Parses the given JS::Value using Script::FromJSVal and assigns it to the setting data.
 	 */
-	bool FromJSVal(const ScriptRequest& rq, JS::HandleValue value, const bool sendMessage);
+	bool FromJSVal(const Script::Request& rq, JS::HandleValue value, const bool sendMessage);
 
 	/**
 	 * Converts the setting data to a JS::Value using Script::ToJSVal.
 	 */
-	virtual void ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue value) = 0;
+	virtual void ToJSVal(const Script::Request& rq, JS::MutableHandleValue value) = 0;
 
 protected:
 	IGUISetting(IGUISetting&& other);
@@ -57,7 +61,7 @@ protected:
 	virtual ~IGUISetting() = default;
 
 	virtual bool DoFromString(const CStrW& value) = 0;
-	virtual bool DoFromJSVal(const ScriptRequest& rq, JS::HandleValue value) = 0;
+	virtual bool DoFromJSVal(const Script::Request& rq, JS::HandleValue value) = 0;
 
 	/**
 	 * Triggers the IGUIObject logic when a setting changes.
@@ -120,8 +124,8 @@ public:
 
 protected:
 	bool DoFromString(const CStrW& value) override;
-	bool DoFromJSVal(const ScriptRequest& rq, JS::HandleValue value) override;
-	void ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue value) override;
+	bool DoFromJSVal(const Script::Request& rq, JS::HandleValue value) override;
+	void ToJSVal(const Script::Request& rq, JS::MutableHandleValue value) override;
 
 	T m_Setting;
 };

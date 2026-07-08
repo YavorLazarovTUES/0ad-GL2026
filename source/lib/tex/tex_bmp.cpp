@@ -1,4 +1,4 @@
-/* Copyright (C) 2019 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -26,8 +26,17 @@
 
 #include "precompiled.h"
 
-#include "lib/byte_order.h"
 #include "tex_codec.h"
+
+#include "lib/byte_order.h"
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
+#include "lib/os_path.h"
+#include "lib/status.h"
+#include "lib/tex/tex.h"
+#include "lib/types.h"
+
+#include <cstdlib>
 
 #pragma pack(push, 1)
 
@@ -60,7 +69,7 @@ struct BmpHeader
 #define BI_RGB 0		// biCompression
 
 
-Status TexCodecBmp::transform(Tex* UNUSED(t), size_t UNUSED(transforms)) const
+Status TexCodecBmp::transform(Tex*, size_t /*transforms*/) const
 {
 	return INFO::TEX_CODEC_CANNOT_HANDLE;
 }
@@ -95,7 +104,7 @@ size_t TexCodecBmp::hdr_size(const u8* file) const
 
 
 // requirements: uncompressed, direct color, bottom up
-Status TexCodecBmp::decode(u8* RESTRICT data, size_t UNUSED(size), Tex* RESTRICT t) const
+Status TexCodecBmp::decode(u8* RESTRICT data, size_t /*size*/, Tex* RESTRICT t) const
 {
 	const BmpHeader* hdr = (const BmpHeader*)data;
 	const long w       = (long)read_le32(&hdr->biWidth);

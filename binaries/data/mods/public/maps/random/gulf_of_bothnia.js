@@ -2,15 +2,11 @@ Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap(mapSettings)
+export function* generateMap(mapSettings)
 {
 	TILE_CENTERED_HEIGHT_MAP = true;
 
-	if (mapSettings.Biome)
-		setSelectedBiome();
-	else
-		// TODO: Replace ugly default for atlas by a dropdown
-		setBiome("gulf_of_bothnia/winter");
+	setBiome(mapSettings.Biome);
 
 	const isLakeFrozen = g_Environment.Water.Frozen;
 
@@ -163,8 +159,8 @@ function* GenerateMap(mapSettings)
 		createObjectGroupsByAreas(
 			new SimpleGroup([new SimpleObject(oFish, 1, 2, 0, 2)], true, clFood),
 			0,
-			stayClasses(clWater, 2),
-			scaleByMapSize(fishCount.min, fishCount.max),
+			stayClasses(clWater, 1),
+			2*scaleByMapSize(fishCount.min, fishCount.max),
 			20,
 			areas);
 	}
@@ -280,8 +276,8 @@ function* GenerateMap(mapSettings)
 		// fish are already placed when creating the holes in the ice
 		createFood(
 			[[new SimpleObject(oFish, 2, 3, 0, 2)]],
-			[scaleByMapSize(fishCount.min, fishCount.max)],
-			[avoidClasses(clFood, 20), stayClasses(clWater, 6)],
+			[4*scaleByMapSize(fishCount.min, fishCount.max)],
+			[avoidClasses(clFood, 12), stayClasses(clWater, 2)],
 			clFood);
 	}
 

@@ -18,7 +18,7 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 
-function* GenerateMap(mapSettings)
+export function* generateMap(mapSettings)
 {
 	TILE_CENTERED_HEIGHT_MAP = true;
 
@@ -505,7 +505,7 @@ function* GenerateMap(mapSettings)
 		50);
 	yield 83;
 
-	if (!isNomad())
+	if (!mapSettings.Nomad)
 	{
 		g_Map.log("Creating lions");
 		createObjectGroups(
@@ -555,8 +555,8 @@ function* GenerateMap(mapSettings)
 	createObjectGroups(
 		new SimpleGroup([new SimpleObject(oFish, 1, 2, 0, 1)], true, clFood),
 		0,
-		[stayClasses(clWater, 8), avoidClasses(clFood, 16)],
-		scaleByMapSize(15, 80),
+		[stayClasses(clWater, 2), avoidClasses(clFood, 12)],
+		scaleByMapSize(125, 200),
 		50);
 	yield 91;
 

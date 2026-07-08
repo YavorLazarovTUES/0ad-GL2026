@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,13 +19,21 @@
 
 #include "LongPathfinder.h"
 
+#include "graphics/SColor.h"
 #include "lib/bits.h"
-#include "ps/Profile.h"
+#include "maths/Fixed.h"
+#include "maths/FixedVector2D.h"
+#include "ps/CLogger.h"
+#include "ps/Profiler2.h"
+#include "renderer/TerrainOverlay.h"
+#include "simulation2/helpers/HierarchicalPathfinder.h"
+#include "simulation2/helpers/Pathfinding.h"
 
-#include "Geometry.h"
-#include "HierarchicalPathfinder.h"
-
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
 #include <mutex>
+#include <utility>
 
 namespace
 {
@@ -136,7 +144,7 @@ class JumpPointCache
 			return data.capacity() * sizeof(Interval);
 		}
 
-		RowTree(int UNUSED(length))
+		RowTree(int /*length*/)
 		{
 		}
 
@@ -298,7 +306,6 @@ public:
 	void reset(const Grid<NavcellData>* terrain, pass_class_t passClass)
 	{
 		PROFILE2("JumpPointCache reset");
-		TIMER(L"JumpPointCache reset");
 
 		m_Width = terrain->m_W;
 		m_Height = terrain->m_H;

@@ -89,13 +89,13 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="13">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="426.977" z="340.93793"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="14">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="317.24003" z="483.74537"/>
 			<Orientation y="-0.6059"/>
@@ -3052,13 +3052,13 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="576">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="1135.40101" z="656.14075"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="577">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="1041.74268" z="855.36487"/>
 			<Orientation y="0.31591"/>
@@ -6746,7 +6746,7 @@
 			<Orientation y="0.46744"/>
 		</Entity>
 		<Entity uid="1267">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="806.37452" z="328.62458"/>
 			<Orientation y="2.35621"/>
@@ -8885,25 +8885,25 @@
 			<Orientation y="-0.86254"/>
 		</Entity>
 		<Entity uid="1644">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="334.27836" z="1204.11353"/>
 			<Orientation y="-2.59833"/>
 		</Entity>
 		<Entity uid="1645">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="315.66971" z="870.43915"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1646">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="566.72529" z="922.1974"/>
 			<Orientation y="0.37531"/>
 		</Entity>
 		<Entity uid="1647">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="1068.65638" z="1210.98182"/>
 			<Orientation y="2.35621"/>
@@ -15314,28 +15314,28 @@
 			<Actor seed="4004"/>
 		</Entity>
 		<Entity uid="2873">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>2</Player>
 			<Position x="451.22785" z="381.47455"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="56124"/>
 		</Entity>
 		<Entity uid="2874">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>2</Player>
 			<Position x="454.60923" z="385.15601"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="44046"/>
 		</Entity>
 		<Entity uid="2875">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>2</Player>
 			<Position x="458.36551" z="387.76624"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="23448"/>
 		</Entity>
 		<Entity uid="2876">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>2</Player>
 			<Position x="461.32694" z="390.31177"/>
 			<Orientation y="2.35621"/>
@@ -15384,28 +15384,28 @@
 			<Actor seed="22696"/>
 		</Entity>
 		<Entity uid="2883">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>1</Player>
 			<Position x="1089.66077" z="650.56971"/>
 			<Orientation y="0.47413"/>
 			<Actor seed="43640"/>
 		</Entity>
 		<Entity uid="2884">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>1</Player>
 			<Position x="1095.17811" z="655.3241"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="740"/>
 		</Entity>
 		<Entity uid="2885">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>1</Player>
 			<Position x="1099.38331" z="659.56849"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="50752"/>
 		</Entity>
 		<Entity uid="2886">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>1</Player>
 			<Position x="1103.28211" z="663.23761"/>
 			<Orientation y="2.35621"/>
@@ -15591,14 +15591,14 @@
 			<Actor seed="2420"/>
 		</Entity>
 		<Entity uid="2914">
-			<Template>gaia/treasure/metal_persian_small</Template>
+			<Template>gaia/treasure/metal_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="247.33747" z="474.63874"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="8527"/>
 		</Entity>
 		<Entity uid="2915">
-			<Template>gaia/treasure/metal_persian_small</Template>
+			<Template>gaia/treasure/metal_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="1104.74573" z="860.54712"/>
 			<Orientation y="2.35621"/>

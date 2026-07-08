@@ -2,7 +2,7 @@ function WeightedList()
 {
 	this.elements = new Map();
 	this.totalWeight = 0;
-};
+}
 
 WeightedList.prototype.length = function()
 {
@@ -27,7 +27,7 @@ WeightedList.prototype.randomItem = function()
 {
 	const targetWeight = randFloat(0, this.totalWeight);
 	let cumulativeWeight = 0;
-	for (let [item, weight] of this.elements)
+	for (const [item, weight] of this.elements)
 	{
 		cumulativeWeight += weight;
 		if (cumulativeWeight >= targetWeight)

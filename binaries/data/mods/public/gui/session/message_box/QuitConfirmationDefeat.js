@@ -3,7 +3,7 @@
  */
 class QuitConfirmationDefeat extends QuitConfirmation
 {
-	constructor()
+	constructor(closePageCallback)
 	{
 		super();
 
@@ -11,10 +11,10 @@ class QuitConfirmationDefeat extends QuitConfirmation
 			return;
 
 		this.confirmHandler = undefined;
-		registerPlayersFinishedHandler(this.onPlayersFinished.bind(this));
+		registerPlayersFinishedHandler(this.onPlayersFinished.bind(this, closePageCallback));
 	}
 
-	onPlayersFinished(players, won)
+	onPlayersFinished(closePageCallback, players, won)
 	{
 		if (players.indexOf(Engine.GetPlayerID()) == -1)
 			return;
@@ -22,11 +22,11 @@ class QuitConfirmationDefeat extends QuitConfirmation
 		// Defer simulation result until
 		// 1. the loading screen finished for all networked clients (g_IsNetworkedActive)
 		// 2. all messages modifying g_Players victory state were processed (next turn)
-		this.confirmHandler = this.confirmExit.bind(this, won);
+		this.confirmHandler = this.confirmExit.bind(this, won, closePageCallback);
 		registerSimulationUpdateHandler(this.confirmHandler);
 	}
 
-	confirmExit(won)
+	confirmExit(won, closePageCallback)
 	{
 		if (g_IsNetworked && !g_IsNetworkedActive)
 			return;
@@ -34,7 +34,7 @@ class QuitConfirmationDefeat extends QuitConfirmation
 		unregisterSimulationUpdateHandler(this.confirmHandler);
 
 		// Don't invite the host to exit if other humans are still playing.
-		let askExit = !Engine.HasNetServer() || g_Players.every((player, i) =>
+		const askExit = !Engine.HasNetServer() || g_Players.every((player, i) =>
 			i == 0 ||
 			player.state != "active" ||
 			g_InitAttributes.settings.PlayerData[i].AI != "");
@@ -47,7 +47,7 @@ class QuitConfirmationDefeat extends QuitConfirmation
 
 		this.Buttons = askExit ? super.Buttons : undefined;
 
-		this.display();
+		this.display(closePageCallback);
 	}
 }
 

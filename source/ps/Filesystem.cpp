@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,13 +19,19 @@
 
 #include "Filesystem.h"
 
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
+#include "lib/os_path.h"
+#include "lib/path.h"
 #include "lib/sysdep/dir_watch.h"
-#include "lib/utf8.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
 #include "ps/Profile.h"
 
-#include <boost/filesystem.hpp>
+#include <algorithm>
+#include <string>
+#include <utility>
+#include <vector>
 
 PIVFS g_VFS;
 
@@ -79,6 +85,10 @@ Status ReloadChangedFiles()
 
 	std::vector<DirWatchNotification> notifications;
 	RETURN_STATUS_IF_ERR(dir_watch_Poll(notifications));
+
+	if (notifications.empty())
+		return INFO::SKIPPED;
+
 	for(size_t i = 0; i < notifications.size(); i++)
 	{
 		if(!CanIgnore(notifications[i]))
@@ -95,15 +105,6 @@ Status ReloadChangedFiles()
 		}
 	}
 	return INFO::OK;
-}
-
-std::wstring GetWstringFromWpath(const fs::wpath& path)
-{
-#if BOOST_FILESYSTEM_VERSION == 3
-	return path.wstring();
-#else
-	return path.string();
-#endif
 }
 
 

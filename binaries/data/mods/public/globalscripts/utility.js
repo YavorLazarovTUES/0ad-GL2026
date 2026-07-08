@@ -6,10 +6,10 @@ function shuffleArray(source)
 	if (!source.length)
 		return [];
 
-	let result = [source[0]];
+	const result = [source[0]];
 	for (let i = 1; i < source.length; ++i)
 	{
-		let j = randIntInclusive(0, i);
+		const j = randIntInclusive(0, i);
 		result[i] = result[j];
 		result[j] = source[i];
 	}
@@ -24,7 +24,7 @@ function shuffleArray(source)
  */
 function heapsPermute(array, cloneFunc, callback)
 {
-	let c = new Array(array.length).fill(0);
+	const c = new Array(array.length).fill(0);
 
 	callback(array.map(cloneFunc));
 
@@ -33,8 +33,8 @@ function heapsPermute(array, cloneFunc, callback)
 	{
 		if (c[i] < i)
 		{
-			let swapIndex = i % 2 ? c[i] : 0;
-			let swapValue = cloneFunc(array[swapIndex]);
+			const swapIndex = i % 2 ? c[i] : 0;
+			const swapValue = cloneFunc(array[swapIndex]);
 			array[swapIndex] = array[i];
 			array[i] = swapValue;
 
@@ -75,7 +75,7 @@ function deepCompare(first, second)
 	// check what type one of the objects is, and then compare them.
 
 	// Check numbers seperately. Make sure this works with NaN, Infinity etc.
-	if (typeof first == "number")
+	if (typeof first === "number")
 		return uneval(first) === uneval(second);
 
 	// Functions and RegExps must have the same reference to be equal.
@@ -142,3 +142,20 @@ function listFiles(path, extension, recurse)
 	return Engine.ListDirectoryFiles(path, "*" + extension, recurse).map(filename => filename.slice(path.length, -extension.length));
 }
 
+/**
+ * Computes the Cartesian Product of multiple arrays
+ *
+ * Generates all possible ordered combinations by taking one element from each input array.
+ * This is equivalent to nested loops over all input arrays, producing every possible combination.
+ *
+ * @example
+ * cartesianProduct([[1, 2], ['a', 'b']])
+ * -> [[1,'a'],[1,'b'],[2,'a'],[2,'b']]
+ */
+function cartesianProduct(arrays)
+{
+	return arrays.reduce((acc, curr) =>
+		acc.flatMap(a => curr.map(c => [...a, c])),
+	[[]]
+	);
+}

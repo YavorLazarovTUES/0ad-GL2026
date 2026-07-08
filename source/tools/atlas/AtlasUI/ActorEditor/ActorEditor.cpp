@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,18 +17,38 @@
 
 #include "precompiled.h"
 
-#include <boost/algorithm/string/predicate.hpp>
-
 #include "ActorEditor.h"
 
-#include "ActorEditorListCtrl.h"
-#include "AtlasObject/AtlasObject.h"
-#include "AtlasObject/AtlasObjectText.h"
-#include "General/Datafile.h"
-#ifdef __WXMAC__
-#include <ApplicationServices/ApplicationServices.h>
-#endif
-#include "wx/file.h"
+#include "tools/atlas/AtlasObject/AtlasObject.h"
+#include "tools/atlas/AtlasUI/ActorEditor/ActorEditorListCtrl.h"
+#include "tools/atlas/AtlasUI/CustomControls/Windows/AtlasWindow.h"
+#include "tools/atlas/AtlasUI/General/Datafile.h"
+#include "tools/atlas/AtlasUI/Misc/Graphics/ActorEditor.xpm"
+
+#include <boost/algorithm/string/predicate.hpp>
+#include <cstring>
+#include <string>
+#include <wx/arrstr.h>
+#include <wx/chartype.h>
+#include <wx/checkbox.h>
+#include <wx/combobox.h>
+#include <wx/debug.h>
+#include <wx/file.h>
+#include <wx/filedlg.h>
+#include <wx/filename.h>
+#include <wx/gdicmn.h>
+#include <wx/icon.h>
+#include <wx/log.h>
+#include <wx/menu.h>
+#include <wx/msgdlg.h>
+#include <wx/panel.h>
+#include <wx/sizer.h>
+#include <wx/statbox.h>
+#include <wx/string.h>
+#include <wx/toolbar.h>
+#include <wx/translation.h>
+
+class wxWindow;
 
 BEGIN_EVENT_TABLE(ActorEditor, AtlasWindow)
 	EVT_MENU(ID_CreateEntity, ActorEditor::OnCreateEntity)
@@ -38,13 +58,8 @@ END_EVENT_TABLE()
 ActorEditor::ActorEditor(wxWindow* parent)
 	: AtlasWindow(parent, _("Actor Editor"), wxSize(1024, 450))
 {
-	SetIcon(wxIcon(_T("ICON_ActorEditor")));
+	SetIcon(wxICON(ICON_ActorEditor));
 
-#ifdef __WXMAC__
-	ProcessSerialNumber PSN;
-	GetCurrentProcess(&PSN);
-	TransformProcessType(&PSN,kProcessTransformToForegroundApplication);
-#endif
 	wxMenu* menu = new wxMenu;
 	menu->Append(ID_CreateEntity, _("Create &entity..."));
 	AddCustomMenu(menu, _("&Actor"));

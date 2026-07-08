@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,29 +21,15 @@
 #include <map>
 #include <string>
 
-// Some platform dependent sizes
-#if defined(__WXGTK__)
-	#define SIDEBAR_SIZE 285
-	#define BOTTOMBAR_SIZE 200
-#elif defined(__WXOSX__) || defined(__WXMAC__)
-	#define SIDEBAR_SIZE 285
-	#define BOTTOMBAR_SIZE 210
-#else	// __MSW__
-	#define SIDEBAR_SIZE 235
-	#define BOTTOMBAR_SIZE 180
-#endif
-
 class ScenarioEditor;
-class SnapSplitterWindow;
 class SidebarBook;
+class SnapSplitterWindow;
+class wxString;
 class wxWindow;
 
 class SectionLayout
 {
 public:
-	SectionLayout();
-	~SectionLayout();
-
 	void SetWindow(wxWindow* window);
 	wxWindow* GetCanvasParent();
 	void SetCanvas(wxWindow*);

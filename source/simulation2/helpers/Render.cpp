@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,19 +19,28 @@
 
 #include "Render.h"
 
+#include "graphics/Color.h"
 #include "graphics/Overlay.h"
 #include "graphics/Terrain.h"
+#include "lib/debug.h"
 #include "maths/BoundingBoxAligned.h"
 #include "maths/BoundingBoxOriented.h"
+#include "maths/FixedVector3D.h"
 #include "maths/MathUtil.h"
 #include "maths/Matrix3D.h"
 #include "maths/Quaternion.h"
 #include "maths/Vector2D.h"
+#include "maths/Vector3D.h"
 #include "ps/Profile.h"
-#include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpTerrain.h"
 #include "simulation2/components/ICmpWaterManager.h"
-#include "simulation2/helpers/Geometry.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+
+#include <algorithm>
+#include <cmath>
+#include <numbers>
+#include <utility>
 
 void SimRender::ConstructLineOnGround(const CSimContext& context, const std::vector<float>& xz,
 		SOverlayLine& overlay, bool floating, float heightOffset)
@@ -120,7 +129,7 @@ void SimRender::ConstructCircleOnGround(
 	const CSimContext& context, float x, float z, float radius,
 	SOverlayLine& overlay, bool floating, float heightOffset)
 {
-	ConstructCircleOrClosedArc(context, x, z, radius, true, 0.0f, 2.0f*(float)M_PI, overlay, floating, heightOffset);
+	ConstructCircleOrClosedArc(context, x, z, radius, true, 0.0f, 2.0f * std::numbers::pi_v<float>, overlay, floating, heightOffset);
 }
 
 void SimRender::ConstructClosedArcOnGround(
@@ -252,7 +261,7 @@ void SimRender::ConstructGimbal(const CVector3D& center, float radius, SOverlayL
 	out.m_Coords.clear();
 
 	size_t fullCircleSteps = numSteps;
-	const float angleIncrement = 2.f*M_PI/fullCircleSteps;
+	const float angleIncrement = 2.f * std::numbers::pi_v<float> / fullCircleSteps;
 
 	const CVector3D X_UNIT(1, 0, 0);
 	const CVector3D Y_UNIT(0, 1, 0);
@@ -617,10 +626,10 @@ void SimRender::ConstructTexturedLineCircle(SOverlayTexturedLine& overlay, const
 {
 	const float radius = overlay_radius + overlay.m_Thickness / 3.f;
 
-	size_t numSteps = ceilf(float(2 * M_PI) * radius / (TERRAIN_TILE_SIZE / 3.f));
+	size_t numSteps = ceilf(2.f * std::numbers::pi_v<float> * radius / (TERRAIN_TILE_SIZE / 3.f));
 	for (size_t i = 0; i < numSteps; ++i)
 	{
-		float angle = i * float(2 * M_PI) / numSteps;
+		float angle = i * 2.f * std::numbers::pi_v<float> / numSteps;
 		float px = origin.X + radius * sinf(angle);
 		float pz = origin.Y + radius * cosf(angle);
 

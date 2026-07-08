@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,11 +20,26 @@
 #include "COList.h"
 
 #include "gui/CGUI.h"
+#include "gui/CGUIText.h"
 #include "gui/IGUIScrollBar.h"
+#include "gui/ObjectBases/IGUIScrollBarOwner.h"
+#include "gui/SGUIMessage.h"
 #include "gui/SettingTypes/CGUIColor.h"
 #include "gui/SettingTypes/CGUIList.h"
+#include "gui/SettingTypes/CGUIString.h"
 #include "i18n/L10n.h"
+#include "lib/debug.h"
+#include "maths/Rect.h"
+#include "maths/Size2D.h"
+#include "maths/Vector2D.h"
 #include "ps/CLogger.h"
+#include "ps/XMB/XMBData.h"
+#include "ps/XML/Xeromyces.h"
+
+#include <algorithm>
+#include <cstddef>
+#include <string_view>
+#include <utility>
 
 const float SORT_SPRITE_DIM = 16.0f;
 const CVector2D COLUMN_SHIFT = CVector2D(0, 4);
@@ -117,7 +132,7 @@ void COList::SetupText()
 
 CRect COList::GetListRect() const
 {
-	return m_CachedActualSize + CRect(0, m_HeadingHeight, 0, 0);
+	return GetActualSize() + CRect(0, m_HeadingHeight, 0, 0);
 }
 
 void COList::HandleMessage(SGUIMessage& Message)
@@ -141,7 +156,7 @@ void COList::HandleMessage(SGUIMessage& Message)
 			return;
 
 		const CVector2D& mouse = m_pGUI.GetMousePos();
-		if (!m_CachedActualSize.PointInside(mouse))
+		if (!GetActualSize().PointInside(mouse))
 			return;
 
 		float xpos = 0;
@@ -154,7 +169,7 @@ void COList::HandleMessage(SGUIMessage& Message)
 			// Check if it's a decimal value, and if so, assume relative positioning.
 			if (column.m_Width < 1 && column.m_Width > 0)
 				width *= m_TotalAvailableColumnWidth;
-			CVector2D leftTopCorner = m_CachedActualSize.TopLeft() + CVector2D(xpos, 0);
+			CVector2D leftTopCorner = GetActualSize().TopLeft() + CVector2D(xpos, 0);
 			if (mouse.X >= leftTopCorner.X &&
 				mouse.X < leftTopCorner.X + width &&
 				mouse.Y < leftTopCorner.Y + m_HeadingHeight)
@@ -302,7 +317,7 @@ void COList::DrawList(CCanvas2D& canvas, const int& selected, const CGUISpriteIn
 {
 	CRect rect = GetListRect();
 
-	m_pGUI.DrawSprite(sprite, canvas, rect);
+	m_pGUI.DrawSprite(sprite, canvas, rect, m_VisibleArea);
 
 	float scroll = 0.f;
 	if (m_ScrollBar)
@@ -341,15 +356,15 @@ void COList::DrawList(CCanvas2D& canvas, const int& selected, const CGUISpriteIn
 			}
 
 			// Draw item selection
-			m_pGUI.DrawSprite(spriteSelectArea, canvas, rectSel);
+			m_pGUI.DrawSprite(spriteSelectArea, canvas, rectSel, m_VisibleArea);
 			drawSelected = true;
 		}
 	}
 
 	// Draw line above column header
-	CRect rect_head(m_CachedActualSize.left, m_CachedActualSize.top, m_CachedActualSize.right,
-									m_CachedActualSize.top + m_HeadingHeight);
-	m_pGUI.DrawSprite(m_SpriteHeading, canvas, rect_head);
+	CRect rect_head(GetActualSize().left, GetActualSize().top, GetActualSize().right,
+									GetActualSize().top + m_HeadingHeight);
+	m_pGUI.DrawSprite(m_SpriteHeading, canvas, rect_head, m_VisibleArea);
 
 	// Draw column headers
 	float xpos = 0;
@@ -367,7 +382,7 @@ void COList::DrawList(CCanvas2D& canvas, const int& selected, const CGUISpriteIn
 		if (column.m_Width < 1 && column.m_Width > 0)
 			width *= m_TotalAvailableColumnWidth;
 
-		CVector2D leftTopCorner = m_CachedActualSize.TopLeft() + CVector2D(xpos, 0);
+		CVector2D leftTopCorner = GetActualSize().TopLeft() + CVector2D(xpos, 0);
 
 		// Draw sort arrows in colum header
 		if (m_Sortable)
@@ -386,7 +401,7 @@ void COList::DrawList(CCanvas2D& canvas, const int& selected, const CGUISpriteIn
 			else
 				pSprite = &*m_SpriteNotSorted;
 
-			m_pGUI.DrawSprite(*pSprite, canvas, CRect(leftTopCorner + CVector2D(width - SORT_SPRITE_DIM, 0), leftTopCorner + CVector2D(width, SORT_SPRITE_DIM)));
+			m_pGUI.DrawSprite(*pSprite, canvas, CRect(leftTopCorner + CVector2D(width - SORT_SPRITE_DIM, 0), leftTopCorner + CVector2D(width, SORT_SPRITE_DIM)), m_VisibleArea);
 		}
 
 		// Draw column header text
@@ -453,7 +468,7 @@ void COList::DrawList(CCanvas2D& canvas, const int& selected, const CGUISpriteIn
 		IGUIScrollBarOwner::Draw(canvas);
 
 	// Draw the overlays last
-	m_pGUI.DrawSprite(spriteOverlay, canvas, rect);
+	m_pGUI.DrawSprite(spriteOverlay, canvas, rect, m_VisibleArea);
 	if (drawSelected)
-		m_pGUI.DrawSprite(spriteSelectAreaOverlay, canvas, rectSel);
+		m_pGUI.DrawSprite(spriteSelectAreaOverlay, canvas, rectSel, m_VisibleArea);
 }

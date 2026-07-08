@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,19 +24,22 @@
 
 #include "graphics/Color.h"
 #include "graphics/Texture.h"
+#include "lib/posix/posix_types.h"
+#include "lib/types.h"
 #include "maths/Matrix3D.h"
-#include "maths/Vector2D.h"
-#include "renderer/backend/IDeviceCommandContext.h"
-#include "renderer/backend/IFramebuffer.h"
-#include "renderer/backend/IShaderProgram.h"
-#include "renderer/backend/ITexture.h"
 #include "renderer/VertexBufferManager.h"
 
+#include <cstddef>
 #include <memory>
+#include <string>
 #include <vector>
 
 class CFrustum;
-
+namespace Renderer::Backend { class IDevice; }
+namespace Renderer::Backend { class IDeviceCommandContext; }
+namespace Renderer::Backend { class IFramebuffer; }
+namespace Renderer::Backend { class ITexture; }
+namespace Renderer::Backend { class IVertexInputLayout; }
 struct WaveObject;
 
 /**
@@ -110,7 +113,9 @@ public:
 
 	// framebuffer objects
 	std::unique_ptr<Renderer::Backend::IFramebuffer> m_RefractionFramebuffer;
+	bool m_RefractionFramebufferInitialized{false};
 	std::unique_ptr<Renderer::Backend::IFramebuffer> m_ReflectionFramebuffer;
+	bool m_ReflectionFramebufferInitialized{false};
 	std::unique_ptr<Renderer::Backend::IFramebuffer> m_FancyEffectsFramebuffer;
 	std::unique_ptr<Renderer::Backend::IFramebuffer> m_FancyEffectsOccludersFramebuffer;
 

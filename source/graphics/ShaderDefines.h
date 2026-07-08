@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,16 +18,19 @@
 #ifndef INCLUDED_SHADERDEFINES
 #define INCLUDED_SHADERDEFINES
 
-#include "ps/CStr.h"
+#include "maths/Vector4D.h"
 #include "ps/CStrIntern.h"
-#include "renderer/backend/IDeviceCommandContext.h"
-#include "renderer/backend/IShaderProgram.h"
+#include "ps/containers/StaticVector.h"
 
+#include <cstddef>
 #include <map>
+#include <memory>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
-class CVector4D;
+namespace Renderer::Backend { class IDeviceCommandContext; }
+namespace Renderer::Backend { class IShaderProgram; }
 
 /**
  * Represents a mapping of name strings to value, for use with
@@ -100,8 +103,11 @@ public:
 		// Name/value pair
 		using Item = std::pair<CStrIntern, value_t>;
 
-		// Sorted by name; no duplicated names
-		std::vector<Item> items;
+		// Sorted by name; no duplicated names. We can use the StaticVector
+		// because we shouldn't have too many shader parameters of a single
+		// type.
+		using ItemsContainers = PS::StaticVector<Item, 32>;
+		ItemsContainers items;
 
 		size_t hash;
 

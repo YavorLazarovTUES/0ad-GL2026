@@ -6,7 +6,7 @@
  */
 class CampaignMenu extends AutoWatcher
 {
-	constructor(campaignRun)
+	constructor(campaignRun, closePageCallback)
 	{
 		super("render");
 
@@ -16,19 +16,22 @@ class CampaignMenu extends AutoWatcher
 		this.levelSelection = Engine.GetGUIObjectByName("levelSelection");
 		this.levelSelection.onSelectionChange = () => { this.selectedLevel = this.levelSelection.selected; };
 
-		this.levelSelection.onMouseLeftDoubleClickItem = () => this.startScenario();
-		Engine.GetGUIObjectByName('startButton').onPress = () => this.startScenario();
-		Engine.GetGUIObjectByName('backToMain').onPress = () => this.goBackToMainMenu();
-		Engine.GetGUIObjectByName('savedGamesButton').onPress = this.loadSavegame.bind(this);
+		const startScenarioCallback = this.startScenario.bind(this, closePageCallback);
+		this.levelSelection.onMouseLeftDoubleClickItem = startScenarioCallback;
+		Engine.GetGUIObjectByName('startButton').onPress = startScenarioCallback;
+		Engine.GetGUIObjectByName('backToMain').onPress =
+			this.goBackToMainMenu.bind(this, closePageCallback);
+		Engine.GetGUIObjectByName('savedGamesButton').onPress =
+			this.loadSavegame.bind(this, closePageCallback);
 
 		this.mapCache = new MapCache();
 
 		this._ready = true;
 	}
 
-	async loadSavegame()
+	async loadSavegame(closePageCallback)
 	{
-		const gameId = await Engine.PushGuiPage(
+		const gameId = await Engine.OpenChildPage(
 			'page_loadgame.xml',
 			{
 				"campaignRun": this.run.filename
@@ -44,27 +47,29 @@ class CampaignMenu extends AutoWatcher
 			return;
 		}
 
-		Engine.SwitchGuiPage("page_loading.xml", {
-			"attribs": metadata.initAttributes,
-			"playerAssignments": {
-				"local": {
-					"name":
-						metadata.initAttributes.settings.PlayerData[metadata.playerID]?.Name ??
-						singleplayerName(),
-					"player": metadata.playerID
-				}
-			},
-			"savedGUIData": metadata.gui
-		});
+		closePageCallback({ [Engine.openRequest]: {
+			"page": "page_loading.xml",
+			"argument": {
+				"attribs": metadata.initAttributes,
+				"playerAssignments": {
+					"local": {
+						"name": metadata.initAttributes.settings.PlayerData[metadata.playerID]
+							?.Name ?? singleplayerName(),
+						"player": metadata.playerID
+					}
+				},
+				"savedGUIData": metadata.gui
+			}
+		} });
 	}
 
-	goBackToMainMenu()
+	goBackToMainMenu(closePageCallback)
 	{
 		this.run.save();
-		Engine.SwitchGuiPage("page_pregame.xml", {});
+		closePageCallback({ [Engine.openRequest]: { "page": "page_pregame.xml" } });
 	}
 
-	startScenario()
+	startScenario(closePageCallback)
 	{
 		const level = this.getSelectedLevelData();
 		if (!meetsRequirements(this.run, level))
@@ -113,23 +118,29 @@ class CampaignMenu extends AutoWatcher
 				},
 			};
 
-			Engine.SwitchGuiPage("page_gamesetup.xml", {
-				"backPage": {
-					"page": this.run.getMenuPath(),
-					"data": {
-						"filename": this.run.filename
-					}
-				},
-				"gameSettings": attributes,
-			});
+			closePageCallback({ [Engine.openRequest]: {
+				"page": "page_gamesetup.xml",
+				"argument": {
+					"backPage": {
+						"page": this.run.getMenuPath(),
+						"data": {
+							"filename": this.run.filename
+						}
+					},
+					"gameSettings": attributes,
+				}
+			} });
 			return;
 		}
 
 		gameSettings.launchGame(assignments, true);
-		Engine.SwitchGuiPage("page_loading.xml", {
-			"attribs": gameSettings.finalizedAttributes,
-			"playerAssignments": assignments
-		});
+		closePageCallback({ [Engine.openRequest]: {
+			"page": "page_loading.xml",
+			"argument": {
+				"attribs": gameSettings.finalizedAttributes,
+				"playerAssignments": assignments
+			}
+		} });
 	}
 
 	getSelectedLevelData()
@@ -172,9 +183,9 @@ class CampaignMenu extends AutoWatcher
 	displayLevelsList()
 	{
 		let list = [];
-		for (let key in this.run.template.Levels)
+		for (const key in this.run.template.Levels)
 		{
-			let level = this.run.template.Levels[key];
+			const level = this.run.template.Levels[key];
 
 			if (!this.shouldShowLevel(level))
 				continue;
@@ -212,7 +223,7 @@ class CampaignMenu extends AutoWatcher
 			return;
 		}
 
-		let level = this.getSelectedLevelData();
+		const level = this.getSelectedLevelData();
 
 		Engine.GetGUIObjectByName("scenarioName").caption = this.getLevelName(level);
 		Engine.GetGUIObjectByName("scenarioDesc").caption = this.getLevelDescription(level);
@@ -234,16 +245,23 @@ class CampaignMenu extends AutoWatcher
 
 var g_CampaignMenu;
 
-function init(initData)
+async function init(initData)
 {
+	registerGlobalGuiPageHotkeys(["options", "hotkeys", "civinfo", "structree", "catafalque", "mapbrowser", "manual", "tips"]);
 	let run = initData?.filename || CampaignRun.getCurrentRunFilename();
-	try {
+	try
+	{
 		run = new CampaignRun(run).load();
 		if (!run.isCurrent())
 			run.setCurrent();
-		g_CampaignMenu = new CampaignMenu(run);
-	} catch (err) {
+		return new Promise(closePageCallback =>
+		{
+			g_CampaignMenu = new CampaignMenu(run, closePageCallback);
+		});
+	}
+	catch(err)
+	{
 		error(sprintf("Error loading campaign run %s: %s.", CampaignRun.getCurrentRunFilename(), err));
-		Engine.SwitchGuiPage("page_pregame.xml", {});
+		return { [Engine.openRequest]: { "page": "page_pregame.xml" } };
 	}
 }

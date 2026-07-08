@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -16,25 +16,34 @@
  */
 
 #include "precompiled.h"
+
 #include "TerrainProperties.h"
-
-#include <string>
-#include <vector>
-
-#include <boost/tokenizer.hpp>
 
 #include "graphics/Color.h"
 #include "graphics/TerrainTextureManager.h"
+#include "lib/path.h"
 #include "maths/MathUtil.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
+#include "ps/Errors.h"
 #include "ps/Filesystem.h"
+#include "ps/XMB/XMBData.h"
+#include "ps/XMB/XMBStorage.h"
 #include "ps/XML/Xeromyces.h"
+
+#include <boost/iterator/iterator_categories.hpp>
+#include <boost/iterator/iterator_facade.hpp>
+#include <boost/token_functions.hpp>
+#include <boost/tokenizer.hpp>
+#include <cmath>
+#include <numbers>
+#include <string>
 
 CTerrainProperties::CTerrainProperties(CTerrainPropertiesPtr parent):
 	m_pParent(parent),
 	m_BaseColor(0),
 	m_HasBaseColor(false),
-	m_TextureAngle((float)M_PI / 4.f),
+	m_TextureAngle(std::numbers::pi_v<float> / 4.f),
 	m_TextureSize(32.f)
 {
 	if (m_pParent)
@@ -87,7 +96,7 @@ CTerrainPropertiesPtr CTerrainProperties::FromXML(const CTerrainPropertiesPtr& p
 	return CTerrainPropertiesPtr();
 }
 
-void CTerrainProperties::LoadXml(XMBElement node, CXeromyces *pFile, const VfsPath& UNUSED(pathname))
+void CTerrainProperties::LoadXml(XMBElement node, CXeromyces *pFile, const VfsPath&)
 {
 	#define ELMT(x) int elmt_##x = pFile->GetElementID(#x)
 	#define ATTR(x) int attr_##x = pFile->GetAttributeID(#x)

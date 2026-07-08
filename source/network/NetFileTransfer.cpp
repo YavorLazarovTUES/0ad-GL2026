@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,10 +20,16 @@
 #include "NetFileTransfer.h"
 
 #include "lib/alignment.h"
+#include "lib/posix/posix_types.h"
 #include "lib/timer.h"
 #include "network/NetMessage.h"
-#include "network/NetSession.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
+#include "ps/Compress.h"
+#include "ps/TaskManager.h"
+
+#include <algorithm>
+#include <utility>
 
 Status CNetFileTransferer::HandleMessageReceive(const CNetMessage& message)
 {
@@ -92,13 +98,15 @@ Status CNetFileTransferer::OnFileTransferData(const CFileTransferDataMessage& me
 	CFileTransferAckMessage ackMessage;
 	ackMessage.m_RequestID = message.m_RequestID;
 	ackMessage.m_NumPackets = 1; // TODO: would be nice to send a single ack for multiple packets at once
-	m_Session->SendMessage(&ackMessage);
+	m_SendMessage(&ackMessage);
 
 	if (task.buffer.size() == task.length)
 	{
 		LOGMESSAGERENDER("Download completed");
 
-		task.onComplete(std::move(task.buffer));
+		std::string uncompressed;
+		DecompressZLib(task.buffer, uncompressed, true);
+		task.onComplete(std::move(uncompressed));
 		m_FileReceiveTasks.erase(it);
 		return INFO::OK;
 	}
@@ -141,31 +149,34 @@ Status CNetFileTransferer::OnFileTransferAck(const CFileTransferAckMessage& mess
 
 }
 
-void CNetFileTransferer::StartTask(std::function<void(std::string)> task)
+void CNetFileTransferer::StartTask(RequestType requestType, std::function<void(std::string)> task)
 {
 	u32 requestID = m_NextRequestID++;
 
 	m_FileReceiveTasks.emplace(requestID, AsyncFileReceiveTask{std::move(task)});
 
 	CFileTransferRequestMessage request;
+	request.m_RequestType = static_cast<i8>(requestType);
 	request.m_RequestID = requestID;
-	m_Session->SendMessage(&request);
+	m_SendMessage(&request);
 }
 
 void CNetFileTransferer::StartResponse(u32 requestID, const std::string& data)
 {
 	CNetFileSendTask task;
 	task.requestID = requestID;
-	task.buffer = data;
 	task.offset = 0;
 	task.packetsInFlight = 0;
 	task.maxWindowSize = DEFAULT_FILE_TRANSFER_WINDOW_SIZE;
+	task.task = {g_TaskManager, [data]
+	{
+		// Compress the content with zlib to save bandwidth
+		std::string compressedGameState;
+		CompressZLib(std::move(data), compressedGameState, true);
+		return compressedGameState;
+	}, Threading::TaskPriority::LOW};
 
-	m_FileSendTasks[task.requestID] = task;
-	CFileTransferResponseMessage respMessage;
-	respMessage.m_RequestID = requestID;
-	respMessage.m_Length = task.buffer.size();
-	m_Session->SendMessage(&respMessage);
+	m_FileSendTasks.insert({task.requestID, std::move(task)});
 }
 
 void CNetFileTransferer::Poll()
@@ -176,6 +187,19 @@ void CNetFileTransferer::Poll()
 	{
 		CNetFileSendTask& task = p.second;
 
+		if (task.task.Valid())
+		{
+			if (!task.task.IsDone())
+				continue;
+
+			task.buffer = std::exchange(task.task, {}).Get();
+
+			CFileTransferResponseMessage respMessage;
+			respMessage.m_RequestID = task.requestID;
+			respMessage.m_Length = task.buffer.size();
+			m_SendMessage(&respMessage);
+		}
+
 		while (task.packetsInFlight < task.maxWindowSize && task.offset < task.buffer.size())
 		{
 			CFileTransferDataMessage dataMessage;
@@ -184,7 +208,7 @@ void CNetFileTransferer::Poll()
 			dataMessage.m_Data = task.buffer.substr(task.offset, packetSize);
 			task.offset += packetSize;
 			++task.packetsInFlight;
-			m_Session->SendMessage(&dataMessage);
+			m_SendMessage(&dataMessage);
 		}
 	}
 

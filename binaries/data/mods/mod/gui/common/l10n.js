@@ -5,7 +5,7 @@
 function filesizeToObj(filesize)
 {
 	// We are unlikely to download files measured in units greater than GiB.
-	let units = [
+	const units = [
 		translateWithContext("filesize unit", "B"),
 		translateWithContext("filesize unit", "KiB"),
 		translateWithContext("filesize unit", "MiB"),
@@ -57,7 +57,7 @@ var g_PluralTranslationsWithContext = {};
 
 function isTranslatableString(message)
 {
-	return typeof message == "string" && !!message.trim();
+	return typeof message === "string" && !!message.trim();
 }
 
 /**
@@ -195,7 +195,7 @@ function translateObjectKeys(object, keys)
 {
 	if (keys instanceof Array)
 	{
-		for (let property in object)
+		for (const property in object)
 		{
 			if (keys.indexOf(property) > -1)
 			{
@@ -213,7 +213,7 @@ function translateObjectKeys(object, keys)
 	// An empty value means no context.
 	else
 	{
-		for (let property in object)
+		for (const property in object)
 		{
 			if (property in keys)
 			{

@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,16 +18,17 @@
 #include "precompiled.h"
 
 #include "lib/alignment.h"
+#include "lib/bits.h"
 #include "lib/sysdep/rtl.h"
-#include "maths/Vector3D.h"
-#include "maths/Vector4D.h"
 #include "ps/CLogger.h"
-#include "graphics/Color.h"
-#include "graphics/SColor.h"
 #include "renderer/Renderer.h"
 #include "renderer/VertexArray.h"
 #include "renderer/VertexBuffer.h"
 #include "renderer/VertexBufferManager.h"
+
+class CVector3D;
+class CVector4D;
+struct SColor4ub;
 
 namespace
 {
@@ -36,19 +37,25 @@ uint32_t GetAttributeSize(const Renderer::Backend::Format format)
 {
 	switch (format)
 	{
-	case Renderer::Backend::Format::R8G8B8A8_UNORM: FALLTHROUGH;
+	case Renderer::Backend::Format::R8G8B8A8_UNORM:
 	case Renderer::Backend::Format::R8G8B8A8_UINT:
 		return sizeof(u8) * 4;
 	case Renderer::Backend::Format::A8_UNORM:
 		return sizeof(u8);
-	case Renderer::Backend::Format::R16_UNORM: FALLTHROUGH;
-	case Renderer::Backend::Format::R16_UINT: FALLTHROUGH;
+	case Renderer::Backend::Format::R16_UNORM:
+	case Renderer::Backend::Format::R16_UINT:
 	case Renderer::Backend::Format::R16_SINT:
+	case Renderer::Backend::Format::R16_SFLOAT:
 		return sizeof(u16);
-	case Renderer::Backend::Format::R16G16_UNORM: FALLTHROUGH;
-	case Renderer::Backend::Format::R16G16_UINT: FALLTHROUGH;
+	case Renderer::Backend::Format::R16G16_UNORM:
+	case Renderer::Backend::Format::R16G16_UINT:
 	case Renderer::Backend::Format::R16G16_SINT:
+	case Renderer::Backend::Format::R16G16_SFLOAT:
 		return sizeof(u16) * 2;
+	case Renderer::Backend::Format::R16G16B16_SFLOAT:
+		return sizeof(u16) * 3;
+	case Renderer::Backend::Format::R16G16B16A16_SFLOAT:
+		return sizeof(u16) * 4;
 	case Renderer::Backend::Format::R32_SFLOAT:
 		return sizeof(float);
 	case Renderer::Backend::Format::R32G32_SFLOAT:
@@ -69,10 +76,6 @@ VertexArray::VertexArray(
 	const Renderer::Backend::IBuffer::Type type, const uint32_t usage)
 	: m_Type(type), m_Usage(usage)
 {
-	m_NumberOfVertices = 0;
-
-	m_BackingStore = 0;
-	m_Stride = 0;
 }
 
 VertexArray::~VertexArray()
@@ -97,6 +100,16 @@ void VertexArray::SetNumberOfVertices(const size_t numberOfVertices)
 
 	Free();
 	m_NumberOfVertices = numberOfVertices;
+}
+
+void VertexArray::SetMinimumAttributeAlignment(const uint32_t minimumAttributeAlignment)
+{
+	ENSURE(minimumAttributeAlignment >= 4 || is_pow2(minimumAttributeAlignment));
+	if (minimumAttributeAlignment == m_MinimumAttributeAlignment)
+		return;
+
+	Free();
+	m_MinimumAttributeAlignment = minimumAttributeAlignment;
 }
 
 // Add vertex attributes like Position, Normal, UV
@@ -248,6 +261,8 @@ void VertexArray::Layout()
 
 		if (m_Type == Renderer::Backend::IBuffer::Type::VERTEX)
 			m_Stride = Align<4>(m_Stride);
+		if (m_MinimumAttributeAlignment > 0)
+			m_Stride = (m_Stride + m_MinimumAttributeAlignment - 1) & ~(m_MinimumAttributeAlignment - 1);
 	}
 
 	if (m_Type == Renderer::Backend::IBuffer::Type::VERTEX)

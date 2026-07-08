@@ -1,4 +1,4 @@
-/* Copyright (C) 2009 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,9 +17,16 @@
 
 #include "precompiled.h"
 
-#include "MessageHandler.h"
+#include "lib/debug.h"
+#include "tools/atlas/GameInterface/CommandProc.h"
+#include "tools/atlas/GameInterface/Handlers/MessageHandler.h"
+#include "tools/atlas/GameInterface/Messages.h"
+#include "tools/atlas/GameInterface/Shareable.h"
 
-#include "../CommandProc.h"
+#include <cstddef>
+#include <map>
+#include <string>
+#include <utility>
 
 namespace AtlasMessage {
 
@@ -34,7 +41,7 @@ MESSAGEHANDLER(DoCommand)
 	}
 	else
 	{
-		debug_warn(L"Unrecognised command");
+		debug_warn(L"Unrecognized command");
 		return;
 	}
 
@@ -43,19 +50,16 @@ MESSAGEHANDLER(DoCommand)
 
 MESSAGEHANDLER(UndoCommand)
 {
-	UNUSED2(msg);
 	GetCommandProc().Undo();
 }
 
 MESSAGEHANDLER(RedoCommand)
 {
-	UNUSED2(msg);
 	GetCommandProc().Redo();
 }
 
 MESSAGEHANDLER(MergeCommand)
 {
-	UNUSED2(msg);
 	GetCommandProc().Merge();
 }
 

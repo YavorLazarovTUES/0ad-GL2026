@@ -13,7 +13,7 @@ class CampaignSession
 
 	onFinish(players, won)
 	{
-		let playerID = Engine.GetPlayerID();
+		const playerID = Engine.GetPlayerID();
 		if (players.indexOf(playerID) === -1)
 			return;
 
@@ -23,8 +23,7 @@ class CampaignSession
 		this.endGameData.won = won;
 
 		// Run the endgame script.
-		Engine.PushGuiPage(this.getEndGame(), this.endGameData);
-		Engine.PopGuiPage();
+		Engine.OpenChildPage(this.getEndGame(), this.endGameData);
 	}
 
 	getMenu()

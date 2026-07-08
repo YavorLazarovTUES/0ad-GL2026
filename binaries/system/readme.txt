@@ -8,7 +8,6 @@ Basic gameplay:
 
 Autostart:
 -autostart="TYPEDIR/MAPNAME"    enables autostart and sets MAPNAME; TYPEDIR is skirmishes, scenarios, or random
--autostart-biome=BIOME          sets BIOME for a random map
 -autostart-seed=SEED            sets randomization seed value (default 0, use -1 for random)
 -autostart-ai=PLAYER:AI         sets the AI for PLAYER (e.g. 2:petra)
 -autostart-aidiff=PLAYER:DIFF   sets the DIFFiculty of PLAYER's AI (default 3, 0: sandbox, 5: very hard)
@@ -18,10 +17,13 @@ Autostart:
 -autostart-team=PLAYER:TEAM     sets the team for PLAYER (e.g. 2:2).
 -autostart-ceasefire=NUM        sets a ceasefire duration NUM (default 0 minutes)
 -autostart-nonvisual            disable any graphics and sounds
--autostart-victory=SCRIPTNAME   sets the victory conditions with SCRIPTNAME located in simulation/data/settings/victory_conditions/ (default conquest). When the first given SCRIPTNAME is "endless", no victory conditions will apply.
+-autostart-visibility=TYPE      sets the map visibility (explored, hidden, revealed, allied, allied-explored)
+-autostart-speed=SPEED          sets the sim rate speed (default 1, max 2 in normal mode, 20 in observer mode)
+-autostart-victory=SCRIPTNAME   sets the victory conditions with SCRIPTNAME located in simulation/data/settings/victory_conditions/ (default conquest). When the only given SCRIPTNAME is "endless", no victory conditions will apply.
 -autostart-wonderduration=NUM   sets the victory duration NUM for wonder victory condition (default 10 minutes)
 -autostart-relicduration=NUM    sets the victory duration NUM for relic victory condition (default 10 minutes)
 -autostart-reliccount=NUM       sets the number of relics for relic victory condition (default 2 relics)
+-autostart-revealed=BOOL        sets whether the map should be revealed
 -autostart-disable-replay       disable saving of replays
 Multiplayer:
 -autostart-playername=NAME      sets local player NAME (default 'anonymous')
@@ -31,6 +33,8 @@ Multiplayer:
  Random maps only:
 -autostart-size=TILES           sets random map size in TILES (default 192)
 -autostart-players=NUMBER       sets NUMBER of players on random map (default 2)
+-autostart-placement=PLACEMENT  sets the placement type for a random map
+-autostart-biome=BIOME          sets the biome for a random map
 
 Examples:
 1) "Bob" will host a 2 player game on the Arcadia map:
@@ -73,7 +77,7 @@ Advanced / diagnostic:
 -ooslog             dumps simulation state in binary and ASCII representations each turn,
                     files created in sim_log within the game's log folder. NOTE: game will
                     run much slower with this option!
--serializationtest  checks simulation state each turn for serialization errors; on test
+-serializationtest=N checks simulation state for serialization errors starting at turn N; on test
                     failure, error is displayed and logs created in oos_log within the
                     game's log folder. NOTE: game will run much slower with this option!
 -rejointest=N       simulates a rejoin and checks simulation state each turn for serialization
@@ -83,6 +87,9 @@ Advanced / diagnostic:
                     and oos_dump.txt to prevent these files from becoming overwritten by another pyrogenesis process.
 -hashtest-full=X    whether to enable computation of full hashes in replaymode (default true). Can be disabled to improve performance.
 -hashtest-quick=X   whether to enable computation of quick hashes in replaymode (default false). Can be enabled for debugging purposes.
+
+-fixed-frame-frequency=F fixes the frame time. With that flags it equals to 1/F. For example,
+                         if F=60 it means the game behaves like it's always running with 60 FPS.
 
 Archive builder:
 -archivebuild=PATH            system PATH of the base directory containing mod data to be archived/precached

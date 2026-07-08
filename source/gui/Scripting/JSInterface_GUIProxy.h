@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,16 +19,26 @@
 #define INCLUDED_JSI_GUIPROXY
 
 #include "gui/ObjectBases/IGUIObject.h"
-#include "scriptinterface/ScriptExtraHeaders.h"
+#include "lib/sysdep/compiler.h"
 
+#include <js/GCVector.h>
+#include <js/Id.h>
+#include <js/PropertyDescriptor.h>
+#include <js/Proxy.h>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
 #include <memory>
+#include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
-class ScriptInterface;
-class ScriptRequest;
-
-template <typename T>
-class JSI_GUIProxy;
+class JSFunction;
+class JSObject;
+namespace JS { class CallArgs; }
+namespace Script { class Interface; }
+namespace Script { class Request; }
 
 // See JSI_GuiProxy below
 #if GCC_VERSION
@@ -91,7 +101,8 @@ public:
 	virtual bool has(const std::string& name) const = 0;
 	// @return the JSFunction matching @param name. Must call has() first as it can assume existence.
 	virtual JSObject* get(const std::string& name) const = 0;
-	virtual bool setFunction(const ScriptRequest& rq, const std::string& name, JSFunction* function) = 0;
+	virtual bool setFunction(const Script::Request& rq, const std::string& name, JSFunction* function) = 0;
+	virtual std::vector<std::string_view> getPropsNames() const = 0;
 };
 
 /**
@@ -127,10 +138,10 @@ public:
 	static JSI_GUIProxy& Singleton();
 
 	// Call this in CGUI::AddObjectTypes.
-	static std::pair<const js::BaseProxyHandler*, GUIProxyProps*> CreateData(ScriptInterface& scriptInterface);
+	static std::pair<const js::BaseProxyHandler*, GUIProxyProps*> CreateData(Script::Interface& scriptInterface);
 
 	// Create the JS object, the proxy, the data and wrap it in a convenient unique_ptr.
-	static std::unique_ptr<IGUIProxyObject> CreateJSObject(const ScriptRequest& rq, GUIObjectType* ptr, GUIProxyProps* data);
+	static std::unique_ptr<IGUIProxyObject> CreateJSObject(const Script::Request& rq, GUIObjectType* ptr, GUIProxyProps* data);
 protected:
 	// @param family can't be nullptr because that's used for some DOM object and it crashes.
 	JSI_GUIProxy() : BaseProxyHandler(this, false, false) {};
@@ -139,18 +150,18 @@ protected:
 	// This also enforces making proxy handlers dataless static variables.
 	~JSI_GUIProxy() {};
 
-	static GUIObjectType* FromPrivateSlot(const ScriptRequest&, JS::CallArgs& args);
+	static GUIObjectType* FromPrivateSlot(const Script::Request&, JS::CallArgs& args);
 
 	// The default implementations need to know the type of the GUIProxyProps for this proxy type.
 	// This is done by specializing this struct's alias type.
 	struct PropCache;
 
 	// Specialize this to define the custom properties of this type.
-	static void CreateFunctions(const ScriptRequest& rq, GUIProxyProps* cache);
+	static void CreateFunctions(const Script::Request& rq, GUIProxyProps* cache);
 
 	// Convenience helper for the above.
 	template<auto callable>
-	static void CreateFunction(const ScriptRequest& rq, GUIProxyProps* cache, const std::string& name);
+	static void CreateFunction(const Script::Request& rq, GUIProxyProps* cache, const std::string& name);
 
 	// This handles returning custom properties. Specialize this if needed.
 	bool PropGetter(JS::HandleObject proxy, const std::string& propName, JS::MutableHandleValue vp) const;
@@ -158,54 +169,52 @@ protected:
 	// BaseProxyHandler interface below
 
 	// Handler for `object.x`
-	virtual bool get(JSContext* cx, JS::HandleObject proxy, JS::HandleValue receiver, JS::HandleId id, JS::MutableHandleValue vp) const override final;
+	bool get(JSContext* cx, JS::HandleObject proxy, JS::HandleValue receiver, JS::HandleId id, JS::MutableHandleValue vp) const final;
 	// Handler for `object.x = y;`
-	virtual bool set(JSContext* cx, JS::HandleObject proxy, JS::HandleId id, JS::HandleValue vp,
+	bool set(JSContext* cx, JS::HandleObject proxy, JS::HandleId id, JS::HandleValue vp,
 					 JS::HandleValue receiver, JS::ObjectOpResult& result) const final;
 	// Handler for `delete object.x;`
-	virtual bool delete_(JSContext* cx, JS::HandleObject proxy, JS::HandleId id, JS::ObjectOpResult& result) const override final;
+	bool delete_(JSContext* cx, JS::HandleObject proxy, JS::HandleId id, JS::ObjectOpResult& result) const final;
 
 	// The following methods are not provided by BaseProxyHandler.
 	// We provide defaults that do nothing (some raise JS exceptions).
 
-	// The JS code will see undefined when querying a property descriptor.
-	virtual bool getOwnPropertyDescriptor(JSContext* UNUSED(cx), JS::HandleObject UNUSED(proxy), JS::HandleId UNUSED(id),
-	                                      JS::MutableHandle<mozilla::Maybe<JS::PropertyDescriptor>> UNUSED(desc)) const override
-	{
-		return true;
-	}
+	bool getOwnPropertyDescriptor(JSContext* cx, JS::HandleObject proxy, JS::HandleId id, JS::MutableHandle<mozilla::Maybe<JS::PropertyDescriptor>> desc) const final;
+
 	// Throw an exception is JS code attempts defining a property.
-	virtual bool defineProperty(JSContext* UNUSED(cx), JS::HandleObject UNUSED(proxy), JS::HandleId UNUSED(id),
-	                            JS::Handle<JS::PropertyDescriptor> UNUSED(desc), JS::ObjectOpResult& UNUSED(result)) const override
+	bool defineProperty(JSContext*, JS::HandleObject /*proxy*/, JS::HandleId,
+		JS::Handle<JS::PropertyDescriptor>, JS::ObjectOpResult& /*result*/) const override
 	{
 		return false;
 	}
-	// No accessible properties.
-	virtual bool ownPropertyKeys(JSContext* UNUSED(cx), JS::HandleObject UNUSED(proxy), JS::MutableHandleIdVector UNUSED(props)) const override
-	{
-		return true;
-	}
+
+	bool ownPropertyKeys(JSContext* cx, JS::HandleObject proxy, JS::MutableHandleIdVector props) const final;
+
 	// Nothing to enumerate.
-	virtual bool enumerate(JSContext* UNUSED(cx), JS::HandleObject UNUSED(proxy), JS::MutableHandleIdVector UNUSED(props)) const override
+	bool enumerate(JSContext*, JS::HandleObject /*proxy*/,
+		JS::MutableHandleIdVector /*props*/) const override
 	{
 		return true;
 	}
 	// Throw an exception is JS attempts to query the prototype.
-	virtual bool getPrototypeIfOrdinary(JSContext* UNUSED(cx), JS::HandleObject UNUSED(proxy), bool* UNUSED(isOrdinary), JS::MutableHandleObject UNUSED(protop)) const override
+	bool getPrototypeIfOrdinary(JSContext*, JS::HandleObject /*proxy*/, bool* /*isOrdinary*/,
+		JS::MutableHandleObject /*protop*/) const override
 	{
 		return false;
 	}
 	// Throw an exception - no prototype to set.
-	virtual bool setImmutablePrototype(JSContext* UNUSED(cx), JS::HandleObject UNUSED(proxy), bool* UNUSED(succeeded)) const override
+	bool setImmutablePrototype(JSContext*, JS::HandleObject /*proxy*/,
+		bool* /*succeeded*/) const override
 	{
 		return false;
 	}
 	// We are not extensible.
-	virtual bool preventExtensions(JSContext* UNUSED(cx), JS::HandleObject UNUSED(proxy), JS::ObjectOpResult& UNUSED(result)) const override
+	bool preventExtensions(JSContext*, JS::HandleObject /*proxy*/,
+		JS::ObjectOpResult& /*result*/) const override
 	{
 		return true;
 	}
-	virtual bool isExtensible(JSContext* UNUSED(cx), JS::HandleObject UNUSED(proxy), bool* extensible) const override
+	bool isExtensible(JSContext*, JS::HandleObject /*proxy*/, bool* extensible) const override
 	{
 		*extensible = false;
 		return true;

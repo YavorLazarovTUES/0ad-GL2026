@@ -34,7 +34,7 @@ class CivIcon
 		closeOpenDialogs();
 		g_PauseControl.implicitPause();
 
-		this.dialogSelection = await pageLoop(
+		this.dialogSelection = await Engine.OpenChildPage(
 			page,
 			{
 				// If an Observer triggers `openPage()` via hotkey, g_ViewedPlayer could be -1 or 0
@@ -48,12 +48,12 @@ class CivIcon
 
 	rebuild()
 	{
-		let hidden = g_ViewedPlayer <= 0;
+		const hidden = g_ViewedPlayer <= 0;
 		this.civIcon.hidden = hidden;
 		if (hidden)
 			return;
 
-		let civData = g_CivData[g_Players[g_ViewedPlayer].civ];
+		const civData = g_CivData[g_Players[g_ViewedPlayer].civ];
 
 		this.civIcon.sprite = "stretched:" + civData.Emblem;
 		this.civIconOverlay.tooltip = sprintf(translate(this.Tooltip), {
@@ -65,6 +65,6 @@ class CivIcon
 }
 
 CivIcon.prototype.Tooltip =
-	markForTranslation("%(civ)s\n%(hotkey_civinfo)s / %(hotkey_structree)s: View Civilization Overview / Structure Tree\nLast opened will be reopened on click.");
+	markForTranslation("%(civ)s\n%(hotkey_civinfo)s: View Civilization Overview\n%(hotkey_structree)s: View Structure Tree\nLast opened view will be reopened on click.");
 
-CivIcon.prototype.CivTags = { "font": "sans-bold-stroke-14" };
+CivIcon.prototype.CivTags = { "font": "sans-bold-16" };

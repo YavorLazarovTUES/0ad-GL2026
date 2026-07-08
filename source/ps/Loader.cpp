@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,32 +20,40 @@
 
 #include "precompiled.h"
 
-#include <deque>
-#include <numeric>
-
-#include "lib/timer.h"
-#include "CStr.h"
 #include "Loader.h"
 
+#include "lib/code_annotation.h"
+#include "lib/secure_crt.h"
+#include "lib/utf8.h"
 
-// set by LDR_EndRegistering; may be 0 during development when
+#include <deque>
+#include <numeric>
+#include <optional>
+#include <string>
+#include <utility>
+
+namespace PS::Loader
+{
+namespace
+{
+// set by PS::Loader::EndRegistering; may be 0 during development when
 // estimated task durations haven't yet been set.
-static double total_estimated_duration;
+double total_estimated_duration;
 
-// total time spent loading so far, set by LDR_ProgressiveLoad.
+// total time spent loading so far, set by PS::Loader::ProgressiveLoad.
 // we need a persistent counter so it can be reset after each load.
 // this also accumulates less errors than:
 // progress += task_estimated / total_estimated.
-static double estimated_duration_tally;
+double estimated_duration_tally;
 
 // needed for report of how long each individual task took.
-static double task_elapsed_time;
+double task_elapsed_time;
 
 // main purpose is to indicate whether a load is in progress, so that
-// LDR_ProgressiveLoad can return 0 iff loading just completed.
+// PS::Loader::ProgressiveLoad can return 0 iff loading just completed.
 // the REGISTERING state allows us to detect 2 simultaneous loads (bogus);
-// FIRST_LOAD is used to skip the first timeslice (see LDR_ProgressiveLoad).
-static enum
+// FIRST_LOAD is used to skip the first timeslice (see PS::Loader::ProgressiveLoad).
+enum
 {
 	IDLE,
 	REGISTERING,
@@ -58,37 +66,32 @@ state = IDLE;
 // holds all state for one load request; stored in queue.
 struct LoadRequest
 {
-	// member documentation is in LDR_Register (avoid duplication).
+	// member documentation is in PS::Loader::Register (avoid duplication).
 
 	LoadFunc func;
 
 	// Translatable string shown to the player.
-	CStrW description;
+	std::wstring description;
 
 	int estimated_duration_ms;
 
-	// LDR_Register gets these as parameters; pack everything together.
-	LoadRequest(LoadFunc func_, const wchar_t* desc_, int ms_)
-		: func(func_), description(desc_), estimated_duration_ms(ms_)
+	// PS::Loader::Register gets these as parameters; pack everything together.
+	LoadRequest(LoadFunc func_, std::wstring desc_, int ms_)
+		: func(std::move(func_)), description(std::move(desc_)), estimated_duration_ms(ms_)
 	{
 	}
 };
 
-typedef std::deque<LoadRequest> LoadRequests;
-static LoadRequests load_requests;
-
-// Returns true if the return code indicates that the `LoadRequest` didn't
-// finish and should be reinvoked in the next frame.
-static bool ldr_was_interrupted(const int ret)
-{
-	return 0 < ret && ret <= 100;
-}
+using LoadRequests = std::deque<LoadRequest>;
+LoadRequests load_requests;
+std::optional<PS::Loader::Task> currentTask;
+} // anonymous namespace
 
 // call before starting to register load requests.
 // this routine is provided so we can prevent 2 simultaneous load operations,
 // which is bogus. that can happen by clicking the load button quickly,
 // or issuing via console while already loading.
-void LDR_BeginRegistering()
+void BeginRegistering()
 {
 	ENSURE(state == IDLE);
 
@@ -105,17 +108,17 @@ void LDR_BeginRegistering()
 // <estimated_duration_ms>: used to calculate progress, and when checking
 //   whether there is enough of the time budget left to process this task
 //   (reduces timeslice overruns, making the main loop more responsive).
-void LDR_Register(LoadFunc func, const wchar_t* description, int estimatedDurationMs)
+void Register(LoadFunc func, std::wstring description, int estimatedDurationMs)
 {
-	ENSURE(state == REGISTERING);	// must be called between LDR_(Begin|End)Register
+	ENSURE(state == REGISTERING);	// must be called between PS::Loader::(Begin|End)Register
 
-	load_requests.emplace_back(std::move(func), description, estimatedDurationMs);
+	load_requests.push_back({std::move(func), std::move(description), estimatedDurationMs});
 }
 
 
 // call when finished registering tasks; subsequent calls to
-// LDR_ProgressiveLoad will then work off the queued entries.
-void LDR_EndRegistering()
+// PS::Loader::ProgressiveLoad will then work off the queued entries.
+void EndRegistering()
 {
 	ENSURE(state == REGISTERING);
 	ENSURE(!load_requests.empty());
@@ -130,18 +133,20 @@ void LDR_EndRegistering()
 
 // immediately cancel this load; no further tasks will be processed.
 // used to abort loading upon user request or failure.
-// note: no special notification will be returned by LDR_ProgressiveLoad.
-void LDR_Cancel()
+// note: no special notification will be returned by PS::Loader::ProgressiveLoad.
+void Cancel()
 {
 	// the queue doesn't need to be emptied now; that'll happen during the
-	// next LDR_StartRegistering. for now, it is sufficient to set the
-	// state, so that LDR_ProgressiveLoad is a no-op.
+	// next PS::Loader::StartRegistering. for now, it is sufficient to set the
+	// state, so that PS::Loader::ProgressiveLoad is a no-op.
 	state = IDLE;
 }
 
-// helper routine for LDR_ProgressiveLoad.
+namespace
+{
+// helper routine for PS::Loader::ProgressiveLoad.
 // tries to prevent starting a long task when at the end of a timeslice.
-static bool HaveTimeForNextTask(double time_left, double time_budget, int estimated_duration_ms)
+bool HaveTimeForNextTask(double time_left, double time_budget, int estimated_duration_ms)
 {
 	// have already exceeded our time budget
 	if(time_left <= 0.0)
@@ -160,28 +165,11 @@ static bool HaveTimeForNextTask(double time_left, double time_budget, int estima
 
 	return true;
 }
+}
 
-
-// process as many of the queued tasks as possible within <time_budget> [s].
-// if a task is lengthy, the budget may be exceeded. call from the main loop.
-//
-// passes back a description of the next task that will be undertaken
-// ("" if finished) and the current progress value.
-//
-// return semantics:
-// - if the final load task just completed, return INFO::ALL_COMPLETE.
-// - if loading is in progress but didn't finish, return ERR::TIMED_OUT.
-// - if not currently loading (no-op), return 0.
-// - any other value indicates a failure; the request has been de-queued.
-//
-// string interface rationale: for better interoperability, we avoid C++
-// std::wstring and PS CStr. since the registered description may not be
-// persistent, we can't just store a pointer. returning a pointer to
-// our copy of the description doesn't work either, since it's freed when
-// the request is de-queued. that leaves writing into caller's buffer.
-Status LDR_ProgressiveLoad(double time_budget, wchar_t* description, size_t max_chars, int* progress_percent)
+ProgressiveLoadResult ProgressiveLoad(double time_budget)
 {
-	Status ret;	// single exit; this is returned
+	ProgressiveLoadResult ret;
 	double progress = 0.0;	// used to set progress_percent
 	double time_left = time_budget;
 
@@ -191,7 +179,7 @@ Status LDR_ProgressiveLoad(double time_budget, wchar_t* description, size_t max_
 	{
 		state = LOADING;
 
-		ret = ERR::TIMED_OUT;	// make caller think we did something
+		ret.status = ERR::TIMED_OUT;	// make caller think we did something
 		// progress already set to 0.0; that'll be passed back.
 		goto done;
 	}
@@ -199,7 +187,7 @@ Status LDR_ProgressiveLoad(double time_budget, wchar_t* description, size_t max_
 	// we're called unconditionally from the main loop, so this isn't
 	// an error; there is just nothing to do.
 	if(state != LOADING)
-		return INFO::OK;
+		return {};
 
 	while(!load_requests.empty())
 	{
@@ -208,14 +196,24 @@ Status LDR_ProgressiveLoad(double time_budget, wchar_t* description, size_t max_
 		const double estimated_duration = lr.estimated_duration_ms*1e-3;
 		if(!HaveTimeForNextTask(time_left, time_budget, lr.estimated_duration_ms))
 		{
-			ret = ERR::TIMED_OUT;
+			ret.status = ERR::TIMED_OUT;
 			goto done;
 		}
 
 		// call this task's function and bill elapsed time.
 		const double t0 = timer_Time();
-		const int status = lr.func(time_left);
-		const bool timed_out = ldr_was_interrupted(status);
+		if (!currentTask.has_value())
+			currentTask.emplace(lr.func());
+		try
+		{
+			currentTask->Step(time_left);
+		}
+		catch(...)
+		{
+			currentTask.reset();
+			throw;
+		}
+		const bool timed_out = !currentTask->IsDone();
 		const double elapsed_time = timer_Time() - t0;
 		time_left -= elapsed_time;
 		task_elapsed_time += elapsed_time;
@@ -238,7 +236,7 @@ Status LDR_ProgressiveLoad(double time_budget, wchar_t* description, size_t max_
 			// note: monotonicity is guaranteed since we never add more than
 			//   its estimated_duration_ms.
 			if(timed_out)
-				current_estimate += estimated_duration * status/100.0;
+				current_estimate += estimated_duration * currentTask->GetProgress() / 100.0;
 
 			progress = current_estimate / total_estimated_duration;
 		}
@@ -247,23 +245,25 @@ Status LDR_ProgressiveLoad(double time_budget, wchar_t* description, size_t max_
 		// .. function interrupted itself, i.e. timed out; abort.
 		if(timed_out)
 		{
-			ret = ERR::TIMED_OUT;
+			ret.status = ERR::TIMED_OUT;
 			goto done;
 		}
+
+		const int taskResult{std::exchange(currentTask, std::nullopt)->Get()};
 		// .. failed; abort. loading will continue when we're called in
 		//    the next iteration of the main loop.
 		//    rationale: bail immediately instead of remembering the first
 		//    error that came up so we can report all errors that happen.
-		else if(status < 0)
+		if(taskResult < 0)
 		{
-			ret = (Status)status;
+			ret.status = static_cast<Status>(taskResult);
 			goto done;
 		}
-		// .. function called LDR_Cancel; abort. return OK since this is an
+		// .. function called PS::Loader::Cancel; abort. return OK since this is an
 		//    intentional cancellation, not an error.
-		else if(state != LOADING)
+		if(state != LOADING)
 		{
-			ret = INFO::OK;
+			ret.status = INFO::OK;
 			goto done;
 		}
 		// .. succeeded; continue and process next queued task.
@@ -271,22 +271,20 @@ Status LDR_ProgressiveLoad(double time_budget, wchar_t* description, size_t max_
 
 	// queue is empty, we just finished.
 	state = IDLE;
-	ret = INFO::ALL_COMPLETE;
+	ret.status = INFO::ALL_COMPLETE;
 
 
 	// set output params (there are several return points above)
 done:
-	*progress_percent = (int)(progress * 100.0);
-	ENSURE(0 <= *progress_percent && *progress_percent <= 100);
+	ret.progressPercent = static_cast<int>(progress * 100.0);
+	ENSURE(0 <= ret.progressPercent && ret.progressPercent <= 100);
 
 	// we want the next task, instead of what just completed:
 	// it will be displayed during the next load phase.
-	const wchar_t* new_description = L"";	// assume finished
 	if(!load_requests.empty())
-		new_description = load_requests.front().description.c_str();
-	wcscpy_s(description, max_chars, new_description);
+		ret.nextDescription = load_requests.front().description;
 
-	debug_printf("LOADER| returning; desc=%s progress=%d\n", utf8_from_wstring(description).c_str(), *progress_percent);
+	debug_printf("LOADER| returning; desc=%s progress=%d\n", utf8_from_wstring(ret.nextDescription).c_str(), ret.progressPercent);
 
 	return ret;
 }
@@ -294,17 +292,15 @@ done:
 
 // immediately process all queued load requests.
 // returns 0 on success or a negative error code.
-Status LDR_NonprogressiveLoad()
+Status NonprogressiveLoad()
 {
 	const double time_budget = 100.0;
 		// large enough so that individual functions won't time out
 		// (that'd waste time).
-	wchar_t description[100];
-	int progress_percent;
 
 	for(;;)
 	{
-		Status ret = LDR_ProgressiveLoad(time_budget, description, ARRAY_SIZE(description), &progress_percent);
+		const auto [ret, description, progress_percent] = ProgressiveLoad(time_budget);
 		switch(ret)
 		{
 		case INFO::OK:
@@ -319,3 +315,4 @@ Status LDR_NonprogressiveLoad()
 		}
 	}
 }
+} // namespace PS::Loader

@@ -1,4 +1,4 @@
-/* Copyright (C) 2016 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -27,12 +27,13 @@
 #ifndef INCLUDED_VFS_TREE
 #define INCLUDED_VFS_TREE
 
-#include <map>
-
-#include "lib/file/file_system.h"	// CFileInfo
 #include "lib/file/common/file_loader.h"	// PIFileLoader
 #include "lib/file/common/real_directory.h"	// PRealDirectory
 #include "lib/file/vfs/vfs_path.h"
+
+#include <ctime>
+#include <map>
+#include <string>
 
 class VfsFile
 {
@@ -172,7 +173,7 @@ private:
 	VfsSubdirectories m_subdirectories;
 
 	PRealDirectory m_realDirectory;
-	volatile intptr_t m_shouldPopulate;	// (cpu_CAS can't be used on bool)
+	bool m_shouldPopulate;
 };
 
 

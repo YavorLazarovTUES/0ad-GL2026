@@ -1,4 +1,4 @@
-/* Copyright (C) 2012 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -16,18 +16,31 @@
  */
 
 #include "precompiled.h"
+
 #include "Paths.h"
 
+#include "lib/debug.h"
 #include "lib/file/file_system.h"
+#include "lib/path.h"
+#include "lib/status.h"
+#include "lib/sysdep/os.h"
 #include "lib/sysdep/sysdep.h"	// sys_get_executable_name
-#include "lib/sysdep/filesystem.h"	// wrealpath
+#include "ps/CLogger.h"
+#include "ps/CStr.h"
+#include "ps/GameSetup/CmdLineArgs.h"
+
+#include <cerrno>
+#include <cstdlib>
+#include <filesystem>
+#include <string>
+#include <system_error>
+
 #if OS_WIN
 # include "lib/sysdep/os/win/wutil.h"	// wutil_*Path
 #elif OS_MACOSX
 # include "lib/sysdep/os/osx/osx_paths.h"
 # include "lib/sysdep/os/osx/osx_bundle.h"
 #endif
-#include "ps/CLogger.h"
 
 
 Paths::Paths(const CmdLineArgs& args)
@@ -140,13 +153,14 @@ Paths::Paths(const CmdLineArgs& args)
 		const OsPath xdgData   = XDG_Path("XDG_DATA_HOME",   home, home/".local/share/") / subdirectoryName;
 		const OsPath xdgConfig = XDG_Path("XDG_CONFIG_HOME", home, home/".config/"     ) / subdirectoryName;
 		const OsPath xdgCache  = XDG_Path("XDG_CACHE_HOME",  home, home/".cache/"      ) / subdirectoryName;
+		const OsPath xdgState  = XDG_Path("XDG_STATE_HOME",  home, home/".local/state/") / subdirectoryName;
 
 		// We don't make the game vs. user data distinction on Unix
 		m_gameData = xdgData/"";
 		m_userData = m_gameData;
 		m_cache  = xdgCache/"";
 		m_config = xdgConfig / "config"/"";
-		m_logs   = xdgConfig / "logs"/"";
+		m_logs   = xdgState  / "log"/"";
 
 #endif
 	}
@@ -163,14 +177,17 @@ Paths::Paths(const CmdLineArgs& args)
 	OsPath pathname = sys_ExecutablePathname();	// safe, but requires OS-specific implementation
 	if(pathname.empty())	// failed, use argv[0] instead
 	{
-		errno = 0;
-		pathname = wrealpath(argv0);
-		if(pathname.empty())
-			WARN_IF_ERR(StatusFromErrno());
+		const std::filesystem::path rpath{argv0.string()};
+		std::error_code ec{};
+		const std::filesystem::path cpath{std::filesystem::canonical(rpath, ec)};
+		if (ec)
+			LOGERROR("Failed to get absolute path of argv0, reason: %s", ec.message());
+		else
+			pathname = OsPath(cpath.wstring());
 	}
 
 	// make sure it's valid
-	if(!FileExists(pathname))
+	if(!std::filesystem::is_regular_file(pathname.string()))
 	{
 		LOGERROR("Cannot find executable (expected at '%s')", pathname.string8());
 		WARN_IF_ERR(StatusFromErrno());
@@ -183,11 +200,10 @@ Paths::Paths(const CmdLineArgs& args)
 #endif
 }
 
-/*static*/ OsPath Paths::RootData(const OsPath& argv0)
+/*static*/ OsPath Paths::RootData([[maybe_unused]] const OsPath& argv0)
 {
 
 #ifdef INSTALLED_DATADIR
-	UNUSED2(argv0);
 	return OsPath(STRINGIZE(INSTALLED_DATADIR))/"";
 #else
 

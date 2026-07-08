@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,28 +17,44 @@
 
 #include "lib/self_test.h"
 
-#include "graphics/FontManager.h"
-#include "graphics/FontMetrics.h"
 #include "gui/CGUI.h"
 #include "gui/CGUISetting.h"
-#include "gui/CGUIText.h"
 #include "gui/ObjectBases/IGUIObject.h"
-#include "gui/SettingTypes/CGUIString.h"
+#include "gui/SettingTypes/CGUISize.h"
+#include "i18n/L10n.h"
+#include "lib/file/file_system.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/path.h"
+#include "maths/Rect.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
 #include "ps/ConfigDB.h"
 #include "ps/Filesystem.h"
 #include "ps/ProfileViewer.h"
 #include "ps/VideoMode.h"
+#include "ps/XML/Xeromyces.h"
 #include "renderer/Renderer.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 
+#include <js/PropertyAndElement.h>
+#include <js/PropertyDescriptor.h>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <map>
 #include <memory>
+#include <optional>
+#include <string>
 #include <type_traits>
+#include <utility>
 
 class TestGUISetting : public CxxTest::TestSuite
 {
+	std::optional<CXeromycesEngine> m_XeromycesEngine;
 	std::unique_ptr<CProfileViewer> m_Viewer;
 	std::unique_ptr<CRenderer> m_Renderer;
+	std::unique_ptr<L10n> m_L10n;
 
 public:
 	class TestGUIObject : public IGUIObject
@@ -47,15 +63,27 @@ public:
 		TestGUIObject(CGUI& gui) : IGUIObject(gui) {}
 
 		void Draw(CCanvas2D&) {}
+		void RecalculateActualSize() const {
+			cachedSizeRecalculated = true;
+			IGUIObject::RecalculateActualSize();
+		}
+
+		CGUISimpleSetting<CGUISize>* GetSizeSetting() const
+		{
+			return static_cast<CGUISimpleSetting<CGUISize>*>(m_Settings.at("size"));
+		}
+
+		mutable bool cachedSizeRecalculated{false};
 	};
 
 	void setUp()
 	{
 		g_VFS = CreateVfs();
+		TS_ASSERT_OK(g_VFS->Mount(L"", DataDir() / "mods" / "_test.gui" / "", VFS_MOUNT_MUST_EXIST));
 		TS_ASSERT_OK(g_VFS->Mount(L"", DataDir() / "mods" / "_test.minimal" / "", VFS_MOUNT_MUST_EXIST));
 		TS_ASSERT_OK(g_VFS->Mount(L"cache", DataDir() / "_testcache" / "", 0, VFS_MAX_PRIORITY));
 
-		CXeromyces::Startup();
+		m_XeromycesEngine.emplace();
 
 		// The renderer spews messages.
 		TestLogger logger;
@@ -68,15 +96,17 @@ public:
 		g_VideoMode.CreateBackendDevice(false);
 		m_Viewer = std::make_unique<CProfileViewer>();
 		m_Renderer = std::make_unique<CRenderer>(g_VideoMode.GetBackendDevice());
+		m_L10n = std::make_unique<L10n>();
 	}
 
 	void tearDown()
 	{
+		m_L10n.reset();
 		m_Renderer.reset();
 		m_Viewer.reset();
 		g_VideoMode.Shutdown();
 		CConfigDB::Shutdown();
-		CXeromyces::Terminate();
+		m_XeromycesEngine.reset();
 		g_VFS.reset();
 		DeleteDirectory(DataDir() / "_testcache");
 	}
@@ -99,5 +129,54 @@ public:
 		TS_ASSERT(object.SettingExists("A"));
 		object.SetSettingFromString("A", L"ValueB", false);
 		TS_ASSERT_EQUALS(*settingB, "ValueB");
+	}
+
+	void test_setting_cguisize()
+	{
+		CGUI gui{*g_ScriptContext};
+		gui.AddObjectTypes();
+		TestGUIObject object{gui};
+
+		CGUISimpleSetting<CGUISize>* setting{object.GetSizeSetting()};
+		object.SetSettingFromString("size", L"2 2 20 20", false);
+
+		Script::Request rq{gui.GetScriptInterface()};
+		JS::RootedValue val(rq.cx);
+		val.setObject(*object.GetJSObject());
+		JS::RootedObject global(rq.cx, rq.glob);
+		JS_DefineProperty(rq.cx, global, "testObject", val, JSPROP_ENUMERATE);
+
+		// Lazy assigment.
+		TS_ASSERT(gui.GetScriptInterface()->LoadGlobalScriptFile(L"gui/settings/cguisize/lazyassign.js"));
+		TS_ASSERT_EQUALS(setting->GetMutable().pixel, (CRect{5, 2, 20, 20}));
+		TS_ASSERT_EQUALS(setting->GetMutable().percent, (CRect{0, 0, 0, 0}));
+		TS_ASSERT(!object.cachedSizeRecalculated);
+
+		// This should finally recalculate the dirty (cached) actual size in order to return an up-to-date value.
+		TS_ASSERT_EQUALS(object.GetActualSize(), (CRect{5, 2, 20, 20}));
+		TS_ASSERT(object.cachedSizeRecalculated);
+
+		object.cachedSizeRecalculated = false;
+
+		// Compound assignment operator.
+		TS_ASSERT(gui.GetScriptInterface()->LoadGlobalScriptFile(L"gui/settings/cguisize/compoundassignmentoperator.js"));
+		TS_ASSERT_EQUALS(setting->GetMutable().pixel, (CRect{10, 2, 20, 20}));
+		TS_ASSERT_EQUALS(setting->GetMutable().percent, (CRect{0, 0, 0, 0}));
+
+		// Object assignment.
+		TS_ASSERT(gui.GetScriptInterface()->LoadGlobalScriptFile(L"gui/settings/cguisize/objectassign.js"));
+		TS_ASSERT_EQUALS(setting->GetMutable().pixel, (CRect{10, 2, 20, 20}));
+		TS_ASSERT_EQUALS(setting->GetMutable().percent, (CRect{4, 0, 0, 20}));
+
+		// assign
+		TS_ASSERT(gui.GetScriptInterface()->LoadGlobalScriptFile(L"gui/settings/cguisize/assign.js"));
+		TS_ASSERT_EQUALS(setting->GetMutable().pixel, (CRect{3, 0, 0, 2}));
+		TS_ASSERT_EQUALS(setting->GetMutable().percent, (CRect{0, 0, 0, 0}));
+
+		TS_ASSERT(!object.cachedSizeRecalculated);
+		// Call the getComputedSize method on it, which should finally recalculate the dirty (cached) actual size in
+		// order to return an up-to-date value.
+		TS_ASSERT(gui.GetScriptInterface()->LoadGlobalScriptFile(L"gui/settings/cguisize/getcomputedsize.js"));
+		TS_ASSERT(object.cachedSizeRecalculated);
 	}
 };

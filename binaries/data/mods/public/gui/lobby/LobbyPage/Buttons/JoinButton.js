@@ -3,8 +3,9 @@
  */
 class JoinButton
 {
-	constructor(dialog, gameList)
+	constructor(closePageCallback, dialog, gameList)
 	{
+		this.closePageCallback = closePageCallback;
 		this.gameList = gameList;
 
 		this.joinButton = Engine.GetGUIObjectByName("joinButton");
@@ -16,7 +17,7 @@ class JoinButton
 		gameList.gamesBox.onMouseLeftDoubleClickItem = this.onPress.bind(this);
 		gameList.registerSelectionChangeHandler(this.onSelectedGameChange.bind(this, dialog));
 
-		this.onSelectedGameChange();
+		this.onSelectedGameChange(dialog);
 	}
 
 	onSelectedGameChange(dialog, selectedGame)
@@ -29,12 +30,12 @@ class JoinButton
 	 */
 	async onPress()
 	{
-		let game = this.gameList.selectedGame();
+		const game = this.gameList.selectedGame();
 		if (!game)
 			return;
 
-		let rating = this.getRejoinRating(game);
-		let playername = rating ? g_Nickname + " (" + rating + ")" : g_Nickname;
+		const rating = this.getRejoinRating(game);
+		const playername = rating ? g_Nickname + " (" + rating + ")" : g_Nickname;
 
 		if (!game.isCompatible)
 		{
@@ -50,7 +51,11 @@ class JoinButton
 				return;
 
 			Engine.StopXmppClient();
-			Engine.SwitchGuiPage("page_modmod.xml", { "cancelbutton": true });
+			delete Engine.GetGUIObjectByName("lobbyPage").onTick;
+			this.closePageCallback({ [Engine.openRequest]: {
+				"page": "page_modmod.xml",
+				"argument": { "cancelbutton": true }
+			} });
 			return;
 		}
 
@@ -67,7 +72,10 @@ class JoinButton
 				return;
 		}
 
-		Engine.PushGuiPage("page_gamesetup_mp.xml", {
+		if (this.joinButton.hidden)
+			return;
+
+		Engine.OpenChildPage("page_gamesetup_mp.xml", {
 			"multiplayerGameType": "join",
 			"name": g_Nickname,
 			"rating": this.getRejoinRating(stanza),
@@ -81,9 +89,9 @@ class JoinButton
 	 */
 	getRejoinRating(game)
 	{
-		for (let player of game.players)
+		for (const player of game.players)
 		{
-			let playerNickRating = splitRatingFromNick(player.Name);
+			const playerNickRating = splitRatingFromNick(player.Name);
 			if (playerNickRating.nick == g_Nickname)
 				return playerNickRating.rating;
 		}

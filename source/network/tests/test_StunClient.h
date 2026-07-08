@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,11 +17,14 @@
 
 #include "lib/self_test.h"
 
-#include "network/StunClient.h"
-
 #include "lib/external_libraries/enet.h"
-#include "ps/ConfigDB.h"
+#include "lib/types.h"
+#include "network/StunClient.h"
+#include "ps/CLogger.h"
 #include "ps/CStr.h"
+#include "ps/ConfigDB.h"
+
+#include <string>
 
 class TestStunClient : public CxxTest::TestSuite
 {
@@ -52,7 +55,7 @@ public:
 		{
 			if (c == '.')
 				++dots;
-			else if (c < '0' && c > '9')
+			else if (c < '0' || c > '9')
 			{
 				TS_FAIL("StunClient::FindLocalIP did not return a valid IPV4 address: wrong character");
 				return;
@@ -62,7 +65,7 @@ public:
 			TS_FAIL("StunClient::FindLocalIP did not return a valid IPV4 address: wrong separators");
 	}
 
-	void test_stun_DISABLED()
+	void DISABLED_test_stun()
 	{
 		// Disabled test -> should return your external IP by connecting to our STUN server.
 		CConfigDB::Initialise();

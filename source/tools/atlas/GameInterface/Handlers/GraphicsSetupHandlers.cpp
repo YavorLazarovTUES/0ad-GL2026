@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,33 +18,40 @@
 #include "precompiled.h"
 
 #include "MessageHandler.h"
-#include "../GameLoop.h"
-#include "../CommandProc.h"
-#include "../ActorViewer.h"
-#include "../View.h"
-#include "../InputProcessor.h"
 
-#include "graphics/GameView.h"
-#include "graphics/ObjectManager.h"
 #include "gui/GUIManager.h"
+#include "lib/debug.h"
 #include "lib/external_libraries/libsdl.h"
+#include "lib/sysdep/os.h"
 #include "lib/timer.h"
-#include "maths/MathUtil.h"
-#include "ps/CConsole.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
 #include "ps/Filesystem.h"
-#include "ps/Profile.h"
-#include "ps/Profiler2.h"
-#include "ps/Game.h"
-#include "ps/VideoMode.h"
 #include "ps/GameSetup/Config.h"
 #include "ps/GameSetup/GameSetup.h"
-#include "renderer/backend/IDevice.h"
+#include "ps/Input.h"
+#include "ps/Profile.h"
+#include "ps/VideoMode.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ForwardDeclarations.h"
+#include "scriptinterface/Interface.h"
+#include "tools/atlas/GameInterface/ActorViewer.h"
+#include "tools/atlas/GameInterface/CommandProc.h"
+#include "tools/atlas/GameInterface/GameLoop.h"
+#include "tools/atlas/GameInterface/InputProcessor.h"
+#include "tools/atlas/GameInterface/Messages.h"
+#include "tools/atlas/GameInterface/Shareable.h"
+#include "tools/atlas/GameInterface/SharedTypes.h"
+#include "tools/atlas/GameInterface/View.h"
 
+#include <SDL.h>
+#include <SDL_error.h>
+#include <SDL_events.h>
+#include <SDL_video.h>
+#include <memory>
 #include <optional>
+#include <vector>
 
 #if OS_WIN
 // We don't include wutil header directly to prevent including Windows headers.
@@ -67,13 +74,12 @@ const int g_InitFlags = INIT_HAVE_VMODE | INIT_NO_GUI;
 // This isn't used directly. When it's emplaced and when it's reset it does mutate `g_Logger`.
 std::optional<FileLogger> g_FileLogger;
 
-std::optional<ScriptInterface> g_ScriptInterface;
+std::optional<Script::Interface> g_ScriptInterface;
+std::unique_ptr<InputHandlers> g_InputHandlers;
 }
 
 MESSAGEHANDLER(Init)
 {
-	UNUSED2(msg);
-
 	g_Quickstart = true;
 
 	InitVfs(g_AtlasGameLoop->args);
@@ -98,15 +104,11 @@ MESSAGEHANDLER(InitAppWindow)
 {
 #if OS_WIN
 	wutil_SetAppWindow(msg->handle);
-#else
-	UNUSED2(msg);
 #endif
 }
 
 MESSAGEHANDLER(InitSDL)
 {
-	UNUSED2(msg);
-
 	// When using GLX (Linux), SDL has to load the GL library to find
 	// glXGetProcAddressARB before it can load any extensions.
 	// When running in Atlas, we skip the SDL video initialisation code
@@ -128,29 +130,24 @@ MESSAGEHANDLER(InitSDL)
 
 MESSAGEHANDLER(InitGraphics)
 {
-	UNUSED2(msg);
-
 	g_VideoMode.CreateBackendDevice(false);
 
-	g_VideoMode.GetBackendDevice()->OnWindowResize(g_xres, g_yres);
-
 	g_ScriptInterface.emplace("Engine", "GUIManager", *g_ScriptContext);
-	InitGraphics(g_AtlasGameLoop->args, g_InitFlags, {}, *g_ScriptContext, *g_ScriptInterface);
+	g_InputHandlers = InitGraphics(g_AtlasGameLoop->args, g_InitFlags, {}, *g_ScriptContext, *g_ScriptInterface);
 }
 
 
 MESSAGEHANDLER(Shutdown)
 {
-	UNUSED2(msg);
-
 	// Empty the CommandProc, to get rid of its references to entities before
 	// we kill the EntityManager
 	GetCommandProc().Destroy();
 
 	AtlasView::DestroyViews();
 	g_AtlasGameLoop->view = AtlasView::GetView_None();
-
+	g_InputHandlers.reset();
 	ShutdownNetworkAndUI();
+	g_InputHandlers.reset();
 	g_ScriptInterface.reset();
 	ShutdownConfigAndSubsequent();
 	g_FileLogger.reset();
@@ -159,7 +156,6 @@ MESSAGEHANDLER(Shutdown)
 
 QUERYHANDLER(Exit)
 {
-	UNUSED2(msg);
 	g_AtlasGameLoop->running = false;
 }
 
@@ -219,7 +215,7 @@ MESSAGEHANDLER(SetCanvas)
 {
 	// Need to set the canvas size before possibly doing any rendering,
 	// else we'll get GL errors when trying to render to 0x0
-	CVideoMode::UpdateRenderer(msg->width, msg->height);
+	g_VideoMode.UpdateRenderer(msg->width, msg->height);
 
 	g_AtlasGameLoop->glCanvas = msg->canvas;
 	Atlas_GLSetCurrent(const_cast<void*>(g_AtlasGameLoop->glCanvas));
@@ -228,7 +224,7 @@ MESSAGEHANDLER(SetCanvas)
 
 MESSAGEHANDLER(ResizeScreen)
 {
-	CVideoMode::UpdateRenderer(msg->width, msg->height);
+	g_VideoMode.UpdateRenderer(msg->width, msg->height);
 
 #if OS_MACOSX
 	// OS X seems to require this to update the GL canvas
@@ -259,9 +255,8 @@ QUERYHANDLER(RenderLoop)
 	RendererIncrementalLoad();
 
 	// Pump SDL events (e.g. hotkeys)
-	SDL_Event_ ev;
-	while (in_poll_priority_event(&ev))
-		in_dispatch_event(&ev);
+	for (SDL_Event& ev : g_VideoMode.m_InputManager.PollEvents())
+		g_VideoMode.m_InputManager.DispatchEvent(ev);
 
 	if (g_GUI)
 		g_GUI->TickObjects();
@@ -273,7 +268,7 @@ QUERYHANDLER(RenderLoop)
 	if (CProfileManager::IsInitialised())
 		g_Profiler.Frame();
 
-	msg->wantHighFPS = g_AtlasGameLoop->view->WantsHighFramerate();
+	msg->smoothFramerate = g_AtlasGameLoop->view->GetSmoothFramerate();
 }
 
 //////////////////////////////////////////////////////////////////////////

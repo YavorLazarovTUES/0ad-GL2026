@@ -25,7 +25,7 @@ const HEIGHT_UNITS_PER_METRE = 92;
  * Constants needed for heightmap_manipulation.js
  */
 const MAX_HEIGHT_RANGE = 0xFFFF / HEIGHT_UNITS_PER_METRE; // Engine limit, Roughly 700 meters
-const MIN_HEIGHT = - SEA_LEVEL;
+const MIN_HEIGHT = -SEA_LEVEL;
 
 const MAX_HEIGHT = MAX_HEIGHT_RANGE - SEA_LEVEL;
 
@@ -56,11 +56,11 @@ function getObstructionSize(templateName, margin = 0)
 		obstruction.Static ?
 			new Vector2D(obstruction.Static["@depth"], obstruction.Static["@width"]) :
 		// Used for gates, should consider the position too
-		obstruction.Obstructions ?
-			new Vector2D(
-				Object.keys(obstruction.Obstructions).reduce((depth, key) => Math.max(depth, +obstruction.Obstructions[key]["@depth"]), 0),
-				Object.keys(obstruction.Obstructions).reduce((width, key) => width + +obstruction.Obstructions[key]["@width"], 0)) :
-			new Vector2D(0, 0);
+			obstruction.Obstructions ?
+				new Vector2D(
+					Object.keys(obstruction.Obstructions).reduce((depth, key) => Math.max(depth, +obstruction.Obstructions[key]["@depth"]), 0),
+					Object.keys(obstruction.Obstructions).reduce((width, key) => width + +obstruction.Obstructions[key]["@width"], 0)) :
+				new Vector2D(0, 0);
 
 	return obstructionSize.div(TERRAIN_TILE_SIZE).add(new Vector2D(2, 2).mult(margin));
 }
@@ -146,7 +146,8 @@ function createObjectGroupsByAreasDeprecated(group, player, constraints, amount,
  */
 function createAreas(centeredPlacer, painter, constraints, amount, retryFactor = 10)
 {
-	const placeFunc = function() {
+	const placeFunc = function()
+	{
 		centeredPlacer.setCenterPosition(g_Map.randomCoordinate(false));
 		return createArea(centeredPlacer, painter, constraints);
 	};
@@ -161,12 +162,14 @@ function createAreas(centeredPlacer, painter, constraints, amount, retryFactor =
 function createAreasInAreas(centeredPlacer, painter, constraints, amount, retryFactor, areas)
 {
 	areas = areas.filter(area => area.getPoints().length);
-	if (!areas.length) {
+	if (!areas.length)
+	{
 		log("createAreasInAreas: 'areas' was either empty or only contained empty areas thus returning an empty array.\n" + new Error().stack);
 		return [];
 	}
 
-	const placeFunc = function() {
+	const placeFunc = function()
+	{
 		centeredPlacer.setCenterPosition(pickRandom(pickRandom(areas).getPoints()));
 		return createArea(centeredPlacer, painter, constraints);
 	};
@@ -180,7 +183,8 @@ function createAreasInAreas(centeredPlacer, painter, constraints, amount, retryF
  */
 function createObjectGroups(group, player, constraints, amount, retryFactor = 10, behaveDeprecated = false)
 {
-	const placeFunc = function() {
+	const placeFunc = function()
+	{
 		group.setCenterPosition(g_Map.randomCoordinate(true));
 		return createObjectGroup(group, player, constraints);
 	};
@@ -195,12 +199,14 @@ function createObjectGroups(group, player, constraints, amount, retryFactor = 10
 function createObjectGroupsByAreas(group, player, constraints, amount, retryFactor, areas, behaveDeprecated = false)
 {
 	areas = areas.filter(area => area.getPoints().length);
-	if (!areas.length) {
+	if (!areas.length)
+	{
 		log("createObjectGroupsByAreas: 'areas' was either empty or only contained empty areas.\n" + new Error().stack);
 		return [];
 	}
 
-	const placeFunc = function() {
+	const placeFunc = function()
+	{
 		group.setCenterPosition(pickRandom(pickRandom(areas).getPoints()));
 		return createObjectGroup(group, player, constraints);
 	};
@@ -210,7 +216,7 @@ function createObjectGroupsByAreas(group, player, constraints, amount, retryFact
 
 function createTerrain(terrain)
 {
-	return typeof terrain == "string" ?
+	return typeof terrain === "string" ?
 		new SimpleTerrain(...terrain.split(TERRAIN_SEPARATOR)) :
 		new RandomTerrain(terrain.map(t => createTerrain(t)));
 }
@@ -268,7 +274,7 @@ function createObjectGroup(group, player, constraints)
 /**
  * Create an avoid constraint for the given classes by the given distances
  */
-function avoidClasses(/*class1, dist1, class2, dist2, etc*/)
+function avoidClasses(/* class1, dist1, class2, dist2, etc */)
 {
 	const ar = [];
 	for (let i = 0; i < arguments.length/2; ++i)
@@ -284,7 +290,7 @@ function avoidClasses(/*class1, dist1, class2, dist2, etc*/)
 /**
  * Create a stay constraint for the given classes by the given distances
  */
-function stayClasses(/*class1, dist1, class2, dist2, etc*/)
+function stayClasses(/* class1, dist1, class2, dist2, etc */)
 {
 	const ar = [];
 	for (let i = 0; i < arguments.length/2; ++i)
@@ -300,7 +306,7 @@ function stayClasses(/*class1, dist1, class2, dist2, etc*/)
 /**
  * Create a border constraint for the given classes by the given distances
  */
-function borderClasses(/*class1, idist1, odist1, class2, idist2, odist2, etc*/)
+function borderClasses(/* class1, idist1, odist1, class2, idist2, odist2, etc */)
 {
 	const ar = [];
 	for (let i = 0; i < arguments.length/3; ++i)

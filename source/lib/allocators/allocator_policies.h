@@ -1,4 +1,4 @@
-/* Copyright (C) 2020 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -29,9 +29,15 @@
 
 #include "lib/alignment.h"	// pageSize
 #include "lib/allocators/stateless_allocators.h"
-#include "lib/allocators/freelist.h"
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
+#include "lib/sysdep/vm.h"
 
+#include <algorithm>
+#include <cstdint>
 #include <cstring>
+#include <limits>
+#include <utility>
 
 namespace Allocators {
 
@@ -83,7 +89,7 @@ struct Growth_Exponential
 // allocators such as Arena append variable-sized intervals).
 //
 // we don't store smart pointers because storage usually doesn't need
-// to be copied, and ICC 11 sometimes wasn't able to inline Address().
+// to be copied.
 struct Storage
 {
 	// @return starting address (alignment depends on the allocator).
@@ -136,7 +142,7 @@ public:
 		return maxCapacity;
 	}
 
-	bool Expand(size_t UNUSED(requiredCapacity))
+	bool Expand(size_t /*requiredCapacity*/)
 	{
 		return false;
 	}
@@ -297,7 +303,7 @@ public:
 		return maxCapacity;
 	}
 
-	bool Expand(size_t UNUSED(requiredCapacity))
+	bool Expand(size_t /*requiredCapacity*/)
 	{
 		return false;
 	}

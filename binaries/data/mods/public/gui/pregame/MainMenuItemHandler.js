@@ -2,10 +2,11 @@
  * This class sets up the main menu buttons, animates submenu that opens when
  * clicking on category buttons, assigns the defined actions and hotkeys to every button.
  */
-class MainMenuItemHandler
+export class MainMenuItemHandler
 {
-	constructor(menuItems)
+	constructor(closePageCallback, menuItems)
 	{
+		this.closePageCallback = closePageCallback;
 		this.menuItems = menuItems;
 		this.lastTickTime = Date.now();
 
@@ -26,16 +27,18 @@ class MainMenuItemHandler
 
 	setupMenuButtons(buttons, menuItems)
 	{
-		buttons.forEach((button, i) => {
-			let item = menuItems[i];
+		buttons.forEach((button, i) =>
+		{
+			const item = menuItems[i];
 			button.hidden = !item;
 			if (button.hidden)
 				return;
 
-			button.size = new GUISize(
-				0, (this.ButtonHeight + this.Margin) * i,
-				0, (this.ButtonHeight + this.Margin) * i + this.ButtonHeight,
-				0, 0, 100, 0);
+			button.size = {
+				"top": (this.ButtonHeight + this.Margin) * i,
+				"bottom": (this.ButtonHeight + this.Margin) * i + this.ButtonHeight,
+				"rright": 100
+			};
 			button.caption = item.caption;
 			button.tooltip = item.tooltip;
 			button.enabled = item.enabled === undefined || item.enabled();
@@ -74,18 +77,19 @@ class MainMenuItemHandler
 		this.lastOpenItem = item;
 
 		if (item.onPress)
-			item.onPress();
+			item.onPress(this.closePageCallback);
 		else
 			this.openSubmenu(i);
 	}
 
 	setupHotkeys(menuItems)
 	{
-		for (let i in menuItems)
+		for (const i in menuItems)
 		{
-			let item = menuItems[i];
+			const item = menuItems[i];
 			if (item.onPress && item.hotkey)
-				Engine.SetGlobalHotkey(item.hotkey, "Press", () => {
+				Engine.SetGlobalHotkey(item.hotkey, "Press", () =>
+				{
 					this.closeSubmenu();
 					item.onPress();
 				});
@@ -99,26 +103,20 @@ class MainMenuItemHandler
 	{
 		this.setupMenuButtons(this.submenuButtons.children, this.menuItems[i].submenu);
 
-		let top = this.mainMenuButtons.size.top + this.mainMenuButtons.children[i].size.top;
+		const top = this.mainMenuButtons.children[i].getComputedSize().top;
 
-		this.submenu.size = new GUISize(
-			this.submenu.size.left, top - this.Margin,
-			this.submenu.size.right, top + (this.ButtonHeight + this.Margin) * this.menuItems[i].submenu.length);
+		this.submenu.size = {
+			"left": this.submenu.size.left,
+			"right": this.mainMenu.size.right,
+			"top": top - this.Margin,
+			"bottom": top + (this.ButtonHeight + this.Margin) * this.menuItems[i].submenu.length
+		};
 
 		this.submenu.hidden = false;
 
-		{
-			let size = this.MainMenuPanelRightBorderTop.size;
-			size.bottom = this.submenu.size.top + this.Margin;
-			size.rbottom = 0;
-			this.MainMenuPanelRightBorderTop.size = size;
-		}
-
-		{
-			let size = this.MainMenuPanelRightBorderBottom.size;
-			size.top = this.submenu.size.bottom;
-			this.MainMenuPanelRightBorderBottom.size = size;
-		}
+		this.MainMenuPanelRightBorderTop.size.bottom = this.submenu.size.top + this.Margin;
+		this.MainMenuPanelRightBorderTop.size.rbottom = 0;
+		this.MainMenuPanelRightBorderBottom.size.top = this.submenu.size.bottom;
 
 		// Start animation
 		this.lastTickTime = Date.now();
@@ -130,21 +128,21 @@ class MainMenuItemHandler
 		this.submenu.hidden = true;
 		this.submenu.size = this.mainMenu.size;
 
-		let size = this.MainMenuPanelRightBorderTop.size;
-		size.top = 0;
-		size.bottom = 0;
-		size.rbottom = 100;
-		this.MainMenuPanelRightBorderTop.size = size;
+		Object.assign(this.MainMenuPanelRightBorderTop.size, {
+			"top": 0,
+			"bottom": 0,
+			"rbottom": 100
+		});
 	}
 
 	onTick()
 	{
-		let now = Date.now();
+		const now = Date.now();
 		if (now == this.lastTickTime)
 			return;
 
-		let maxOffset = this.mainMenu.size.right - this.submenu.size.left;
-		let offset = Math.min(this.MenuSpeed * (now - this.lastTickTime), maxOffset);
+		const maxOffset = this.mainMenu.size.right - this.submenu.size.left;
+		const offset = Math.min(this.MenuSpeed * (now - this.lastTickTime), maxOffset);
 
 		this.lastTickTime = now;
 
@@ -154,10 +152,8 @@ class MainMenuItemHandler
 			return;
 		}
 
-		let size = this.submenu.size;
-		size.left += offset;
-		size.right += offset;
-		this.submenu.size = size;
+		this.submenu.size.left += offset;
+		this.submenu.size.right += offset;
 	}
 }
 

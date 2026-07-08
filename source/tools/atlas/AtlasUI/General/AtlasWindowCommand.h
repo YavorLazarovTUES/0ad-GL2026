@@ -1,4 +1,4 @@
-/* Copyright (C) 2009 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,8 +18,13 @@
 #ifndef INCLUDED_ATLASWINDOWCOMMAND
 #define INCLUDED_ATLASWINDOWCOMMAND
 
-#include "wx/cmdproc.h"
-#include "AtlasObject/AtlasObject.h"
+#include "tools/atlas/AtlasObject/AtlasObject.h"
+
+#include <wx/chartype.h>
+#include <wx/cmdproc.h>
+#include <wx/object.h>
+#include <wx/string.h>
+
 class IAtlasSerialiser;
 
 class AtlasWindowCommand : public wxCommand

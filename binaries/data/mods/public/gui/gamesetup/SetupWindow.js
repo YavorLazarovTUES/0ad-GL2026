@@ -11,7 +11,7 @@ class SetupWindowPages
  */
 class SetupWindow
 {
-	constructor(initData, hotloadData)
+	constructor(initData, hotloadData, closePageCallback)
 	{
 		if (!g_Settings)
 			return;
@@ -25,14 +25,21 @@ class SetupWindow
 		if (initData?.backPage)
 			this.backPage = initData.backPage;
 
-		const mapCache = new MapCache();
-		g_GameSettings = new GameSettings().init(mapCache);
+		const savedGame = initData?.savedGame;
+		const isSavedGame = !!savedGame;
 
-		let netMessages = new NetMessages();
-		let mapFilters = new MapFilters(mapCache);
-		let playerAssignmentsController = new PlayerAssignmentsController(this, netMessages);
-		let gameSettingsController = new GameSettingsController(this, netMessages, playerAssignmentsController, mapCache);
-		let readyController = new ReadyController(netMessages, gameSettingsController, playerAssignmentsController);
+		const mapCache = new MapCache();
+		g_GameSettings = new GameSettings();
+		g_GameSettings.init(mapCache, g_IsController ? savedGame : undefined);
+
+
+		const netMessages = new NetMessages();
+		const mapFilters = new MapFilters(mapCache);
+		const playerAssignmentsController =
+			new PlayerAssignmentsController(this, netMessages, isSavedGame);
+		const gameSettingsController = new GameSettingsController(this, netMessages,
+			playerAssignmentsController, mapCache, closePageCallback, isSavedGame);
+		const readyController = new ReadyController(netMessages, gameSettingsController, playerAssignmentsController);
 		const lobbyGameRegistrationController = g_IsController && Engine.HasXmppClient() &&
 			new LobbyGameRegistrationController(initData, this, netMessages, mapCache, playerAssignmentsController);
 
@@ -49,15 +56,18 @@ class SetupWindow
 
 		// These are the pages within the setup window that may use the controls defined above
 		this.pages = {};
-		for (let name in SetupWindowPages)
-			this.pages[name] = new SetupWindowPages[name](this);
+		for (const name in SetupWindowPages)
+		{
+			this.pages[name] = new SetupWindowPages[name](this, isSavedGame,
+				this.closePage.bind(this, closePageCallback));
+		}
 
 		netMessages.registerNetMessageHandler("netwarn", addNetworkWarning);
 		setTimeout(displayGamestateNotifications, 1000);
 		Engine.GetGUIObjectByName("setupWindow").onTick = () => this.onTick();
 
 		// This event is triggered after all classes have been instantiated and subscribed to each others events
-		for (let handler of this.loadHandlers)
+		for (const handler of this.loadHandlers)
 			handler(initData, hotloadData);
 
 		Engine.ProfileStop();
@@ -95,30 +105,41 @@ class SetupWindow
 
 	getHotloadData()
 	{
-		let object = {};
-		for (let handler of this.getHotloadDataHandlers)
+		const object = {};
+		for (const handler of this.getHotloadDataHandlers)
 			handler(object);
 		return object;
 	}
 
 	onTick()
 	{
-		this.controls.netMessages.pollPendingMessages();
 		updateTimers();
 	}
 
-	closePage()
+	closePage(closePageCallback)
 	{
-		for (let handler of this.closePageHandlers)
+		for (const handler of this.closePageHandlers)
 			handler();
 
 		Engine.DisconnectNetworkGame();
 
 		if (this.backPage)
-			Engine.SwitchGuiPage(this.backPage.page, this.backPage?.data);
-		else if (Engine.HasXmppClient())
-			Engine.SwitchGuiPage("page_lobby.xml", { "dialog": false });
-		else
-			Engine.SwitchGuiPage("page_pregame.xml");
+		{
+			closePageCallback({ [Engine.openRequest]: {
+				"page": this.backPage.page,
+				"argument": this.backPage?.data
+			} });
+		}
+		if (Engine.HasXmppClient())
+		{
+			closePageCallback({ [Engine.openRequest]: {
+				"page": "page_lobby.xml",
+				"argument": { "dialog": false }
+			} });
+		}
+		closePageCallback({ [Engine.openRequest]: {
+			"page": "page_pregame.xml"
+		} });
+
 	}
 }

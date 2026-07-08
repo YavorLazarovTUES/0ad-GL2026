@@ -57,14 +57,14 @@ AttackDetection.prototype.OnGlobalAttacked = function(msg)
 
 AttackDetection.prototype.AttackAlert = function(target, attacker, type, attackerOwner)
 {
-	let playerID = Engine.QueryInterface(this.entity, IID_Player).GetPlayerID();
+	const playerID = Engine.QueryInterface(this.entity, IID_Player).GetPlayerID();
 
 	// Don't register attacks dealt against other players
 	if (Engine.QueryInterface(target, IID_Ownership).GetOwner() != playerID)
 		return;
 
-	let cmpAttackerOwnership = Engine.QueryInterface(attacker, IID_Ownership);
-	let atkOwner = cmpAttackerOwnership && cmpAttackerOwnership.GetOwner() != INVALID_PLAYER ? cmpAttackerOwnership.GetOwner() : attackerOwner;
+	const cmpAttackerOwnership = Engine.QueryInterface(attacker, IID_Ownership);
+	const atkOwner = cmpAttackerOwnership && cmpAttackerOwnership.GetOwner() != INVALID_PLAYER ? cmpAttackerOwnership.GetOwner() : attackerOwner;
 	// Don't register attacks dealt by myself
 	if (atkOwner == playerID)
 		return;
@@ -80,6 +80,7 @@ AttackDetection.prototype.AttackAlert = function(target, attacker, type, attacke
 	if (!cmpPosition || !cmpPosition.IsInWorld())
 		return;
 	var event = {
+		"attacker": attacker,
 		"target": target,
 		"position": cmpPosition.GetPosition(),
 		"time": Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).GetTime(),
@@ -127,6 +128,11 @@ AttackDetection.prototype.AttackAlert = function(target, attacker, type, attacke
 		"attacker": atkOwner,
 		"position": event.position,
 		"targetIsDomesticAnimal": targetIsDomesticAnimal
+	});
+	Engine.QueryInterface(SYSTEM_ENTITY, IID_Trigger).CallEvent("OnAttackDetected", {
+		"targetOwner": playerID,
+		"attackerOwner": atkOwner,
+		...event
 	});
 
 	let soundGroup = "attacked";

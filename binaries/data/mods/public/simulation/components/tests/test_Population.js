@@ -6,17 +6,17 @@ Engine.LoadComponentScript("Population.js");
 
 const player = 1;
 const entity = 11;
-let entPopBonus = 5;
+const entPopBonus = 5;
 
 Engine.RegisterGlobal("ApplyValueModificationsToEntity",
-	(valueName, currentValue, entity) => currentValue
+	(valueName, currentValue, entityId) => currentValue
 );
 
 AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
 	"GetPlayerByID": () => player
 });
 
-let cmpPopulation = ConstructComponent(entity, "Population", {
+const cmpPopulation = ConstructComponent(entity, "Population", {
 	"Bonus": entPopBonus
 });
 
@@ -40,10 +40,10 @@ TS_ASSERT_EQUALS(spy._called, 1);
 // Test value modifications.
 // Test no change.
 Engine.RegisterGlobal("ApplyValueModificationsToEntity",
-	(valueName, currentValue, entity) => currentValue
+	(valueName, currentValue, entityId) => currentValue
 );
 
-cmpPlayer = AddMock(player, IID_Player, {
+AddMock(player, IID_Player, {
 	"AddPopulationBonuses": () => TS_ASSERT(false)
 });
 cmpPopulation.OnValueModification({ "component": "bogus" });
@@ -55,7 +55,7 @@ AddMock(entity, IID_Ownership, {
 });
 let difference = 3;
 Engine.RegisterGlobal("ApplyValueModificationsToEntity",
-	(valueName, currentValue, entity) => currentValue + difference
+	(valueName, currentValue, entityId) => currentValue + difference
 );
 
 cmpPlayer = AddMock(player, IID_Player, {
@@ -78,7 +78,7 @@ cmpPlayer = AddMock(player, IID_Player, {
 });
 difference = 0;
 Engine.RegisterGlobal("ApplyValueModificationsToEntity",
-	(valueName, currentValue, entity) => currentValue + difference
+	(valueName, currentValue, entityId) => currentValue + difference
 );
 spy = new Spy(cmpPlayer, "AddPopulationBonuses");
 cmpPopulation.OnValueModification({ "component": "Population" });
@@ -87,7 +87,7 @@ TS_ASSERT_EQUALS(spy._called, 1);
 // Test negative change.
 difference = -2;
 Engine.RegisterGlobal("ApplyValueModificationsToEntity",
-	(valueName, currentValue, entity) => currentValue + difference
+	(valueName, currentValue, entityId) => currentValue + difference
 );
 
 cmpPlayer = AddMock(player, IID_Player, {
@@ -101,7 +101,7 @@ TS_ASSERT_EQUALS(spy._called, 1);
 // Test newly created entities also get affected by modifications.
 difference = 3;
 Engine.RegisterGlobal("ApplyValueModificationsToEntity",
-	(valueName, currentValue, entity) => currentValue + difference
+	(valueName, currentValue, entityId) => currentValue + difference
 );
 cmpPlayer = AddMock(player, IID_Player, {
 	"AddPopulationBonuses": bonus => TS_ASSERT_EQUALS(bonus, entPopBonus + difference)
@@ -109,3 +109,4 @@ cmpPlayer = AddMock(player, IID_Player, {
 spy = new Spy(cmpPlayer, "AddPopulationBonuses");
 cmpPopulation.OnOwnershipChanged({ "from": INVALID_PLAYER, "to": player });
 TS_ASSERT_EQUALS(spy._called, 1);
+

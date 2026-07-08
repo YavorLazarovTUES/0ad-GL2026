@@ -2,17 +2,19 @@ Resources = {
 	"GetCodes": () => ["food", "metal", "stone", "wood"],
 	"GetTradableCodes": () => ["food", "metal", "stone", "wood"],
 	"GetBarterableCodes": () => ["food", "metal", "stone", "wood"],
-	"BuildSchema": () => {
+	"BuildSchema": () =>
+	{
 		let schema = "";
-		for (let res of ["food", "metal"])
+		for (const res of ["food", "metal"])
 		{
-			for (let subtype in ["meat", "grain"])
+			for (const subtype in ["meat", "grain"])
 				schema += "<value>" + res + "." + subtype + "</value>";
 			schema += "<value> treasure." + res + "</value>";
 		}
 		return "<choice>" + schema + "</choice>";
 	},
-	"GetResource": (type) => {
+	"GetResource": (type) =>
+	{
 		return {
 			"subtypes": {
 				"meat": "meat",
@@ -36,7 +38,7 @@ Engine.LoadComponentScript("Treasure.js");
 Engine.LoadComponentScript("TreasureCollector.js");
 Engine.LoadComponentScript("Trigger.js");
 
-let cmpTimer = ConstructComponent(SYSTEM_ENTITY, "Timer", {});
+const cmpTimer = ConstructComponent(SYSTEM_ENTITY, "Timer", {});
 Engine.RegisterGlobal("ApplyValueModificationsToEntity", (prop, oVal, ent) => oVal);
 ConstructComponent(SYSTEM_ENTITY, "Trigger", {});
 
@@ -56,7 +58,7 @@ AddMock(SYSTEM_ENTITY, IID_ObstructionManager, {
 	"IsInTargetRange": (ent, target, min, max, invert) => true
 });
 
-let cmpPlayer = ConstructComponent(owner, "Player", {
+const cmpPlayer = ConstructComponent(owner, "Player", {
 	"SpyCostMultiplier": 1,
 	"BarterMultiplier": {
 		"Buy": {},
@@ -64,9 +66,9 @@ let cmpPlayer = ConstructComponent(owner, "Player", {
 	},
 	"Formations": { "_string": "" }
 });
-let playerSpy = new Spy(cmpPlayer, "AddResources");
+const playerSpy = new Spy(cmpPlayer, "AddResources");
 
-let cmpTreasure = ConstructComponent(treasure, "Treasure", {
+const cmpTreasure = ConstructComponent(treasure, "Treasure", {
 	"CollectTime": "1000",
 	"Resources": {
 		"Food": "10"
@@ -74,7 +76,7 @@ let cmpTreasure = ConstructComponent(treasure, "Treasure", {
 });
 cmpTreasure.OnOwnershipChanged({ "to": 0 });
 
-let cmpTreasurer = ConstructComponent(treasurer, "TreasureCollector", {
+const cmpTreasurer = ConstructComponent(treasurer, "TreasureCollector", {
 	"MaxDistance": "2.0"
 });
 

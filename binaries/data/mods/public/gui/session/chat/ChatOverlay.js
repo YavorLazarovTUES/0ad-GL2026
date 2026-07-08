@@ -25,32 +25,29 @@ class ChatOverlay
 		 */
 		this.chatMessages = [];
 
-		this.chatText = Engine.GetGUIObjectByName("chatText");
 		this.chatLines = Engine.GetGUIObjectByName("chatLines").children;
 		this.chatLinesNumber = Math.min(this.chatLinesNumber, this.chatLines.length);
 	}
 
 	displayChatMessages()
 	{
+		let currentTop = 0;
+
 		for (let i = 0; i < this.chatLinesNumber; ++i)
 		{
-			let chatMessage = this.chatMessages[i];
+			const chatMessage = this.chatMessages[i];
 			if (chatMessage && chatMessage.text)
 			{
-				// First scale line width to maximum size.
-				let lineSize = this.chatLines[i].size;
-				let height = lineSize.bottom - lineSize.top;
-				lineSize.top = i * height;
-				lineSize.bottom = lineSize.top + height;
-				lineSize.rright = 100;
-				this.chatLines[i].size = lineSize;
-
 				this.chatLines[i].caption = chatMessage.text;
+				const newSize = this.chatLines[i].getPreferredTextSize();
 
-				// Now read the actual text width and scale the line width accordingly.
-				lineSize.rright = 0;
-				lineSize.right = lineSize.left + this.chatLines[i].getTextSize().width;
-				this.chatLines[i].size = lineSize;
+				this.chatLines[i].size = {
+					"top": currentTop,
+					"bottom": currentTop + newSize.height,
+					"right": newSize.width
+				};
+
+				currentTop += newSize.height;
 
 				if (chatMessage.callback)
 					this.chatLines[i].onPress = chatMessage.callback;
@@ -85,7 +82,7 @@ class ChatOverlay
 		this.chatMessages = [];
 		this.displayChatMessages();
 
-		for (let timer of this.chatTimers)
+		for (const timer of this.chatTimers)
 			clearTimeout(timer);
 
 		this.chatTimers = [];

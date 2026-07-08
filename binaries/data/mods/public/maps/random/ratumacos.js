@@ -16,12 +16,15 @@
  * No further changes should be applied to the image to keep it easily interchangeable.
  */
 
+import { addAnimals, addBerries, addDecoration, addFish, addForests, addLayeredPatches, addMetal,
+	addSmallMetal, addStone, addStragglerTrees } from "maps/random/rmgen2/gaia.js";
+import { addElements, initTileClasses } from "maps/random/rmgen2/setup.js";
+
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
-Engine.LoadLibrary("rmgen2");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap(mapSettings)
+export function* generateMap(mapSettings)
 {
 	setBiome("generic/alpine");
 

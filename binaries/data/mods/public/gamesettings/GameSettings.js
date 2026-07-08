@@ -11,12 +11,16 @@
  */
 class GameSettings
 {
-	init(mapCache)
+	init(mapCache, savegameID)
 	{
 		if (!mapCache)
 			mapCache = new MapCache();
 		Object.defineProperty(this, "mapCache", {
 			"value": mapCache,
+		});
+
+		Object.defineProperty(this, "savegameID", {
+			"value": savegameID,
 		});
 
 		// Load all possible civ data - don't presume that some will be available.
@@ -29,16 +33,25 @@ class GameSettings
 		});
 
 		// Load attributes as regular enumerable (i.e. iterable) properties.
-		for (let comp in GameSettings.prototype.Attributes)
+		for (const comp in GameSettings.prototype.Attributes)
 		{
-			let name = comp[0].toLowerCase() + comp.substr(1);
+			const name = comp[0].toLowerCase() + comp.substr(1);
 			if (name in this)
 				error("Game Settings attribute '" + name + "' is already used.");
 			this[name] = new GameSettings.prototype.Attributes[comp](this);
 		}
-		for (let comp in this)
+		for (const comp in this)
 			if (this[comp].init)
 				this[comp].init();
+
+		if (!savegameID)
+			return this;
+
+		const initAttributes = Engine.LoadSavedGameMetadata(savegameID).initAttributes;
+
+		// Remove the gaia entry.
+		initAttributes.settings.PlayerData.splice(0, 1);
+		this.fromInitAttributes(initAttributes, false);
 
 		return this;
 	}
@@ -51,10 +64,10 @@ class GameSettings
 	 */
 	toInitAttributes()
 	{
-		let attribs = {
+		const attribs = {
 			"settings": {}
 		};
-		for (let comp in this)
+		for (const comp in this)
 			if (this[comp].toInitAttributes)
 				this[comp].toInitAttributes(attribs);
 
@@ -66,7 +79,7 @@ class GameSettings
 	 * TODO: this could/should maybe support partial deserialization,
 	 * which means MP might actually send only the bits that change.
 	 */
-	fromInitAttributes(attribs)
+	fromInitAttributes(attribs, fromPersistentSettings)
 	{
 		// Settings may depend on eachother. Some selections of settings
 		// might be illegal. So keep looping through all settings until
@@ -87,7 +100,7 @@ class GameSettings
 			{
 				const oldSettings = clone(getComponentData(comp));
 				if (this[comp].fromInitAttributes)
-					this[comp].fromInitAttributes(attribs);
+					this[comp].fromInitAttributes(attribs, fromPersistentSettings);
 				reInit = reInit || !deepCompare(oldSettings, getComponentData(comp));
 			}
 			if (!reInit)
@@ -142,7 +155,7 @@ class GameSettings
 
 		// NB: for multiplayer support, the clients must be listening to "start" net messages.
 		if (this.isNetworked)
-			Engine.StartNetworkGame(this.finalizedAttributes, storeReplay);
+			Engine.StartNetworkGame(this.savegameID, this.finalizedAttributes);
 		else
 			Engine.StartGame(this.finalizedAttributes, playerAssignments.local.player, storeReplay);
 	}

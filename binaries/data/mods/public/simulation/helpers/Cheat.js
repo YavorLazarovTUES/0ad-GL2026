@@ -8,12 +8,13 @@ function Cheat(input)
 	if (playerEnt == INVALID_ENTITY)
 		return;
 	const cmpPlayer = Engine.QueryInterface(playerEnt, IID_Player);
-	if (!cmpPlayer?.GetCheatsEnabled())
+	if (!InitAttributes.settings.CheatsEnabled)
 		return;
 
 	const cmpGuiInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface);
+	const cmpPopulationManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_PopulationCapManager);
 
-	switch(input.action)
+	switch (input.action)
 	{
 	case "addresource":
 		if (isNaN(input.parameter))
@@ -21,10 +22,10 @@ function Cheat(input)
 		cmpPlayer.AddResource(input.text, input.parameter);
 		return;
 	case "revealmap":
-		Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager).SetLosRevealAll(-1, true);
+		Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager).SetLosRevealWholeMapForAll(true);
 		return;
 	case "maxpopulation":
-		cmpPlayer.SetPopulationBonuses((cmpPlayerManager.GetMaxWorldPopulation() || cmpPlayer.GetMaxPopulation()) + 500);
+		cmpPlayer.SetPopulationBonuses(cmpPopulationManager.GetPopulationCap() + 500);
 		return;
 	case "changemaxpopulation":
 	{
@@ -34,12 +35,14 @@ function Cheat(input)
 		return;
 	}
 	case "convertunit":
+	{
 		if (isNaN(input.parameter))
 			return;
 		const playerID = (input.parameter > -1 && QueryPlayerIDInterface(input.parameter) || cmpPlayer).GetPlayerID();
 		for (const ent of input.selected)
 			Engine.QueryInterface(ent, IID_Ownership)?.SetOwner(playerID);
 		return;
+	}
 	case "killunits":
 		for (const ent of input.selected)
 		{
@@ -148,7 +151,6 @@ function Cheat(input)
 				// try to spilt the input
 				const tmp = input.parameter.split(/\s+/);
 				const number = +tmp[0];
-				const pair = tmp.length > 1 && (tmp[1] == "top" || tmp[1] == "bottom") ? tmp[1] : "top"; // use top as default value
 
 				// check, if valid number was parsed.
 				if (!isNaN(number))
@@ -163,7 +165,7 @@ function Cheat(input)
 
 						// get name of tech
 						if (tech.pair)
-							techname = tech[pair];
+							techname = tech.pair[tmp[1] === "1" ? 1 : 0];
 						else
 							techname = tech;
 					}
@@ -187,6 +189,7 @@ function Cheat(input)
 			Cheat({ "player": input.player, "action": "changephase", "selected": input.selected });
 		return;
 	case "playRetro":
+	{
 		const play = input.parameter.toLowerCase() != "off";
 		cmpGuiInterface.PushNotification({
 			"type": "play-tracks",
@@ -195,7 +198,7 @@ function Cheat(input)
 			"players": [input.player]
 		});
 		return;
-
+	}
 	default:
 		warn("Cheat '" + input.action + "' is not implemented");
 		return;

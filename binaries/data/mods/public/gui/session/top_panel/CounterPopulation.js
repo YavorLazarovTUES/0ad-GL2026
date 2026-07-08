@@ -18,9 +18,11 @@ class CounterPopulation
 
 	rebuild(playerState, getAllyStatTooltip)
 	{
-		this.count.caption = sprintf(translate(this.CounterCaption), playerState);
+		const state = Object.fromEntries(Object.entries(playerState).map(([key, value]) =>
+			[key, value === Infinity ? translateWithContext("In other places refered as 'Unlimited', here is to litle space.", "∞") : value]));
+		this.count.caption = sprintf(translate(this.CounterCaption), state);
 		let total = 0;
-		for (let resCode of g_ResourceData.GetCodes())
+		for (const resCode of g_ResourceData.GetCodes())
 			total += playerState.resourceGatherers[resCode];
 
 		this.stats.caption = coloredText(total, total ? this.DefaultTotalGatherersColor : this.DefaultTotalGatherersColorZero);
@@ -29,7 +31,7 @@ class CounterPopulation
 
 		this.panel.tooltip =
 			setStringTags(translate(this.PopulationTooltip), CounterManager.ResourceTitleTags) +
-			getAllyStatTooltip(this.getTooltipData.bind(this)) + "\n" + coloredText(this.CurrentGatherersTooltip, total ? this.DefaultTotalGatherersColor : this.DefaultTotalGatherersColorZero);
+			getAllyStatTooltip(this.getTooltipData.bind(this));
 	}
 
 	getTooltipData(playerState, playername)
@@ -46,7 +48,7 @@ class CounterPopulation
 		if (this.panel.hidden)
 			return;
 
-		let newColor = this.isTrainingBlocked && Date.now() % 1000 < 500 ?
+		const newColor = this.isTrainingBlocked && Date.now() % 1000 < 500 ?
 			this.PopulationAlertColor :
 			this.DefaultPopulationColor;
 
@@ -63,11 +65,6 @@ CounterPopulation.prototype.CounterCaption = markForTranslation("%(popCount)s/%(
 CounterPopulation.prototype.PopulationTooltip = markForTranslation("Population: current/limit (max)");
 
 CounterPopulation.prototype.AllyPopulationTooltip = markForTranslation("%(popCount)s/%(popLimit)s (%(popMax)s)");
-
-/**
- * Storing the translated and formatted gatherer string in the prototype.
- */
-CounterPopulation.prototype.CurrentGatherersTooltip = setStringTags(translate("Gatherers: current"), {"font": "sans-bold-16"});
 
 /**
  * Color to highlight the total number of gatherers at zero.

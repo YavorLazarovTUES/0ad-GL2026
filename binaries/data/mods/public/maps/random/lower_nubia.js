@@ -32,7 +32,7 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 
-function* GenerateMap(mapSettings)
+export function* generateMap(mapSettings)
 {
 	TILE_CENTERED_HEIGHT_MAP = true;
 
@@ -208,11 +208,11 @@ function* GenerateMap(mapSettings)
 
 	let playerIDs = [];
 	let playerPosition = [];
-	if (!isNomad())
+	if (!mapSettings.Nomad)
 	{
 		g_Map.log("Finding player locations");
-		[playerIDs, playerPosition] = playerPlacementRandom(sortAllPlayers(),
-			avoidClasses(clWater, scaleByMapSize(8, 12), clCliff, scaleByMapSize(8, 12)));
+		({ playerIDs, playerPosition } = playerPlacementRandom(sortAllPlayers(),
+			avoidClasses(clWater, scaleByMapSize(8, 12), clCliff, scaleByMapSize(8, 12))));
 
 		g_Map.log("Flatten the initial CC area");
 		for (const position of playerPosition)
@@ -386,7 +386,7 @@ function* GenerateMap(mapSettings)
 		50);
 	yield 80;
 
-	if (!isNomad())
+	if (!mapSettings.Nomad)
 	{
 		g_Map.log("Creating lions");
 		createObjectGroups(

@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -22,10 +22,15 @@
 
 #include "lib/self_test.h"
 
-#include "ps/CLogger.h"
+#include "ps/CStr.h"
 #include "ps/Mod.h"
-#include "scriptinterface/JSON.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
+
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <jsapi.h>
+#include <vector>
 
 class TestMod : public CxxTest::TestSuite
 {
@@ -86,9 +91,9 @@ public:
 
 	void test_compatible()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 
-		ScriptRequest rq(script);
+		Script::Request rq(script);
 		JS::RootedObject obj(rq.cx, JS_NewPlainObject(rq.cx));
 
 		m_Mods.m_AvailableMods = {
@@ -136,9 +141,9 @@ public:
 
 	void test_different_name_and_path()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 
-		ScriptRequest rq(script);
+		Script::Request rq(script);
 		JS::RootedObject obj(rq.cx, JS_NewPlainObject(rq.cx));
 
 		m_Mods.m_AvailableMods = {

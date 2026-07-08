@@ -14,7 +14,8 @@ function LoadPlayerSettings(settings, newPlayers)
 	if (!playerData)
 		warn("Player.js: Setup has no player data - using defaults.");
 
-	const getPlayerSetting = (idx, property) => {
+	const getPlayerSetting = (idx, property) =>
+	{
 		if (playerData && playerData[idx] && (property in playerData[idx]))
 			return playerData[idx][property];
 
@@ -66,32 +67,20 @@ function LoadPlayerSettings(settings, newPlayers)
 		cmpPlayer.SetColor(color.r, color.g, color.b);
 
 		// Special case for gaia
-		if (i == 0)
+		if (i === 0)
 			continue;
 
-		// PopulationLimit
-		{
-			const maxPopulation =
-				settings.PlayerData[i].PopulationLimit !== undefined ?
-					settings.PlayerData[i].PopulationLimit :
-				settings.PopulationCap !== undefined ?
-					settings.PopulationCap :
-				playerDefaults[i].PopulationLimit !== undefined ?
-					playerDefaults[i].PopulationLimit :
-					undefined;
-
-			if (maxPopulation !== undefined)
-				cmpPlayer.SetMaxPopulation(maxPopulation);
-		}
+		// Atlas has no information about player removal.
+		cmpPlayer.SetRemoved(getPlayerSetting(i, "Removed") === true);
 
 		// StartingResources
 		if (settings.PlayerData[i].Resources !== undefined)
 			cmpPlayer.SetResourceCounts(settings.PlayerData[i].Resources);
 		else if (settings.StartingResources)
 		{
-			let resourceCounts = cmpPlayer.GetResourceCounts();
-			let newResourceCounts = {};
-			for (let resources in resourceCounts)
+			const resourceCounts = cmpPlayer.GetResourceCounts();
+			const newResourceCounts = {};
+			for (const resources in resourceCounts)
 				newResourceCounts[resources] = settings.StartingResources;
 			cmpPlayer.SetResourceCounts(newResourceCounts);
 		}
@@ -138,19 +127,19 @@ function GetPlayerTemplateName(civ)
  */
 function QueryOwnerEntityID(ent)
 {
-	let cmpPlayer = Engine.QueryInterface(ent, IID_Player);
+	const cmpPlayer = Engine.QueryInterface(ent, IID_Player);
 	if (cmpPlayer)
 		return ent;
 
-	let cmpOwnership = Engine.QueryInterface(ent, IID_Ownership);
+	const cmpOwnership = Engine.QueryInterface(ent, IID_Ownership);
 	if (!cmpOwnership)
 		return null;
 
-	let owner = cmpOwnership.GetOwner();
+	const owner = cmpOwnership.GetOwner();
 	if (owner == INVALID_PLAYER)
 		return null;
 
-	let cmpPlayerManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_PlayerManager);
+	const cmpPlayerManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_PlayerManager);
 	if (!cmpPlayerManager)
 		return null;
 
@@ -197,7 +186,7 @@ function QueryPlayerIDInterface(id, iid = IID_Player)
  */
 function QueryMiragedInterface(ent, iid)
 {
-	let cmpMirage = Engine.QueryInterface(ent, IID_Mirage);
+	const cmpMirage = Engine.QueryInterface(ent, IID_Mirage);
 	if (cmpMirage && !cmpMirage.Mirages(iid))
 		return null;
 	else if (!cmpMirage)

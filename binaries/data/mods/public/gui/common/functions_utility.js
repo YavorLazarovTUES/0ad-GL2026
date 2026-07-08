@@ -25,7 +25,7 @@ function registerConfigChangeHandler(handler)
  */
 function fireConfigChangeHandlers(changes)
 {
-	for (let handler of g_ConfigChangeHandlers)
+	for (const handler of g_ConfigChangeHandlers)
 		handler(changes);
 }
 
@@ -34,7 +34,7 @@ function fireConfigChangeHandlers(changes)
  */
 function loadCivData(selectableOnly, gaia)
 {
-	let civData = loadCivFiles(selectableOnly);
+	const civData = loadCivFiles(selectableOnly);
 
 	translateObjectKeys(civData, ["Name", "Description", "History", "Special"]);
 
@@ -47,8 +47,8 @@ function loadCivData(selectableOnly, gaia)
 // A sorting function for arrays of objects with 'name' properties, ignoring case
 function sortNameIgnoreCase(x, y)
 {
-	let lowerX = x.name.toLowerCase();
-	let lowerY = y.name.toLowerCase();
+	const lowerX = x.name.toLowerCase();
+	const lowerY = y.name.toLowerCase();
 
 	if (lowerX < lowerY)
 		return -1;
@@ -67,7 +67,7 @@ function escapeText(text)
 
 function unescapeText(text)
 {
-	return text.replace(/\\\\/g, "\\").replace(/\\\[/g, "\[");
+	return text.replace(/\\\\/g, "\\").replace(/\\\[/g, "[");
 }
 
 /**
@@ -83,11 +83,11 @@ function escapeQuotation(text)
  */
 function playerDataToStringifiedTeamList(playerData)
 {
-	let teamList = {};
+	const teamList = {};
 
-	for (let pData of playerData)
+	for (const pData of playerData)
 	{
-		let team = pData.Team === undefined ? -1 : pData.Team;
+		const team = pData.Team === undefined ? -1 : pData.Team;
 		if (!teamList[team])
 			teamList[team] = [];
 		teamList[team].push(pData);
@@ -99,21 +99,21 @@ function playerDataToStringifiedTeamList(playerData)
 
 function stringifiedTeamListToPlayerData(stringifiedTeamList)
 {
-	let teamList = {};
+	let teamList;
 	try
 	{
 		teamList = JSON.parse(unescapeText(stringifiedTeamList));
 	}
-	catch (e)
+	catch(e)
 	{
 		// Ignore invalid input from remote users
 		return [];
 	}
 
-	let playerData = [];
+	const playerData = [];
 
-	for (let team in teamList)
-		for (let pData of teamList[team])
+	for (const team in teamList)
+		for (const pData of teamList[team])
 		{
 			pData.Team = team;
 			playerData.push(pData);
@@ -154,30 +154,39 @@ function tryAutoComplete(text, autoCompleteList)
 	if (!lastWord.length)
 		return text;
 
+	const matchingWords = [];
 	for (var word of autoCompleteList)
 	{
 		if (word.toLowerCase().indexOf(lastWord.toLowerCase()) != 0)
 			continue;
 
-		text = wordSplit.join(" ");
-		if (text.length > 0)
-			text += " ";
+		matchingWords.push(word);
 
-		text += word;
-		break;
+		if (matchingWords.length > 1)
+			break;
 	}
+
+	if (matchingWords.length != 1)
+		return text;
+
+	text = wordSplit.join(" ");
+	if (text.length > 0)
+		text += " ";
+
+	text += matchingWords[0];
+
 	return text;
 }
 
 function autoCompleteText(guiObject, words)
 {
-	let text = guiObject.caption;
+	const text = guiObject.caption;
 	if (!text.length)
 		return;
 
-	let bufferPosition = guiObject.buffer_position;
-	let textTillBufferPosition = text.substring(0, bufferPosition);
-	let newText = tryAutoComplete(textTillBufferPosition, words);
+	const bufferPosition = guiObject.buffer_position;
+	const textTillBufferPosition = text.substring(0, bufferPosition);
+	const newText = tryAutoComplete(textTillBufferPosition, words);
 
 	guiObject.caption = newText + text.substring(bufferPosition);
 	guiObject.buffer_position = bufferPosition + (newText.length - textTillBufferPosition.length);
@@ -193,8 +202,8 @@ function soundNotification(type)
 	if (Engine.ConfigDB_GetValue("user", "sound.notify." + type) != "true")
 		return;
 
-	let notificationType = g_SoundNotifications[type];
-	let timeNow = Date.now();
+	const notificationType = g_SoundNotifications[type];
+	const timeNow = Date.now();
 
 	if (!notificationType.lastInteractionTime || timeNow > notificationType.lastInteractionTime + notificationType.threshold)
 		Engine.PlayUISound(notificationType.soundfile, false);
@@ -209,14 +218,13 @@ function soundNotification(type)
  */
 function horizontallySpaceObjects(parentName, margin = 0)
 {
-	let objects = Engine.GetGUIObjectByName(parentName).children;
+	const objects = Engine.GetGUIObjectByName(parentName).children;
 	for (let i = 0; i < objects.length; ++i)
 	{
-		let size = objects[i].size;
-		let width = size.right - size.left;
-		size.left = i * (width + margin) + margin;
-		size.right = (i + 1) * (width + margin);
-		objects[i].size = size;
+		const obj = objects[i];
+		const width = obj.size.right - obj.size.left;
+		obj.size.left = i * (width + margin) + margin;
+		obj.size.right = (i + 1) * (width + margin);
 	}
 }
 
@@ -228,19 +236,30 @@ function horizontallySpaceObjects(parentName, margin = 0)
  */
 function resizeGUIObjectToCaption(object, align, margin = {})
 {
-	const objectSize = object.size;
-	const textSize = Engine.GetTextSize(object.font, object.caption);
+	const textSize = object.getPreferredTextSize();
+	// Sizes are now floating point, we should limit the value to next int number.
+	textSize.width = Math.ceil(textSize.width);
+	textSize.height = Math.ceil(textSize.height);
+
 	if (align.horizontal)
 	{
-		const width = textSize.width + 2 * object.buffer_zone + (margin.horizontal || 0);
+		const width = textSize.width + (margin.horizontal || 0);
 		switch (align.horizontal)
 		{
 		case "right":
-			objectSize.right = object.size.left + width;
+			object.size.right = object.size.left + width;
 			break;
 		case "left":
-			objectSize.left = object.size.right - width;
+			object.size.left = object.size.right - width;
 			break;
+		case "center":
+		{
+			const oldWidth = object.size.right - object.size.left;
+			const widthDiff = width - oldWidth;
+			object.size.right += (widthDiff / 2);
+			object.size.left -= (widthDiff / 2);
+			break;
+		}
 		default:
 		}
 	}
@@ -251,17 +270,16 @@ function resizeGUIObjectToCaption(object, align, margin = {})
 		switch (align.vertical)
 		{
 		case "bottom":
-			objectSize.bottom = object.size.top + height;
+			object.size.bottom = object.size.top + height;
 			break;
 		case "top":
-			objectSize.top = object.size.bottom - height;
+			object.size.top = object.size.bottom - height;
 			break;
 		default:
 		}
 	}
 
-	object.size = objectSize;
-	return objectSize;
+	return object.size;
 }
 
 /**
@@ -269,7 +287,7 @@ function resizeGUIObjectToCaption(object, align, margin = {})
  */
 function hideRemaining(parentName, start = 0)
 {
-	let objects = Engine.GetGUIObjectByName(parentName).children;
+	const objects = Engine.GetGUIObjectByName(parentName).children;
 
 	for (let i = start; i < objects.length; ++i)
 		objects[i].hidden = true;
@@ -277,28 +295,10 @@ function hideRemaining(parentName, start = 0)
 
 function getBuildString()
 {
-	return sprintf(translate("Build: %(buildDate)s (%(revision)s)"), {
+	return sprintf(translate("Build: %(buildDate)s (%(version)s)"), {
 		"buildDate": Engine.GetBuildDate(),
-		"revision": Engine.GetBuildRevision()
+		"version": Engine.GetBuildVersion()
 	});
-}
-
-/**
- * Opens a page. If that page completes with an object with a @a nextPage
- *	property that page is opened with the @a args property of that object.
- *	That continues untill there is no @a nextPage property in the completion
- *	value. If there is no @a nextPage in the completion value the
- *	@a completionValue is returned.
- * @param {String} page - The page first opened.
- * @param args - passed to the first page opened.
- */
-async function pageLoop(page, args)
-{
-	let completionValue = { "nextPage": page, "args": args };
-	while (completionValue?.nextPage != null)
-		completionValue = await Engine.PushGuiPage(completionValue.nextPage, completionValue.args);
-
-	return completionValue;
 }
 
 function formatXmppAnnouncement(subject, text)
@@ -314,4 +314,34 @@ function formatXmppAnnouncement(subject, text)
 		message += textTrimmed;
 
 	return message;
+}
+/**
+ * Converts underscore-separated identifiers to PascalCase class names
+ * for selecting entities by identity class.
+ */
+function toPascalCase(str)
+{
+	return str
+		.split('_')
+		.map(s => s.charAt(0).toUpperCase() + s.slice(1))
+		.join('');
+}
+/**
+ * Registers global hotkeys for opening GUI pages.
+ *
+ * Each hotkey opens a child page following the naming convention:
+ *   page_${hotkey}.xml
+ */
+function registerGlobalGuiPageHotkeys(hotkeys)
+{
+	for (const key of hotkeys)
+	{
+		const guiPage = `gui/page_${key}.xml`;
+		if (!Engine.FileExists(guiPage))
+		{
+			warn(`Skipping global hotkey '${key}': Missing GUI page '${guiPage}'.`);
+			continue;
+		}
+		Engine.SetGlobalHotkey(key, "Press", () => Engine.OpenChildPage(`page_${key}.xml`));
+	}
 }

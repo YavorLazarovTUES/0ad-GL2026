@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -23,13 +23,14 @@
 #define INCLUDED_SKYMANAGER
 
 #include "graphics/Texture.h"
-#include "renderer/backend/IDeviceCommandContext.h"
-#include "renderer/backend/IShaderProgram.h"
-#include "renderer/backend/ITexture.h"
+#include "ps/CStr.h"
 #include "renderer/VertexArray.h"
 
-#include <memory>
 #include <vector>
+
+namespace Renderer::Backend { class IDeviceCommandContext; }
+namespace Renderer::Backend { class ITexture; }
+namespace Renderer::Backend { class IVertexInputLayout; }
 
 /**
  * Class SkyManager: Maintain sky settings and textures, and render the sky.

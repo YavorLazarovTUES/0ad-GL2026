@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,7 +21,11 @@
 
 #include "graphics/HFTracer.h"
 #include "graphics/Terrain.h"
+#include "lib/code_generation.h"
+#include "lib/debug.h"
+#include "lib/posix/posix_types.h"
 #include "maths/MathUtil.h"
+#include "maths/Plane.h"
 #include "maths/Vector2D.h"
 #include "maths/Vector4D.h"
 #include "ps/Game.h"
@@ -29,6 +33,9 @@
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
 #include "renderer/WaterManager.h"
+
+#include <cmath>
+#include <cstddef>
 
 CCamera::CCamera()
 {
@@ -160,7 +167,7 @@ float CCamera::GetAspectRatio() const
 	return static_cast<float>(m_ViewPort.m_Width) / static_cast<float>(m_ViewPort.m_Height);
 }
 
-void CCamera::GetViewQuad(float dist, Quad& quad) const
+CCamera::Quad CCamera::GetViewQuad(const float dist) const
 {
 	if (m_ProjType == ProjectionType::CUSTOM)
 	{
@@ -168,6 +175,7 @@ void CCamera::GetViewQuad(float dist, Quad& quad) const
 		const std::array<CVector2D, 4> ndcCorners = {
 			CVector2D{-1.0f, -1.0f}, CVector2D{1.0f, -1.0f},
 			CVector2D{1.0f, 1.0f}, CVector2D{-1.0f, 1.0f}};
+		Quad quad;
 		for (size_t idx = 0; idx < 4; ++idx)
 		{
 			const CVector2D& corner = ndcCorners[idx];
@@ -183,27 +191,21 @@ void CCamera::GetViewQuad(float dist, Quad& quad) const
 			quad[idx].Y = quadCorner.Y;
 			quad[idx].Z = quadCorner.Z;
 		}
-		return;
+		return quad;
 	}
 
 	const float y = m_ProjType == ProjectionType::PERSPECTIVE ? dist * tanf(m_FOV * 0.5f) : m_OrthoScale * 0.5f;
 	const float x = y * GetAspectRatio();
 
-	quad[0].X = -x;
-	quad[0].Y = -y;
-	quad[0].Z = dist;
-	quad[1].X = x;
-	quad[1].Y = -y;
-	quad[1].Z = dist;
-	quad[2].X = x;
-	quad[2].Y = y;
-	quad[2].Z = dist;
-	quad[3].X = -x;
-	quad[3].Y = y;
-	quad[3].Z = dist;
+	return {{
+		{-x, -y, dist},
+		{x, -y, dist},
+		{x, y, dist},
+		{-x, y, dist}
+	}};
 }
 
-void CCamera::BuildCameraRay(int px, int py, CVector3D& origin, CVector3D& dir) const
+CCamera::Ray CCamera::BuildCameraRay(const int px, const int py) const
 {
 	ENSURE(m_ProjType == ProjectionType::PERSPECTIVE || m_ProjType == ProjectionType::ORTHO);
 
@@ -211,8 +213,7 @@ void CCamera::BuildCameraRay(int px, int py, CVector3D& origin, CVector3D& dir) 
 	const float dx = static_cast<float>(px) / m_ViewPort.m_Width;
 	const float dy = 1.0f - static_cast<float>(py) / m_ViewPort.m_Height;
 
-	Quad points;
-	GetViewQuad(m_FarPlane, points);
+	Quad points{GetViewQuad(m_FarPlane)};
 
 	// Transform from camera space to world space.
 	for (CVector3D& point : points)
@@ -222,40 +223,43 @@ void CCamera::BuildCameraRay(int px, int py, CVector3D& origin, CVector3D& dir) 
 	const CVector3D basisX = points[1] - points[0];
 	const CVector3D basisY = points[3] - points[0];
 
+	Ray result;
 	if (m_ProjType == ProjectionType::PERSPECTIVE)
 	{
 		// Build direction for the camera origin to the target point.
-		origin = m_Orientation.GetTranslation();
+		result.origin = m_Orientation.GetTranslation();
 		CVector3D targetPoint = points[0] + (basisX * dx) + (basisY * dy);
-		dir = targetPoint - origin;
+		result.direction = targetPoint - result.origin;
 	}
 	else if (m_ProjType == ProjectionType::ORTHO)
 	{
-		origin = m_Orientation.GetTranslation() + (basisX * (dx - 0.5f)) + (basisY * (dy - 0.5f));
-		dir = m_Orientation.GetIn();
+		result.origin = m_Orientation.GetTranslation() + (basisX * (dx - 0.5f)) + (basisY * (dy - 0.5f));
+		result.direction = m_Orientation.GetIn();
 	}
-	dir.Normalize();
+	result.direction.Normalize();
+	return result;
 }
 
-void CCamera::GetScreenCoordinates(const CVector3D& world, float& x, float& y) const
+CVector2D CCamera::GetScreenCoordinates(const CVector3D& world) const
 {
 	CMatrix3D transform = m_ProjMat * m_Orientation.GetInverse();
 
 	CVector4D screenspace = transform.Transform(CVector4D(world.X, world.Y, world.Z, 1.0f));
 
-	x = screenspace.X / screenspace.W;
-	y = screenspace.Y / screenspace.W;
+	float x = screenspace.X / screenspace.W;
+	float y = screenspace.Y / screenspace.W;
 	x = (x + 1) * 0.5f * m_ViewPort.m_Width;
 	y = (1 - y) * 0.5f * m_ViewPort.m_Height;
+	return {x, y};
 }
 
 CVector3D CCamera::GetWorldCoordinates(int px, int py, bool aboveWater) const
 {
 	CHFTracer tracer(g_Game->GetWorld()->GetTerrain());
 	int x, z;
-	CVector3D origin, dir, delta, terrainPoint, waterPoint;
+	CVector3D terrainPoint, waterPoint;
 
-	BuildCameraRay(px, py, origin, dir);
+	const auto [origin, dir] = BuildCameraRay(px, py);
 
 	bool gotTerrain = tracer.RayIntersect(origin, dir, x, z, terrainPoint);
 
@@ -321,9 +325,9 @@ CVector3D CCamera::GetWorldCoordinates(int px, int py, float h) const
 	CPlane plane;
 	plane.Set(CVector3D(0.f, 1.f, 0.f), CVector3D(0.f, h, 0.f)); // upwards normal, passes through h
 
-	CVector3D origin, dir, delta, currentTarget;
+	CVector3D currentTarget;
 
-	BuildCameraRay(px, py, origin, dir);
+	const auto [origin, dir] = BuildCameraRay(px, py);
 
 	if (plane.FindRayIntersection(origin, dir, &currentTarget))
 		return currentTarget;
@@ -340,7 +344,7 @@ CVector3D CCamera::GetFocus() const
 	CHFTracer tracer(g_Game->GetWorld()->GetTerrain());
 	int x, z;
 
-	CVector3D origin, dir, delta, terrainPoint, waterPoint;
+	CVector3D origin, dir, terrainPoint, waterPoint;
 
 	origin = m_Orientation.GetTranslation();
 	dir = m_Orientation.GetIn();
@@ -421,7 +425,7 @@ CBoundingBoxAligned CCamera::GetBoundsInViewPort(const CBoundingBoxAligned& boun
 	for (size_t idxBegin = 0; idxBegin < 8; ++idxBegin)
 		for (size_t nextComponent = 0; nextComponent < 3; ++nextComponent)
 		{
-			const size_t idxEnd = idxBegin | (1u << nextComponent);
+			const size_t idxEnd = idxBegin | (static_cast<size_t>(1) << nextComponent);
 			if (idxBegin == idxEnd || isBehindNearPlane[idxBegin] == isBehindNearPlane[idxEnd])
 				continue;
 			CVector3D intersection;

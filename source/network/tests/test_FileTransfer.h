@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,20 +19,26 @@
 
 #include "network/NetFileTransfer.h"
 #include "network/NetMessage.h"
-#include "network/NetSession.h"
 
+#include <chrono>
+#include <cstddef>
+#include <functional>
+#include <initializer_list>
+#include <string>
 #include <utility>
+#include <thread>
 #include <vector>
+
+using namespace std::literals;
 
 namespace
 {
 constexpr const char* MESSAGECONTENT{"Some example message content"};
 
-class MessageQueues : public INetSession
+class MessageQueues
 {
 public:
-	~MessageQueues() final = default;
-	bool SendMessage(const CNetMessage* message) final
+	bool SendMessage(const CNetMessage* message)
 	{
 		switch (message->GetType())
 		{
@@ -73,7 +79,7 @@ void CheckSizes(MessageQueues& queues, size_t requestSize, size_t responseSize, 
 struct Participant
 {
 	MessageQueues queues;
-	CNetFileTransferer transferer{&queues};
+	CNetFileTransferer transferer{queues};
 };
 }
 
@@ -89,7 +95,8 @@ public:
 
 		bool complete{false};
 
-		client.transferer.StartTask([&complete](std::string buffer)
+		client.transferer.StartTask(CNetFileTransferer::RequestType::LOADGAME,
+			[&complete](std::string buffer)
 			{
 				// This callback is executed exactly once.
 				const bool previousComplete{std::exchange(complete, true)};
@@ -99,13 +106,17 @@ public:
 		CheckSizes(client.queues, 1, 0, 0, 0);
 
 		server.transferer.StartResponse(client.queues.requests.at(0).m_RequestID, MESSAGECONTENT);
-		CheckSizes(server.queues, 0, 1, 0, 0);
+		CheckSizes(server.queues, 0, 0, 0, 0);
+
+		while (server.queues.responses.size() == 0)
+		{
+			std::this_thread::sleep_for(10ms);
+			server.transferer.Poll();
+		}
+		CheckSizes(server.queues, 0, 1, 1, 0);
 
 		client.transferer.HandleMessageReceive(server.queues.responses.at(0));
 		CheckSizes(client.queues, 1, 0, 0, 0);
-
-		server.transferer.Poll();
-		CheckSizes(server.queues, 0, 1, 1, 0);
 
 		server.transferer.Poll();
 		// If `MESSAGECONTENT` would be longer another message would be sent.
@@ -120,5 +131,18 @@ public:
 
 		server.transferer.HandleMessageReceive(client.queues.acknowledgements.at(0));
 		CheckSizes(server.queues, 0, 1, 1, 0);
+	}
+
+	void test_RequestType()
+	{
+		for (const auto& requestType : {CNetFileTransferer::RequestType::LOADGAME,
+			CNetFileTransferer::RequestType::REJOIN})
+		{
+			Participant client;
+
+			client.transferer.StartTask(requestType, [](auto&&){});
+			TS_ASSERT_EQUALS(static_cast<CNetFileTransferer::RequestType>(
+				client.queues.requests.at(0).m_RequestType), requestType);
+		}
 	}
 };

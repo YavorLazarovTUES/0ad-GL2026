@@ -1,15 +1,23 @@
-This directory contains libraries that are used by the game:
+This directory holds libraries that are used by the game.
+Libraries are downloaded by running the correct script for your platform.
 
-osx/ contains a script for download and building required libraries on OS X.
-source/ contains bundled source, when the game requires a specific library
-    version that may not be available in package managers.
-win32/ contains headers and precompiled static libs for Windows builds.
+build-macos-libs.sh downloads and builds required libraries on macOS.
 
-  osx/build-osx-libs.sh
+build-source-libs.sh downloads and builds a checkout of source libraries
+    that we bundle, when the game requires a specific library version
+    that may not be available in package managers.
+
+get-windows-libs.bat downloads a checkout of headers and precompiled
+    libraries that we bundle for Windows builds.
+
+  build-macos-libs.sh
     MIT
 
-  osx/patches
+  macos-patches
     see license of applicable library
+
+  source/cpp-httplib
+  	MIT
 
   source/cxxtest-4.4
     LGPL v3 - see COPYING
@@ -21,7 +29,7 @@ win32/ contains headers and precompiled static libs for Windows builds.
     MIT - see src/NVIDIA_Texture_Tools_LICENSE.txt
 
   source/glad
-    Apache-2.0 / (WTFPL OR CC0-1.0) 
+    Apache-2.0 / (WTFPL OR CC0-1.0)
 
   source/spidermonkey
     MPL / GPL / LGPL

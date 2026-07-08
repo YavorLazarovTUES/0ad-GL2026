@@ -1,4 +1,4 @@
-/* Copyright (C) 2011 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,12 +17,22 @@
 
 #include "precompiled.h"
 
-#include "ScenarioEditor/ScenarioEditor.h"
-#include "Common/Tools.h"
-#include "Common/Brushes.h"
-#include "Common/MiscState.h"
-#include "Common/ObjectSettings.h"
-#include "GameInterface/Messages.h"
+#include "tools/atlas/AtlasUI/General/Observable.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/ScenarioEditor.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/MiscState.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/ObjectSettings.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/Tools.h"
+#include "tools/atlas/GameInterface/MessagePasser.h"
+#include "tools/atlas/GameInterface/Messages.h"
+#include "tools/atlas/GameInterface/SharedTypes.h"
+
+#include <algorithm>
+#include <cmath>
+#include <numbers>
+#include <vector>
+#include <wx/event.h>
+#include <wx/mousestate.h>
+#include <wx/object.h>
 
 using AtlasMessage::Position;
 
@@ -45,7 +55,7 @@ class ActorViewerTool : public StateDrivenTool<ActorViewerTool>
 
 public:
 	ActorViewerTool() :
-		m_Distance(20.f), m_Angle(0.f), m_Elevation((float)M_PI / 6.f),
+		m_Distance(20.f), m_Angle(0.f), m_Elevation(std::numbers::pi_v<float> / 6.f),
 		m_LastIsValid(false)
 	{
 	}
@@ -121,12 +131,12 @@ public:
 				obj->m_LastX = evt.GetX();
 				obj->m_LastY = evt.GetY();
 
-				obj->m_Angle += dx * M_PI/256.f * ScenarioEditor::GetSpeedModifier();
+				obj->m_Angle += dx * std::numbers::pi_v<float> / 256.f * ScenarioEditor::GetSpeedModifier();
 
 				if (evt.ButtonIsDown(wxMOUSE_BTN_LEFT))
 					obj->m_Distance += dy / 8.f * ScenarioEditor::GetSpeedModifier();
 				else // evt.ButtonIsDown(wxMOUSE_BTN_RIGHT))
-					obj->m_Elevation += dy * M_PI/256.f * ScenarioEditor::GetSpeedModifier();
+					obj->m_Elevation += dy * std::numbers::pi_v<float> / 256.f * ScenarioEditor::GetSpeedModifier();
 
 				camera_changed = true;
 			}
@@ -152,14 +162,22 @@ public:
 
 		bool OnKey(ActorViewerTool* obj, wxKeyEvent& evt, KeyEventType type)
 		{
-			if (type == KEY_DOWN && (evt.GetKeyCode() >= '0' && evt.GetKeyCode() <= '9'))
+			// (TODO: this should probably be 'char' not 'down'; but we don't get
+			// 'char' unless we return false from this function, in which case the
+			// scenario editor intercepts some other keys for itself)
+			if (type == KEY_DOWN)
 			{
-				// (TODO: this should probably be 'char' not 'down'; but we don't get
-				// 'char' unless we return false from this function, in which case the
-				// scenario editor intercepts some other keys for itself)
-				int playerID = evt.GetKeyCode() - '0';
-				obj->GetScenarioEditor().GetObjectSettings().SetPlayerID(playerID);
-				obj->GetScenarioEditor().GetObjectSettings().NotifyObservers();
+				const int maxPlayerID = obj->GetScenarioEditor().GetMapSettings()["PlayerData"]["item"].count();
+				int playerID = -1;
+				if (evt.GetKeyCode() >= '0' && evt.GetKeyCode() <= '8')
+					playerID = evt.GetKeyCode() - '0';
+				else if (evt.GetKeyCode() >= WXK_NUMPAD0 && evt.GetKeyCode() <= WXK_NUMPAD8)
+					playerID = evt.GetKeyCode() - WXK_NUMPAD0;
+				if (playerID >= 0 && playerID <= maxPlayerID)
+				{
+					obj->GetScenarioEditor().GetObjectSettings().SetPlayerID(playerID);
+					obj->GetScenarioEditor().GetObjectSettings().NotifyObservers();
+				}
 			}
 
 			// Prevent keys from passing through to the scenario editor

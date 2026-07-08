@@ -5,7 +5,7 @@ Trainer.prototype.Schema =
 	"<a:example>" +
 		"<BatchTimeModifier>0.7</BatchTimeModifier>" +
 		"<Entities datatype='tokens'>" +
-			"\n    units/{civ}/support_female_citizen\n    units/{native}/support_trader\n    units/athen/infantry_spearman_b\n  " +
+			"\n    units/{civ}/support_civilian\n    units/{native}/support_trader\n    units/athen/infantry_spearman_b\n  " +
 		"</Entities>" +
 	"</a:example>" +
 	"<optional>" +
@@ -229,7 +229,7 @@ Trainer.prototype.Item.prototype.Spawn = function()
 	const cmpRallyPoint = Engine.QueryInterface(this.trainer, IID_RallyPoint);
 	if (cmpRallyPoint)
 	{
-		const data = cmpRallyPoint.GetData()[0];
+		const data = cmpRallyPoint.GetData(this.player)[0];
 		if (data?.target && data.target == this.trainer && data.command == "garrison")
 			autoGarrison = true;
 	}
@@ -294,8 +294,12 @@ Trainer.prototype.Item.prototype.Spawn = function()
 	}
 
 	if (spawnedEnts.length && cmpRallyPoint)
-		for (const com of GetRallyPointCommands(cmpRallyPoint, spawnedEnts))
+		for (const com of GetRallyPointCommands(cmpRallyPoint.GetPositions(this.player), cmpRallyPoint.GetData(this.player), spawnedEnts))
+		{
+			// Tag this command as coming from a rally point
+			com.fromRallyPoint = true;
 			ProcessCommand(this.player, com);
+		}
 
 	const cmpPlayer = QueryOwnerInterface(this.trainer);
 	if (createdEnts.length)
@@ -305,9 +309,9 @@ Trainer.prototype.Item.prototype.Spawn = function()
 		// Play a sound, but only for the first in the batch (to avoid nasty phasing effects).
 		PlaySound("trained", createdEnts[0]);
 		Engine.PostMessage(this.trainer, MT_TrainingFinished, {
-		    "entities": createdEnts,
-		    "owner": this.player,
-		    "metadata": this.metadata
+			"entities": createdEnts,
+			"owner": this.player,
+			"metadata": this.metadata
 		});
 	}
 	if (this.count)
@@ -317,9 +321,9 @@ Trainer.prototype.Item.prototype.Spawn = function()
 		if (!this.spawnNotified)
 		{
 			Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface).PushNotification({
-			    "players": [cmpPlayer.GetPlayerID()],
-			    "message": markForTranslation("Can't find free space to spawn trained units."),
-			    "translateMessage": true
+				"players": [cmpPlayer.GetPlayerID()],
+				"message": markForTranslation("Can't find free space to spawn trained units."),
+				"translateMessage": true
 			});
 			this.spawnNotified = true;
 		}
@@ -406,7 +410,7 @@ Trainer.prototype.Item.prototype.Serialize = function(id)
 		"id": id
 	};
 	for (const att of this.SerializableAttributes)
-		if (this.hasOwnProperty(att))
+		if (Object.hasOwn(this, att))
 			result[att] = this[att];
 	return result;
 };
@@ -441,7 +445,7 @@ Trainer.prototype.Serialize = function()
 		"queue": queue
 	};
 	for (const att of this.SerializableAttributes)
-		if (this.hasOwnProperty(att))
+		if (Object.hasOwn(this, att))
 			result[att] = this[att];
 
 	return result;
@@ -499,19 +503,28 @@ Trainer.prototype.CalculateEntitiesMap = function()
 	 * - replace the "{civ}" and "{native}" codes with the owner's civ ID and entity's civ ID
 	 * - remove disabled entities
 	 * - upgrade templates where necessary
-	 * This also updates currently queued production (it's more convenient to do it here).
+	 * This also updates currently queued production.
 	 */
 
-	const removeAllQueuedTemplate = (token) => {
-		const queue = clone(this.queue);
+	const cmpProductionQueue = Engine.QueryInterface(this.entity, IID_ProductionQueue);
+	const removeAllQueuedTemplate = (token) =>
+	{
+		if (!cmpProductionQueue)
+		{
+			warn("Cannot remove queued template: entity has no production queue component");
+			return;
+		}
+
 		const template = this.entitiesMap.get(token);
-		for (const [id, item] of queue)
-			if (item.templateName == template)
-				this.StopBatch(id);
+		const queue = cmpProductionQueue.GetQueue();
+		for (const item of queue)
+			if (item.unitTemplate === template)
+				cmpProductionQueue.RemoveItem(item.id);
 	};
 
 	// ToDo: Notice this doesn't account for entity limits changing due to the template change.
-	const updateAllQueuedTemplate = (token, updateTo) => {
+	const updateAllQueuedTemplate = (token, updateTo) =>
+	{
 		const template = this.entitiesMap.get(token);
 		for (const [id, item] of this.queue)
 			if (item.templateName === template)
@@ -526,7 +539,8 @@ Trainer.prototype.CalculateEntitiesMap = function()
 	const playerCiv = QueryOwnerInterface(this.entity, IID_Identity)?.GetCiv();
 
 	const addedDict = addedTokens.reduce((out, token) => { out[token] = true; return out; }, {});
-	this.entitiesMap = toks.reduce((entMap, token) => {
+	this.entitiesMap = toks.reduce((entMap, token) =>
+	{
 		const rawToken = token;
 		if (!(token in addedDict))
 		{
@@ -567,9 +581,9 @@ Trainer.prototype.CalculateTrainCostMultiplier = function()
 {
 	for (const res of Resources.GetCodes().concat(["time"]))
 		this.trainCostMultiplier[res] = ApplyValueModificationsToEntity(
-		    "Trainer/TrainCostMultiplier/" + res,
-		    +(this.template?.TrainCostMultiplier?.[res] || 1),
-		    this.entity);
+			"Trainer/TrainCostMultiplier/" + res,
+			+(this.template?.TrainCostMultiplier?.[res] || 1),
+			this.entity);
 };
 
 /**
@@ -587,9 +601,9 @@ Trainer.prototype.GetBatchTime = function(batchSize)
 {
 	// TODO: work out what equation we should use here.
 	return Math.pow(batchSize, ApplyValueModificationsToEntity(
-	    "Trainer/BatchTimeModifier",
-	    +(this.template?.BatchTimeModifier || 1),
-	    this.entity));
+		"Trainer/BatchTimeModifier",
+		+(this.template?.BatchTimeModifier || 1),
+		this.entity));
 };
 
 /**
@@ -621,6 +635,10 @@ Trainer.prototype.QueueBatch = function(templateName, count, metadata)
 
 /**
  * @param {number} id - The ID of the batch being trained here we need to stop.
+ *
+ * @warning This method should only be called from ProductionQueue to maintain synchronization
+ *          between the queues. For external callers, use ProductionQueue.RemoveItem() instead.
+ *          Direct calls may cause desynchronization between Trainer and ProductionQueue.
  */
 Trainer.prototype.StopBatch = function(id)
 {
@@ -690,9 +708,8 @@ Trainer.prototype.OnValueModification = function(msg)
 	// This also updates the queued production if necessary.
 	this.CalculateEntitiesMap();
 
-	// Inform the GUI that it'll need to recompute the selection panel.
-	// TODO: it would be better to only send the message if something actually changing
-	// for the current training queue.
+	// Mark the selection dirty (even though it didn't change) in order to trigger the GUI to recompute some cached values, which include the list of trainable entities.
+	// TODO: It would be better to only do this if something actually changed in this.entitiesMap
 	const cmpPlayer = QueryOwnerInterface(this.entity);
 	if (cmpPlayer)
 		Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface).SetSelectionDirty(cmpPlayer.GetPlayerID());

@@ -1,4 +1,4 @@
-/* Copyright (C) 2017 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,7 +18,14 @@
 #ifndef INCLUDED_LOCALTURNMANAGER
 #define INCLUDED_LOCALTURNMANAGER
 
-#include "TurnManager.h"
+#include "lib/types.h"
+#include "simulation2/helpers/Player.h"
+#include "simulation2/system/TurnManager.h"
+
+#include <js/TypeDecls.h>
+
+class CSimulation2;
+class IReplayLogger;
 
 /**
  * Implementation of CTurnManager for offline games.
@@ -36,7 +43,7 @@ public:
 protected:
 	void NotifyFinishedOwnCommands(u32 turn) override;
 
-	virtual void NotifyFinishedUpdate(u32 turn) override;
+	void NotifyFinishedUpdate(u32 turn, const UpdateCallback& sendEventToAll) override;
 };
 
 #endif // INCLUDED_LOCALTURNMANAGER

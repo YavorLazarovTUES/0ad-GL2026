@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,37 +19,55 @@
 
 #include "NetServer.h"
 
-#include "NetClient.h"
-#include "NetEnet.h"
-#include "NetMessage.h"
-#include "NetSession.h"
-#include "NetServerTurnManager.h"
-#include "NetStats.h"
-
+#include "lib/code_generation.h"
+#include "lib/debug.h"
 #include "lib/external_libraries/enet.h"
+#include "lib/secure_crt.h"
+#include "lib/status.h"
 #include "lib/types.h"
+#include "lib/utf8.h"
+#include "network/FSM.h"
+#include "network/NetEnet.h"
+#include "network/NetFileTransfer.h"
+#include "network/NetHost.h"
+#include "network/NetMessage.h"
+#include "network/NetProtocol.h"
+#include "network/NetServerTurnManager.h"
+#include "network/NetServerSession.h"
+#include "network/NetStats.h"
 #include "network/StunClient.h"
 #include "ps/CLogger.h"
 #include "ps/ConfigDB.h"
 #include "ps/GUID.h"
 #include "ps/Hashing.h"
-#include "ps/Profile.h"
+#include "ps/ProfileViewer.h"
+#include "ps/Profiler2.h"
 #include "ps/Threading.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "ps/algorithm.h"
 #include "scriptinterface/JSON.h"
-#include "simulation2/Simulation2.h"
+#include "scriptinterface/Object.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/system/TurnManager.h"
 
+#include <algorithm>
+#include <cstring>
+#include <functional>
+#include <iterator>
+#include <memory>
+#include <set>
+#include <sstream>
+#include <string>
+#include <utility>
+
 #if CONFIG2_MINIUPNPC
-#include <miniupnpc/miniwget.h>
+#include <miniupnpc/igd_desc_parse.h>
 #include <miniupnpc/miniupnpc.h>
 #include <miniupnpc/upnpcommands.h>
+#include <miniupnpc/upnpdev.h>
 #include <miniupnpc/upnperrors.h>
 #endif
-
-#include <set>
-#include <string>
 
 /**
  * Number of peers to allocate for the enet host.
@@ -58,8 +76,6 @@
  * At most 8 players, 32 observers and 1 temporary connection to send the "server full" disconnect-reason.
  */
 #define MAX_CLIENTS 41
-
-#define	DEFAULT_SERVER_NAME			L"Unnamed Server"
 
 constexpr int CHANNEL_COUNT = 1;
 constexpr int FAILED_PASSWORD_TRIES_BEFORE_BAN = 3;
@@ -92,36 +108,56 @@ static CStr DebugName(CNetServerSession* session)
 
 /*
  * XXX: We use some non-threadsafe functions from the worker thread.
- * See http://trac.wildfiregames.com/ticket/654
+ * See https://gitea.wildfiregames.com/0ad/0ad/issues/654
  */
 
-CNetServerWorker::CNetServerWorker(bool useLobbyAuth) :
-	m_LobbyAuth(useLobbyAuth),
-	m_Shutdown(false),
-	m_ScriptInterface(NULL),
-	m_NextHostID(1), m_Host(NULL), m_ControllerGUID(), m_Stats(NULL),
-	m_LastConnectionCheck(0)
+CNetServerWorker::CNetServerWorker(const bool continueSavedGame, std::uint16_t port,
+	const bool useLobbyAuth, std::string password, std::string controllerSecret,
+	std::string initAttributes) :
+	m_ContinuesSavedGame{continueSavedGame},
+	m_LobbyAuth{useLobbyAuth},
+	m_ControllerSecret{std::move(controllerSecret)},
+	m_Password{std::move(password)}
 {
-	m_State = SERVER_STATE_UNCONNECTED;
+	// Bind to default host
+	ENetAddress addr;
+	addr.host = ENET_HOST_ANY;
+	addr.port = port;
 
-	m_ServerTurnManager = NULL;
+	// Create ENet server
+	m_Host.reset(PS::Enet::CreateHost(&addr, MAX_CLIENTS, CHANNEL_COUNT));
+	if (!m_Host)
+	{
+		LOGERROR("Net server: enet_host_create failed");
+		throw std::runtime_error{"Failed to start server"};
+	}
 
-	m_ServerName = DEFAULT_SERVER_NAME;
+	m_Stats = std::make_unique<CNetStatsTable>();
+	if (CProfileViewer::IsInitialised())
+		g_ProfileViewer.AddRootTable(m_Stats.get());
+
+	m_State = SERVER_STATE_PREGAME;
+
+	// Launch the worker thread
+	m_WorkerThread = std::thread(Threading::HandleExceptions<RunThread>::Wrapper, this,
+		std::move(initAttributes));
+
+#if CONFIG2_MINIUPNPC
+	// Launch the UPnP thread
+	m_UPnPThread = std::thread(Threading::HandleExceptions<SetupUPnP>::Wrapper, port);
+#endif
 }
 
 CNetServerWorker::~CNetServerWorker()
 {
-	if (m_State != SERVER_STATE_UNCONNECTED)
+	// Tell the thread to shut down
 	{
-		// Tell the thread to shut down
-		{
-			std::lock_guard<std::mutex> lock(m_WorkerMutex);
-			m_Shutdown = true;
-		}
-
-		// Wait for it to shut down cleanly
-		m_WorkerThread.join();
+		std::lock_guard<std::mutex> lock(m_WorkerMutex);
+		m_Shutdown = true;
 	}
+
+	// Wait for it to shut down cleanly
+	m_WorkerThread.join();
 
 #if CONFIG2_MINIUPNPC
 	if (m_UPnPThread.joinable())
@@ -129,30 +165,8 @@ CNetServerWorker::~CNetServerWorker()
 #endif
 
 	// Clean up resources
-
-	delete m_Stats;
-
-	for (CNetServerSession* session : m_Sessions)
-	{
+	for (const auto& session : m_Sessions)
 		session->DisconnectNow(NDR_SERVER_SHUTDOWN);
-		delete session;
-	}
-
-	if (m_Host)
-		enet_host_destroy(m_Host);
-
-	delete m_ServerTurnManager;
-}
-
-void CNetServerWorker::SetPassword(const CStr& hashedPassword)
-{
-	m_Password = hashedPassword;
-}
-
-
-void CNetServerWorker::SetControllerSecret(const std::string& secret)
-{
-	m_ControllerSecret = secret;
 }
 
 
@@ -161,50 +175,14 @@ bool CNetServerWorker::CheckPassword(const std::string& password, const std::str
 	return HashCryptographically(m_Password, salt) == password;
 }
 
-
-bool CNetServerWorker::SetupConnection(const u16 port)
-{
-	ENSURE(m_State == SERVER_STATE_UNCONNECTED);
-	ENSURE(!m_Host);
-
-	// Bind to default host
-	ENetAddress addr;
-	addr.host = ENET_HOST_ANY;
-	addr.port = port;
-
-	// Create ENet server
-	m_Host = PS::Enet::CreateHost(&addr, MAX_CLIENTS, CHANNEL_COUNT);
-	if (!m_Host)
-	{
-		LOGERROR("Net server: enet_host_create failed");
-		return false;
-	}
-
-	m_Stats = new CNetStatsTable();
-	if (CProfileViewer::IsInitialised())
-		g_ProfileViewer.AddRootTable(m_Stats);
-
-	m_State = SERVER_STATE_PREGAME;
-
-	// Launch the worker thread
-	m_WorkerThread = std::thread(Threading::HandleExceptions<RunThread>::Wrapper, this);
-
 #if CONFIG2_MINIUPNPC
-	// Launch the UPnP thread
-	m_UPnPThread = std::thread(Threading::HandleExceptions<SetupUPnP>::Wrapper);
-#endif
-
-	return true;
-}
-
-#if CONFIG2_MINIUPNPC
-void CNetServerWorker::SetupUPnP()
+void CNetServerWorker::SetupUPnP(const u16 port)
 {
 	debug_SetThreadName("UPnP");
 
 	// Values we want to set.
 	char psPort[6];
-	sprintf_s(psPort, ARRAY_SIZE(psPort), "%d", PS_DEFAULT_PORT);
+	sprintf_s(psPort, ARRAY_SIZE(psPort), "%d", port);
 	const char* leaseDuration = "0"; // Indefinite/permanent lease duration.
 	const char* description = "0AD Multiplayer";
 	const char* protocall = "UDP";
@@ -232,24 +210,23 @@ void CNetServerWorker::SetupUPnP()
 	};
 
 	// Cached root descriptor URL.
-	std::string rootDescURL;
-	CFG_GET_VAL("network.upnprootdescurl", rootDescURL);
+	const std::string rootDescURL{g_ConfigDB.Get("network.upnprootdescurl", std::string{})};
 	if (!rootDescURL.empty())
 		LOGMESSAGE("Net server: attempting to use cached root descriptor URL: %s", rootDescURL.c_str());
 
 	int ret = 0;
 
 	// Try a cached URL first
-	if (!rootDescURL.empty() && UPNP_GetIGDFromUrl(rootDescURL.c_str(), &urls, &data, internalIPAddress, sizeof(internalIPAddress)))
+	if (!rootDescURL.empty() && UPNP_GetIGDFromUrl(rootDescURL.c_str(), &urls, &data, internalIPAddress, sizeof(internalIPAddress)) && strlen(data.first.controlurl) != 0)
 	{
 		LOGMESSAGE("Net server: using cached IGD = %s", urls.controlURL);
 		ret = 1;
 	}
-	// No cached URL, or it did not respond. Try getting a valid UPnP device for 10 seconds.
+	// No cached URL, or it did not respond. Try discovering the UPnP IGD for 2 seconds.
 #if defined(MINIUPNPC_API_VERSION) && MINIUPNPC_API_VERSION >= 14
-	else if ((devlist = upnpDiscover(10000, 0, 0, 0, 0, 2, 0)) != NULL)
+	else if ((devlist = upnpDiscover(2000, 0, 0, 0, 0, 2, 0)) != NULL)
 #else
-	else if ((devlist = upnpDiscover(10000, 0, 0, 0, 0, 0)) != NULL)
+	else if ((devlist = upnpDiscover(2000, 0, 0, 0, 0, 0)) != NULL)
 #endif
 	{
 #if defined(MINIUPNPC_API_VERSION) && MINIUPNPC_API_VERSION >= 18
@@ -337,9 +314,9 @@ void CNetServerWorker::SetupUPnP()
 				   externalIPAddress, psPort, protocall, intClient, intPort, duration);
 
 	// Cache root descriptor URL to try to avoid discovery next time.
-	g_ConfigDB.SetValueString(CFG_USER, "network.upnprootdescurl", urls.controlURL);
-	g_ConfigDB.WriteValueToFile(CFG_USER, "network.upnprootdescurl", urls.controlURL);
-	LOGMESSAGE("Net server: cached UPnP root descriptor URL as %s", urls.controlURL);
+	g_ConfigDB.SetValueString(CFG_USER, "network.upnprootdescurl", urls.rootdescURL);
+	g_ConfigDB.WriteValueToFile(CFG_USER, "network.upnprootdescurl", urls.rootdescURL);
+	LOGMESSAGE("Net server: cached UPnP root descriptor URL as %s", urls.rootdescURL);
 
 	freeUPnP();
 }
@@ -354,39 +331,60 @@ bool CNetServerWorker::SendMessage(ENetPeer* peer, const CNetMessage* message)
 	return CNetHost::SendMessage(message, peer, DebugName(session).c_str());
 }
 
-bool CNetServerWorker::Broadcast(const CNetMessage* message, const std::vector<NetServerSessionState>& targetStates)
+bool CNetServerWorker::Multicast(const CNetMessage* message,
+	const std::vector<NetServerSessionState>& targetStates,
+	const std::optional<std::vector<std::string>>& receivers /* = std::nullopt */)
 {
 	ENSURE(m_Host);
+
+	const auto isReceiver = [&](const CNetServerSession& session)
+		{
+			if (!PS::contains(targetStates,
+				static_cast<NetServerSessionState>(session.GetCurrState())))
+			{
+				return false;
+			}
+			if (!receivers)
+				return true;
+			return PS::contains(*receivers, session.GetGUID());
+		};
 
 	bool ok = true;
 
 	// TODO: this does lots of repeated message serialisation if we have lots
 	// of remote peers; could do it more efficiently if that's a real problem
 
-	for (CNetServerSession* session : m_Sessions)
-		if (std::find(targetStates.begin(), targetStates.end(), static_cast<NetServerSessionState>(session->GetCurrState())) != targetStates.end() &&
-		    !session->SendMessage(message))
+	for (const auto& session : m_Sessions)
+		if (isReceiver(*session) && !session->SendMessage(message))
 			ok = false;
 
 	return ok;
 }
 
-void CNetServerWorker::RunThread(CNetServerWorker* data)
+void CNetServerWorker::RunThread(CNetServerWorker* data, const std::string& initAttributes)
 {
 	debug_SetThreadName("NetServer");
 
-	data->Run();
+	data->Run(initAttributes);
 }
 
-void CNetServerWorker::Run()
+void CNetServerWorker::Run(const std::string& initAttributes)
 {
 	// The script context uses the profiler and therefore the thread must be registered before the context is created
 	g_Profiler2.RegisterCurrentThread("Net server");
 
-	// We create a new ScriptContext for this network thread, with a single ScriptInterface.
-	std::shared_ptr<ScriptContext> netServerContext = ScriptContext::CreateContext();
-	m_ScriptInterface = new ScriptInterface("Engine", "Net server", netServerContext);
+	// We create a new Script::Context for this network thread, with a single Script::Interface.
+	Script::Context netServerContext;
+	m_ScriptInterface = new Script::Interface("Engine", "Net server", netServerContext);
 	m_InitAttributes.init(m_ScriptInterface->GetGeneralJSContext(), JS::UndefinedValue());
+
+	if (!initAttributes.empty())
+	{
+		Script::Request rq(m_ScriptInterface);
+		JS::RootedValue gameAttributesVal(rq.cx);
+		Script::ParseJSON(rq, std::move(initAttributes), &gameAttributesVal);
+		m_InitAttributes = gameAttributesVal;
+	}
 
 	while (true)
 	{
@@ -394,7 +392,7 @@ void CNetServerWorker::Run()
 			break;
 
 		// Update profiler stats
-		m_Stats->LatchHostState(m_Host);
+		m_Stats->LatchHostState(*m_Host);
 	}
 
 	// Clear roots before deleting their context
@@ -409,12 +407,11 @@ bool CNetServerWorker::RunStep()
 	// (Do as little work as possible while the mutex is held open,
 	// to avoid performance problems and deadlocks.)
 
-	m_ScriptInterface->GetContext().MaybeIncrementalGC(0.5f);
+	m_ScriptInterface->GetContext().MaybeIncrementalGC();
 
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 
 	std::vector<bool> newStartGame;
-	std::vector<std::string> newGameAttributes;
 	std::vector<std::pair<CStr, CStr>> newLobbyAuths;
 	std::vector<u32> newTurnLength;
 
@@ -425,21 +422,8 @@ bool CNetServerWorker::RunStep()
 			return false;
 
 		newStartGame.swap(m_StartGameQueue);
-		newGameAttributes.swap(m_InitAttributesQueue);
 		newLobbyAuths.swap(m_LobbyAuthQueue);
 		newTurnLength.swap(m_TurnLengthQueue);
-	}
-
-	if (!newGameAttributes.empty())
-	{
-		if (m_State != SERVER_STATE_UNCONNECTED && m_State != SERVER_STATE_PREGAME)
-			LOGERROR("NetServer: Init Attributes cannot be changed after the server starts loading.");
-		else
-		{
-			JS::RootedValue gameAttributesVal(rq.cx);
-			Script::ParseJSON(rq, newGameAttributes.back(), &gameAttributesVal);
-			m_InitAttributes = gameAttributesVal;
-		}
 	}
 
 	if (!newTurnLength.empty())
@@ -453,7 +437,7 @@ bool CNetServerWorker::RunStep()
 	}
 
 	// Perform file transfers
-	for (CNetServerSession* session : m_Sessions)
+	for (const auto& session : m_Sessions)
 		session->GetFileTransferer().Poll();
 
 	CheckClientConnections();
@@ -461,7 +445,7 @@ bool CNetServerWorker::RunStep()
 	// Process network events:
 
 	ENetEvent event;
-	int status = enet_host_service(m_Host, &event, HOST_SERVICE_TIMEOUT);
+	int status = enet_host_service(m_Host.get(), &event, HOST_SERVICE_TIMEOUT);
 	if (status < 0)
 	{
 		LOGERROR("CNetServerWorker: enet_host_service failed (%d)", status);
@@ -488,16 +472,15 @@ bool CNetServerWorker::RunStep()
 
 		// Set up a session object for this peer
 
-		CNetServerSession* session = new CNetServerSession(*this, event.peer);
+		const std::unique_ptr<CNetServerSession>& session{m_Sessions.emplace_back(
+			std::make_unique<CNetServerSession>(*this, event.peer))};
 
-		m_Sessions.push_back(session);
-
-		SetupSession(session);
+		SetupSession(session.get());
 
 		ENSURE(event.peer->data == NULL);
-		event.peer->data = session;
+		event.peer->data = session.get();
 
-		HandleConnect(session);
+		HandleConnect(session.get());
 
 		break;
 	}
@@ -513,11 +496,13 @@ bool CNetServerWorker::RunStep()
 
 			// Remove the session first, so we won't send player-update messages to it
 			// when updating the FSM
-			m_Sessions.erase(remove(m_Sessions.begin(), m_Sessions.end(), session), m_Sessions.end());
+			const auto iter = std::ranges::find(m_Sessions, session,
+				&std::unique_ptr<CNetServerSession>::get);
+			const std::unique_ptr<CNetServerSession> _ = std::move(*iter);
+			m_Sessions.erase(iter);
 
 			session->Update((uint)NMT_CONNECTION_LOST, NULL);
 
-			delete session;
 			event.peer->data = NULL;
 		}
 
@@ -613,7 +598,7 @@ void CNetServerWorker::CheckClientConnections()
 	}
 }
 
-void CNetServerWorker::HandleMessageReceive(const CNetMessage* message, CNetServerSession* session)
+void CNetServerWorker::HandleMessageReceive(CNetMessage* message, CNetServerSession* session)
 {
 	// Handle non-FSM messages first
 	Status status = session->GetFileTransferer().HandleMessageReceive(*message);
@@ -624,17 +609,20 @@ void CNetServerWorker::HandleMessageReceive(const CNetMessage* message, CNetServ
 	{
 		CFileTransferRequestMessage* reqMessage = (CFileTransferRequestMessage*)message;
 
-		// Rejoining client got our JoinSyncStart after we received the state from
-		// another client, and has now requested that we forward it to them
+		// A client requested the gamestate. Clients only request the gamestate when we sent them a
+		// JoinSyncStart or a GameSavedStart message. We only send those messages after we received the
+		// gamestate.
+		// For joins and loads the gamestate is in a different format. Send the respective one.
 
-		ENSURE(!m_JoinSyncFile.empty());
-		session->GetFileTransferer().StartResponse(reqMessage->m_RequestID, m_JoinSyncFile);
+		session->GetFileTransferer().StartResponse(reqMessage->m_RequestID,
+			static_cast<CNetFileTransferer::RequestType>(reqMessage->m_RequestType) ==
+				CNetFileTransferer::RequestType::LOADGAME ? m_SavedState : m_JoinSyncFile);
 
 		return;
 	}
 
 	// Update FSM
-	if (!session->Update(message->GetType(), (void*)message))
+	if (!session->Update(message->GetType(), message))
 		LOGERROR("Net server: Error running FSM update (type=%d state=%d)", (int)message->GetType(), (int)session->GetCurrState());
 }
 
@@ -661,6 +649,7 @@ void CNetServerWorker::SetupSession(CNetServerSession* session)
 	session->AddTransition(NSS_PREGAME, (uint)NMT_ASSIGN_PLAYER, NSS_PREGAME, &OnAssignPlayer, session);
 	session->AddTransition(NSS_PREGAME, (uint)NMT_KICKED, NSS_PREGAME, &OnKickPlayer, session);
 	session->AddTransition(NSS_PREGAME, (uint)NMT_GAME_START, NSS_PREGAME, &OnGameStart, session);
+	session->AddTransition(NSS_PREGAME, (uint)NMT_SAVED_GAME_START, NSS_PREGAME, &OnSavedGameStart, session);
 	session->AddTransition(NSS_PREGAME, (uint)NMT_LOADED_GAME, NSS_INGAME, &OnLoadedGame, session);
 
 	session->AddTransition(NSS_JOIN_SYNCING, (uint)NMT_KICKED, NSS_JOIN_SYNCING, &OnKickPlayer, session);
@@ -673,6 +662,7 @@ void CNetServerWorker::SetupSession(CNetServerSession* session)
 	session->AddTransition(NSS_INGAME, (uint)NMT_CONNECTION_LOST, NSS_UNCONNECTED, &OnDisconnect, session);
 	session->AddTransition(NSS_INGAME, (uint)NMT_CHAT, NSS_INGAME, &OnChat, session);
 	session->AddTransition(NSS_INGAME, (uint)NMT_SIMULATION_COMMAND, NSS_INGAME, &OnSimulationCommand, session);
+	session->AddTransition(NSS_INGAME, (uint)NMT_FLARE, NSS_INGAME, &OnFlare, session);
 	session->AddTransition(NSS_INGAME, (uint)NMT_SYNC_CHECK, NSS_INGAME, &OnSyncCheck, session);
 	session->AddTransition(NSS_INGAME, (uint)NMT_END_COMMAND_BATCH, NSS_INGAME, &OnEndCommandBatch, session);
 
@@ -688,11 +678,8 @@ bool CNetServerWorker::HandleConnect(CNetServerSession* session)
 		return false;
 	}
 
-	CSrvHandshakeMessage handshake;
-	handshake.m_Magic = PS_PROTOCOL_MAGIC;
-	handshake.m_ProtocolVersion = PS_PROTOCOL_VERSION;
-	handshake.m_SoftwareVersion = PS_PROTOCOL_VERSION;
-	return session->SendMessage(&handshake);
+    const CSrvHandshakeMessage handshake(CreateHandshake<CSrvHandshakeMessage>());
+    return session->SendMessage(&handshake);
 }
 
 void CNetServerWorker::OnUserJoin(CNetServerSession* session)
@@ -733,7 +720,7 @@ void CNetServerWorker::AddPlayer(const CStr& guid, const CStrW& name)
 
 	i32 playerID = -1;
 
-	if (m_State != SERVER_STATE_UNCONNECTED && m_State != SERVER_STATE_PREGAME)
+	if (m_State != SERVER_STATE_PREGAME)
 	{
 		// Try to match GUID first
 		for (PlayerAssignmentMap::iterator it = m_PlayerAssignments.begin(); it != m_PlayerAssignments.end(); ++it)
@@ -790,8 +777,8 @@ void CNetServerWorker::ClearAllPlayerReady()
 void CNetServerWorker::KickPlayer(const CStrW& playerName, const bool ban)
 {
 	// Find the user with that name
-	std::vector<CNetServerSession*>::iterator it = std::find_if(m_Sessions.begin(), m_Sessions.end(),
-		[&](CNetServerSession* session) { return session->GetUserName() == playerName; });
+	const auto it = std::find_if(m_Sessions.begin(), m_Sessions.end(),
+		[&](const auto& session) { return session->GetUserName() == playerName; });
 
 	// and return if no one or the host has that name
 	if (it == m_Sessions.end() || (*it)->GetGUID() == m_ControllerGUID)
@@ -816,7 +803,7 @@ void CNetServerWorker::KickPlayer(const CStrW& playerName, const bool ban)
 	CKickedMessage kickedMessage;
 	kickedMessage.m_Name = playerName;
 	kickedMessage.m_Ban = ban;
-	Broadcast(&kickedMessage, { NSS_PREGAME, NSS_JOIN_SYNCING, NSS_INGAME });
+	Multicast(&kickedMessage, { NSS_PREGAME, NSS_JOIN_SYNCING, NSS_INGAME });
 }
 
 void CNetServerWorker::AssignPlayer(int playerID, const CStr& guid)
@@ -855,10 +842,10 @@ void CNetServerWorker::SendPlayerAssignments()
 {
 	CPlayerAssignmentMessage message;
 	ConstructPlayerAssignmentMessage(message);
-	Broadcast(&message, { NSS_PREGAME, NSS_JOIN_SYNCING, NSS_INGAME });
+	Multicast(&message, { NSS_PREGAME, NSS_JOIN_SYNCING, NSS_INGAME });
 }
 
-const ScriptInterface& CNetServerWorker::GetScriptInterface()
+const Script::Interface& CNetServerWorker::GetScriptInterface()
 {
 	return *m_ScriptInterface;
 }
@@ -873,9 +860,8 @@ void CNetServerWorker::ProcessLobbyAuth(const CStr& name, const CStr& token)
 {
 	LOGMESSAGE("Net Server: Received lobby auth message from %s with %s", name, token);
 	// Find the user with that guid
-	std::vector<CNetServerSession*>::iterator it = std::find_if(m_Sessions.begin(), m_Sessions.end(),
-		[&](CNetServerSession* session)
-		{ return session->GetGUID() == token; });
+	const auto it = std::find_if(m_Sessions.begin(), m_Sessions.end(),
+		[&](const auto& session) { return session->GetGUID() == token; });
 
 	if (it == m_Sessions.end())
 		return;
@@ -887,7 +873,7 @@ void CNetServerWorker::ProcessLobbyAuth(const CStr& name, const CStr& token)
 	(*it)->SendMessage(&emptyMessage);
 }
 
-bool CNetServerWorker::OnClientHandshake(CNetServerSession* session, CFsmEvent* event)
+bool CNetServerWorker::OnClientHandshake(CNetServerSession* session, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_CLIENT_HANDSHAKE);
 
@@ -900,12 +886,18 @@ bool CNetServerWorker::OnClientHandshake(CNetServerSession* session, CFsmEvent* 
 		return false;
 	}
 
+	if (CheckHandshake(CreateHandshake<CSrvHandshakeMessage>(), *message))
+	{
+		session->Disconnect(NDR_INCORRECT_SOFTWARE_VERSION);
+		return false;
+	}
+
 	CStr guid = ps_generate_guid();
 	int count = 0;
 	// Ensure unique GUID
 	while(std::find_if(
 		server.m_Sessions.begin(), server.m_Sessions.end(),
-		[&guid] (const CNetServerSession* session)
+		[&guid] (const auto& session)
 		{ return session->GetGUID() == guid; }) != server.m_Sessions.end())
 	{
 		if (++count > 100)
@@ -934,7 +926,7 @@ bool CNetServerWorker::OnClientHandshake(CNetServerSession* session, CFsmEvent* 
 	return true;
 }
 
-bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent* event)
+bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_AUTHENTICATE);
 
@@ -976,21 +968,18 @@ bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent* eve
 		return true;
 	}
 
-	// Either deduplicate or prohibit join if name is in use
-	bool duplicatePlayernames = false;
-	CFG_GET_VAL("network.duplicateplayernames", duplicatePlayernames);
 	// If lobby authentication is enabled, the clients playername has already been registered.
 	// There also can't be any duplicated names.
-	if (!server.m_LobbyAuth && duplicatePlayernames)
+	// Either deduplicate or prohibit join if name is in use
+	if (!server.m_LobbyAuth && g_ConfigDB.Get("network.duplicateplayernames", false))
 		username = server.DeduplicatePlayerName(username);
 	else
 	{
-		std::vector<CNetServerSession*>::iterator it = std::find_if(
+		const auto it = std::find_if(
 			server.m_Sessions.begin(), server.m_Sessions.end(),
-			[&username] (const CNetServerSession* session)
-			{ return session->GetUserName() == username; });
+			[&username](const auto& session) { return session->GetUserName() == username; });
 
-		if (it != server.m_Sessions.end() && (*it) != session)
+		if (it != server.m_Sessions.end() && it->get() != session)
 		{
 			session->Disconnect(NDR_PLAYERNAME_IN_USE);
 			return true;
@@ -1003,9 +992,6 @@ bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent* eve
 		session->Disconnect(NDR_BANNED);
 		return true;
 	}
-
-	int maxObservers = 0;
-	CFG_GET_VAL("network.observerlimit", maxObservers);
 
 	bool isRejoining = false;
 	bool serverFull = false;
@@ -1042,8 +1028,8 @@ bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent* eve
 		// Optionally allow everyone or only buddies to join after the game has started
 		if (!isRejoining)
 		{
-			CStr observerLateJoin;
-			CFG_GET_VAL("network.lateobservers", observerLateJoin);
+			const std::string observerLateJoin{
+				g_ConfigDB.Get("network.lateobservers", std::string{})};
 
 			if (observerLateJoin == "everyone")
 			{
@@ -1051,9 +1037,8 @@ bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent* eve
 			}
 			else if (observerLateJoin == "buddies")
 			{
-				CStr buddies;
-				CFG_GET_VAL("lobby.buddies", buddies);
-				std::wstringstream buddiesStream(wstring_from_utf8(buddies));
+				std::wstringstream buddiesStream(wstring_from_utf8(
+					g_ConfigDB.Get("lobby.buddies", std::string{})));
 				CStrW buddy;
 				while (std::getline(buddiesStream, buddy, L','))
 				{
@@ -1075,7 +1060,8 @@ bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent* eve
 
 		// Ensure all players will be able to rejoin
 		serverFull = isObserver && (
-			(int) server.m_Sessions.size() - connectedPlayers > maxObservers ||
+			(int) server.m_Sessions.size() - connectedPlayers >
+				g_ConfigDB.Get("network.observerlimit", 0) ||
 			(int) server.m_Sessions.size() + disconnectedPlayers >= MAX_CLIENTS);
 	}
 
@@ -1091,7 +1077,8 @@ bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent* eve
 	session->SetHostID(newHostID);
 
 	CAuthenticateResultMessage authenticateResult;
-	authenticateResult.m_Code = isRejoining ? ARC_OK_REJOINING : ARC_OK;
+	authenticateResult.m_Code = isRejoining ? ARC_OK_REJOINING :
+		server.m_ContinuesSavedGame ? ARC_OK_SAVED_GAME : ARC_OK;
 	authenticateResult.m_HostID = newHostID;
 	authenticateResult.m_Message = L"Logged in";
 	authenticateResult.m_IsController = 0;
@@ -1113,22 +1100,21 @@ bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent* eve
 	if (!isRejoining)
 		return true;
 
-	ENSURE(server.m_State != SERVER_STATE_UNCONNECTED && server.m_State != SERVER_STATE_PREGAME);
+	ENSURE(server.m_State != SERVER_STATE_PREGAME);
 
 	// Request a copy of the current game state from an existing player, so we can send it on to the new
 	// player.
 
 	// Assume session 0 is most likely the local player, so they're the most efficient client to request a
 	// copy from.
-	CNetServerSession* sourceSession = server.m_Sessions.at(0);
-
-	sourceSession->GetFileTransferer().StartTask([&server, newHostID](std::string buffer)
+	server.m_Sessions.at(0)->GetFileTransferer().StartTask(CNetFileTransferer::RequestType::REJOIN,
+		[&server, newHostID](std::string buffer)
 		{
 			// We've received the game state from an existing player - now we need to send it onwards
 			// to the newly rejoining player.
 
 			const auto sessionIt = std::find_if(server.m_Sessions.begin(), server.m_Sessions.end(),
-				[newHostID](const CNetServerSession* serverSession)
+				[newHostID](const auto& serverSession)
 				{
 					return serverSession->GetHostID() == newHostID;
 				});
@@ -1149,7 +1135,7 @@ bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent* eve
 			// started.
 			CJoinSyncStartMessage message;
 			message.m_InitAttributes = Script::StringifyJSON(
-				ScriptRequest{server.GetScriptInterface()}, &server.m_InitAttributes);
+				Script::Request{server.GetScriptInterface()}, &server.m_InitAttributes);
 			(*sessionIt)->SendMessage(&message);
 		});
 
@@ -1157,7 +1143,7 @@ bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent* eve
 	return true;
 }
 
-bool CNetServerWorker::OnSimulationCommand(CNetServerSession* session, CFsmEvent* event)
+bool CNetServerWorker::OnSimulationCommand(CNetServerSession* session, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_SIMULATION_COMMAND);
 
@@ -1168,8 +1154,8 @@ bool CNetServerWorker::OnSimulationCommand(CNetServerSession* session, CFsmEvent
 	// Ignore messages sent by one player on behalf of another player
 	// unless cheating is enabled
 	bool cheatsEnabled = false;
-	const ScriptInterface& scriptInterface = server.GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	const Script::Interface& scriptInterface = server.GetScriptInterface();
+	Script::Request rq(scriptInterface);
 	JS::RootedValue settings(rq.cx);
 	Script::GetProperty(rq, server.m_InitAttributes, "settings", &settings);
 	if (Script::HasProperty(rq, settings, "CheatsEnabled"))
@@ -1183,7 +1169,7 @@ bool CNetServerWorker::OnSimulationCommand(CNetServerSession* session, CFsmEvent
 
 	// Send it back to all clients that have finished
 	// the loading screen (and the synchronization when rejoining)
-	server.Broadcast(message, { NSS_INGAME });
+	server.Multicast(message, { NSS_INGAME });
 
 	// Save all the received commands
 	if (server.m_SavedCommands.size() < message->m_Turn + 1)
@@ -1194,7 +1180,19 @@ bool CNetServerWorker::OnSimulationCommand(CNetServerSession* session, CFsmEvent
 	return true;
 }
 
-bool CNetServerWorker::OnSyncCheck(CNetServerSession* session, CFsmEvent* event)
+bool CNetServerWorker::OnFlare(CNetServerSession* session, CFsmEvent<CNetMessage*>* event)
+{
+	ENSURE(event->GetType() == (uint)NMT_FLARE);
+
+	CNetServerWorker& server = session->GetServer();
+	CFlareMessage* message = (CFlareMessage*)event->GetParamRef();
+	message->m_GUID = session->GetGUID();
+	server.Multicast(message, { NSS_INGAME });
+
+	return true;
+}
+
+bool CNetServerWorker::OnSyncCheck(CNetServerSession* session, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_SYNC_CHECK);
 
@@ -1206,7 +1204,7 @@ bool CNetServerWorker::OnSyncCheck(CNetServerSession* session, CFsmEvent* event)
 	return true;
 }
 
-bool CNetServerWorker::OnEndCommandBatch(CNetServerSession* session, CFsmEvent* event)
+bool CNetServerWorker::OnEndCommandBatch(CNetServerSession* session, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_END_COMMAND_BATCH);
 
@@ -1219,7 +1217,7 @@ bool CNetServerWorker::OnEndCommandBatch(CNetServerSession* session, CFsmEvent* 
 	return true;
 }
 
-bool CNetServerWorker::OnChat(CNetServerSession* session, CFsmEvent* event)
+bool CNetServerWorker::OnChat(CNetServerSession* session, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_CHAT);
 
@@ -1227,14 +1225,25 @@ bool CNetServerWorker::OnChat(CNetServerSession* session, CFsmEvent* event)
 
 	CChatMessage* message = (CChatMessage*)event->GetParamRef();
 
-	message->m_GUID = session->GetGUID();
+	message->m_SenderGUID = session->GetGUID();
 
-	server.Broadcast(message, { NSS_PREGAME, NSS_INGAME });
+	const std::vector<NetServerSessionState> receivingStates{NSS_PREGAME, NSS_INGAME};
+	const std::vector messageReceivers{std::exchange(message->m_Receivers, {})};
+
+	if (messageReceivers.empty())
+		server.Multicast(message, receivingStates);
+	else
+	{
+		auto receivers = std::make_optional<std::vector<std::string>>();
+		std::transform(messageReceivers.begin(), messageReceivers.end(), std::back_inserter(*receivers),
+			std::mem_fn(&CChatMessage::S_m_Receivers::m_ReceiverGUID));
+		server.Multicast(message, receivingStates, std::move(receivers));
+	}
 
 	return true;
 }
 
-bool CNetServerWorker::OnReady(CNetServerSession* session, CFsmEvent* event)
+bool CNetServerWorker::OnReady(CNetServerSession* session, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_READY);
 
@@ -1247,14 +1256,14 @@ bool CNetServerWorker::OnReady(CNetServerSession* session, CFsmEvent* event)
 
 	CReadyMessage* message = (CReadyMessage*)event->GetParamRef();
 	message->m_GUID = session->GetGUID();
-	server.Broadcast(message, { NSS_PREGAME });
+	server.Multicast(message, { NSS_PREGAME });
 
 	server.m_PlayerAssignments[message->m_GUID].m_Status = message->m_Status;
 
 	return true;
 }
 
-bool CNetServerWorker::OnClearAllReady(CNetServerSession* session, CFsmEvent* event)
+bool CNetServerWorker::OnClearAllReady(CNetServerSession* session, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_CLEAR_ALL_READY);
 
@@ -1266,7 +1275,7 @@ bool CNetServerWorker::OnClearAllReady(CNetServerSession* session, CFsmEvent* ev
 	return true;
 }
 
-bool CNetServerWorker::OnGameSetup(CNetServerSession* session, CFsmEvent* event)
+bool CNetServerWorker::OnGameSetup(CNetServerSession* session, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_GAME_SETUP);
 
@@ -1284,12 +1293,12 @@ bool CNetServerWorker::OnGameSetup(CNetServerSession* session, CFsmEvent* event)
 	if (session->GetGUID() == server.m_ControllerGUID)
 	{
 		CGameSetupMessage* message = (CGameSetupMessage*)event->GetParamRef();
-		server.Broadcast(message, { NSS_PREGAME });
+		server.Multicast(message, { NSS_PREGAME });
 	}
 	return true;
 }
 
-bool CNetServerWorker::OnAssignPlayer(CNetServerSession* session, CFsmEvent* event)
+bool CNetServerWorker::OnAssignPlayer(CNetServerSession* session, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_ASSIGN_PLAYER);
 	CNetServerWorker& server = session->GetServer();
@@ -1302,7 +1311,7 @@ bool CNetServerWorker::OnAssignPlayer(CNetServerSession* session, CFsmEvent* eve
 	return true;
 }
 
-bool CNetServerWorker::OnGameStart(CNetServerSession* session, CFsmEvent* event)
+bool CNetServerWorker::OnGameStart(CNetServerSession* session, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_GAME_START);
 	CNetServerWorker& server = session->GetServer();
@@ -1315,7 +1324,26 @@ bool CNetServerWorker::OnGameStart(CNetServerSession* session, CFsmEvent* event)
 	return true;
 }
 
-bool CNetServerWorker::OnLoadedGame(CNetServerSession* loadedSession, CFsmEvent* event)
+bool CNetServerWorker::OnSavedGameStart(CNetServerSession* session, CFsmEvent<CNetMessage*>* event)
+{
+	ENSURE(event->GetType() == static_cast<uint>(NMT_SAVED_GAME_START));
+	CNetServerWorker& server{session->GetServer()};
+
+	if (session->GetGUID() != server.m_ControllerGUID)
+		return true;
+
+	CGameSavedStartMessage* message = static_cast<CGameSavedStartMessage*>(event->GetParamRef());
+	session->GetFileTransferer().StartTask(CNetFileTransferer::RequestType::LOADGAME,
+		[&server, initAttributes = std::move(message->m_InitAttributes)](std::string buffer)
+		{
+			server.m_SavedState = std::move(buffer);
+
+			server.StartSavedGame(initAttributes);
+		});
+	return true;
+}
+
+bool CNetServerWorker::OnLoadedGame(CNetServerSession* loadedSession, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_LOADED_GAME);
 
@@ -1330,7 +1358,7 @@ bool CNetServerWorker::OnLoadedGame(CNetServerSession* loadedSession, CFsmEvent*
 	CClientsLoadingMessage message;
 	// We always send all GUIDs of clients in the loading state
 	// so that we don't have to bother about switching GUI pages
-	for (CNetServerSession* session : server.m_Sessions)
+	for (const auto& session : server.m_Sessions)
 		if (session->GetCurrState() != NSS_INGAME && loadedSession->GetGUID() != session->GetGUID())
 		{
 			CClientsLoadingMessage::S_m_Clients client;
@@ -1338,14 +1366,18 @@ bool CNetServerWorker::OnLoadedGame(CNetServerSession* loadedSession, CFsmEvent*
 			message.m_Clients.push_back(client);
 		}
 
+	// If no other player is loading the server can clear the savestate
+	if (message.m_Clients.empty())
+		server.m_SavedState.clear();
+
 	// Send to the client who has loaded the game but did not reach the NSS_INGAME state yet
 	loadedSession->SendMessage(&message);
-	server.Broadcast(&message, { NSS_INGAME });
+	server.Multicast(&message, { NSS_INGAME });
 
 	return true;
 }
 
-bool CNetServerWorker::OnJoinSyncingLoadedGame(CNetServerSession* session, CFsmEvent* event)
+bool CNetServerWorker::OnJoinSyncingLoadedGame(CNetServerSession* session, CFsmEvent<CNetMessage*>* event)
 {
 	// A client rejoining an in-progress game has now finished loading the
 	// map and deserialized the initial state.
@@ -1397,7 +1429,7 @@ bool CNetServerWorker::OnJoinSyncingLoadedGame(CNetServerSession* session, CFsmE
 	return true;
 }
 
-bool CNetServerWorker::OnRejoined(CNetServerSession* session, CFsmEvent* event)
+bool CNetServerWorker::OnRejoined(CNetServerSession* session, CFsmEvent<CNetMessage*>* event)
 {
 	// A client has finished rejoining and the loading screen disappeared.
 	ENSURE(event->GetType() == (uint)NMT_REJOINED);
@@ -1407,7 +1439,7 @@ bool CNetServerWorker::OnRejoined(CNetServerSession* session, CFsmEvent* event)
 	// Inform everyone of the client having rejoined
 	CRejoinedMessage* message = (CRejoinedMessage*)event->GetParamRef();
 	message->m_GUID = session->GetGUID();
-	server.Broadcast(message, { NSS_INGAME });
+	server.Multicast(message, { NSS_INGAME });
 
 	// Send all pausing players to the rejoined client.
 	for (const CStr& guid : server.m_PausingPlayers)
@@ -1421,7 +1453,7 @@ bool CNetServerWorker::OnRejoined(CNetServerSession* session, CFsmEvent* event)
 	return true;
 }
 
-bool CNetServerWorker::OnKickPlayer(CNetServerSession* session, CFsmEvent* event)
+bool CNetServerWorker::OnKickPlayer(CNetServerSession* session, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_KICKED);
 
@@ -1435,7 +1467,7 @@ bool CNetServerWorker::OnKickPlayer(CNetServerSession* session, CFsmEvent* event
 	return true;
 }
 
-bool CNetServerWorker::OnDisconnect(CNetServerSession* session, CFsmEvent* event)
+bool CNetServerWorker::OnDisconnect(CNetServerSession* session, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_CONNECTION_LOST);
 
@@ -1446,7 +1478,7 @@ bool CNetServerWorker::OnDisconnect(CNetServerSession* session, CFsmEvent* event
 	return true;
 }
 
-bool CNetServerWorker::OnClientPaused(CNetServerSession* session, CFsmEvent* event)
+bool CNetServerWorker::OnClientPaused(CNetServerSession* session, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_CLIENT_PAUSED);
 
@@ -1475,7 +1507,7 @@ bool CNetServerWorker::OnClientPaused(CNetServerSession* session, CFsmEvent* eve
 	}
 
 	// Send messages to clients that are in game, and are not the client who paused.
-	for (CNetServerSession* netSession : server.m_Sessions)
+	for (const auto& netSession : server.m_Sessions)
 		if (netSession->GetCurrState() == NSS_INGAME && message->m_GUID != netSession->GetGUID())
 			netSession->SendMessage(message);
 
@@ -1484,8 +1516,8 @@ bool CNetServerWorker::OnClientPaused(CNetServerSession* session, CFsmEvent* eve
 
 bool CNetServerWorker::CheckGameLoadStatus(CNetServerSession* changedSession)
 {
-	for (const CNetServerSession* session : m_Sessions)
-		if (session != changedSession && session->GetCurrState() != NSS_INGAME)
+	for (const auto& session : m_Sessions)
+		if (session.get() != changedSession && session->GetCurrState() != NSS_INGAME)
 			return false;
 
 	// Inform clients that everyone has loaded the map and that the game can start
@@ -1493,13 +1525,13 @@ bool CNetServerWorker::CheckGameLoadStatus(CNetServerSession* changedSession)
 	loaded.m_CurrentTurn = 0;
 
 	// Notice the changedSession is still in the NSS_PREGAME state
-	Broadcast(&loaded, { NSS_PREGAME, NSS_INGAME });
+	Multicast(&loaded, { NSS_PREGAME, NSS_INGAME });
 
 	m_State = SERVER_STATE_INGAME;
 	return true;
 }
 
-void CNetServerWorker::StartGame(const CStr& initAttribs)
+void CNetServerWorker::PreStartGame(const CStr& initAttribs)
 {
 	for (std::pair<const CStr, PlayerAssignment>& player : m_PlayerAssignments)
 		if (player.second.m_Enabled && player.second.m_PlayerID != -1 && player.second.m_Status == 0)
@@ -1508,10 +1540,25 @@ void CNetServerWorker::StartGame(const CStr& initAttribs)
 			return;
 		}
 
-	m_ServerTurnManager = new CNetServerTurnManager(*this);
+	m_ServerTurnManager = std::make_unique<CNetServerTurnManager>(*this);
 
-	for (CNetServerSession* session : m_Sessions)
+	for (const auto& session : m_Sessions)
 	{
+		// InitialiseClient makes the NetServerTurnManager wait for this client.
+		// But we only want to wait for clients who have passed authentication, i.e. who have the correct password.
+		// Therefore we may not call InitialiseClient for unauthenticated clients.
+		if (session->GetCurrState() != NSS_PREGAME)
+		{
+			// We only support clients joining before or after, not during the loading screen.
+			// Therefore we have to disconnect clients who did not complete the authentication yet.
+			LOGMESSAGE("Dropping client (%s / %s / %d) not in NSS_PREGAME when starting the game",
+				session->GetUserName().ToUTF8().c_str(),
+				session->GetGUID().c_str(),
+				session->GetHostID());
+			session->Disconnect(NDR_SERVER_LOADING);
+			continue;
+		}
+
 		// Special case: the controller shouldn't be treated as an observer in any case.
 		bool isObserver = m_PlayerAssignments[session->GetGUID()].m_PlayerID == -1 && m_ControllerGUID != session->GetGUID();
 		m_ServerTurnManager->InitialiseClient(session->GetHostID(), 0, isObserver);
@@ -1529,11 +1576,25 @@ void CNetServerWorker::StartGame(const CStr& initAttribs)
 	SendPlayerAssignments();
 
 	// Update init attributes. They should no longer change.
-	Script::ParseJSON(ScriptRequest(m_ScriptInterface), initAttribs, &m_InitAttributes);
+	Script::ParseJSON(Script::Request(m_ScriptInterface), initAttribs, &m_InitAttributes);
+}
+
+void CNetServerWorker::StartGame(const CStr& initAttribs)
+{
+	PreStartGame(initAttribs);
 
 	CGameStartMessage gameStart;
 	gameStart.m_InitAttributes = initAttribs;
-	Broadcast(&gameStart, { NSS_PREGAME });
+	Multicast(&gameStart, { NSS_PREGAME });
+}
+
+void CNetServerWorker::StartSavedGame(const CStr& initAttribs)
+{
+	PreStartGame(initAttribs);
+
+	CGameSavedStartMessage gameSavedStart;
+	gameSavedStart.m_InitAttributes = initAttribs;
+	Multicast(&gameSavedStart, { NSS_PREGAME });
 }
 
 CStrW CNetServerWorker::SanitisePlayerName(const CStrW& original)
@@ -1567,7 +1628,7 @@ CStrW CNetServerWorker::DeduplicatePlayerName(const CStrW& original)
 	while (true)
 	{
 		bool unique = true;
-		for (const CNetServerSession* session : m_Sessions)
+		for (const auto& session : m_Sessions)
 		{
 			if (session->GetUserName() == name)
 			{
@@ -1592,30 +1653,26 @@ void CNetServerWorker::SendHolePunchingMessage(const CStr& ipStr, u16 port)
 
 
 
-CNetServer::CNetServer(bool useLobbyAuth) :
-	m_Worker(new CNetServerWorker(useLobbyAuth)),
-	m_LobbyAuth(useLobbyAuth), m_UseSTUN(false), m_PublicIp(""), m_PublicPort(20595), m_Password()
+CNetServer::CNetServer(const bool continueSavedGame, std::uint16_t port, const bool useLobbyAuth,
+	std::string password, std::string controllerSecret, std::string initAttributes) :
+	m_Worker{continueSavedGame, port, useLobbyAuth, password, std::move(controllerSecret),
+		std::move(initAttributes)},
+	m_LobbyAuth{useLobbyAuth},
+	m_Password{std::move(password)}
 {
-}
+	if (!useLobbyAuth)
+		return;
 
-CNetServer::~CNetServer()
-{
-	delete m_Worker;
-}
-
-bool CNetServer::GetUseSTUN() const
-{
-	return m_UseSTUN;
+	// In lobby, we send our public ip and port on request to the players who want to connect.
+	// Thus we need to know our public IP and use STUN to get it.
+	std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
+	if (!m_Worker.m_Host || !StunClient::FindPublicIP(*m_Worker.m_Host, m_PublicIp, m_PublicPort))
+		throw std::runtime_error{"Failed to resolve public IP-address."};
 }
 
 bool CNetServer::UseLobbyAuth() const
 {
 	return m_LobbyAuth;
-}
-
-bool CNetServer::SetupConnection(const u16 port)
-{
-	return m_Worker->SetupConnection(port);
 }
 
 CStr CNetServer::GetPublicIp() const
@@ -1630,32 +1687,16 @@ u16 CNetServer::GetPublicPort() const
 
 u16 CNetServer::GetLocalPort() const
 {
-	std::lock_guard<std::mutex> lock(m_Worker->m_WorkerMutex);
-	if (!m_Worker->m_Host)
+	std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
+	if (!m_Worker.m_Host)
 		return 0;
-	return m_Worker->m_Host->address.port;
-}
-
-void CNetServer::SetConnectionData(const CStr& ip, const u16 port)
-{
-	m_PublicIp = ip;
-	m_PublicPort = port;
-	m_UseSTUN = false;
-}
-
-bool CNetServer::SetConnectionDataViaSTUN()
-{
-	m_UseSTUN = true;
-	std::lock_guard<std::mutex> lock(m_Worker->m_WorkerMutex);
-	if (!m_Worker->m_Host)
-		return false;
-	return StunClient::FindPublicIP(*m_Worker->m_Host, m_PublicIp, m_PublicPort);
+	return m_Worker.m_Host->address.port;
 }
 
 bool CNetServer::CheckPasswordAndIncrement(const std::string& username, const std::string& password, const std::string& salt)
 {
 	std::unordered_map<std::string, int>::iterator it = m_FailedAttempts.find(username);
-	if (m_Worker->CheckPassword(password, salt))
+	if (m_Worker.CheckPassword(password, salt))
 	{
 		if (it != m_FailedAttempts.end())
 			it->second = 0;
@@ -1674,48 +1715,25 @@ bool CNetServer::IsBanned(const std::string& username) const
 	return it != m_FailedAttempts.end() && it->second >= FAILED_PASSWORD_TRIES_BEFORE_BAN;
 }
 
-void CNetServer::SetPassword(const CStr& password)
-{
-	m_Password = password;
-	std::lock_guard<std::mutex> lock(m_Worker->m_WorkerMutex);
-	m_Worker->SetPassword(password);
-}
-
-void CNetServer::SetControllerSecret(const std::string& secret)
-{
-	std::lock_guard<std::mutex> lock(m_Worker->m_WorkerMutex);
-	m_Worker->SetControllerSecret(secret);
-}
-
 void CNetServer::StartGame()
 {
-	std::lock_guard<std::mutex> lock(m_Worker->m_WorkerMutex);
-	m_Worker->m_StartGameQueue.push_back(true);
-}
-
-void CNetServer::UpdateInitAttributes(JS::MutableHandleValue attrs, const ScriptRequest& rq)
-{
-	// Pass the attributes as JSON, since that's the easiest safe
-	// cross-thread way of passing script data
-	std::string attrsJSON = Script::StringifyJSON(rq, attrs, false);
-
-	std::lock_guard<std::mutex> lock(m_Worker->m_WorkerMutex);
-	m_Worker->m_InitAttributesQueue.push_back(attrsJSON);
+	std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
+	m_Worker.m_StartGameQueue.push_back(true);
 }
 
 void CNetServer::OnLobbyAuth(const CStr& name, const CStr& token)
 {
-	std::lock_guard<std::mutex> lock(m_Worker->m_WorkerMutex);
-	m_Worker->m_LobbyAuthQueue.push_back(std::make_pair(name, token));
+	std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
+	m_Worker.m_LobbyAuthQueue.push_back(std::make_pair(name, token));
 }
 
 void CNetServer::SetTurnLength(u32 msecs)
 {
-	std::lock_guard<std::mutex> lock(m_Worker->m_WorkerMutex);
-	m_Worker->m_TurnLengthQueue.push_back(msecs);
+	std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
+	m_Worker.m_TurnLengthQueue.push_back(msecs);
 }
 
 void CNetServer::SendHolePunchingMessage(const CStr& ip, u16 port)
 {
-	m_Worker->SendHolePunchingMessage(ip, port);
+	m_Worker.SendHolePunchingMessage(ip, port);
 }

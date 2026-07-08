@@ -24,15 +24,15 @@ class GridBrowserItem
 
 	onGridResize()
 	{
-		let gridBrowser = this.gridBrowser;
-		let x = this.itemIndex % gridBrowser.columnCount;
-		let y = Math.floor(this.itemIndex / gridBrowser.columnCount);
-		let size = this.imageObject.size;
-		size.left = gridBrowser.itemWidth * x;
-		size.right = gridBrowser.itemWidth * (x + 1);
-		size.top = gridBrowser.itemHeight * y;
-		size.bottom = gridBrowser.itemHeight * (y + 1);
-		this.imageObject.size = size;
+		const gridBrowser = this.gridBrowser;
+		const x = this.itemIndex % gridBrowser.columnCount;
+		const y = Math.floor(this.itemIndex / gridBrowser.columnCount);
+		Object.assign(this.imageObject.size, {
+			"left": gridBrowser.itemWidth * x,
+			"top": gridBrowser.itemHeight * y,
+			"right": gridBrowser.itemWidth * (x + 1),
+			"bottom": gridBrowser.itemHeight * (y + 1)
+		});
 		this.updateVisibility();
 	}
 

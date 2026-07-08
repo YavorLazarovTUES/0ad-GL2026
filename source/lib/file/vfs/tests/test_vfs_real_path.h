@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -22,9 +22,15 @@
 
 #include "lib/self_test.h"
 
+#include "lib/file/file_system.h"
 #include "lib/file/vfs/vfs.h"
-#include "lib/file/vfs/vfs_populate.h"
 #include "lib/os_path.h"
+#include "lib/path.h"
+#include "lib/types.h"
+
+#include <memory>
+#include <string>
+#include <tuple>
 
 static OsPath TEST_FOLDER(DataDir()/"_test.temp");
 
@@ -107,7 +113,7 @@ public:
 		g_VFS->Mount(L"mod", TEST_FOLDER / "mod_b" / "", 0, 0);
 
 		// For consistency, populate everything.
-		ignore_result(g_VFS->TextRepresentation().c_str());
+		std::ignore = g_VFS->TextRepresentation().c_str();
 
 		OsPath realPath;
 		g_VFS->GetDirectoryRealPath(L"mod", realPath);

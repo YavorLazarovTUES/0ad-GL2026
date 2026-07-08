@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,18 +17,27 @@
 
 #include "lib/self_test.h"
 
-#include "simulation2/system/ComponentManager.h"
-
-#include "simulation2/MessageTypes.h"
-#include "simulation2/system/ParamNode.h"
-#include "simulation2/system/SimContext.h"
-#include "simulation2/serialization/ISerializer.h"
-#include "simulation2/components/ICmpTest.h"
-#include "simulation2/components/ICmpTemplateManager.h"
-
+#include "lib/file/file_system.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/path.h"
+#include "lib/types.h"
+#include "maths/Fixed.h"
 #include "ps/CLogger.h"
+#include "ps/Errors.h"
 #include "ps/Filesystem.h"
 #include "ps/XML/Xeromyces.h"
+#include "scriptinterface/Interface.h"
+#include "simulation2/MessageTypes.h"
+#include "simulation2/components/ICmpTemplateManager.h"
+#include "simulation2/components/ICmpTest.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+
+#include <cstddef>
+#include <memory>
+#include <optional>
+#include <sstream>
+#include <string>
 
 #define TS_ASSERT_STREAM(stream, len, buffer) \
 	TS_ASSERT_EQUALS(stream.str().length(), (size_t)len); \
@@ -40,18 +49,19 @@
 
 class TestComponentManager : public CxxTest::TestSuite
 {
+	std::optional<CXeromycesEngine> xeromycesEngine;
 public:
 	void setUp()
 	{
 		g_VFS = CreateVfs();
 		TS_ASSERT_OK(g_VFS->Mount(L"", DataDir() / "mods" / "_test.sim" / "", VFS_MOUNT_MUST_EXIST));
 		TS_ASSERT_OK(g_VFS->Mount(L"cache", DataDir() / "_testcache" / "", 0, VFS_MAX_PRIORITY));
-		CXeromyces::Startup();
+		xeromycesEngine.emplace();
 	}
 
 	void tearDown()
 	{
-		CXeromyces::Terminate();
+		xeromycesEngine.reset();
 		g_VFS.reset();
 		DeleteDirectory(DataDir()/"_testcache");
 	}

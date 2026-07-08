@@ -2,9 +2,9 @@ Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
-	setSelectedBiome();
+	setBiome(mapSettings.Biome);
 
 	const tMainTerrain = g_Terrains.mainTerrain;
 	const tForestFloor1 = g_Terrains.forestFloor1;
@@ -79,7 +79,7 @@ function* GenerateMap()
 	const mapCenter = g_Map.getCenter();
 
 	g_Map.log("Creating player islands...");
-	const [playerIDs, playerPosition] = playerPlacementCircle(fractionToTiles(0.38));
+	const { playerIDs, playerPosition } = playerPlacementCircle(fractionToTiles(0.38));
 
 	for (let i = 0; i < numPlayers; ++i)
 		createArea(

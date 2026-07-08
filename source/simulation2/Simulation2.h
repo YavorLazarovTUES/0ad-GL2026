@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,14 +18,21 @@
 #ifndef INCLUDED_SIMULATION2
 #define INCLUDED_SIMULATION2
 
+#include "lib/code_annotation.h"
 #include "lib/file/vfs/vfs_path.h"
-#include "simulation2/helpers/SimulationCommand.h"
-#include "simulation2/system/CmpPtr.h"
-#include "simulation2/system/Components.h"
+#include "lib/status.h"
+#include "ps/Loader.h"
+#include "simulation2/system/DebugOptions.h"
+#include "simulation2/system/Entity.h"
 
+#include <array>
+#include <js/TypeDecls.h>
+#include <memory>
 #include <ostream>
+#include <span>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 class CFrustum;
@@ -36,8 +43,10 @@ class CTerrain;
 class CUnitManager;
 class IComponent;
 class SceneCollector;
-class ScriptInterface;
-class ScriptContext;
+namespace Script { class Context; }
+namespace JS { class Value; }
+namespace Script { class Interface; }
+struct SimulationCommand;
 
 /**
  * Public API for simulation system.
@@ -48,28 +57,25 @@ class CSimulation2
 	NONCOPYABLE(CSimulation2);
 
 public:
+	struct LoadScriptError : std::runtime_error
+	{
+		using std::runtime_error::runtime_error;
+	};
+
+	constexpr static auto DEFAULT_SCRIPTS{std::to_array({L"simulation/components/interfaces/",
+		L"simulation/helpers/", L"simulation/components/"})};
+
 	// TODO: CUnitManager should probably be handled automatically by this
 	// module, but for now we'll have it passed in externally instead
-	CSimulation2(CUnitManager* unitManager, ScriptContext& cx, CTerrain* terrain);
+	/**
+	 * @param scriptDirectories All scripts in the specified directory
+	 *	(non-recursively) are loaded, so that they can register new
+	 *	component types and functions.
+	 */
+	CSimulation2(CUnitManager* unitManager, Script::Context& cx, CTerrain* terrain,
+		const std::span<const wchar_t* const> scriptDirectories,
+		const SimulationDebugOptions debugOptions = {});
 	~CSimulation2();
-
-	void EnableSerializationTest();
-	void EnableRejoinTest(int rejoinTestTurn);
-	void EnableOOSLog();
-
-	/**
-	 * Load all scripts in the specified directory (non-recursively),
-	 * so they can register new component types and functions. This
-	 * should be called immediately after constructing the CSimulation2 object.
-	 * @return false on failure
-	 */
-	bool LoadScripts(const VfsPath& path);
-
-	/**
-	 * Call LoadScripts for each of the game's standard simulation script paths.
-	 * @return false on failure
-	 */
-	bool LoadDefaultScripts();
 
 	/**
 	 * Loads the player settings script (called before map is loaded)
@@ -132,7 +138,7 @@ public:
 	/**
 	 * RegMemFun incremental loader function.
 	 */
-	int ProgressiveLoad();
+	PS::Loader::Task ProgressiveLoad();
 
 	/**
 	 * Reload any scripts that were loaded from the given filename.
@@ -224,7 +230,7 @@ public:
 	const InterfaceListUnordered& GetEntitiesWithInterfaceUnordered(int iid);
 
 	const CSimContext& GetSimContext() const;
-	ScriptInterface& GetScriptInterface() const;
+	Script::Interface& GetScriptInterface() const;
 
 	bool ComputeStateHash(std::string& outHash, bool quick);
 	bool DumpDebugState(std::ostream& stream);
@@ -277,7 +283,7 @@ public:
 	std::string GetAIData();
 
 private:
-	CSimulation2Impl* m;
+	const std::unique_ptr<CSimulation2Impl> m;
 };
 
 #endif // INCLUDED_SIMULATION2

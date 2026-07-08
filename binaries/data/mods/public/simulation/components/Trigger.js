@@ -7,27 +7,28 @@ Trigger.prototype.Schema =
  * Events we're able to receive and call handlers for.
  */
 Trigger.prototype.eventNames =
-[
-	"OnCinemaPathEnded",
-	"OnCinemaQueueEnded",
-	"OnConstructionStarted",
-	"OnDiplomacyChanged",
-	"OnDeserialized",
-	"OnInitGame",
-	"OnInterval",
-	"OnEntityRenamed",
-	"OnOwnershipChanged",
-	"OnPlayerCommand",
-	"OnPlayerDefeated",
-	"OnPlayerWon",
-	"OnRange",
-	"OnResearchFinished",
-	"OnResearchQueued",
-	"OnStructureBuilt",
-	"OnTrainingFinished",
-	"OnTrainingQueued",
-	"OnTreasureCollected"
-];
+	[
+		"OnAttackDetected",
+		"OnCinemaPathEnded",
+		"OnCinemaQueueEnded",
+		"OnConstructionStarted",
+		"OnDiplomacyChanged",
+		"OnDeserialized",
+		"OnInitGame",
+		"OnInterval",
+		"OnEntityRenamed",
+		"OnOwnershipChanged",
+		"OnPlayerCommand",
+		"OnPlayerDefeated",
+		"OnPlayerWon",
+		"OnRange",
+		"OnResearchFinished",
+		"OnResearchQueued",
+		"OnStructureBuilt",
+		"OnTrainingFinished",
+		"OnTrainingQueued",
+		"OnTreasureCollected"
+	];
 
 Trigger.prototype.Init = function()
 {

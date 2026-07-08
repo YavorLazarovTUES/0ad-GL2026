@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,10 +18,11 @@
 #ifndef INCLUDED_RENDERER_BACKEND_VULKAN_SAMPLERMANAGER
 #define INCLUDED_RENDERER_BACKEND_VULKAN_SAMPLERMANAGER
 
+#include "renderer/backend/IDevice.h"
 #include "renderer/backend/Sampler.h"
 
+#include <cstddef>
 #include <glad/vulkan.h>
-#include <memory>
 #include <unordered_map>
 
 namespace Renderer
@@ -51,6 +52,8 @@ public:
 	 * the manager.
 	 */
 	VkSampler GetOrCreateSampler(const Sampler::Desc& samplerDesc);
+
+	void CollectStatistics(IDevice::StatisticsVector& statistics) const;
 
 private:
 	CDevice* m_Device = nullptr;

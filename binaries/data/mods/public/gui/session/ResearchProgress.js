@@ -1,49 +1,4 @@
 /**
- * This class is responsible for displaying the currently researched technologies in an overlay.
- */
-class ResearchProgress
-{
-	constructor(playerViewControl, selection)
-	{
-		this.buttons = Engine.GetGUIObjectByName("researchStartedButtons").children;
-		this.buttonHandlers = this.buttons.map((button, i) => new ResearchProgressButton(selection, i));
-
-		/**
-		 * Top coordinate of the research list.
-		 * Changes depending on the number of displayed counters.
-		 */
-		this.topOffset = g_OverlayCounterManager.lastHeight;
-
-		let updater = this.updateResearchProgress.bind(this);
-		registerSimulationUpdateHandler(updater);
-		playerViewControl.registerViewedPlayerChangeHandler(updater);
-		g_OverlayCounterManager.registerResizeHandler(this.setTopOffset.bind(this));
-	}
-
-	setTopOffset(offset)
-	{
-		this.topOffset = offset;
-	}
-
-	updateResearchProgress()
-	{
-		let researchStarted = Engine.GuiInterfaceCall("GetStartedResearch", g_ViewedPlayer);
-
-		let i = 0;
-		for (let techName in researchStarted)
-		{
-			if (i == this.buttons.length)
-				break;
-
-			this.buttonHandlers[i++].onResearchedProgress(this.topOffset, techName, researchStarted[techName]);
-		}
-
-		while (i < this.buttons.length)
-			this.buttons[i++].hidden = true;
-	}
-}
-
-/**
  * This is an individual button displaying a tech currently researched by the currently viewed player.
  */
 class ResearchProgressButton
@@ -68,24 +23,21 @@ class ResearchProgressButton
 	{
 		this.researcher = researchStatus.researcher;
 
-		let template = GetTechnologyData(techName, g_Players[g_ViewedPlayer].civ);
+		const template = GetTechnologyData(techName, g_Players[g_ViewedPlayer].civ);
 		let modifier = "stretched:";
 		if (researchStatus.paused)
 			modifier += "color:0 0 0 127:grayscale:";
 		this.sprite.sprite = modifier + this.PortraitDirectory + template.icon;
 
-		let size = this.button.size;
-		size.top = offset + this.buttonTop;
-		size.bottom = size.top + this.buttonHeight;
-		this.button.size = size;
+		this.button.size.top = offset + this.buttonTop;
+		this.button.size.bottom = this.button.size.top + this.buttonHeight;
+
 		this.button.tooltip = getEntityNames(template);
 		if (researchStatus.paused)
 			this.button.tooltip += "\n" + translate(this.PausedResearchString);
 		this.button.hidden = false;
 
-		size = this.progress.size;
-		size.top = this.progressTop + this.progressHeight * researchStatus.progress;
-		this.progress.size = size;
+		this.progress.size.top = this.progressTop + this.progressHeight * researchStatus.progress;
 
 		this.timeRemaining.caption =
 			Engine.FormatMillisecondsIntoDateStringGMT(
@@ -98,6 +50,51 @@ class ResearchProgressButton
 	onPress()
 	{
 		this.selection.selectAndMoveTo(this.researcher);
+	}
+}
+
+/**
+ * This class is responsible for displaying the currently researched technologies in an overlay.
+ */
+class ResearchProgress
+{
+	constructor(playerViewControl, selection)
+	{
+		this.buttons = Engine.GetGUIObjectByName("researchStartedButtons").children;
+		this.buttonHandlers = this.buttons.map((button, i) => new ResearchProgressButton(selection, i));
+
+		/**
+		 * Top coordinate of the research list.
+		 * Changes depending on the number of displayed counters.
+		 */
+		this.topOffset = g_OverlayCounterManager.lastHeight;
+
+		const updater = this.updateResearchProgress.bind(this);
+		registerSimulationUpdateHandler(updater);
+		playerViewControl.registerViewedPlayerChangeHandler(updater);
+		g_OverlayCounterManager.registerResizeHandler(this.setTopOffset.bind(this));
+	}
+
+	setTopOffset(offset)
+	{
+		this.topOffset = offset;
+	}
+
+	updateResearchProgress()
+	{
+		const researchStarted = Engine.GuiInterfaceCall("GetStartedResearch", g_ViewedPlayer);
+
+		let i = 0;
+		for (const techName in researchStarted)
+		{
+			if (i == this.buttons.length)
+				break;
+
+			this.buttonHandlers[i++].onResearchedProgress(this.topOffset, techName, researchStarted[techName]);
+		}
+
+		while (i < this.buttons.length)
+			this.buttons[i++].hidden = true;
 	}
 }
 

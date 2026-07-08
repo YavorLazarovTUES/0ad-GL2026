@@ -13,14 +13,23 @@ MenuButtons.prototype.Manual = class
 	{
 		this.button = button;
 		this.button.caption = translate(translate("Manual"));
+		this.button.hotkey = "manual";
 		this.pauseControl = pauseControl;
+		registerHotkeyChangeHandler(this.rebuild.bind(this));
+	}
+
+	rebuild()
+	{
+		this.button.tooltip = sprintf(translate("%(hotkey)s: Open the 0 A.D. game manual."), {
+			"hotkey": colorizeHotkey("%(hotkey)s", this.button.hotkey),
+		});
 	}
 
 	async onPress()
 	{
 		closeOpenDialogs();
 		this.pauseControl.implicitPause();
-		await Engine.PushGuiPage("page_manual.xml");
+		await Engine.OpenChildPage("page_manual.xml");
 		resumeGame();
 	}
 };
@@ -60,7 +69,7 @@ MenuButtons.prototype.Save = class
 		closeOpenDialogs();
 		this.pauseControl.implicitPause();
 
-		await Engine.PushGuiPage(
+		await Engine.OpenChildPage(
 			"page_loadgame.xml",
 			{
 				"savedGameData": getSavedGameData(),
@@ -88,7 +97,7 @@ MenuButtons.prototype.Summary = class
 
 	rebuild()
 	{
-		this.button.tooltip = sprintf(translate("Press %(hotkey)s to open the summary screen."), {
+		this.button.tooltip = sprintf(translate("%(hotkey)s: Open the summary screen."), {
 			"hotkey": colorizeHotkey("%(hotkey)s", this.button.hotkey),
 		});
 	}
@@ -100,10 +109,10 @@ MenuButtons.prototype.Summary = class
 
 		closeOpenDialogs();
 		this.pauseControl.implicitPause();
-		 // Allows players to see their own summary.
+		// Allows players to see their own summary.
 		// If they have shared ally vision researched, they are able to see the summary of there allies too.
-		let simState = Engine.GuiInterfaceCall("GetExtendedSimulationState");
-		const data = await Engine.PushGuiPage(
+		const simState = Engine.GuiInterfaceCall("GetExtendedSimulationState");
+		const data = await Engine.OpenChildPage(
 			"page_summary.xml",
 			{
 				"sim": {
@@ -139,7 +148,7 @@ MenuButtons.prototype.Lobby = class
 
 	rebuild()
 	{
-		this.button.tooltip = sprintf(translate("Press %(hotkey)s to open the multiplayer lobby page without leaving the game."), {
+		this.button.tooltip = sprintf(translate("%(hotkey)s: Open the multiplayer lobby page without leaving the game."), {
 			"hotkey": colorizeHotkey("%(hotkey)s", this.button.hotkey),
 		});
 	}
@@ -149,7 +158,7 @@ MenuButtons.prototype.Lobby = class
 		if (!Engine.HasXmppClient())
 			return;
 		closeOpenDialogs();
-		Engine.PushGuiPage("page_lobby.xml", { "dialog": true });
+		Engine.OpenChildPage("page_lobby.xml", { "dialog": true });
 	}
 };
 
@@ -159,7 +168,16 @@ MenuButtons.prototype.Options = class
 	{
 		this.button = button;
 		this.button.caption = translate("Options");
+		this.button.hotkey = "options";
 		this.pauseControl = pauseControl;
+		registerHotkeyChangeHandler(this.rebuild.bind(this));
+	}
+
+	rebuild()
+	{
+		this.button.tooltip = sprintf(translate("%(hotkey)s: Adjust game settings."), {
+			"hotkey": colorizeHotkey("%(hotkey)s", this.button.hotkey),
+		});
 	}
 
 	async onPress()
@@ -167,7 +185,7 @@ MenuButtons.prototype.Options = class
 		closeOpenDialogs();
 		this.pauseControl.implicitPause();
 
-		fireConfigChangeHandlers(await Engine.PushGuiPage("page_options.xml"));
+		fireConfigChangeHandlers(await Engine.OpenChildPage("page_options.xml"));
 		resumeGame();
 	}
 };
@@ -178,7 +196,16 @@ MenuButtons.prototype.Hotkeys = class
 	{
 		this.button = button;
 		this.button.caption = translate("Hotkeys");
+		this.button.hotkey = "hotkeys";
 		this.pauseControl = pauseControl;
+		registerHotkeyChangeHandler(this.rebuild.bind(this));
+	}
+
+	rebuild()
+	{
+		this.button.tooltip = sprintf(translate("%(hotkey)s: Adjust hotkeys."), {
+			"hotkey": colorizeHotkey("%(hotkey)s", this.button.hotkey),
+		});
 	}
 
 	async onPress()
@@ -186,7 +213,7 @@ MenuButtons.prototype.Hotkeys = class
 		closeOpenDialogs();
 		this.pauseControl.implicitPause();
 
-		await Engine.PushGuiPage("hotkeys/page_hotkeys.xml");
+		await Engine.OpenChildPage("page_hotkeys.xml");
 		resumeGame();
 	}
 };
@@ -211,7 +238,7 @@ MenuButtons.prototype.Pause = class
 	{
 		this.button.enabled = this.pauseControl.canPause(true);
 		this.button.caption = this.pauseControl.explicitPause ? translate("Resume") : translate("Pause");
-		this.button.tooltip = sprintf(translate("Press %(hotkey)s to pause or resume the game."), {
+		this.button.tooltip = sprintf(translate("%(hotkey)s: Pause or resume the game."), {
 			"hotkey": colorizeHotkey("%(hotkey)s", this.button.hotkey),
 		});
 	}
@@ -256,13 +283,13 @@ MenuButtons.prototype.Exit = class
 		this.pauseControl = pauseControl;
 	}
 
-	onPress()
+	onPress(closePageCallback)
 	{
-		for (let name in QuitConfirmationMenu.prototype)
+		for (const name in QuitConfirmationMenu.prototype)
 		{
-			let quitConfirmation = new QuitConfirmationMenu.prototype[name]();
+			const quitConfirmation = new QuitConfirmationMenu.prototype[name]();
 			if (quitConfirmation.enabled())
-				quitConfirmation.display();
+				quitConfirmation.display(closePageCallback);
 		}
 	}
 };

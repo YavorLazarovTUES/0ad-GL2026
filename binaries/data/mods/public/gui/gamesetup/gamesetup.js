@@ -2,7 +2,6 @@
 const g_MapSizes = prepareForDropdown(g_Settings && g_Settings.MapSizes);
 const g_MapTypes = prepareForDropdown(g_Settings && g_Settings.MapTypes);
 const g_PopulationCapacities = prepareForDropdown(g_Settings && g_Settings.PopulationCapacities);
-const g_WorldPopulationCapacities = prepareForDropdown(g_Settings && g_Settings.WorldPopulationCapacities);
 const g_StartingResources = prepareForDropdown(g_Settings && g_Settings.StartingResources);
 const g_VictoryConditions = g_Settings && g_Settings.VictoryConditions;
 
@@ -44,7 +43,15 @@ var g_SetupWindow;
 
 function init(initData, hotloadData)
 {
-	g_SetupWindow = new SetupWindow(initData, hotloadData);
+	registerGlobalGuiPageHotkeys(["options", "hotkeys", "civinfo", "structree", "catafalque", "manual", "tips"]);
+	return Promise.race([new Promise(closePageCallback =>
+	{
+		g_SetupWindow = new SetupWindow(initData, hotloadData, closePageCallback);
+	}), new Promise((_, reject) =>
+	{
+		if (g_IsNetworked)
+			g_SetupWindow.controls.netMessages.pollPendingMessages().catch(reject);
+	})]);
 }
 
 function getHotloadData()

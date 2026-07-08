@@ -1,33 +1,41 @@
 class CivInfoPage extends ReferencePage
 {
-	constructor(data)
+	constructor(closePageCallback)
 	{
-		super();
+		super(closePageCallback);
 
 		this.civSelection = new CivSelectDropdown(this.civData);
+		if (!this.civSelection.hasCivs())
+		{
+			this.closePage();
+			return;
+		}
 		this.civSelection.registerHandler(this.selectCiv.bind(this));
 
-		this.gameplaySection = new GameplaySection(this);
-		this.historySection = new HistorySection(this);
+		this.CivEmblem = Engine.GetGUIObjectByName("civEmblem");
+		this.CivName = Engine.GetGUIObjectByName("civName");
+		this.CivHistory = Engine.GetGUIObjectByName("civHistory");
 
-		let structreeButton = new StructreeButton(this);
-		let closeButton = new CloseButton(this);
+		this.gameplaySection = new GameplaySection(this);
+
+		const structreeButton = new StructreeButton(this);
+		const closeButton = new CloseButton(this);
 		Engine.SetGlobalHotkey("civinfo", "Press", this.closePage.bind(this));
 	}
 
 	switchToStructreePage()
 	{
-		Engine.PopGuiPage({
-			"nextPage": "page_structree.xml",
-			"args": {
+		this.closePageCallback({ [Engine.openRequest]: {
+			"page": "page_structree.xml",
+			"argument": {
 				"civ": this.activeCiv
 			}
-		});
+		} });
 	}
 
 	closePage()
 	{
-		Engine.PopGuiPage({
+		this.closePageCallback({
 			"page": "page_civinfo.xml",
 			"args": {
 				"civ": this.activeCiv
@@ -44,13 +52,16 @@ class CivInfoPage extends ReferencePage
 	{
 		this.setActiveCiv(civCode);
 
-		let civInfo = this.civData[civCode];
+		this.CivEmblem.sprite = "stretched:" + this.civData[this.activeCiv].Emblem;
+		this.CivName.caption = this.civData[this.activeCiv].Name;
+		this.CivHistory.caption = this.civData[this.activeCiv].History || "";
 
-		if(!civInfo)
+		const civInfo = this.civData[civCode];
+
+		if (!civInfo)
 			error(sprintf("Error loading civ data for \"%(code)s\"", { "code": civCode }));
 
 		this.gameplaySection.update(this.activeCiv, civInfo);
-		this.historySection.update(civInfo);
 	}
 
 	/**
@@ -70,11 +81,11 @@ class CivInfoPage extends ReferencePage
 	 */
 	formatHeading(text, size)
 	{
-		let textArray = [];
+		const textArray = [];
 
 		for (let word of text.split(" "))
 		{
-			let wordCaps = word.toUpperCase();
+			const wordCaps = word.toUpperCase();
 
 			// Usually we wish a big first letter, however this isn't always desirable. Check if
 			// `.toLowerCase()` changes the character to avoid false positives from special characters.

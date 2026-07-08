@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,30 +20,50 @@
 #include "OverlayRenderer.h"
 
 #include "graphics/Camera.h"
+#include "graphics/Color.h"
 #include "graphics/LOSTexture.h"
 #include "graphics/Overlay.h"
+#include "graphics/RenderableObject.h"
+#include "graphics/SColor.h"
+#include "graphics/ShaderDefines.h"
 #include "graphics/ShaderManager.h"
-#include "graphics/Terrain.h"
+#include "graphics/ShaderTechnique.h"
+#include "graphics/ShaderTechniquePtr.h"
+#include "graphics/Texture.h"
 #include "graphics/TextureManager.h"
+#include "lib/debug.h"
 #include "lib/hash.h"
-#include "maths/MathUtil.h"
-#include "maths/Quaternion.h"
+#include "lib/types.h"
+#include "maths/Matrix3D.h"
+#include "maths/Vector2D.h"
+#include "maths/Vector3D.h"
+#include "maths/Vector4D.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
-#include "ps/Game.h"
 #include "ps/Profile.h"
-#include "renderer/backend/PipelineState.h"
 #include "renderer/DebugRenderer.h"
 #include "renderer/Renderer.h"
+#include "renderer/Scene.h"
 #include "renderer/SceneRenderer.h"
 #include "renderer/TexturedLineRData.h"
 #include "renderer/VertexArray.h"
-#include "renderer/VertexBuffer.h"
-#include "renderer/VertexBufferManager.h"
-#include "simulation2/components/ICmpWaterManager.h"
-#include "simulation2/Simulation2.h"
-#include "simulation2/system/SimContext.h"
+#include "renderer/backend/Format.h"
+#include "renderer/backend/IBuffer.h"
+#include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/IShaderProgram.h"
+#include "renderer/backend/PipelineState.h"
 
+#include <array>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
+#include <memory>
 #include <unordered_map>
+#include <utility>
+#include <vector>
+
+namespace Renderer::Backend { class IDevice; }
 
 namespace
 {
@@ -481,7 +501,7 @@ void OverlayRenderer::Upload(
 void OverlayRenderer::RenderOverlaysBeforeWater(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
-	PROFILE3_GPU("overlays (before)");
+	PROFILE3("overlays (before)");
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render overlays before water");
 
 	for (SOverlayLine* line : m->lines)
@@ -489,14 +509,14 @@ void OverlayRenderer::RenderOverlaysBeforeWater(
 		if (line->m_Coords.empty())
 			continue;
 
-		g_Renderer.GetDebugRenderer().DrawLine(line->m_Coords, line->m_Color, static_cast<float>(line->m_Thickness));
+		g_Renderer.GetDebugRenderer().DrawLine(*deviceCommandContext, line->m_Coords, line->m_Color, static_cast<float>(line->m_Thickness));
 	}
 }
 
 void OverlayRenderer::RenderOverlaysAfterWater(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
-	PROFILE3_GPU("overlays (after)");
+	PROFILE3("overlays (after)");
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render overlays after water");
 
 	RenderTexturedOverlayLines(deviceCommandContext);
@@ -656,7 +676,7 @@ void OverlayRenderer::RenderForegroundOverlays(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	const CCamera& viewCamera)
 {
-	PROFILE3_GPU("overlays (fg)");
+	PROFILE3("overlays (fg)");
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render foreground overlays");
 
 	const CVector3D right = -viewCamera.GetOrientation().GetLeft();
@@ -791,7 +811,7 @@ void OverlayRendererInternals::GenerateSphere()
 void OverlayRenderer::RenderSphereOverlays(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
-	PROFILE3_GPU("overlays (spheres)");
+	PROFILE3("overlays (spheres)");
 
 	if (m->spheres.empty() || m->shaderOverlaySolid.technique)
 		return;

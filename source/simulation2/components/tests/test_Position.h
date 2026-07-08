@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -15,23 +15,36 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "simulation2/system/ComponentTest.h"
+#include "lib/self_test.h"
 
+#include "maths/Fixed.h"
+#include "maths/FixedVector3D.h"
 #include "maths/Matrix3D.h"
+#include "maths/Vector3D.h"
+#include "ps/XML/Xeromyces.h"
+#include "scriptinterface/Interface.h"
+#include "simulation2/MessageTypes.h"
 #include "simulation2/components/ICmpPosition.h"
 #include "simulation2/components/ICmpWaterManager.h"
+#include "simulation2/helpers/Position.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/ComponentTest.h"
+#include "simulation2/system/Entity.h"
+
+#include <memory>
+#include <string>
 
 class MockWater : public ICmpWaterManager
 {
 public:
 	DEFAULT_MOCK_COMPONENT()
 
-	entity_pos_t GetWaterLevel(entity_pos_t UNUSED(x), entity_pos_t UNUSED(z)) const override
+	entity_pos_t GetWaterLevel(entity_pos_t /*x*/, entity_pos_t /*z*/) const override
 	{
 		return entity_pos_t::FromInt(100);
 	}
 
-	float GetExactWaterLevel(float UNUSED(x), float UNUSED(z)) const override
+	float GetExactWaterLevel(float /*x*/, float /*z*/) const override
 	{
 		return 100.f;
 	}
@@ -40,7 +53,7 @@ public:
 	{
 	}
 
-	void SetWaterLevel(entity_pos_t UNUSED(h)) override
+	void SetWaterLevel(entity_pos_t /*h*/) override
 	{
 	}
 };
@@ -48,16 +61,6 @@ public:
 class TestCmpPosition : public CxxTest::TestSuite
 {
 public:
-	void setUp()
-	{
-		CXeromyces::Startup();
-	}
-
-	void tearDown()
-	{
-		CXeromyces::Terminate();
-	}
-
 	static CFixedVector3D fixedvec(int x, int y, int z)
 	{
 		return CFixedVector3D(fixed::FromInt(x), fixed::FromInt(y), fixed::FromInt(z));
@@ -65,6 +68,7 @@ public:
 
 	void test_basic()
 	{
+		CXeromycesEngine xeromycesEngine;
 		ComponentTestHelper test(*g_ScriptContext);
 
 		MockTerrain terrain;
@@ -137,6 +141,7 @@ public:
 
 	void test_water()
 	{
+		CXeromycesEngine xeromycesEngine;
 		ComponentTestHelper test(*g_ScriptContext);
 
 		MockTerrain terrain;
@@ -210,6 +215,7 @@ public:
 
 	void test_serialize()
 	{
+		CXeromycesEngine xeromycesEngine;
 		ComponentTestHelper test(*g_ScriptContext);
 
 		MockTerrain terrain;

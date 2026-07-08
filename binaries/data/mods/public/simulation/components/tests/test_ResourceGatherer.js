@@ -1,15 +1,17 @@
 Resources = {
-	"BuildSchema": () => {
+	"BuildSchema": () =>
+	{
 		let schema = "";
-		for (let res of ["food", "metal", "wood"])
+		for (const res of ["food", "metal", "wood"])
 		{
-			for (let subtype in ["meat", "grain"])
+			for (const subtype in ["meat", "grain"])
 				schema += "<value>" + res + "." + subtype + "</value>";
 			schema += "<value> treasure." + res + "</value>";
 		}
 		return "<choice>" + schema + "</choice>";
 	},
-	"GetResource": (type) => {
+	"GetResource": (type) =>
+	{
 		return {
 			"subtypes": {
 				"meat": "meat",
@@ -42,7 +44,7 @@ const gathererID = 11;
 const dropsiteID = 12;
 const supplyID = 13;
 
-let template = {
+const template = {
 	"MaxDistance": "10",
 	"BaseSpeed": "1",
 	"Rates": {
@@ -71,7 +73,8 @@ TS_ASSERT_UNEVAL_EQUALS(cmpResourceGatherer.GetCarryingStatus(), []);
 
 // Test committing resources.
 AddMock(dropsiteID, IID_ResourceDropsite, {
-	"ReceiveResources": (resources, ent) => {
+	"ReceiveResources": (resources, ent) =>
+	{
 		return {
 			"food": resources.food
 		};
@@ -141,7 +144,8 @@ AddMock(supplyID, IID_ResourceSupply, {
 	"GetCurrentAmount": () => 2,
 	"GetType": () => ({ "generic": "food", "specific": "grain" }),
 	"GetDiminishingReturns": () => 1,
-	"TakeResources": (amount) => {
+	"TakeResources": (amount) =>
+	{
 		return {
 			"amount": amount,
 			"exhausted": false
@@ -174,7 +178,8 @@ AddMock(supplyID, IID_ResourceSupply, {
 	"GetCurrentAmount": () => 2,
 	"GetType": () => ({ "generic": "food", "specific": "grain" }),
 	"GetDiminishingReturns": () => 1,
-	"TakeResources": (amount) => {
+	"TakeResources": (amount) =>
+	{
 		return {
 			"amount": amount,
 			"exhausted": false
@@ -194,7 +199,8 @@ AddMock(supplyID, IID_ResourceSupply, {
 	"GetCurrentAmount": () => 3,
 	"GetType": () => ({ "generic": "wood", "specific": "tree" }),
 	"GetDiminishingReturns": () => 1,
-	"TakeResources": (amount) => {
+	"TakeResources": (amount) =>
+	{
 		return {
 			"amount": amount,
 			"exhausted": false
@@ -221,7 +227,8 @@ AddMock(supplyID, IID_ResourceSupply, {
 	"GetCurrentAmount": () => 1,
 	"GetType": () => ({ "generic": "food", "specific": "grain" }),
 	"GetDiminishingReturns": () => 1,
-	"TakeResources": (amount) => {
+	"TakeResources": (amount) =>
+	{
 		return {
 			"amount": amount,
 			"exhausted": true
@@ -246,7 +253,8 @@ AddMock(supplyID, IID_ResourceSupply, {
 	"GetCurrentAmount": () => 11,
 	"GetType": () => ({ "generic": "food", "specific": "grain" }),
 	"GetDiminishingReturns": () => 1,
-	"TakeResources": (amount) => {
+	"TakeResources": (amount) =>
+	{
 		return {
 			"amount": amount,
 			"exhausted": false
@@ -271,7 +279,8 @@ AddMock(supplyID, IID_ResourceSupply, {
 	"GetCurrentAmount": () => 3,
 	"GetType": () => ({ "generic": "food", "specific": "grain" }),
 	"GetDiminishingReturns": () => 1,
-	"TakeResources": (amount) => {
+	"TakeResources": (amount) =>
+	{
 		return {
 			"amount": amount,
 			"exhausted": false

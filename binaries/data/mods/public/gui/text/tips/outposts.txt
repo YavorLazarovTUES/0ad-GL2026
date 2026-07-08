@@ -1,4 +1,0 @@
-OUTPOSTS
-Build in neutral or own territory.
-Cheap and quickly built, but weak.
-Garrison infantry for extensive vision, and to prevent losing control of the outpost due to territory decay.

@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,48 +19,50 @@
 
 #include "GameView.h"
 
+#include "graphics/Camera.h"
 #include "graphics/CameraController.h"
 #include "graphics/CinemaManager.h"
 #include "graphics/ColladaManager.h"
-#include "graphics/HFTracer.h"
+#include "graphics/ICameraController.h"
 #include "graphics/LOSTexture.h"
-#include "graphics/LightEnv.h"
+#include "graphics/MeshManager.h"
 #include "graphics/MiniMapTexture.h"
-#include "graphics/Model.h"
 #include "graphics/ObjectManager.h"
 #include "graphics/Patch.h"
 #include "graphics/SkeletonAnimManager.h"
-#include "graphics/SmoothedValue.h"
 #include "graphics/Terrain.h"
 #include "graphics/TerrainTextureManager.h"
 #include "graphics/TerritoryTexture.h"
 #include "graphics/Unit.h"
 #include "graphics/UnitManager.h"
-#include "lib/input.h"
+#include "lib/external_libraries/libsdl.h"
+#include "lib/posix/posix_types.h"
 #include "lib/timer.h"
-#include "lobby/IXmppClient.h"
+#include "lobby/XmppClient.h"
 #include "maths/BoundingBoxAligned.h"
-#include "maths/MathUtil.h"
-#include "maths/Matrix3D.h"
-#include "maths/Quaternion.h"
-#include "ps/ConfigDB.h"
+#include "maths/Frustum.h"
+#include "maths/Vector3D.h"
 #include "ps/Filesystem.h"
 #include "ps/Game.h"
 #include "ps/Globals.h"
 #include "ps/Hotkey.h"
+#include "ps/Input.h"
 #include "ps/Loader.h"
 #include "ps/Profile.h"
-#include "ps/Pyrogenesis.h"
 #include "ps/TouchInput.h"
+#include "ps/VideoMode.h"
 #include "ps/World.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
 #include "renderer/WaterManager.h"
 #include "simulation2/Simulation2.h"
-#include "simulation2/components/ICmpPosition.h"
-#include "simulation2/components/ICmpRangeManager.h"
 
+#include <SDL_events.h>
 #include <memory>
+#include <string>
+
+namespace Renderer::Backend { class IDevice; }
+namespace Renderer::Backend { class IDeviceCommandContext; }
 
 class CGameViewImpl
 {
@@ -129,6 +131,14 @@ public:
 	 * on the fly replacement. It's guaranteed that the pointer is never nulllptr.
 	 */
 	std::unique_ptr<ICameraController> CameraController;
+
+	struct InputHandler
+	{
+		CGameViewImpl& gameView;
+		Input::Reaction operator()(const SDL_Event& ev);
+	};
+	Input::Handler<InputHandler> m_InputHandler{g_VideoMode.m_InputManager, Input::Slot::GAME_VIEW,
+		{*this}};
 };
 
 #define IMPLEMENT_BOOLEAN_SETTING(NAME) \
@@ -186,9 +196,14 @@ CObjectManager& CGameView::GetObjectManager()
 	return m->ObjectManager;
 }
 
-CCamera* CGameView::GetCamera()
+const CCamera& CGameView::GetCamera() const
 {
-	return &m->ViewCamera;
+	return m->ViewCamera;
+}
+
+void CGameView::SetCamera(const CCamera& camera)
+{
+	m->ViewCamera = camera;
 }
 
 CCinemaManager* CGameView::GetCinema()
@@ -214,16 +229,16 @@ CMiniMapTexture& CGameView::GetMiniMapTexture()
 void CGameView::RegisterInit()
 {
 	// CGameView init
-	LDR_Register([this](const double)
+	PS::Loader::Register(std::bind_front([](ICameraController* cameraController) -> PS::Loader::Task
 	{
-		m->CameraController->LoadConfig();
-		return 0;
-	}, L"CGameView init", 1);
+		cameraController->LoadConfig();
+		co_return 0;
+	}, m->CameraController.get()), L"CGameView init", 1);
 
-	LDR_Register([](const double)
+	PS::Loader::Register([]
 	{
 		return g_TexMan.LoadTerrainTextures();
-	}, L"LoadTerrainTextures", 60);
+	}, L"TerrainTextures", 61);
 }
 
 void CGameView::BeginFrame()
@@ -299,16 +314,15 @@ void CGameView::Update(const float deltaRealTime)
 {
 	m->MiniMapTexture.Update(deltaRealTime);
 
+	m->CinemaManager.Update(deltaRealTime, m->ViewCamera);
+	if (m->CinemaManager.IsPlaying())
+		return;
 	// If camera movement is being handled by the touch-input system,
 	// then we should stop to avoid conflicting with it
 	if (g_TouchInput.IsEnabled())
 		return;
 
 	if (!g_app_has_focus)
-		return;
-
-	m->CinemaManager.Update(deltaRealTime);
-	if (m->CinemaManager.IsEnabled())
 		return;
 
 	m->CameraController->Update(deltaRealTime);
@@ -359,24 +373,17 @@ entity_id_t CGameView::GetFollowedEntity()
 	return m->CameraController->GetFollowedEntity();
 }
 
-InReaction game_view_handler(const SDL_Event_* ev)
+Input::Reaction CGameViewImpl::InputHandler::operator()(const SDL_Event& ev)
 {
 	// put any events that must be processed even if inactive here
-	if (!g_app_has_focus || !g_Game || !g_Game->IsGameStarted() || g_Game->GetView()->GetCinema()->IsEnabled())
-		return IN_PASS;
+	if (!g_app_has_focus || !g_Game || !g_Game->IsGameStarted() || g_Game->GetView()->GetCinema()->IsPlaying())
+		return Input::Reaction::PASS;
 
-	CGameView *pView=g_Game->GetView();
-
-	return pView->HandleEvent(ev);
-}
-
-InReaction CGameView::HandleEvent(const SDL_Event_* ev)
-{
-	switch(ev->ev.type)
+	switch(ev.type)
 	{
 	case SDL_HOTKEYPRESS:
 	{
-		std::string hotkey = static_cast<const char*>(ev->ev.user.data1);
+		std::string hotkey = static_cast<const char*>(ev.user.data1);
 		CSceneRenderer& sceneRenderer = g_Renderer.GetSceneRenderer();
 		if (hotkey == "wireframe")
 		{
@@ -403,10 +410,10 @@ InReaction CGameView::HandleEvent(const SDL_Event_* ev)
 				sceneRenderer.SetModelRenderMode(SOLID);
 				sceneRenderer.SetOverlayRenderMode(SOLID);
 			}
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 	}
 	}
 
-	return m->CameraController->HandleEvent(ev);
+	return gameView.CameraController->HandleEvent(ev);
 }

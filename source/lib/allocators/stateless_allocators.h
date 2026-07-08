@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -23,10 +23,12 @@
 #ifndef INCLUDED_STATELESS_ALLOCATORS
 #define INCLUDED_STATELESS_ALLOCATORS
 
+#include "lib/alignment.h"
+#include "lib/posix/posix_mman.h"
 #include "lib/sysdep/rtl.h"
 #include "lib/sysdep/vm.h"
 
-#include <memory>
+#include <cstdlib>
 
 // NB: STL allocators are parameterized on the object type and indicate
 // the number of elements to [de]allocate. however, these adapters are
@@ -39,7 +41,7 @@ struct Allocator_Heap
 		return malloc(size);
 	}
 
-	void deallocate(void* p, size_t UNUSED(size))
+	void deallocate(void* p, size_t)
 	{
 		return free(p);
 	}
@@ -53,7 +55,7 @@ struct Allocator_Aligned
 		return rtl_AllocateAligned(size, alignment);
 	}
 
-	void deallocate(void* p, size_t UNUSED(size))
+	void deallocate(void* p, size_t)
 	{
 		return rtl_FreeAligned(p);
 	}

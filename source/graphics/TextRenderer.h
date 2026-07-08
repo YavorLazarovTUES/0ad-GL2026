@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,16 +19,20 @@
 #define INCLUDED_TEXTRENDERER
 
 #include "graphics/Color.h"
-#include "graphics/ShaderProgram.h"
+#include "lib/allocators/STLAllocators.h"
 #include "maths/Rect.h"
 #include "maths/Vector2D.h"
 #include "ps/CStrIntern.h"
-#include "renderer/backend/IDeviceCommandContext.h"
+#include "ps/memory/LinearAllocator.h"
 
+#include <cstddef>
 #include <list>
+#include <memory>
+#include <string>
 
 class CFont;
-class CMatrix3D;
+namespace Renderer::Backend { class IDeviceCommandContext; }
+namespace Renderer::Backend { class IShaderProgram; }
 
 class CTextRenderer
 {
@@ -59,7 +63,7 @@ public:
 	/**
 	 * Set the font for subsequent print calls.
 	 */
-	void SetCurrentFont(CStrIntern font);
+	void SetCurrentFont(CStrIntern font, CStrIntern locale);
 
 	/**
 	 * Print formatted text at (0,0) under the current transform,
@@ -106,7 +110,8 @@ public:
 	void Render(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		Renderer::Backend::IShaderProgram* shader,
-		const CVector2D& transformScale, const CVector2D& translation);
+		const CVector2D& transformScale, const CVector2D& translation,
+		const bool debugFontBox, const CColor& debugBoxColor);
 
 private:
 	friend struct SBatchCompare;
@@ -155,22 +160,28 @@ private:
 		size_t chars; // sum of runs[i].text->size()
 		CVector2D translate;
 		CColor color;
-		std::shared_ptr<CFont> font;
-		std::list<SBatchRun> runs;
+		CFont* font;
+		using SBatchRunList = std::list<SBatchRun, ProxyAllocator<SBatchRun, PS::Memory::ScopedLinearAllocator>>;
+		SBatchRunList runs;
+
+		SBatch(PS::Memory::ScopedLinearAllocator& allocator) : runs{allocator} {}
 	};
 
 	void PutString(float x, float y, const std::wstring* buf, bool owned);
+
+	PS::Memory::ScopedLinearAllocator m_ScopedLinearAllocator;
 
 	CVector2D m_Translate;
 	CRect m_Clipping;
 
 	CColor m_Color;
 	CStrIntern m_FontName;
-	std::shared_ptr<CFont> m_Font;
+	CFont* m_Font{};
 
 	bool m_Dirty = true;
 
-	std::list<SBatch> m_Batches;
+	using SBatchList = std::list<SBatch, ProxyAllocator<SBatch, PS::Memory::ScopedLinearAllocator>>;
+	SBatchList m_Batches;
 };
 
 #endif // INCLUDED_TEXTRENDERER

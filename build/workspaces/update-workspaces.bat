@@ -1,6 +1,7 @@
 @echo off
 rem ** Create Visual Studio Workspaces on Windows **
 
-cd ..\premake
-if not exist ..\workspaces\vs2017\SKIP_PREMAKE_HERE premake5\bin\release\premake5 --outpath="../workspaces/vs2017" --use-shared-glooxwrapper %* vs2017
+cd /D "%~dp0"
+cd ..\bin
+if not exist ..\workspaces\vs2022\SKIP_PREMAKE_HERE premake5.exe --file="../premake/premake5.lua" --outpath="../workspaces/vs2022" %* vs2022 || exit /b 1
 cd ..\workspaces

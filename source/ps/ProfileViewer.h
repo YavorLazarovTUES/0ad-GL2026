@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,10 +22,10 @@
 #ifndef INCLUDED_PROFILE_VIEWER
 #define INCLUDED_PROFILE_VIEWER
 
-#include "lib/input.h"
 #include "ps/CStr.h"
 #include "ps/Singleton.h"
 
+#include <cstddef>
 #include <vector>
 
 class CCanvas2D;
@@ -119,7 +119,7 @@ public:
 	 *
 	 * @return true if the row should be highlighted in a special color.
 	 */
-	virtual bool IsHighlightRow(size_t row) { UNUSED2(row); return false; }
+	virtual bool IsHighlightRow(size_t /*row*/) { return false; }
 };
 
 
@@ -143,20 +143,6 @@ public:
 	void RenderProfile(CCanvas2D& canvas);
 
 	/**
-	 * Input: Filter and handle any input events that the profile display
-	 * is interested in.
-	 *
-	 * In particular, this function handles enable/disable of the profile
-	 * display as well as navigating the information tree.
-	 *
-	 * @param ev The incoming event.
-	 *
-	 * @return IN_PASS or IN_HANDLED depending on whether the event relates
-	 * to the profiling display.
-	 */
-	InReaction Input(const SDL_Event_* ev);
-
-	/**
 	 * AddRootTable: Add a new profile table as a root table (i.e. the
 	 * tables that you cycle through via the profile hotkey).
 	 *
@@ -168,15 +154,6 @@ public:
 	 * else it will be the last.
 	 */
 	void AddRootTable(AbstractProfileTable* table, bool front = false);
-
-	/**
-	 * InputThunk: Delegate to the singleton's Input() member function
-	 * if the singleton has been initialized.
-	 *
-	 * This allows our input handler to be installed via in_add_handler
-	 * like a normal, global function input handler.
-	 */
-	static InReaction InputThunk(const SDL_Event_* ev);
 
 	/**
 	 * SaveToFile: Save the current profiler data (for all profile tables)

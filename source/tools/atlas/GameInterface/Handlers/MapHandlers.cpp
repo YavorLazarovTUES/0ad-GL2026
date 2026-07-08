@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,45 +18,72 @@
 #include "precompiled.h"
 
 #include "MessageHandler.h"
-#include "../CommandProc.h"
-#include "../GameLoop.h"
-#include "../MessagePasser.h"
 
 #include "graphics/GameView.h"
 #include "graphics/LOSTexture.h"
 #include "graphics/MapIO.h"
 #include "graphics/MapWriter.h"
 #include "graphics/MiniMapTexture.h"
+#include "graphics/MiniPatch.h"
 #include "graphics/Patch.h"
 #include "graphics/Terrain.h"
 #include "graphics/TerrainTextureEntry.h"
-#include "graphics/TerrainTextureManager.h"
-#include "lib/bits.h"
+#include "lib/debug.h"
+#include "lib/file/vfs/vfs.h"
 #include "lib/file/vfs/vfs_path.h"
+#include "lib/file/vfs/vfs_util.h"
+#include "lib/os_path.h"
+#include "lib/path.h"
+#include "lib/posix/posix_types.h"
 #include "lib/status.h"
+#include "lib/types.h"
+#include "maths/Fixed.h"
+#include "maths/FixedVector3D.h"
 #include "maths/MathUtil.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
+#include "ps/Errors.h"
 #include "ps/Filesystem.h"
 #include "ps/Game.h"
-#include "ps/GameSetup/GameSetup.h"
 #include "ps/Loader.h"
 #include "ps/World.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
 #include "renderer/WaterManager.h"
-#include "scriptinterface/Object.h"
 #include "scriptinterface/JSON.h"
+#include "scriptinterface/Object.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpOwnership.h"
-#include "simulation2/components/ICmpPlayer.h"
-#include "simulation2/components/ICmpPlayerManager.h"
 #include "simulation2/components/ICmpPosition.h"
 #include "simulation2/components/ICmpRangeManager.h"
 #include "simulation2/components/ICmpTemplateManager.h"
 #include "simulation2/components/ICmpTerrain.h"
 #include "simulation2/components/ICmpVisual.h"
-#include "simulation2/system/ParamNode.h"
+#include "simulation2/helpers/Player.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+#include "tools/atlas/GameInterface/CommandProc.h"
+#include "tools/atlas/GameInterface/Messages.h"
+#include "tools/atlas/GameInterface/Shareable.h"
 
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <exception>
+#include <iterator>
+#include <js/Array.h>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <limits>
+#include <string>
+#include <utility>
+#include <vector>
+
+class CFileInfo;
 
 #ifdef _MSC_VER
 # pragma warning(disable: 4458) // Declaration hides class member.
@@ -83,13 +110,13 @@ namespace
 		g_Game->StartGame(attrs, "");
 
 		// TODO: Non progressive load can fail - need a decent way to handle this
-		LDR_NonprogressiveLoad();
+		PS::Loader::NonprogressiveLoad();
 
 		// Disable fog-of-war - this must be done before starting the game,
 		// as visual actors cache their visibility state on first render.
 		CmpPtr<ICmpRangeManager> cmpRangeManager(*g_Game->GetSimulation2(), SYSTEM_ENTITY);
 		if (cmpRangeManager)
-			cmpRangeManager->SetLosRevealAll(-1, true);
+			cmpRangeManager->SetLosRevealWholeMapForAll(true);
 
 		PSRETURN ret = g_Game->ReallyStartGame();
 		ENSURE(ret == PSRETURN_OK);
@@ -105,8 +132,8 @@ QUERYHANDLER(GenerateMap)
 		InitGame();
 
 		// Random map
-		const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
-		ScriptRequest rq(scriptInterface);
+		const Script::Interface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+		Script::Request rq(scriptInterface);
 
 		JS::RootedValue settings(rq.cx);
 		Script::ParseJSON(rq, *msg->settings, &settings);
@@ -124,27 +151,26 @@ QUERYHANDLER(GenerateMap)
 
 		msg->status = 0;
 	}
-	catch (PSERROR_Game_World_MapLoadFailed&)
+	catch (std::exception&)
 	{
 		// Cancel loading
-		LDR_Cancel();
+		PS::Loader::Cancel();
 
 		// Since map generation failed and we don't know why, use the blank map as a fallback
 
 		InitGame();
 
-		const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
-		ScriptRequest rq(scriptInterface);
+		const Script::Interface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+		Script::Request rq(scriptInterface);
 
 		// Set up 8-element array of empty objects to satisfy init
-		JS::RootedValue playerData(rq.cx);
-		Script::CreateArray(rq, &playerData);
+		JS::RootedValueArray<8> playerData{rq.cx};
 
-		for (int i = 0; i < 8; ++i)
+		for (JS::Value& p : playerData.get().elements)
 		{
 			JS::RootedValue player(rq.cx);
 			Script::CreateObject(rq, &player);
-			Script::SetPropertyInt(rq, playerData, i, player);
+			p = player;
 		}
 
 		JS::RootedValue settings(rq.cx);
@@ -152,7 +178,8 @@ QUERYHANDLER(GenerateMap)
 			rq,
 			&settings,
 			"mapType", "scenario",
-			"PlayerData", playerData);
+			"PlayerData",
+			JS::RootedValue{rq.cx, JS::ObjectValue(*JS::NewArrayObject(rq.cx, playerData))});
 
 		JS::RootedValue attrs(rq.cx);
 		Script::CreateObject(
@@ -172,8 +199,8 @@ MESSAGEHANDLER(LoadMap)
 {
 	InitGame();
 
-	const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	const Script::Interface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+	Script::Request rq(scriptInterface);
 
 	// Scenario
 	CStrW map = *msg->filename;
@@ -355,6 +382,41 @@ QUERYHANDLER(RasterizeMinimap)
 QUERYHANDLER(GetRMSData)
 {
 	msg->data = g_Game->GetSimulation2()->GetRMSData();
+}
+
+QUERYHANDLER(ExpandBiomes)
+{
+	std::vector<std::string> unexpandedBiomes = *msg->biomes;
+	std::vector<std::string> expandedBiomes;
+	for (const std::string& toExpand : unexpandedBiomes)
+	{
+		if (toExpand.empty())
+		{
+			LOGERROR("Got an empty biome");
+			continue;
+		}
+		if (toExpand.back() != '/')
+		{
+			expandedBiomes.push_back(toExpand);
+			continue;
+		}
+
+		VfsPaths biomesList;
+		if (vfs::GetPathnames(g_VFS, "maps/random/rmbiome/" + toExpand, L"*.json", biomesList) ==
+			INFO::OK)
+		{
+			std::transform(biomesList.begin(), biomesList.end(), std::back_inserter(expandedBiomes),
+				[&](const VfsPath& biome)
+				{
+					return toExpand + biome.Basename().string8();
+				});
+		}
+		else
+			LOGERROR("Error reading biome files in %s", toExpand);
+
+	}
+
+	msg->biomes = std::move(expandedBiomes);
 }
 
 QUERYHANDLER(GetCurrentMapSize)
@@ -615,7 +677,7 @@ QUERYHANDLER(VFSFileRealPath)
 		msg->realPath = realPathname.string();
 }
 
-static Status AddToFilenames(const VfsPath& pathname, const CFileInfo& UNUSED(fileInfo), const uintptr_t cbData)
+static Status AddToFilenames(const VfsPath& pathname, const CFileInfo& /*fileInfo*/, const uintptr_t cbData)
 {
 	std::vector<std::wstring>& filenames = *(std::vector<std::wstring>*)cbData;
 	filenames.push_back(pathname.string().c_str());

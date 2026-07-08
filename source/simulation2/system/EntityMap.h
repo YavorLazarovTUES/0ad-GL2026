@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,9 +17,17 @@
 #ifndef INCLUDED_ENTITYMAP
 #define INCLUDED_ENTITYMAP
 
-#include "Entity.h"
-
+#include "lib/debug.h"
+#include "lib/types.h"
 #include "simulation2/serialization/SerializeTemplates.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <iterator>
+#include <new>
 
 /**
  * A fast replacement for map<entity_id_t, T>.
@@ -88,12 +96,12 @@ public:
 			while (val->first == INVALID_ENTITY) ++val; // skip any invalid entities
 			return *this;
 		}
-		inline _iter& operator++(int) // it++
+		inline _iter operator++(int) // it++
 		{
-			U* ptr = val;
+			_iter it = *this;
 			++val;
 			while (val->first == INVALID_ENTITY) ++val; // skip any invalid entities
-			return ptr;
+			return it;
 		}
 		inline bool operator==(_iter other) { return val == other.val; }
 		inline bool operator!=(_iter other) { return val != other.val; }
@@ -252,7 +260,7 @@ fill_gaps:
 template<typename T>
 struct SerializeHelper<EntityMap<T>>
 {
-	void operator()(ISerializer& serialize, const char* UNUSED(name), EntityMap<T>& value)
+	void operator()(ISerializer& serialize, const char* /*name*/, EntityMap<T>& value)
 	{
 		size_t len = value.size();
 		serialize.NumberU32_Unbounded("length", (u32)len);
@@ -268,7 +276,7 @@ struct SerializeHelper<EntityMap<T>>
 		ENSURE(count == len);
 	}
 
-	void operator()(IDeserializer& deserialize, const char* UNUSED(name), EntityMap<T>& value)
+	void operator()(IDeserializer& deserialize, const char* /*name*/, EntityMap<T>& value)
 	{
 		value.clear();
 		uint32_t len;

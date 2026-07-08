@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,29 +20,47 @@
 #include "graphics/ColladaManager.h"
 #include "graphics/Decal.h"
 #include "graphics/Material.h"
+#include "graphics/MeshManager.h"
 #include "graphics/Model.h"
+#include "graphics/ModelAbstract.h"
 #include "graphics/ModelDef.h"
-#include "graphics/ObjectEntry.h"
+#include "graphics/ObjectBase.h"
 #include "graphics/ObjectManager.h"
 #include "graphics/ShaderDefines.h"
 #include "graphics/SkeletonAnimManager.h"
 #include "graphics/Terrain.h"
 #include "graphics/Unit.h"
 #include "graphics/UnitManager.h"
+#include "lib/file/file_system.h"
 #include "lib/file/io/io.h"
-#include "ps/ConfigDB.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/os_path.h"
+#include "lib/path.h"
+#include "lib/status.h"
+#include "maths/Matrix3D.h"
+#include "maths/Quaternion.h"
+#include "maths/Vector3D.h"
+#include "ps/CLogger.h"
+#include "ps/CStr.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
+#include "ps/ConfigDB.h"
 #include "ps/Filesystem.h"
 #include "ps/ProfileViewer.h"
 #include "ps/VideoMode.h"
 #include "ps/XML/Xeromyces.h"
-#include "renderer/backend/dummy/Device.h"
 #include "renderer/Renderer.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/Simulation2.h"
+#include "simulation2/system/Entity.h"
 
+#include <cstdint>
+#include <map>
 #include <memory>
+#include <optional>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 namespace
 {
@@ -99,6 +117,7 @@ constexpr std::string_view TEST_ACTOR_WITH_SHADOWS_XML{R"(<?xml version="1.0" en
 
 class TestModel : public CxxTest::TestSuite
 {
+	std::optional<CXeromycesEngine> m_XeromycesEngine;
 	OsPath m_ModPath;
 	OsPath m_CachePath;
 	std::unique_ptr<CProfileViewer> m_Viewer;
@@ -111,7 +130,7 @@ public:
 
 		CConfigDB::Initialise();
 		CConfigDB::Instance()->SetValueString(CFG_SYSTEM, "rendererbackend", "dummy");
-		CXeromyces::Startup();
+		m_XeromycesEngine.emplace();
 
 		TestLogger logger;
 
@@ -151,7 +170,7 @@ public:
 		m_Viewer.reset();
 		g_VideoMode.Shutdown();
 
-		CXeromyces::Terminate();
+		m_XeromycesEngine.reset();
 		CConfigDB::Shutdown();
 		g_VFS.reset();
 
@@ -181,7 +200,7 @@ public:
 		TestLogger logger;
 
 		CMaterial material{};
-		CSimulation2 simulation{nullptr, *g_ScriptContext, nullptr};
+		CSimulation2 simulation{nullptr, *g_ScriptContext, nullptr, {}};
 
 		CTerrain terrain;
 		terrain.Initialize(4, nullptr);
@@ -198,7 +217,8 @@ public:
 		model->AddProp(&propPoint, std::make_unique<CModelDecal>(&terrain, decal), nullptr);
 
 		model->AddFlagsRec(ModelFlag::IGNORE_LOS);
-		model->RemoveShadowsRec();
+		model->RemoveShadowsCast();
+		model->RemoveShadowsReceive();
 
 		TS_ASSERT(HasMaterialDefine(model.get(), str_DISABLE_RECEIVE_SHADOWS));
 		TS_ASSERT(HasMaterialDefine(model.get(), str_IGNORE_LOS));
@@ -246,7 +266,7 @@ public:
 		CSkeletonAnimManager skeletonAnimationManager{colladaManager};
 
 		CUnitManager unitManager;
-		CSimulation2 simulation{&unitManager, *g_ScriptContext, nullptr};
+		CSimulation2 simulation{&unitManager, *g_ScriptContext, nullptr, {}};
 		CObjectManager objectManager{
 			meshManager, skeletonAnimationManager, simulation};
 		unitManager.SetObjectManager(objectManager);

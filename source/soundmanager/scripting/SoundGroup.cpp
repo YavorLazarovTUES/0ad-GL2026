@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,9 +18,11 @@
 #include "precompiled.h"
 
 #include "SoundGroup.h"
+
 #include "graphics/Camera.h"
 #include "graphics/GameView.h"
 #include "lib/rand.h"
+#include "maths/Vector2D.h"
 #include "ps/CLogger.h"
 #include "ps/ConfigDB.h"
 #include "ps/CStr.h"
@@ -34,11 +36,26 @@
 #include "soundmanager/SoundManager.h"
 
 #include <algorithm>
-#include <random>
 
 extern CGame *g_Game;
 
 #if CONFIG2_AUDIO
+
+#include "lib/path.h"
+#include "lib/status.h"
+#include "lib/utf8.h"
+#include "maths/Matrix3D.h"
+#include "maths/Vector3D.h"
+#include "ps/Errors.h"
+#include "ps/XMB/XMBData.h"
+#include "scriptinterface/Interface.h"
+#include "soundmanager/ISoundManager.h"
+#include "soundmanager/data/SoundData.h"
+
+#include <AL/al.h>
+#include <cmath>
+#include <numbers>
+#include <utility>
 
 constexpr ALfloat DEFAULT_ROLLOFF = 0.5f;
 constexpr ALfloat MAX_ROLLOFF = 0.7f;
@@ -104,16 +121,10 @@ void CSoundGroup::SetDefaultValues()
 	m_Seed = 0;
 	m_IntensityThreshold = 3.f;
 
-	m_MinDist = 1.f;
-	m_MaxDist = 350.f;
+	m_MinDist = CConfigDB::GetIfInitialised("sound.mindistance", 1.f);
+	m_MaxDist = CConfigDB::GetIfInitialised("sound.maxdistance", 350.f);
 	// This is more than the default camera FOV: for now, our soundscape is not realistic anyways.
-	m_MaxStereoAngle = static_cast<float>(M_PI / 6);
-	if (CConfigDB::IsInitialised())
-	{
-		CFG_GET_VAL("sound.mindistance", m_MinDist);
-		CFG_GET_VAL("sound.maxdistance", m_MaxDist);
-		CFG_GET_VAL("sound.maxstereoangle", m_MaxStereoAngle);
-	}
+	m_MaxStereoAngle = CConfigDB::GetIfInitialised("sound.maxstereoangle", std::numbers::pi_v<float> / 6.f);
 }
 
 CSoundGroup::CSoundGroup()
@@ -133,52 +144,49 @@ CSoundGroup::~CSoundGroup()
 	ReleaseGroup();
 }
 
-float CSoundGroup::RadiansOffCenter(const CVector3D& position, bool& onScreen, float& itemRollOff)
+float CSoundGroup::RadiansOffCenter([[maybe_unused]] const CVector3D& position,
+	[[maybe_unused]] bool& onScreen, [[maybe_unused]] float& itemRollOff)
 {
 #if !CONFIG2_AUDIO
-        UNUSED2(position);
-        UNUSED2(onScreen);
-        UNUSED2(itemRollOff);
 	return 0.f;
 #else
-	const int screenWidth = g_Game->GetView()->GetCamera()->GetViewPort().m_Width;
-	const int screenHeight = g_Game->GetView()->GetCamera()->GetViewPort().m_Height;
+	const int screenWidth = g_Game->GetView()->GetCamera().GetViewPort().m_Width;
+	const int screenHeight = g_Game->GetView()->GetCamera().GetViewPort().m_Height;
 	const float xBufferSize = screenWidth * 0.1f;
 	const float yBufferSize = 15.f;
 	const float radianCap = m_MaxStereoAngle;
 
-	float x, y;
-	g_Game->GetView()->GetCamera()->GetScreenCoordinates(position, x, y);
+	const CVector2D screenPos{g_Game->GetView()->GetCamera().GetScreenCoordinates(position)};
 
 	onScreen = true;
 	float answer = 0.f;
-	if (x < -xBufferSize)
+	if (screenPos.X < -xBufferSize)
 	{
 		onScreen = false;
 		answer = -radianCap;
 	}
-	else if (x > screenWidth + xBufferSize)
+	else if (screenPos.X > screenWidth + xBufferSize)
 	{
 		onScreen = false;
 		answer = radianCap;
 	}
 	else
 	{
-		if (x < 0 || x > screenWidth)
+		if (screenPos.X < 0 || screenPos.X > screenWidth)
 			itemRollOff = MAX_ROLLOFF;
 
-		answer = radianCap * (x * 2 / screenWidth - 1);
+		answer = radianCap * (screenPos.X * 2 / screenWidth - 1);
 	}
 
-	if (y < -yBufferSize)
+	if (screenPos.Y < -yBufferSize)
 	{
 		onScreen = false;
 	}
-	else if (y > screenHeight + yBufferSize)
+	else if (screenPos.Y > screenHeight + yBufferSize)
 	{
 		onScreen = false;
 	}
-	else if (y < 0 || y > screenHeight)
+	else if (screenPos.Y < 0 || screenPos.Y > screenHeight)
 	{
 		itemRollOff = MAX_ROLLOFF;
 	}
@@ -187,13 +195,10 @@ float CSoundGroup::RadiansOffCenter(const CVector3D& position, bool& onScreen, f
 #endif // !CONFIG2_AUDIO
 }
 
-void CSoundGroup::UploadPropertiesAndPlay(size_t index, const CVector3D& position, entity_id_t source)
+void CSoundGroup::UploadPropertiesAndPlay([[maybe_unused]] size_t index,
+	[[maybe_unused]] const CVector3D& position, [[maybe_unused]] entity_id_t source)
 {
-#if !CONFIG2_AUDIO
-	UNUSED2(index);
-	UNUSED2(position);
-	UNUSED2(source);
-#else
+#if CONFIG2_AUDIO
 	if (!g_SoundManager)
 		return;
 
@@ -220,7 +225,7 @@ void CSoundGroup::UploadPropertiesAndPlay(size_t index, const CVector3D& positio
 
 	if (!TestFlag(eOmnipresent))
 	{
-		CVector3D origin = g_Game->GetView()->GetCamera()->GetOrientation().GetTranslation();
+		CVector3D origin = g_Game->GetView()->GetCamera().GetOrientation().GetTranslation();
 		float itemDist = (position - origin).Length();
 
 		if (TestFlag(eDistanceless))
@@ -299,7 +304,7 @@ void CSoundGroup::ReleaseGroup()
 #endif
 }
 
-void CSoundGroup::Update(float UNUSED(TimeSinceLastFrame))
+void CSoundGroup::Update(float /*TimeSinceLastFrame*/)
 {
 }
 
@@ -341,7 +346,7 @@ bool CSoundGroup::LoadSoundGroup(const VfsPath& pathnameXML)
 
 	if (root.GetNodeName() != el_soundgroup)
 	{
-		LOGERROR("Invalid SoundGroup format (unrecognised root element '%s')", XeroFile.GetElementString(root.GetNodeName()));
+		LOGERROR("Invalid SoundGroup format (unrecognized root element '%s')", XeroFile.GetElementString(root.GetNodeName()));
 		return false;
 	}
 

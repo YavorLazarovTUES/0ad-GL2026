@@ -2,11 +2,11 @@ Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
 	TILE_CENTERED_HEIGHT_MAP = true;
 
-	setSelectedBiome();
+	setBiome(mapSettings.Biome);
 
 	const tMainTerrain = g_Terrains.mainTerrain;
 	const tForestFloor1 = g_Terrains.forestFloor1;
@@ -75,7 +75,7 @@ function* GenerateMap()
 	const islandBetweenPlayerAndCenterRadius = 0.81;
 	const centralIslandRadius = 0.36;
 
-	const [playerIDs, playerPosition, playerAngle, startAngle] =
+	const { playerIDs, playerPosition, playerAngle, startAngle } =
 		playerPlacementCircle(fractionToTiles(0.35));
 
 	let numIslands = 0;
@@ -235,7 +235,7 @@ function* GenerateMap()
 	for (let i = 0; i < numPlayers; ++i)
 	{
 		islandPos[i] = playerPosition[i];
-		createIsland(i, 1, isNomad() ? clLand : clPlayer);
+		createIsland(i, 1, mapSettings.Nomad ? clLand : clPlayer);
 	}
 
 	g_Map.log("Creating connectors");

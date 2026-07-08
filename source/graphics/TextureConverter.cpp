@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,18 +19,29 @@
 
 #include "TextureConverter.h"
 
+#include "lib/alignment.h"
 #include "lib/allocators/shared_ptr.h"
 #include "lib/bits.h"
+#include "lib/debug.h"
+#include "lib/path.h"
 #include "lib/regex.h"
+#include "lib/status.h"
 #include "lib/tex/tex.h"
-#include "lib/timer.h"
+#include "lib/types.h"
 #include "maths/MD5.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
+#include "ps/Errors.h"
+#include "ps/Future.h"
 #include "ps/Profiler2.h"
 #include "ps/TaskManager.h"
 #include "ps/Util.h"
+#include "ps/XMB/XMBData.h"
+#include "ps/XMB/XMBStorage.h"
 #include "ps/XML/Xeromyces.h"
+
+#include <cstring>
+#include <utility>
 
 #if CONFIG2_NVTT
 
@@ -63,7 +74,8 @@ struct BufferOutputHandler : public nvtt::OutputHandler
 {
 	std::vector<u8> buffer;
 
-	virtual void beginImage(int UNUSED(size), int UNUSED(width), int UNUSED(height), int UNUSED(depth), int UNUSED(face), int UNUSED(miplevel))
+	virtual void beginImage(int /*size*/, int /*width*/, int /*height*/, int /*depth*/, int /*face*/,
+		int /*miplevel*/)
 	{
 	}
 
@@ -146,7 +158,7 @@ CTextureConverter::SettingsFile* CTextureConverter::LoadSettings(const VfsPath& 
 
 	if (root.GetNodeName() != el_textures)
 	{
-		LOGERROR("Invalid texture settings file \"%s\" (unrecognised root element)", path.string8());
+		LOGERROR("Invalid texture settings file \"%s\" (unrecognized root element)", path.string8());
 		return NULL;
 	}
 
@@ -459,7 +471,7 @@ bool CTextureConverter::ConvertTexture(const CTexturePtr& texture, const VfsPath
 		delete[] rgba;
 	}
 
-	m_ResultQueue.push(Threading::TaskManager::Instance().PushTask([request = std::move(request)]
+	m_ResultQueue.push({g_TaskManager, [request = std::move(request)]
 		{
 			PROFILE2("compress");
 			// Set up the result object
@@ -475,7 +487,7 @@ bool CTextureConverter::ConvertTexture(const CTexturePtr& texture, const VfsPath
 				request->outputOptions);
 
 			return result;
-		}, Threading::TaskPriority::LOW));
+		}, Threading::TaskPriority::LOW});
 
 	return true;
 
@@ -488,7 +500,7 @@ bool CTextureConverter::ConvertTexture(const CTexturePtr& texture, const VfsPath
 bool CTextureConverter::Poll(CTexturePtr& texture, VfsPath& dest, bool& ok)
 {
 #if CONFIG2_NVTT
-	if (m_ResultQueue.empty() || !m_ResultQueue.front().IsReady())
+	if (m_ResultQueue.empty() || !m_ResultQueue.front().IsDone())
 	{
 		// no work to do
 		return false;

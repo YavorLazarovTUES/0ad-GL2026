@@ -1,4 +1,4 @@
-/* Copyright (C) 2013 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -16,46 +16,49 @@
  */
 
 #include "precompiled.h"
+
 #include "FontMetrics.h"
 
 #include "graphics/Font.h"
 #include "graphics/FontManager.h"
-#include "ps/Filesystem.h"
-#include "ps/CLogger.h"
+#include "ps/CStrIntern.h"
 #include "renderer/Renderer.h"
 
 CFontMetrics::CFontMetrics(CStrIntern font)
+	: CFontMetrics(font, CStrIntern())
 {
-	m_Font = g_Renderer.GetFontManager().LoadFont(font);
 }
 
-int CFontMetrics::GetLineSpacing() const
+CFontMetrics::CFontMetrics(CStrIntern font, CStrIntern locale)
 {
-	// Return some arbitrary default if the font failed to load, so that the
-	// user of CFontMetrics doesn't have to care about failures
-	if (!m_Font)
-		return 12;
-	return m_Font->GetLineSpacing();
+	m_Font = g_Renderer.GetFontManager().LoadFont(font, locale);
 }
 
-int CFontMetrics::GetHeight() const
+float CFontMetrics::GetHeight() const
 {
 	if (!m_Font)
 		return 6;
 	return m_Font->GetHeight();
 }
 
-int CFontMetrics::GetCharacterWidth(wchar_t c) const
+float CFontMetrics::GetCharacterWidth(wchar_t c) const
 {
 	if (!m_Font)
 		return 6;
 	return m_Font->GetCharacterWidth(c);
 }
 
-void CFontMetrics::CalculateStringSize(const wchar_t* string, int& w, int& h) const
+void CFontMetrics::CalculateStringSize(const wchar_t* string, float& w, float& h) const
 {
 	if (!m_Font)
 		w = h = 0;
 	else
 		m_Font->CalculateStringSize(string, w, h);
+}
+
+float CFontMetrics::GetCapHeight() const
+{
+	if (!m_Font)
+		return 0.0f;
+	return m_Font->GetCapHeight();
 }

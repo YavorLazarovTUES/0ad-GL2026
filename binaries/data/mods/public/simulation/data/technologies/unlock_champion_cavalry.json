@@ -10,6 +10,7 @@
 			{ "notciv": "athen" },
 			{ "notciv": "brit" },
 			{ "notciv": "cart" },
+			{ "notciv": "germ" },
 			{ "notciv": "han" },
 			{ "notciv": "maur" },
 			{ "notciv": "spart" }
@@ -19,5 +20,6 @@
 	"icon": "helmet_corinthian_crest.png",
 	"researchTime": 60,
 	"tooltip": "Unlock Champion Cavalry at the Stable.",
+	"placeBelow": "{UnlockedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

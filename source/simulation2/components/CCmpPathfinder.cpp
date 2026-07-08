@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,30 +24,59 @@
 
 #include "CCmpPathfinder_Common.h"
 
+#include "graphics/Terrain.h"
+#include "lib/code_generation.h"
+#include "lib/debug.h"
+#include "lib/path.h"
+#include "lib/types.h"
+#include "maths/Fixed.h"
+#include "maths/FixedVector2D.h"
+#include "maths/MathUtil.h"
+#include "ps/CLogger.h"
+#include "ps/Filesystem.h"
+#include "ps/Future.h"
+#include "ps/Profile.h"
+#include "ps/Profiler2.h"
+#include "ps/TaskManager.h"
+#include "ps/XML/Xeromyces.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/ICmpObstruction.h"
 #include "simulation2/components/ICmpObstructionManager.h"
+#include "simulation2/components/ICmpPathfinder.h"
+#include "simulation2/components/ICmpPosition.h"
 #include "simulation2/components/ICmpTerrain.h"
 #include "simulation2/components/ICmpWaterManager.h"
+#include "simulation2/helpers/Grid.h"
 #include "simulation2/helpers/HierarchicalPathfinder.h"
 #include "simulation2/helpers/LongPathfinder.h"
 #include "simulation2/helpers/MapEdgeTiles.h"
+#include "simulation2/helpers/PathGoal.h"
+#include "simulation2/helpers/Pathfinding.h"
+#include "simulation2/helpers/Position.h"
 #include "simulation2/helpers/Rasterize.h"
 #include "simulation2/helpers/VertexPathfinder.h"
+#include "simulation2/serialization/SerializeTemplates.h"
 #include "simulation2/serialization/SerializedPathfinder.h"
 #include "simulation2/serialization/SerializedTypes.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+#include "simulation2/system/Message.h"
 
-#include "ps/CLogger.h"
-#include "ps/CStr.h"
-#include "ps/Profile.h"
-#include "ps/XML/Xeromyces.h"
-#include "renderer/Scene.h"
-
+#include <algorithm>
+#include <atomic>
+#include <cstring>
+#include <map>
+#include <memory>
+#include <string>
 #include <type_traits>
+#include <utility>
+#include <vector>
+
+class SceneCollector;
 
 REGISTER_COMPONENT_TYPE(Pathfinder)
 
-void CCmpPathfinder::Init(const CParamNode& UNUSED(paramNode))
+void CCmpPathfinder::Init(const CParamNode&)
 {
 	m_GridSize = 0;
 	m_Grid = NULL;
@@ -59,7 +88,7 @@ void CCmpPathfinder::Init(const CParamNode& UNUSED(paramNode))
 
 	m_AtlasOverlay = NULL;
 
-	size_t workerThreads = Threading::TaskManager::Instance().GetNumberOfWorkers();
+	size_t workerThreads = g_TaskManager.GetNumberOfWorkers();
 	// Store one vertex pathfinder for each thread (including the main thread).
 	while (m_VertexPathfinders.size() < workerThreads + 1)
 		m_VertexPathfinders.emplace_back(m_GridSize, m_TerrainOnlyGrid);
@@ -70,7 +99,7 @@ void CCmpPathfinder::Init(const CParamNode& UNUSED(paramNode))
 	m_Futures.resize(workerThreads);
 
 	// Register Relax NG validator
-	CXeromyces::AddValidator(g_VFS, "pathfinder", "simulation/data/pathfinder.rng");
+	g_Xeromyces.AddValidator(g_VFS, "pathfinder", "simulation/data/pathfinder.rng");
 
 	// Since this is used as a system component (not loaded from an entity template),
 	// we can't use the real paramNode (it won't get handled properly when deserializing),
@@ -117,7 +146,7 @@ template<>
 struct SerializeHelper<LongPathRequest>
 {
 	template<typename S>
-	void operator()(S& serialize, const char* UNUSED(name), Serialize::qualify<S, LongPathRequest> value)
+	void operator()(S& serialize, const char* /*name*/, Serialize::qualify<S, LongPathRequest> value)
 	{
 		serialize.NumberU32_Unbounded("ticket", value.ticket);
 		serialize.NumberFixed_Unbounded("x0", value.x0);
@@ -132,7 +161,7 @@ template<>
 struct SerializeHelper<ShortPathRequest>
 {
 	template<typename S>
-	void operator()(S& serialize, const char* UNUSED(name), Serialize::qualify<S, ShortPathRequest> value)
+	void operator()(S& serialize, const char* /*name*/, Serialize::qualify<S, ShortPathRequest> value)
 	{
 		serialize.NumberU32_Unbounded("ticket", value.ticket);
 		serialize.NumberFixed_Unbounded("x0", value.x0);
@@ -168,7 +197,7 @@ void CCmpPathfinder::Deserialize(const CParamNode& paramNode, IDeserializer& des
 	SerializeCommon(deserialize);
 }
 
-void CCmpPathfinder::HandleMessage(const CMessage& msg, bool UNUSED(global))
+void CCmpPathfinder::HandleMessage(const CMessage& msg, bool /*global*/)
 {
 	switch (msg.GetType())
 	{
@@ -797,10 +826,10 @@ void CCmpPathfinder::SendRequestedPaths()
 		m_ShortPathRequests.Compute(*this, m_VertexPathfinders.front());
 		m_LongPathRequests.Compute(*this, *m_LongPathfinder);
 	}
-	// We're done, clear futures.
-	// Use CancelOrWait instead of just Cancel to ensure determinism.
+	// We're done, get the exceptions from the futures.
 	for (Future<void>& future : m_Futures)
-		future.CancelOrWait();
+		if (future.Valid())
+			future.Get();
 
 	{
 		PROFILE2("PostMessages");
@@ -825,17 +854,20 @@ void CCmpPathfinder::StartProcessingMoves(bool useMax)
 	m_ShortPathRequests.PrepareForComputation(useMax ? m_MaxSameTurnMoves : 0);
 	m_LongPathRequests.PrepareForComputation(useMax ? m_MaxSameTurnMoves : 0);
 
-	Threading::TaskManager& taskManager = Threading::TaskManager::Instance();
-	for (size_t i = 0; i < m_Futures.size(); ++i)
+	// There's some overhead to waking threads, so don't do it unless we need to.
+	const size_t m = std::min(m_Futures.size(), m_ShortPathRequests.m_Requests.size() + m_LongPathRequests.m_Requests.size());
+	for (size_t i = 0; i < m; ++i)
 	{
 		ENSURE(!m_Futures[i].Valid());
 		// Pass the i+1th vertex pathfinder to keep the first for the main thread,
 		// each thread get its own instance to avoid conflicts in cached data.
-		m_Futures[i] = taskManager.PushTask([&pathfinder=*this, &vertexPfr=m_VertexPathfinders[i + 1]]() {
-			PROFILE2("Async pathfinding");
-			pathfinder.m_ShortPathRequests.Compute(pathfinder, vertexPfr);
-			pathfinder.m_LongPathRequests.Compute(pathfinder, *pathfinder.m_LongPathfinder);
-		});
+		m_Futures[i] = {g_TaskManager,
+			[&pathfinder=*this, &vertexPfr=m_VertexPathfinders[i + 1]]()
+			{
+				PROFILE2("Async pathfinding");
+				pathfinder.m_ShortPathRequests.Compute(pathfinder, vertexPfr);
+				pathfinder.m_LongPathRequests.Compute(pathfinder, *pathfinder.m_LongPathfinder);
+			}};
 	}
 }
 
@@ -854,12 +886,92 @@ bool CCmpPathfinder::IsGoalReachable(entity_pos_t x0, entity_pos_t z0, const Pat
 	return m_PathfinderHier->IsGoalReachable(i, j, goal, passClass);
 }
 
+std::vector<CFixedVector2D> CCmpPathfinder::DistributeAround(std::vector<entity_id_t> units, entity_pos_t x, entity_pos_t z) const
+{
+	PROFILE2("DistributeAround");
+
+	std::vector<CFixedVector2D> positions;
+	if (units.empty())
+		return positions;
+
+	positions.reserve(units.size());
+
+	// Initialize spiral parameters
+	fixed angle = fixed::Zero();
+	fixed radius = fixed::FromInt(1);
+	const fixed increment = fixed::FromInt(7) / 4;
+
+	// Calculate the angle step so that at this radius we don't crowd the units
+	fixed angleStep = fixed::FromInt(9).MulDiv(fixed::FromInt(1), fixed::Pi().Multiply(radius));
+
+	for (size_t i = 0; i < units.size(); ++i)
+	{
+		CFixedVector2D offset(radius, fixed::Zero());
+		offset = offset.Rotate(angle);
+
+		positions.emplace_back(x + offset.X, z + offset.Y);
+
+		angle += angleStep;
+		// If we complete a circle, increase radius and recalculate angle step
+		if (angle >= fixed::Pi().Multiply(fixed::FromInt(2)))
+		{
+			angle = fixed::Zero();
+			radius += increment;
+			angleStep = fixed::FromInt(9).MulDiv(fixed::FromInt(1), fixed::Pi().Multiply(radius));
+		}
+	}
+
+	// Get current unit positions to calculate travel distances
+	std::vector<CFixedVector2D> unitPositions;
+	unitPositions.reserve(units.size());
+
+	CmpPtr<ICmpPosition> cmpPosition(GetSystemEntity());
+	for (entity_id_t unit : units)
+	{
+		CmpPtr<ICmpPosition> unitPos(GetSimContext(), unit);
+		if (!unitPos || !unitPos->IsInWorld())
+			return positions;
+
+		CFixedVector2D pos(unitPos->GetPosition2D());
+		unitPositions.push_back(pos);
+	}
+
+	// Optimize positions by swapping them if it reduces total travel distance.
+	bool improved;
+	do
+	{
+		improved = false;
+		for (size_t i = 0; i < positions.size(); ++i)
+		{
+			// Helper to compute squared distance between two points as integers
+			auto distSq = [](const CFixedVector2D& p1, const CFixedVector2D& p2) -> u32 {
+				i32 dx = (p1.X - p2.X).ToInt_RoundToInfinity();
+				i32 dy = (p1.Y - p2.Y).ToInt_RoundToInfinity();
+				return dx*dx + dy*dy;
+			};
+
+			for (size_t j = i + 1; j < positions.size(); ++j)
+			{
+				u32 currentDistSq = distSq(positions[i], unitPositions[i]) + distSq(positions[j], unitPositions[j]);
+				u32 swappedDistSq = distSq(positions[j], unitPositions[i]) + distSq(positions[i], unitPositions[j]);
+
+				// Swap if it reduces total squared distance
+				if (swappedDistSq < currentDistSq)
+				{
+					std::swap(positions[i], positions[j]);
+					improved = true;
+				}
+			}
+		}
+	} while (improved);
+
+	return positions;
+}
+
 bool CCmpPathfinder::CheckMovement(const IObstructionTestFilter& filter,
 	entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, entity_pos_t r,
 	pass_class_t passClass) const
 {
-	PROFILE2_IFSPIKE("Check Movement", 0.001);
-
 	// Test against obstructions first. filter may discard pathfinding-blocking obstructions.
 	// Use more permissive version of TestLine to allow unit-unit collisions to overlap slightly.
 	// This makes movement smoother and more natural for units, overall.
@@ -873,7 +985,8 @@ bool CCmpPathfinder::CheckMovement(const IObstructionTestFilter& filter,
 }
 
 ICmpObstruction::EFoundationCheck CCmpPathfinder::CheckUnitPlacement(const IObstructionTestFilter& filter,
-	entity_pos_t x, entity_pos_t z, entity_pos_t r,	pass_class_t passClass, bool UNUSED(onlyCenterPoint)) const
+	entity_pos_t x, entity_pos_t z, entity_pos_t r,	pass_class_t passClass,
+	bool /*onlyCenterPoint*/) const
 {
 	// Check unit obstruction
 	CmpPtr<ICmpObstructionManager> cmpObstructionManager(GetSystemEntity());
@@ -907,7 +1020,7 @@ ICmpObstruction::EFoundationCheck CCmpPathfinder::CheckBuildingPlacement(const I
 
 ICmpObstruction::EFoundationCheck CCmpPathfinder::CheckBuildingPlacement(const IObstructionTestFilter& filter,
 	entity_pos_t x, entity_pos_t z, entity_pos_t a, entity_pos_t w,
-	entity_pos_t h, entity_id_t id, pass_class_t passClass, bool UNUSED(onlyCenterPoint)) const
+	entity_pos_t h, entity_id_t id, pass_class_t passClass, bool /*onlyCenterPoint*/) const
 {
 	// Check unit obstruction
 	CmpPtr<ICmpObstructionManager> cmpObstructionManager(GetSystemEntity());

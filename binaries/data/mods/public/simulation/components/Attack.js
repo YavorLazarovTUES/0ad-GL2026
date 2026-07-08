@@ -4,7 +4,7 @@ var g_AttackTypes = ["Melee", "Ranged", "Capture"];
 
 Attack.prototype.preferredClassesSchema =
 	"<optional>" +
-		"<element name='PreferredClasses' a:help='Space delimited list of classes preferred for attacking. If an entity has any of theses classes, it is preferred. The classes are in descending order of preference'>" +
+		"<element name='PreferredClasses' a:help='Space delimited list of classes preferred for attacking. If an entity has any of these classes, it is preferred. The classes are in descending order of preference'>" +
 			"<attribute name='datatype'>" +
 				"<value>tokens</value>" +
 			"</attribute>" +
@@ -36,7 +36,7 @@ Attack.prototype.Schema =
 			"<RepeatTime>1000</RepeatTime>" +
 			"<Bonuses>" +
 				"<Bonus1>" +
-					"<Civ>pers</Civ>" +
+					"<Civ>achae</Civ>" +
 					"<Classes>Infantry</Classes>" +
 					"<Multiplier>1.5</Multiplier>" +
 				"</Bonus1>" +
@@ -105,18 +105,23 @@ Attack.prototype.Schema =
 		"<element>" +
 			"<anyName a:help='Currently one of Melee, Ranged, Capture or Slaughter.'/>" +
 			"<interleave>" +
-				"<element name='AttackName' a:help='Name of the attack, to be displayed in the GUI. Optionally includes a translate context attribute.'>" +
+				"<element name='AttackName' a:help='Name of the attack, to be displayed in the GUI.'>" +
 					"<optional>" +
 						"<attribute name='context'>" +
+							"<text/>" +
+						"</attribute>" +
+					"</optional>" +
+					"<optional>" +
+						"<attribute name='comment'>" +
 							"<text/>" +
 						"</attribute>" +
 					"</optional>" +
 					"<text/>" +
 				"</element>" +
 				AttackHelper.BuildAttackEffectsSchema() +
-				"<element name='MaxRange' a:help='Maximum attack range (in metres)'><ref name='nonNegativeDecimal'/></element>" +
+				"<element name='MaxRange' a:help='Maximum attack range (in meters)'><ref name='nonNegativeDecimal'/></element>" +
 				"<optional>" +
-					"<element name='MinRange' a:help='Minimum attack range (in metres). Defaults to 0.'><ref name='nonNegativeDecimal'/></element>" +
+					"<element name='MinRange' a:help='Minimum attack range (in meters). Defaults to 0.'><ref name='nonNegativeDecimal'/></element>" +
 				"</optional>" +
 				"<optional>"+
 					"<element name='Origin' a:help='The offset from which the attack occurs, relative to the entity position. Defaults to {0,0,0}.'>" +
@@ -209,11 +214,11 @@ Attack.prototype.Init = function()
 
 Attack.prototype.GetAttackTypes = function(wantedTypes)
 {
-	let types = g_AttackTypes.filter(type => !!this.template[type]);
+	const types = g_AttackTypes.filter(type => !!this.template[type]);
 	if (!wantedTypes)
 		return types;
 
-	let wantedTypesReal = wantedTypes.filter(wtype => wtype.indexOf("!") != 0);
+	const wantedTypesReal = wantedTypes.filter(wtype => wtype.indexOf("!") != 0);
 	return types.filter(type => wantedTypes.indexOf("!" + type) == -1 &&
 	      (!wantedTypesReal || !wantedTypesReal.length || wantedTypesReal.indexOf(type) != -1));
 };
@@ -304,16 +309,16 @@ Attack.prototype.CanAttack = function(target, wantedTypes)
  */
 Attack.prototype.GetPreference = function(target)
 {
-	let cmpIdentity = Engine.QueryInterface(target, IID_Identity);
+	const cmpIdentity = Engine.QueryInterface(target, IID_Identity);
 	if (!cmpIdentity)
 		return undefined;
 
-	let targetClasses = cmpIdentity.GetClassesList();
+	const targetClasses = cmpIdentity.GetClassesList();
 
 	let minPref;
-	for (let type of this.GetAttackTypes())
+	for (const type of this.GetAttackTypes())
 	{
-		let preferredClasses = this.GetPreferredClasses(type);
+		const preferredClasses = this.GetPreferredClasses(type);
 		for (let pref = 0; pref < preferredClasses.length; ++pref)
 		{
 			if (MatchesClassList(targetClasses, preferredClasses[pref]))
@@ -333,10 +338,10 @@ Attack.prototype.GetPreference = function(target)
  */
 Attack.prototype.GetFullAttackRange = function()
 {
-	let ret = { "min": Infinity, "max": 0 };
-	for (let type of this.GetAttackTypes())
+	const ret = { "min": Infinity, "max": 0 };
+	for (const type of this.GetAttackTypes())
 	{
-		let range = this.GetRange(type);
+		const range = this.GetRange(type);
 		ret.min = Math.min(ret.min, range.min);
 		ret.max = Math.max(ret.max, range.max);
 	}
@@ -361,7 +366,7 @@ Attack.prototype.GetAttackEffectsData = function(type, splash)
  */
 Attack.prototype.GetBestAttackAgainst = function(target, allowCapture)
 {
-	let types = this.GetAttackTypes();
+	const types = this.GetAttackTypes();
 	if (Engine.QueryInterface(target, IID_Formation))
 		// TODO: Formation against formation needs review
 		return g_AttackTypes.find(attack => types.indexOf(attack) != -1);
@@ -375,7 +380,8 @@ Attack.prototype.GetBestAttackAgainst = function(target, allowCapture)
 		return "Slaughter";
 
 	const targetClasses = cmpIdentity.GetClassesList();
-	const getPreferrence = attackType => {
+	const getPreferrence = attackType =>
+	{
 		let pref = 0;
 		if (MatchesClassList(targetClasses, this.GetPreferredClasses(attackType)))
 			pref += 2;
@@ -384,18 +390,19 @@ Attack.prototype.GetBestAttackAgainst = function(target, allowCapture)
 		return pref;
 	};
 
-	return types.filter(type => this.CanAttack(target, [type])).sort((a, b) => {
+	return types.filter(type => this.CanAttack(target, [type])).sort((a, b) =>
+	{
 		const prefA = getPreferrence(a);
 		const prefB = getPreferrence(b);
 		return (types.indexOf(a) + (prefA > 0 ? prefA + types.length : 0)) -
-			(types.indexOf(b) + (prefB > 0 ? prefB + types.length : 0))
+			(types.indexOf(b) + (prefB > 0 ? prefB + types.length : 0));
 	}).pop();
 };
 
 Attack.prototype.CompareEntitiesByPreference = function(a, b)
 {
-	let aPreference = this.GetPreference(a);
-	let bPreference = this.GetPreference(b);
+	const aPreference = this.GetPreference(a);
+	const bPreference = this.GetPreference(b);
 
 	if (aPreference === null && bPreference === null) return 0;
 	if (aPreference === null) return 1;
@@ -444,7 +451,7 @@ Attack.prototype.GetSplashData = function(type)
 
 Attack.prototype.GetRange = function(type)
 {
-	if (!type)
+	if (!type || !this.template[type])
 		return this.GetFullAttackRange();
 
 	let max = +this.template[type].MaxRange;
@@ -463,6 +470,12 @@ Attack.prototype.GetAttackYOrigin = function(type)
 	return ApplyValueModificationsToEntity("Attack/" + type + "/Origin/Y", +this.template[type].Origin.Y, this.entity);
 };
 
+Attack.prototype.RepeatRangeCheck = function(type)
+{
+	if (!this.IsTargetInRange(this.target, type))
+		this.StopAttacking("OutOfRange");
+};
+
 /**
  * @param {number} target - The target to attack.
  * @param {string} type - The type of attack to use.
@@ -470,7 +483,7 @@ Attack.prototype.GetAttackYOrigin = function(type)
  *
  * @return {boolean} - Whether we started attacking.
  */
-Attack.prototype.StartAttacking = function(target, type, callerIID)
+Attack.prototype.StartAttacking = function(target, type, callerIID, force)
 {
 	if (this.target)
 		this.StopAttacking();
@@ -482,19 +495,19 @@ Attack.prototype.StartAttacking = function(target, type, callerIID)
 	if (!cmpResistance || !cmpResistance.AddAttacker(this.entity))
 		return false;
 
-	let timings = this.GetTimers(type);
-	let cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
+	const timings = this.GetTimers(type);
+	const cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
 
 	// If the repeat time since the last attack hasn't elapsed,
 	// delay the action to avoid attacking too fast.
 	let prepare = timings.prepare;
 	if (this.lastAttacked)
 	{
-		let repeatLeft = this.lastAttacked + timings.repeat - cmpTimer.GetTime();
+		const repeatLeft = this.lastAttacked + timings.repeat - cmpTimer.GetTime();
 		prepare = Math.max(prepare, repeatLeft);
 	}
 
-	let cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
+	const cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
 	if (cmpVisual)
 	{
 		cmpVisual.SelectAnimation("attack_" + type.toLowerCase(), false, 1.0);
@@ -502,12 +515,27 @@ Attack.prototype.StartAttacking = function(target, type, callerIID)
 		cmpVisual.SetAnimationSyncOffset(prepare);
 	}
 
+	// Find the number of range checks needed during repeat time.
+	const numCheck = Math.ceil(timings.repeat / 1000);
+
+	// Calculate the timing offset to be half the check repeat time.
+	const repeatPerCheck = timings.repeat / numCheck;
+	const offset = repeatPerCheck / 2;
+
+	// Set the startpoint to be the prepare time plus any remaining time not evenly divisible by the offset.
+	let checkStart = timings.prepare + ((prepare - timings.prepare) % offset);
+
+	// Add an offset to the start time if we are not already offset.
+	if ((prepare - checkStart) % repeatPerCheck === 0)
+		checkStart += offset;
+
 	// If using a non-default prepare time, re-sync the animation when the timer runs.
 	this.resyncAnimation = prepare != timings.prepare;
 	this.target = target;
 	this.callerIID = callerIID;
+	this.force = force;
 	this.timer = cmpTimer.SetInterval(this.entity, IID_Attack, "Attack", prepare, timings.repeat, type);
-
+	this.checkTimer = cmpTimer.SetInterval(this.entity, IID_Attack, "RepeatRangeCheck", checkStart, repeatPerCheck, type);
 	return true;
 };
 
@@ -519,9 +547,11 @@ Attack.prototype.StopAttacking = function(reason)
 	if (!this.target)
 		return;
 
-	let cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
+	const cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
 	cmpTimer.CancelTimer(this.timer);
+	cmpTimer.CancelTimer(this.checkTimer);
 	delete this.timer;
+	delete this.checkTimer;
 
 	const cmpResistance = QueryMiragedInterface(this.target, IID_Resistance);
 	if (cmpResistance)
@@ -529,18 +559,18 @@ Attack.prototype.StopAttacking = function(reason)
 
 	delete this.target;
 
-	let cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
+	const cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
 	if (cmpVisual)
 		cmpVisual.SelectAnimation("idle", false, 1.0);
 
 	// The callerIID component may start again,
 	// replacing the callerIID, hence save that.
-	let callerIID = this.callerIID;
+	const callerIID = this.callerIID;
 	delete this.callerIID;
 
 	if (reason && callerIID)
 	{
-		let component = Engine.QueryInterface(this.entity, callerIID);
+		const component = Engine.QueryInterface(this.entity, callerIID);
 		if (component)
 			component.ProcessMessage(reason, null);
 	}
@@ -562,7 +592,7 @@ Attack.prototype.Attack = function(type, lateness)
 	// ToDo: Enable entities to keep facing a target.
 	Engine.QueryInterface(this.entity, IID_UnitAI)?.FaceTowardsTarget(this.target);
 
-	let cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
+	const cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
 	this.lastAttacked = cmpTimer.GetTime() - lateness;
 
 	// BuildingAI has its own attack routine.
@@ -579,12 +609,19 @@ Attack.prototype.Attack = function(type, lateness)
 		return;
 	}
 
+	// If a low preference unit is attacked without player direction, check for higher preference.
+	if (this.GetPreference(this.target) === undefined && !this.force)
+	{
+		this.StopAttacking("TargetInvalidated");
+		return;
+	}
+
 	if (this.resyncAnimation)
 	{
-		let cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
+		const cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
 		if (cmpVisual)
 		{
-			let repeat = this.GetTimers(type).repeat;
+			const repeat = this.GetTimers(type).repeat;
 			cmpVisual.SetAnimationSyncRepeat(repeat);
 			cmpVisual.SetAnimationSyncOffset(repeat);
 		}
@@ -599,22 +636,22 @@ Attack.prototype.Attack = function(type, lateness)
  */
 Attack.prototype.PerformAttack = function(type, target)
 {
-	let cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
+	const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
 	if (!cmpPosition || !cmpPosition.IsInWorld())
 		return;
-	let selfPosition = cmpPosition.GetPosition();
+	const selfPosition = cmpPosition.GetPosition();
 
-	let cmpTargetPosition = Engine.QueryInterface(target, IID_Position);
+	const cmpTargetPosition = Engine.QueryInterface(target, IID_Position);
 	if (!cmpTargetPosition || !cmpTargetPosition.IsInWorld())
 		return;
-	let targetPosition = cmpTargetPosition.GetPosition();
+	const targetPosition = cmpTargetPosition.GetPosition();
 
-	let cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
+	const cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
 	if (!cmpOwnership)
 		return;
-	let attackerOwner = cmpOwnership.GetOwner();
+	const attackerOwner = cmpOwnership.GetOwner();
 
-	let data = {
+	const data = {
 		"type": type,
 		"attackData": this.GetAttackEffectsData(type),
 		"splash": this.GetSplashData(type),
@@ -627,20 +664,20 @@ Attack.prototype.PerformAttack = function(type, target)
 
 	if (this.template[type].Projectile)
 	{
-		let cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
-		let turnLength = cmpTimer.GetLatestTurnLength()/1000;
+		const cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
+		const turnLength = cmpTimer.GetLatestTurnLength()/1000;
 		// In the future this could be extended:
 		//  * Obstacles like trees could reduce the probability of the target being hit
 		//  * Obstacles like walls should block projectiles entirely
 
-		let horizSpeed = +this.template[type].Projectile.Speed;
-		let gravity = +this.template[type].Projectile.Gravity;
+		const horizSpeed = +this.template[type].Projectile.Speed;
+		const gravity = +this.template[type].Projectile.Gravity;
 		// horizSpeed /= 2; gravity /= 2; // slow it down for testing
 
 		// We will try to estimate the position of the target, where we can hit it.
 		// We first estimate the time-till-hit by extrapolating linearly the movement
 		// of the last turn. We compute the time till an arrow will intersect the target.
-		let targetVelocity = Vector3D.sub(targetPosition, cmpTargetPosition.GetPreviousPosition()).div(turnLength);
+		const targetVelocity = Vector3D.sub(targetPosition, cmpTargetPosition.GetPreviousPosition()).div(turnLength);
 
 		let timeToTarget = PositionHelper.PredictTimeToTarget(selfPosition, horizSpeed, targetPosition, targetVelocity);
 
@@ -653,14 +690,14 @@ Attack.prototype.PerformAttack = function(type, target)
 		{
 			// Don't predict too far in the future, but avoid threshold effects.
 			// After 1 second, always use the 'dumb' interpolated past-motion prediction.
-			let useUnitMotion = randBool(Math.max(0, 0.75 - timeToTarget / 1.333));
+			const useUnitMotion = randBool(Math.max(0, 0.75 - timeToTarget / 1.333));
 			if (useUnitMotion)
 			{
-				let cmpTargetUnitMotion = Engine.QueryInterface(target, IID_UnitMotion);
-				let cmpTargetUnitAI = Engine.QueryInterface(target, IID_UnitAI);
+				const cmpTargetUnitMotion = Engine.QueryInterface(target, IID_UnitMotion);
+				const cmpTargetUnitAI = Engine.QueryInterface(target, IID_UnitAI);
 				if (cmpTargetUnitMotion && (!cmpTargetUnitAI || !cmpTargetUnitAI.IsFormationMember()))
 				{
-					let pos2D = cmpTargetUnitMotion.EstimateFuturePosition(timeToTarget);
+					const pos2D = cmpTargetUnitMotion.EstimateFuturePosition(timeToTarget);
 					predictedPosition.x = pos2D.x;
 					predictedPosition.z = pos2D.y;
 				}
@@ -671,33 +708,33 @@ Attack.prototype.PerformAttack = function(type, target)
 				predictedPosition = Vector3D.mult(targetVelocity, timeToTarget).add(targetPosition);
 		}
 
-		let predictedHeight = cmpTargetPosition.GetHeightAt(predictedPosition.x, predictedPosition.z);
+		const predictedHeight = cmpTargetPosition.GetHeightAt(predictedPosition.x, predictedPosition.z);
 
 		// Add inaccuracy based on spread.
-		let distanceModifiedSpread = ApplyValueModificationsToEntity("Attack/" + type + "/Spread", +this.template[type].Projectile.Spread, this.entity) *
+		const distanceModifiedSpread = ApplyValueModificationsToEntity("Attack/" + type + "/Projectile/Spread", +this.template[type].Projectile.Spread, this.entity) *
 			predictedPosition.horizDistanceTo(selfPosition) / 100;
 
-		let randNorm = randomNormal2D();
-		let offsetX = randNorm[0] * distanceModifiedSpread;
-		let offsetZ = randNorm[1] * distanceModifiedSpread;
+		const randNorm = randomNormal2D();
+		const offsetX = randNorm[0] * distanceModifiedSpread;
+		const offsetZ = randNorm[1] * distanceModifiedSpread;
 
 		data.position = new Vector3D(predictedPosition.x + offsetX, predictedHeight, predictedPosition.z + offsetZ);
 
-		let realHorizDistance = data.position.horizDistanceTo(selfPosition);
+		const realHorizDistance = data.position.horizDistanceTo(selfPosition);
 		timeToTarget = realHorizDistance / horizSpeed;
 		delay += timeToTarget * 1000;
 
 		data.direction = Vector3D.sub(data.position, selfPosition).div(realHorizDistance);
 
 		let actorName = this.template[type].Projectile.ActorName || "";
-		let impactActorName = this.template[type].Projectile.ImpactActorName || "";
-		let impactAnimationLifetime = this.template[type].Projectile.ImpactAnimationLifetime || 0;
+		const impactActorName = this.template[type].Projectile.ImpactActorName || "";
+		const impactAnimationLifetime = this.template[type].Projectile.ImpactAnimationLifetime || 0;
 
 		// TODO: Use unit rotation to implement x/z offsets.
-		let deltaLaunchPoint = new Vector3D(0, +this.template[type].Projectile.LaunchPoint["@y"], 0);
+		const deltaLaunchPoint = new Vector3D(0, +this.template[type].Projectile.LaunchPoint["@y"], 0);
 		let launchPoint = Vector3D.add(selfPosition, deltaLaunchPoint);
 
-		let cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
+		const cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
 		if (cmpVisual)
 		{
 			// if the projectile definition is missing from the template
@@ -705,15 +742,15 @@ Attack.prototype.PerformAttack = function(type, target)
 			if (!actorName)
 				actorName = cmpVisual.GetProjectileActor();
 
-			let visualActorLaunchPoint = cmpVisual.GetProjectileLaunchPoint();
+			const visualActorLaunchPoint = cmpVisual.GetProjectileLaunchPoint();
 			if (visualActorLaunchPoint.length() > 0)
 				launchPoint = visualActorLaunchPoint;
 		}
 
-		let cmpProjectileManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_ProjectileManager);
+		const cmpProjectileManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_ProjectileManager);
 		data.projectileId = cmpProjectileManager.LaunchProjectileAtPoint(launchPoint, data.position, horizSpeed, gravity, actorName, impactActorName, impactAnimationLifetime);
 
-		let cmpSound = Engine.QueryInterface(this.entity, IID_Sound);
+		const cmpSound = Engine.QueryInterface(this.entity, IID_Sound);
 		data.attackImpactSound = cmpSound ? cmpSound.GetSoundGroup("attack_impact_" + type.toLowerCase()) : "";
 
 		data.friendlyFire = this.template[type].Projectile.FriendlyFire == "true";
@@ -725,7 +762,7 @@ Attack.prototype.PerformAttack = function(type, target)
 	}
 	if (delay)
 	{
-		let cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
+		const cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
 		cmpTimer.SetTimeout(SYSTEM_ENTITY, IID_DelayedDamage, "Hit", delay, data);
 	}
 	else
@@ -753,12 +790,12 @@ Attack.prototype.OnValueModification = function(msg)
 	if (msg.component != "Attack")
 		return;
 
-	let cmpUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
+	const cmpUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
 	if (!cmpUnitAI)
 		return;
 
 	if (this.GetAttackTypes().some(type =>
-	      msg.valueNames.indexOf("Attack/" + type + "/MaxRange") != -1))
+		msg.valueNames.indexOf("Attack/" + type + "/MaxRange") != -1))
 		cmpUnitAI.UpdateRangeQueries();
 };
 
@@ -767,9 +804,9 @@ Attack.prototype.GetRangeOverlays = function(type = "Ranged")
 	if (!this.template[type] || !this.template[type].RangeOverlay)
 		return [];
 
-	let range = this.GetRange(type);
-	let rangeOverlays = [];
-	for (let i in range)
+	const range = this.GetRange(type);
+	const rangeOverlays = [];
+	for (const i in range)
 		if ((i == "min" || i == "max") && range[i])
 			rangeOverlays.push({
 				"radius": range[i],

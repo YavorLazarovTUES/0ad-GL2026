@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,6 +17,12 @@
 
 #ifndef INCLUDED_CSTRINTERN
 #define INCLUDED_CSTRINTERN
+
+#include "lib/types.h"
+
+#include <cstddef>
+#include <string>
+#include <string_view>
 
 class CStrInternInternals;
 
@@ -40,6 +46,7 @@ public:
 	CStrIntern();
 	explicit CStrIntern(const char* str);
 	explicit CStrIntern(const std::string& str);
+	explicit CStrIntern(const std::string_view str);
 
 	/**
 	 * Returns cached FNV1-A hash of the string.

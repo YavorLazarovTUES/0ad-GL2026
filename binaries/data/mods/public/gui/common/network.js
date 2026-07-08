@@ -58,46 +58,103 @@ function getValidPort(port)
 /**
  * Must be kept in sync with source/network/NetHost.h
  */
-function getDisconnectReason(id, wasConnected)
+function getDisconnectReason(id)
 {
 	switch (id)
 	{
-	case 0: return wasConnected ? "" :
-		translate("This is often caused by UDP port 20595 not being forwarded on the host side, by a firewall, or anti-virus software.");
-	case 1: return translate("The host has ended the game.");
-	case 2: return translate("Incorrect network protocol version.");
-	case 3: return translate("Game is loading, please try again later.");
-	case 4: return translate("Game has already started, no observers allowed.");
-	case 5: return translate("You have been kicked.");
-	case 6: return translate("You have been banned.");
-	case 7: return translate("Player name in use. If you were disconnected, retry in few seconds.");
-	case 8: return translate("Server full.");
-	case 9: return translate("Secure lobby authentication failed. Join via lobby.");
-	case 10: return translate("Error: Server failed to allocate a unique client identifier.");
-	case 11: return translate("Error: Client commands were ready for an unexpected game turn.");
-	case 12: return translate("Error: Client simulated an unexpected game turn.");
-	case 13: return translate("Password is invalid.");
-	case 14: return translate("Could not find an unused port for the enet STUN client.");
-	case 15: return translate("Could not find the STUN endpoint.");
+	case 0: return translate("An unknown error occurred.");
+	case 1: return translate("The connection request has timed out.");
+	case 2: return translate("The host has ended the game.");
+	case 3: return translate("Incorrect network protocol version.");
+	case 4: return translate("Game is loading, please try again later.");
+	case 5: return translate("Game has already started, no observers allowed.");
+	case 6: return translate("You have been kicked.");
+	case 7: return translate("You have been banned.");
+	case 8: return translate("Player name in use. If you were disconnected, retry in few seconds.");
+	case 9: return translate("Server full.");
+	case 10: return translate("Secure lobby authentication failed. Join via lobby.");
+	case 11: return translate("Error: Server failed to allocate a unique client identifier.");
+	case 12: return translate("Error: Client commands were ready for an unexpected game turn.");
+	case 13: return translate("Error: Client simulated an unexpected game turn.");
+	case 14: return translate("Password is invalid.");
+	case 15: return translate("Could not find an unused port for the enet STUN client.");
+	case 16: return translate("Could not find the STUN endpoint.");
+	case 17: return translate("Different game engine versions or different mods loaded.");
+
 	default:
 		warn("Unknown disconnect-reason ID received: " + id);
 		return sprintf(translate("\\[Invalid value %(id)s]"), { "id": id });
 	}
 }
 
+function getRequestTimeOutMessage()
+{
+	return (Engine.HasXmppClient() ? "" : translate("Please ensure that you entered the correct server name or IP address, and port number.\n\n")) +
+		translate("If you haven't yet, try to connect again and to different hosts." +
+		"\nIf the issue persists or occurs regularly, visit the official FAQ for detailed guidance and troubleshooting steps.");
+}
+
+function getMismatchMessage(mismatchType, clientMismatchInfo, serverMismatchInfo)
+{
+	switch (mismatchType)
+	{
+	case "engine": return sprintf(translate("Different engine versions detected client version: %(clientMismatch)s server version: %(serverMismatch)s"), {
+		"clientMismatch": clientMismatchInfo,
+		"serverMismatch": serverMismatchInfo
+	});
+	case "mod": return sprintf(translate("Different mods enabled, or mods enabled in a different order. Client mod: '%(clientMismatch)s' Server mod: '%(serverMismatch)s'"), {
+		"clientMismatch": clientMismatchInfo,
+		"serverMismatch": serverMismatchInfo
+	});
+	default: return sprintf(translate("Unrecognized handshake mismatch type: %(mismatchType)s"), {
+		"mismatchType": mismatchType
+	});
+	}
+}
+
 /**
  * Show the disconnect reason in a message box.
  *
- * @param {number} reason
+ * @param {Object} message
+ * @param {boolean} wasConnected
  */
-function reportDisconnect(reason, wasConnected)
+function reportDisconnect(message, wasConnected)
+{
+	if (message.reason === 1)
+		reportConnectionRequestTimeOut();
+	else if (message.reason == 16)
+		reportMismatchingSoftwareVersions(message.mismatch_type, message.client_mismatch, message.server_mismatch);
+	else
+		messageBox(
+			400, 200,
+			(wasConnected ?
+				translate("Lost connection to the server.") :
+				translate("Failed to connect to the server.")
+			) + "\n\n" + getDisconnectReason(message.reason),
+			translate("Disconnected")
+		);
+}
+
+async function reportConnectionRequestTimeOut()
+{
+	const buttonIndex = await messageBox(
+		600, 230,
+		translate("Failed to connect to the server.") + " " + getDisconnectReason(1) + "\n\n" + getRequestTimeOutMessage(),
+		translate("Connection Error"),
+		[translate("Close"), translate("Open FAQ")]
+	);
+	if (buttonIndex === 1)
+		openURL("https://gitea.wildfiregames.com/0ad/0ad/wiki/FAQ#what-shall-i-do-when-joining-multiplayer-matches-fails-with-an-error-message");
+
+	return;
+}
+
+function reportMismatchingSoftwareVersions(mismatchType, clientMismatch, serverMismatch)
 {
 	messageBox(
 		400, 200,
-		(wasConnected ?
-			translate("Lost connection to the server.") :
-			translate("Failed to connect to the server.")
-		) + "\n\n" + getDisconnectReason(reason, wasConnected),
+		translate("Failed to connect to the server.") +
+		"\n\n" + getMismatchMessage(mismatchType, clientMismatch, serverMismatch),
 		translate("Disconnected")
 	);
 }
@@ -112,10 +169,20 @@ function kickError()
 
 function kickPlayer(username, ban)
 {
-	if (g_IsController)
-		Engine.KickPlayer(username, ban);
-	else
+	if (!g_IsController)
+	{
 		kickError();
+		return;
+	}
+	if (!g_IsNetworked)
+	{
+		addChatMessage({
+			"type": "system",
+			"text": translate("Offline game! Can not kick or ban.")
+		});
+		return;
+	}
+	Engine.KickPlayer(username, ban);
 }
 
 function kickObservers(ban)
@@ -125,8 +192,15 @@ function kickObservers(ban)
 		kickError();
 		return;
 	}
-
-	for (let guid in g_PlayerAssignments)
+	if (!g_IsNetworked)
+	{
+		addChatMessage({
+			"type": "system",
+			"text": translate("Offline game! No spectators to kick or ban.")
+		});
+		return;
+	}
+	for (const guid in g_PlayerAssignments)
 		if (g_PlayerAssignments[guid].player == -1)
 			Engine.KickPlayer(g_PlayerAssignments[guid].name, ban);
 }
@@ -137,10 +211,11 @@ function kickObservers(ban)
  */
 function sortGUIDsByPlayerID()
 {
-	return Object.keys(g_PlayerAssignments).sort((guidA, guidB) => {
+	return Object.keys(g_PlayerAssignments).sort((guidA, guidB) =>
+	{
 
-		let playerIdA = g_PlayerAssignments[guidA].player;
-		let playerIdB = g_PlayerAssignments[guidB].player;
+		const playerIdA = g_PlayerAssignments[guidA].player;
+		const playerIdB = g_PlayerAssignments[guidB].player;
 
 		if (playerIdA == -1) return +1;
 		if (playerIdB == -1) return -1;
@@ -157,7 +232,7 @@ function sortGUIDsByPlayerID()
  */
 function getUsernameList()
 {
-	let usernames = sortGUIDsByPlayerID().map(guid => colorizePlayernameByGUID(guid));
+	const usernames = sortGUIDsByPlayerID().map(guid => colorizePlayernameByGUID(guid));
 
 	// Translation: Number of currently connected players/observers and their names
 	return sprintf(translate("Users (%(num)s): %(users)s"), {
@@ -177,8 +252,8 @@ function executeNetworkCommand(input)
 	if (input.indexOf("/") != 0)
 		return false;
 
-	let command = input.split(" ", 1)[0];
-	let argument = input.substr(command.length + 1);
+	const command = input.split(" ", 1)[0];
+	const argument = input.substr(command.length + 1);
 
 	if (g_NetworkCommands[command])
 		g_NetworkCommands[command](argument);
@@ -216,34 +291,23 @@ function addNetworkWarning(msg)
 function getNetworkWarnings()
 {
 	// Remove outdated messages
-	for (let guid in g_NetworkWarnings)
+	for (const guid in g_NetworkWarnings)
 		if (Date.now() > g_NetworkWarnings[guid].added + g_NetworkWarningTimeout ||
 		    guid != "server" && !g_PlayerAssignments[guid])
 			delete g_NetworkWarnings[guid];
 
 	// Show local messages first
-	let guids = Object.keys(g_NetworkWarnings).sort(guid => guid != "server");
+	const guids = Object.keys(g_NetworkWarnings).sort(guid => guid != "server");
 
-	let font = Engine.GetGUIObjectByName("gameStateNotifications").font;
+	const messages = [];
 
-	let messages = [];
-	let maxTextWidth = 0;
-
-	for (let guid of guids)
+	for (const guid of guids)
 	{
-		let msg = g_NetworkWarnings[guid].msg;
+		const msg = g_NetworkWarnings[guid].msg;
 
 		// Add formatted text
 		messages.push(g_NetworkWarningTexts[msg.warntype](msg, colorizePlayernameByGUID(guid)));
-
-		// Add width of unformatted text
-		let username = guid != "server" && g_PlayerAssignments[guid].name;
-		let textWidth = Engine.GetTextWidth(font, g_NetworkWarningTexts[msg.warntype](msg, username));
-		maxTextWidth = Math.max(textWidth, maxTextWidth);
 	}
 
-	return {
-		"messages": messages,
-		"maxTextWidth": maxTextWidth
-	};
+	return messages;
 }

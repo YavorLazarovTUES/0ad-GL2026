@@ -1,7 +1,7 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 
-function* GenerateMap()
+export function* generateMap()
 {
 	const tPrimary = "temp_grass_long";
 	const tGrass = ["temp_grass", "temp_grass", "temp_grass_d"];
@@ -105,10 +105,12 @@ function* GenerateMap()
 		"heightLand": heightLand,
 		"meanderShort": 20,
 		"meanderLong": 0,
-		"waterFunc": (position, height, riverFraction) => {
+		"waterFunc": (position, height, riverFraction) =>
+		{
 			createTerrain(height < -1.5 ? tWater : tShore).place(position);
 		},
-		"landFunc": (position, shoreDist1, shoreDist2) => {
+		"landFunc": (position, shoreDist1, shoreDist2) =>
+		{
 			g_Map.setHeight(position, heightLand + 0.1);
 		}
 	});
@@ -243,7 +245,7 @@ function* GenerateMap()
 		[
 			[new SimpleObject(oFish, 2, 3, 0, 2)]
 		],
-		[scaleByMapSize(3, 25) * numPlayers],
+		[scaleByMapSize(30, 45) * numPlayers],
 		[avoidClasses(clFood, 6), stayClasses(clWater, 4)],
 		clFood);
 

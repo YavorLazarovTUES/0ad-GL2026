@@ -14,7 +14,8 @@ print("<th>GL_RENDERER");
 print("<th>Output");
 print("<th>Warnings");
 
-hwdetectTestData.sort(function(a, b) {
+hwdetectTestData.sort(function(a, b)
+{
 	if (a.renderer_backend.GL_RENDERER < b.renderer_backend.GL_RENDERER)
 		return -1;
 	if (b.renderer_backend.GL_RENDERER < a.renderer_backend.GL_RENDERER)
@@ -29,7 +30,7 @@ for (var settings of hwdetectTestData)
 	var os = (settings.os_linux ? "linux" : settings.os_macosx ? "macosx" : settings.os_win ? "win" : "???");
 
 	var disabled = [];
-	for (var d of ["disable_audio", "disable_s3tc", "disable_shadows", "disable_shadowpcf", "disable_allwater", "disable_fancywater", "override_renderpath"])
+	for (var d of ["disable_audio", "disable_s3tc", "disable_shadows", "disable_shadowpcf", "disable_allwater", "disable_fancywater", "hardwareSupported"])
 		if (output[d] !== undefined)
 			disabled.push(d+"="+output[d]);
 

@@ -2,6 +2,7 @@
 <Entity parent="template_unit">
   <Decay>
     <SinkingAnim>true</SinkingAnim>
+    <SinkProb>1.0</SinkProb>
     <DelayTime>0.0</DelayTime>
     <SinkRate>0.5</SinkRate>
     <SinkAccel>7.0</SinkAccel>
@@ -13,9 +14,9 @@
   </Footprint>
   <GarrisonHolder>
     <Max>10</Max>
-    <List datatype="tokens">FemaleCitizen Infantry Healer Dog</List>
+    <List datatype="tokens">Civilian Infantry Healer Dog</List>
     <EjectHealth>0</EjectHealth>
-    <EjectClassesOnDestroy datatype="tokens">FemaleCitizen Infantry Healer Dog</EjectClassesOnDestroy>
+    <EjectClassesOnDestroy datatype="tokens">Civilian Infantry Healer Dog</EjectClassesOnDestroy>
     <BuffHeal>0</BuffHeal>
     <LoadingRange>10</LoadingRange>
     <Pickup>true</Pickup>
@@ -79,7 +80,9 @@
     <BarHeight>0.5</BarHeight>
     <HeightOffset>6.0</HeightOffset>
   </StatusBars>
-  <TreasureCollector disable=""/>
+  <TreasureCollector>
+    <MaxDistance>12</MaxDistance>
+  </TreasureCollector>
   <UnitAI>
     <Formations disable=""/>
   </UnitAI>

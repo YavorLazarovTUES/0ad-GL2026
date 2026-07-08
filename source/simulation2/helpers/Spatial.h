@@ -1,4 +1,4 @@
-/* Copyright (C) 2016 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,7 +18,21 @@
 #ifndef INCLUDED_SPATIAL
 #define INCLUDED_SPATIAL
 
+#include "lib/debug.h"
+#include "lib/types.h"
+#include "maths/Fixed.h"
+#include "maths/FixedVector2D.h"
+#include "maths/MathUtil.h"
+#include "simulation2/helpers/Position.h"
 #include "simulation2/serialization/SerializeTemplates.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <utility>
+#include <vector>
 
 /**
  * A very basic subdivision scheme for finding items in ranges.
@@ -319,7 +333,7 @@ private:
 template<>
 struct SerializeHelper<SpatialSubdivision>
 {
-	void operator()(ISerializer& serialize, const char* UNUSED(name), SpatialSubdivision& value)
+	void operator()(ISerializer& serialize, const char* /*name*/, SpatialSubdivision& value)
 	{
 		serialize.NumberFixed_Unbounded("div size", value.m_DivisionSize);
 		serialize.NumberU32_Unbounded("divs w", value.m_DivisionsW);
@@ -330,7 +344,7 @@ struct SerializeHelper<SpatialSubdivision>
 			Serializer(serialize, "subdiv items", value.m_Divisions[i].items);
 	}
 
-	void operator()(IDeserializer& serialize, const char* UNUSED(name), SpatialSubdivision& value)
+	void operator()(IDeserializer& serialize, const char* /*name*/, SpatialSubdivision& value)
 	{
 		serialize.NumberFixed_Unbounded("div size", value.m_DivisionSize);
 		serialize.NumberU32_Unbounded("divs w", value.m_DivisionsW);

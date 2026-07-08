@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,15 +19,31 @@
 
 #include "ParticleRenderer.h"
 
+#include "graphics/Camera.h"
+#include "graphics/Color.h"
 #include "graphics/ParticleEmitter.h"
+#include "graphics/ParticleEmitterType.h"
 #include "graphics/ShaderDefines.h"
 #include "graphics/ShaderManager.h"
-#include "graphics/TextureManager.h"
+#include "graphics/ShaderTechnique.h"
+#include "graphics/ShaderTechniquePtr.h"
+#include "lib/debug.h"
+#include "maths/BoundingBoxAligned.h"
+#include "maths/Matrix3D.h"
+#include "maths/Vector3D.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
 #include "ps/Profile.h"
 #include "renderer/DebugRenderer.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
+#include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/IShaderProgram.h"
+
+#include <algorithm>
+#include <iterator>
+#include <utility>
+#include <vector>
 
 struct ParticleRendererInternals
 {
@@ -96,9 +112,7 @@ void ParticleRenderer::PrepareForRendering(const CShaderDefines& context)
 		m->techSubtract = g_Renderer.GetShaderManager().LoadEffect(str_particle_subtract, context);
 		m->techOverlay = g_Renderer.GetShaderManager().LoadEffect(str_particle_overlay, context);
 		m->techMultiply = g_Renderer.GetShaderManager().LoadEffect(str_particle_multiply, context);
-		CShaderDefines contextWithWireframe = context;
-		contextWithWireframe.Add(str_MODE_WIREFRAME, str_1);
-		m->techWireframe = g_Renderer.GetShaderManager().LoadEffect(str_particle_solid, contextWithWireframe);
+		m->techWireframe = g_Renderer.GetShaderManager().LoadEffect(str_particle_wireframe, {});
 	}
 
 	++m->frameNumber;
@@ -165,15 +179,33 @@ void ParticleRenderer::RenderParticles(
 			deviceCommandContext->BeginPass();
 
 			Renderer::Backend::IShaderProgram* shader = lastTech->GetShader();
-			const CMatrix3D transform =
-				g_Renderer.GetSceneRenderer().GetViewCamera().GetViewProjection();
-			const CMatrix3D modelViewMatrix =
-				g_Renderer.GetSceneRenderer().GetViewCamera().GetOrientation().GetInverse();
+			const CCamera& viewCamera{g_Renderer.GetSceneRenderer().GetViewCamera()};
+			const CMatrix3D transform{viewCamera.GetViewProjection()};
+			const CMatrix3D modelViewMatrix{viewCamera.GetOrientation().GetInverse()};
+
 			deviceCommandContext->SetUniform(
 				shader->GetBindingSlot(str_transform), transform.AsFloatArray());
 			deviceCommandContext->SetUniform(
 				shader->GetBindingSlot(str_modelViewMatrix), modelViewMatrix.AsFloatArray());
+			deviceCommandContext->SetUniform(
+				shader->GetBindingSlot(str_cameraPos),
+				viewCamera.GetOrientation().GetTranslation().AsFloatArray());
 		}
+
+
+		const CMatrix3D rotationMatrix{emitter->GetRotation().ToMatrix()};
+		CMatrix3D spaceTransform;
+		if (emitter->m_Type->m_UseLocalSpace)
+		{
+			spaceTransform = rotationMatrix;
+			spaceTransform.Translate(emitter->GetPosition());
+		}
+		else
+			spaceTransform.SetIdentity();
+
+		Renderer::Backend::IShaderProgram* shader = lastTech->GetShader();
+		deviceCommandContext->SetUniform(
+			shader->GetBindingSlot(str_spaceTransform), spaceTransform.AsFloatArray());
 		emitter->Bind(deviceCommandContext, lastTech->GetShader());
 		emitter->RenderArray(deviceCommandContext);
 	}
@@ -182,12 +214,13 @@ void ParticleRenderer::RenderParticles(
 		deviceCommandContext->EndPass();
 }
 
-void ParticleRenderer::RenderBounds(int cullGroup)
+void ParticleRenderer::RenderBounds(Renderer::Backend::IDeviceCommandContext& deviceCommandContext, int cullGroup)
 {
 	for (const CParticleEmitter* emitter : m->emitters[cullGroup])
 	{
 		const CBoundingBoxAligned bounds =
 			emitter->m_Type->CalculateBounds(emitter->GetPosition(), emitter->GetParticleBounds());
-		g_Renderer.GetDebugRenderer().DrawBoundingBox(bounds, CColor(0.0f, 1.0f, 0.0f, 1.0f), true);
+
+		g_Renderer.GetDebugRenderer().DrawBoundingBox(deviceCommandContext, bounds, CColor(0.0f, 1.0f, 0.0f, 1.0f), true);
 	}
 }

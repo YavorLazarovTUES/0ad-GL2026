@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,13 +19,15 @@
 #define INCLUDED_GAMESETUP
 
 #include "ps/CStr.h"
+#include "ps/Input.h"
 
+#include <queue>
 #include <vector>
 
 class CmdLineArgs;
 class Paths;
-class ScriptContext;
-class ScriptInterface;
+namespace Script { class Context; }
+namespace Script { class Interface; }
 
 /**
  * initialize global modules that are be needed before Init.
@@ -70,13 +72,16 @@ void InitVfs(const CmdLineArgs& args);
  * `ShutdownConfigAndSubsequent` has to be called later.
  */
 extern bool Init(const CmdLineArgs& args, int flags);
-extern void InitInput();
+
+using InputHandlers = std::queue<Input::Handler<Input::Reaction(&)(const SDL_Event&)>>;
+[[nodiscard]] std::unique_ptr<InputHandlers> MakeInputHandlers();
 
 /**
  * `ShutdownNetworkAndUI` has to be called later.
  */
-void InitGraphics(const CmdLineArgs& args, int flags, const std::vector<CStr>& installedMods,
-	ScriptContext& scriptContext, ScriptInterface& scriptInterface);
+[[nodiscard]] std::unique_ptr<InputHandlers> InitGraphics(const CmdLineArgs& args, int flags,
+	const std::vector<CStr>& installedMods, Script::Context& scriptContext,
+	Script::Interface& scriptInterface);
 
 /**
  * `ShutdownNetworkAndUI` has to be called later.

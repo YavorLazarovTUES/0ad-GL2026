@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,26 +19,59 @@
 
 #include "MaterialManager.h"
 
+#include "graphics/Material.h"
 #include "graphics/PreprocessorWrapper.h"
+#include "lib/path.h"
 #include "maths/MathUtil.h"
 #include "maths/Vector4D.h"
 #include "ps/CLogger.h"
-#include "ps/ConfigDB.h"
+#include "ps/CStr.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
+#include "ps/ConfigDB.h"
+#include "ps/Errors.h"
 #include "ps/Filesystem.h"
+#include "ps/XMB/XMBData.h"
+#include "ps/XMB/XMBStorage.h"
 #include "ps/XML/Xeromyces.h"
-#include "renderer/RenderingOptions.h"
 
 #include <sstream>
+#include <string>
+#include <utility>
 
-CMaterialManager::CMaterialManager()
+namespace
 {
-	qualityLevel = 5.0;
-	CFG_GET_VAL("materialmgr.quality", qualityLevel);
-	qualityLevel = Clamp(qualityLevel, 0.0f, 10.0f);
 
-	if (VfsDirectoryExists(L"art/materials/") && !CXeromyces::AddValidator(g_VFS, "material", "art/materials/material.rng"))
+CMaterial::Pass GetMaterialPassFromStr(const std::string_view pass)
+{
+	if (pass == "shadow_caster")
+		return CMaterial::Pass::SHADOW_CASTER;
+	else if (pass == "reflections")
+		return CMaterial::Pass::REFLECTIONS;
+	else if (pass == "refractions")
+		return CMaterial::Pass::REFRACTIONS;
+	else if (pass == "silhouette_occluder")
+		return CMaterial::Pass::SILHOUETTE_OCCLUDER;
+	else if (pass == "silhouette_caster")
+		return CMaterial::Pass::SILHOUETTE_CASTER;
+	else if (pass == "wireframe")
+		return CMaterial::Pass::WIREFRAME;
+	else if (pass == "wireframe_solid")
+		return CMaterial::Pass::WIREFRAME_SOLID;
+	else
+		return CMaterial::Pass::MAIN;
+}
+
+}
+
+CMaterialManager::CMaterialManager() :
+	qualityLevel{Clamp(g_ConfigDB.Get("materialmgr.quality", 5.0f), 0.0f, 10.0f)}
+{
+	if (VfsDirectoryExists(L"art/materials/") &&
+		!g_Xeromyces.AddValidator(g_VFS, "material", "art/materials/material.rng"))
+	{
 		LOGERROR("CMaterialManager: failed to load grammar file 'art/materials/material.rng'");
+	}
 }
 
 CMaterial CMaterialManager::LoadMaterial(const VfsPath& pathname)
@@ -69,6 +102,7 @@ CMaterial CMaterialManager::LoadMaterial(const VfsPath& pathname)
 	AT(quality);
 	AT(material);
 	AT(name);
+	AT(pass);
 	AT(value);
 	#undef AT
 	#undef EL
@@ -106,7 +140,9 @@ CMaterial CMaterialManager::LoadMaterial(const VfsPath& pathname)
 		}
 		else if (token == el_shader)
 		{
-			material.SetShaderEffect(attrs.GetNamedItem(at_effect));
+			const CStr pass{attrs.GetNamedItem(at_pass)};
+			const CStrIntern shaderEffect{attrs.GetNamedItem(at_effect)};
+			material.SetShaderEffect(GetMaterialPassFromStr(pass), shaderEffect);
 		}
 		else if (token == el_define)
 		{

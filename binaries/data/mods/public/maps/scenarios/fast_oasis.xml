@@ -63,7 +63,7 @@
       "Team": -1
     },
     {
-      "Civ": "pers",
+      "Civ": "achae",
       "Color": {
         "b": 5,
         "g": 165,
@@ -6532,79 +6532,79 @@
 			<Orientation y="-3.00841"/>
 		</Entity>
 		<Entity uid="8664">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="89.90432" z="127.6572"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="8665">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="96.59443" z="229.48182"/>
 			<Orientation y="-0.82325"/>
 		</Entity>
 		<Entity uid="8666">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="245.699" z="68.98067"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="8667">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="149.38976" z="259.30433"/>
 			<Orientation y="-2.2973"/>
 		</Entity>
 		<Entity uid="8668">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="142.9857" z="463.7461"/>
 			<Orientation y="-1.80494"/>
 		</Entity>
 		<Entity uid="8669">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="434.96229" z="482.98881"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="8670">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="553.08692" z="554.6316"/>
 			<Orientation y="0.4779"/>
 		</Entity>
 		<Entity uid="8671">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="438.3607" z="332.49781"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="8672">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="409.56458" z="241.39167"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="8673">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="415.2432" z="89.75101"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="8676">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="94.63064" z="283.07325"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="8677">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="369.46146" z="318.06083"/>
 			<Orientation y="0.94745"/>
 		</Entity>
 		<Entity uid="8678">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="19.93805" z="23.45196"/>
 			<Orientation y="2.35621"/>
@@ -6616,19 +6616,19 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="8689">
-			<Template>structures/pers/civil_centre</Template>
+			<Template>structures/achae/civil_centre</Template>
 			<Player>3</Player>
 			<Position x="112.22886" z="403.89072"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="8694">
-			<Template>gaia/ore/badlands_large</Template>
+			<Template>gaia/ore/badlands_01</Template>
 			<Player>0</Player>
 			<Position x="39.58915" z="530.29517"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="8695">
-			<Template>gaia/ore/badlands_large</Template>
+			<Template>gaia/ore/badlands_01</Template>
 			<Player>0</Player>
 			<Position x="549.54267" z="26.28515"/>
 			<Orientation y="-0.05803"/>

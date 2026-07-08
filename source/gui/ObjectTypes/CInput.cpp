@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,15 +24,35 @@
 #include "graphics/TextRenderer.h"
 #include "gui/CGUI.h"
 #include "gui/CGUIScrollBarVertical.h"
+#include "gui/IGUIScrollBar.h"
+#include "gui/SGUIMessage.h"
+#include "gui/SettingTypes/EAlign.h"
+#include "lib/debug.h"
+#include "lib/external_libraries/libsdl.h"
 #include "lib/timer.h"
 #include "lib/utf8.h"
+#include "maths/Size2D.h"
+#include "maths/Vector2D.h"
+#include "ps/CStrIntern.h"
 #include "ps/ConfigDB.h"
-#include "ps/CStrInternStatic.h"
-#include "ps/GameSetup/Config.h"
 #include "ps/Globals.h"
 #include "ps/Hotkey.h"
+#include "ps/Input.h"
 
-#include <sstream>
+#include <SDL_clipboard.h>
+#include <SDL_events.h>
+#include <SDL_keyboard.h>
+#include <SDL_mouse.h>
+#include <SDL_rect.h>
+#include <SDL_scancode.h>
+#include <SDL_stdinc.h>
+#include <algorithm>
+#include <cstring>
+#include <cwchar>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <utility>
 
 extern int g_yres;
 
@@ -50,7 +70,7 @@ CInput::CInput(CGUI& pGUI)
 	m_HorizontalScroll(),
 	m_PrevTime(),
 	m_CursorVisState(true),
-	m_CursorBlinkRate(0.5),
+	m_CursorBlinkRate{g_ConfigDB.Get("gui.cursorblinkrate", 0.5)},
 	m_ComposingText(),
 	m_GeneratedPlaceholderTextValid(false),
 	m_iComposedLength(),
@@ -75,15 +95,9 @@ CInput::CInput(CGUI& pGUI)
 	m_PlaceholderText(this, "placeholder_text"),
 	m_PlaceholderColor(this, "placeholder_color")
 {
-	CFG_GET_VAL("gui.cursorblinkrate", m_CursorBlinkRate);
-
 	auto bar = std::make_unique<CGUIScrollBarVertical>(pGUI);
 	bar->SetRightAligned(true);
 	AddScrollBar(std::move(bar));
-}
-
-CInput::~CInput()
-{
 }
 
 void CInput::UpdateBufferPositionSetting()
@@ -100,7 +114,7 @@ void CInput::ClearComposedText()
 	m_iComposedPos = 0;
 }
 
-InReaction CInput::ManuallyHandleKeys(const SDL_Event_* ev)
+Input::Reaction CInput::ManuallyHandleKeys(const SDL_Event& ev)
 {
 	ENSURE(m_iBufferPos != -1);
 
@@ -108,12 +122,12 @@ InReaction CInput::ManuallyHandleKeys(const SDL_Event_* ev)
 	// (Messages don't currently need to be sent)
 	CStrW& caption = m_Caption.GetMutable();
 
-	switch (ev->ev.type)
+	switch (ev.type)
 	{
 	case SDL_HOTKEYDOWN:
 	{
 		if (m_ComposingText)
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 
 		return ManuallyHandleHotkeyEvent(ev);
 	}
@@ -122,14 +136,14 @@ InReaction CInput::ManuallyHandleKeys(const SDL_Event_* ev)
 	case SDL_TEXTINPUT:
 	{
 		if (m_Readonly)
-			return IN_PASS;
+			return Input::Reaction::PASS;
 
 		// Text has been committed, either single key presses or through an IME
-		std::wstring text = wstring_from_utf8(ev->ev.text.text);
+		std::wstring text = wstring_from_utf8(ev.text.text);
 
 		// Check max length
 		if (m_MaxLength != 0 && caption.length() + text.length() > static_cast<size_t>(m_MaxLength))
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 
 		m_WantedX = 0.0f;
 
@@ -156,16 +170,16 @@ InReaction CInput::ManuallyHandleKeys(const SDL_Event_* ev)
 		UpdateAutoScroll();
 		SendEvent(GUIM_TEXTEDIT, EventNameTextEdit);
 
-		return IN_HANDLED;
+		return Input::Reaction::HANDLED;
 	}
 	case SDL_TEXTEDITING:
 	{
 		if (m_Readonly)
-			return IN_PASS;
+			return Input::Reaction::PASS;
 
 		// Text is being composed with an IME
 		// TODO: indicate this by e.g. underlining the uncommitted text
-		const char* rawText = ev->ev.edit.text;
+		const char* rawText = ev.edit.text;
 		int rawLength = strlen(rawText);
 		std::wstring wtext = wstring_from_utf8(rawText);
 
@@ -183,7 +197,7 @@ InReaction CInput::ManuallyHandleKeys(const SDL_Event_* ev)
 			ClearComposedText();
 		}
 
-		m_ComposingText = ev->ev.edit.start != 0 || rawLength != 0;
+		m_ComposingText = ev.edit.start != 0 || rawLength != 0;
 		if (m_ComposingText)
 		{
 			caption.insert(m_iInsertPos, wtext);
@@ -191,7 +205,7 @@ InReaction CInput::ManuallyHandleKeys(const SDL_Event_* ev)
 			// The text buffer is limited to SDL_TEXTEDITINGEVENT_TEXT_SIZE bytes, yet start
 			// increases without limit, so don't let it advance beyond the composed text length
 			m_iComposedLength = wtext.length();
-			m_iComposedPos = ev->ev.edit.start < m_iComposedLength ? ev->ev.edit.start : m_iComposedLength;
+			m_iComposedPos = ev.edit.start < m_iComposedLength ? ev.edit.start : m_iComposedLength;
 			m_iBufferPos = m_iInsertPos + m_iComposedPos;
 
 			// TODO: composed text selection - what does ev.edit.length do?
@@ -204,7 +218,7 @@ InReaction CInput::ManuallyHandleKeys(const SDL_Event_* ev)
 		UpdateAutoScroll();
 		SendEvent(GUIM_TEXTEDIT, EventNameTextEdit);
 
-		return IN_HANDLED;
+		return Input::Reaction::HANDLED;
 	}
 	case SDL_KEYDOWN:
 	case SDL_KEYUP:
@@ -212,7 +226,7 @@ InReaction CInput::ManuallyHandleKeys(const SDL_Event_* ev)
 		// Since the GUI framework doesn't handle to set settings
 		//  in Unicode (CStrW), we'll simply retrieve the actual
 		//  pointer and edit that.
-		SDL_Keycode keyCode = ev->ev.key.keysym.sym;
+		SDL_Keycode keyCode = ev.key.keysym.sym;
 
 		// We have a probably printable key - we should return HANDLED so it can't trigger hotkeys.
 		// However, if Ctrl/Meta modifiers are active, just pass it through instead,
@@ -224,23 +238,23 @@ InReaction CInput::ManuallyHandleKeys(const SDL_Event_* ev)
 		if (keyCode == SDLK_ESCAPE || EventWillFireHotkey(ev, "cancel") ||
 		     g_scancodes[SDL_SCANCODE_LCTRL] || g_scancodes[SDL_SCANCODE_RCTRL] ||
 		     g_scancodes[SDL_SCANCODE_LGUI] || g_scancodes[SDL_SCANCODE_RGUI])
-			return IN_PASS;
+			return Input::Reaction::PASS;
 
 		if (m_ComposingText)
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 
-		if (ev->ev.type == SDL_KEYDOWN)
+		if (ev.type == SDL_KEYDOWN)
 		{
 			ManuallyImmutableHandleKeyDownEvent(keyCode);
 			ManuallyMutableHandleKeyDownEvent(keyCode);
 
 			UpdateBufferPositionSetting();
 		}
-		return IN_HANDLED;
+		return Input::Reaction::HANDLED;
 	}
 	default:
 	{
-		return IN_PASS;
+		return Input::Reaction::PASS;
 	}
 	}
 }
@@ -328,7 +342,7 @@ void CInput::ManuallyMutableHandleKeyDownEvent(const SDL_Keycode keyCode)
 		}
 
 		cooked = '\n'; // Change to '\n' and do default:
-		FALLTHROUGH;
+		[[fallthrough]];
 	}
 	default: // Insert a character
 	{
@@ -606,11 +620,11 @@ void CInput::SetupGeneratedPlaceholderText()
 	m_GeneratedPlaceholderTextValid = true;
 }
 
-InReaction CInput::ManuallyHandleHotkeyEvent(const SDL_Event_* ev)
+Input::Reaction CInput::ManuallyHandleHotkeyEvent(const SDL_Event& ev)
 {
 	bool shiftKeyPressed = g_scancodes[SDL_SCANCODE_LSHIFT] || g_scancodes[SDL_SCANCODE_RSHIFT];
 
-	std::string hotkey = static_cast<const char*>(ev->ev.user.data1);
+	std::string hotkey = static_cast<const char*>(ev.user.data1);
 
 	// Get direct access to silently mutate m_Caption.
 	// (Messages don't currently need to be sent)
@@ -619,13 +633,13 @@ InReaction CInput::ManuallyHandleHotkeyEvent(const SDL_Event_* ev)
 	if (hotkey == "paste")
 	{
 		if (m_Readonly)
-			return IN_PASS;
+			return Input::Reaction::PASS;
 
 		m_WantedX = 0.0f;
 
 		char* utf8_text = SDL_GetClipboardText();
 		if (!utf8_text)
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 
 		std::wstring text = wstring_from_utf8(utf8_text);
 		SDL_free(utf8_text);
@@ -652,12 +666,12 @@ InReaction CInput::ManuallyHandleHotkeyEvent(const SDL_Event_* ev)
 
 		SendEvent(GUIM_TEXTEDIT, EventNameTextEdit);
 
-		return IN_HANDLED;
+		return Input::Reaction::HANDLED;
 	}
 	else if (hotkey == "copy" || hotkey == "cut")
 	{
 		if (m_Readonly && hotkey == "cut")
-			return IN_PASS;
+			return Input::Reaction::PASS;
 
 		m_WantedX = 0.0f;
 
@@ -689,12 +703,12 @@ InReaction CInput::ManuallyHandleHotkeyEvent(const SDL_Event_* ev)
 			}
 		}
 
-		return IN_HANDLED;
+		return Input::Reaction::HANDLED;
 	}
 	else if (hotkey == "text.delete.left")
 	{
 		if (m_Readonly)
-			return IN_PASS;
+			return Input::Reaction::PASS;
 
 		m_WantedX = 0.0f;
 
@@ -735,12 +749,12 @@ InReaction CInput::ManuallyHandleHotkeyEvent(const SDL_Event_* ev)
 			SendEvent(GUIM_TEXTEDIT, EventNameTextEdit);
 		}
 		UpdateAutoScroll();
-		return IN_HANDLED;
+		return Input::Reaction::HANDLED;
 	}
 	else if (hotkey == "text.delete.right")
 	{
 		if (m_Readonly)
-			return IN_PASS;
+			return Input::Reaction::PASS;
 
 		m_WantedX = 0.0f;
 
@@ -772,7 +786,7 @@ InReaction CInput::ManuallyHandleHotkeyEvent(const SDL_Event_* ev)
 		}
 		UpdateAutoScroll();
 		SendEvent(GUIM_TEXTEDIT, EventNameTextEdit);
-		return IN_HANDLED;
+		return Input::Reaction::HANDLED;
 	}
 	else if (hotkey == "text.move.left")
 	{
@@ -825,7 +839,7 @@ InReaction CInput::ManuallyHandleHotkeyEvent(const SDL_Event_* ev)
 		UpdateBufferPositionSetting();
 		UpdateAutoScroll();
 
-		return IN_HANDLED;
+		return Input::Reaction::HANDLED;
 	}
 	else if (hotkey == "text.move.right")
 	{
@@ -868,10 +882,10 @@ InReaction CInput::ManuallyHandleHotkeyEvent(const SDL_Event_* ev)
 		UpdateBufferPositionSetting();
 		UpdateAutoScroll();
 
-		return IN_HANDLED;
+		return Input::Reaction::HANDLED;
 	}
 
-	return IN_PASS;
+	return Input::Reaction::PASS;
 }
 
 void CInput::ResetStates()
@@ -883,7 +897,8 @@ void CInput::ResetStates()
 void CInput::HandleMessage(SGUIMessage& Message)
 {
 	IGUIObject::HandleMessage(Message);
-	IGUIScrollBarOwner::HandleMessage(Message);
+	if (m_ScrollBar)
+		IGUIScrollBarOwner::HandleMessage(Message);
 
 	// Cleans up operator[] usage.
 	const CStrW& caption = *m_Caption;
@@ -899,10 +914,10 @@ void CInput::HandleMessage(SGUIMessage& Message)
 			 Message.value == "z" ||
 			 Message.value == "absolute"))
 		{
-			GetScrollBar(0).SetX(m_CachedActualSize.right);
-			GetScrollBar(0).SetY(m_CachedActualSize.top);
+			GetScrollBar(0).SetX(GetActualSize().right);
+			GetScrollBar(0).SetY(GetActualSize().top);
 			GetScrollBar(0).SetZ(GetBufferedZ());
-			GetScrollBar(0).SetLength(m_CachedActualSize.bottom - m_CachedActualSize.top);
+			GetScrollBar(0).SetLength(GetActualSize().bottom - GetActualSize().top);
 		}
 
 		// Update scrollbar
@@ -931,7 +946,7 @@ void CInput::HandleMessage(SGUIMessage& Message)
 			if (!m_MultiLine)
 				GetScrollBar(0).SetLength(0.f);
 			else
-				GetScrollBar(0).SetLength(m_CachedActualSize.bottom - m_CachedActualSize.top);
+				GetScrollBar(0).SetLength(GetActualSize().bottom - GetActualSize().top);
 
 			UpdateText();
 		}
@@ -956,7 +971,7 @@ void CInput::HandleMessage(SGUIMessage& Message)
 		    m_MultiLine &&
 		    GetScrollBar(0).GetStyle())
 		{
-			if (m_pGUI.GetMousePos().X > m_CachedActualSize.right - GetScrollBar(0).GetStyle()->m_Width)
+			if (m_pGUI.GetMousePos().X > GetActualSize().right - GetScrollBar(0).GetStyle()->m_Width)
 				break;
 		}
 
@@ -1113,10 +1128,10 @@ void CInput::HandleMessage(SGUIMessage& Message)
 	}
 	case GUIM_LOAD:
 	{
-		GetScrollBar(0).SetX(m_CachedActualSize.right);
-		GetScrollBar(0).SetY(m_CachedActualSize.top);
+		GetScrollBar(0).SetX(GetActualSize().right);
+		GetScrollBar(0).SetY(GetActualSize().top);
 		GetScrollBar(0).SetZ(GetBufferedZ());
-		GetScrollBar(0).SetLength(m_CachedActualSize.bottom - m_CachedActualSize.top);
+		GetScrollBar(0).SetLength(GetActualSize().bottom - GetActualSize().top);
 		GetScrollBar(0).SetScrollBarStyle(m_ScrollBarStyle);
 
 		UpdateText();
@@ -1134,10 +1149,10 @@ void CInput::HandleMessage(SGUIMessage& Message)
 
 		// Tell the IME where to draw the candidate list
 		SDL_Rect rect;
-		rect.h = m_CachedActualSize.GetSize().Height;
-		rect.w = m_CachedActualSize.GetSize().Width;
-		rect.x = m_CachedActualSize.TopLeft().X;
-		rect.y = m_CachedActualSize.TopLeft().Y;
+		rect.h = GetActualSize().GetSize().Height;
+		rect.w = GetActualSize().GetSize().Width;
+		rect.x = GetActualSize().TopLeft().X;
+		rect.y = GetActualSize().TopLeft().Y;
 		SDL_SetTextInputRect(&rect);
 		SDL_StartTextInput();
 		break;
@@ -1147,12 +1162,12 @@ void CInput::HandleMessage(SGUIMessage& Message)
 		if (m_ComposingText)
 		{
 			// Simulate a final text editing event to clear the composition
-			SDL_Event_ evt;
-			evt.ev.type = SDL_TEXTEDITING;
-			evt.ev.edit.length = 0;
-			evt.ev.edit.start = 0;
-			evt.ev.edit.text[0] = 0;
-			ManuallyHandleKeys(&evt);
+			SDL_Event ev{};
+			ev.type = SDL_TEXTEDITING;
+			ev.edit.length = 0;
+			ev.edit.start = 0;
+			ev.edit.text[0] = '\0';
+			ManuallyHandleKeys(ev);
 		}
 		SDL_StopTextInput();
 
@@ -1168,19 +1183,19 @@ void CInput::HandleMessage(SGUIMessage& Message)
 	UpdateBufferPositionSetting();
 }
 
-void CInput::UpdateCachedSize()
+void CInput::HandleSizeChanged()
 {
 	// If an ancestor's size changed, this will let us intercept the change and
 	// update our scrollbar positions
 
-	IGUIObject::UpdateCachedSize();
+	IGUIObject::HandleSizeChanged();
 
 	if (m_ScrollBar)
 	{
-		GetScrollBar(0).SetX(m_CachedActualSize.right);
-		GetScrollBar(0).SetY(m_CachedActualSize.top);
+		GetScrollBar(0).SetX(GetActualSize().right);
+		GetScrollBar(0).SetY(GetActualSize().top);
 		GetScrollBar(0).SetZ(GetBufferedZ());
-		GetScrollBar(0).SetLength(m_CachedActualSize.bottom - m_CachedActualSize.top);
+		GetScrollBar(0).SetLength(GetActualSize().bottom - GetActualSize().top);
 	}
 
 	m_GeneratedPlaceholderTextValid = false;
@@ -1208,7 +1223,7 @@ void CInput::DrawContent(CCanvas2D& canvas)
 	if (m_Mask && m_MaskChar->length() > 0)
 		mask_char = (*m_MaskChar)[0];
 
-	m_pGUI.DrawSprite(m_Sprite, canvas, m_CachedActualSize);
+	m_pGUI.DrawSprite(m_Sprite, canvas, GetActualSize());
 
 	float scroll = 0.f;
 	if (m_ScrollBar && m_MultiLine)
@@ -1231,15 +1246,15 @@ void CInput::DrawContent(CCanvas2D& canvas)
 	}
 
 	// Get the height of this font.
-	float h = (float)font.GetHeight();
-	float ls = (float)font.GetLineSpacing();
+	const float h{font.GetCapHeight()};
+	const float ls{font.GetHeight()};
 
 	CTextRenderer textRenderer;
-	textRenderer.SetCurrentFont(font_name);
+	textRenderer.SetCurrentFont(font_name, CStrIntern{});
 
 	textRenderer.Translate(
-		(float)(int)(m_CachedActualSize.left) + m_BufferZone,
-		(float)(int)(m_CachedActualSize.top + h) + m_BufferZone);
+		(float)(int)(GetActualSize().left) + m_BufferZone,
+		(float)(int)(GetActualSize().top + h) + m_BufferZone);
 
 	// U+FE33: PRESENTATION FORM FOR VERTICAL LOW LINE
 	// (sort of like a | which is aligned to the left of most characters)
@@ -1292,7 +1307,7 @@ void CInput::DrawContent(CCanvas2D& canvas)
 			it != m_CharacterPositions.end();
 			++it, buffered_y += ls, x_pointer = 0.f)
 		{
-			if (m_MultiLine && buffered_y > m_CachedActualSize.GetHeight())
+			if (m_MultiLine && buffered_y > GetActualSize().GetHeight())
 				break;
 
 			// We might as well use 'i' here to iterate, because we need it
@@ -1334,33 +1349,33 @@ void CInput::DrawContent(CCanvas2D& canvas)
 					if (m_MultiLine)
 					{
 						rect = CRect(
-							m_CachedActualSize.left + box_x + m_BufferZone,
-							m_CachedActualSize.top + buffered_y + (h - ls) / 2,
-							m_CachedActualSize.left + x_pointer + m_BufferZone,
-							m_CachedActualSize.top + buffered_y + (h + ls) / 2);
+							GetActualSize().left + box_x + m_BufferZone,
+							GetActualSize().top + buffered_y + (h - ls) / 2,
+							GetActualSize().left + x_pointer + m_BufferZone,
+							GetActualSize().top + buffered_y + (h + ls) / 2);
 
-						if (rect.bottom < m_CachedActualSize.top)
+						if (rect.bottom < GetActualSize().top)
 							continue;
 
-						if (rect.top < m_CachedActualSize.top)
-							rect.top = m_CachedActualSize.top;
+						if (rect.top < GetActualSize().top)
+							rect.top = GetActualSize().top;
 
-						if (rect.bottom > m_CachedActualSize.bottom)
-							rect.bottom = m_CachedActualSize.bottom;
+						if (rect.bottom > GetActualSize().bottom)
+							rect.bottom = GetActualSize().bottom;
 					}
 					else // if one-line
 					{
 						rect = CRect(
-							m_CachedActualSize.left + box_x + m_BufferZone - m_HorizontalScroll,
-							m_CachedActualSize.top + buffered_y + (h - ls) / 2,
-							m_CachedActualSize.left + x_pointer + m_BufferZone - m_HorizontalScroll,
-							m_CachedActualSize.top + buffered_y + (h + ls) / 2);
+							GetActualSize().left + box_x + m_BufferZone - m_HorizontalScroll,
+							GetActualSize().top + buffered_y + (h - ls) / 2,
+							GetActualSize().left + x_pointer + m_BufferZone - m_HorizontalScroll,
+							GetActualSize().top + buffered_y + (h + ls) / 2);
 
-						if (rect.left < m_CachedActualSize.left)
-							rect.left = m_CachedActualSize.left;
+						if (rect.left < GetActualSize().left)
+							rect.left = GetActualSize().left;
 
-						if (rect.right > m_CachedActualSize.right)
-							rect.right = m_CachedActualSize.right;
+						if (rect.right > GetActualSize().right)
+							rect.right = GetActualSize().right;
 					}
 
 					m_pGUI.DrawSprite(m_SpriteSelectArea, canvas, rect);
@@ -1400,7 +1415,7 @@ void CInput::DrawContent(CCanvas2D& canvas)
 	{
 		if (buffered_y + m_BufferZone >= -ls || !m_MultiLine)
 		{
-			if (m_MultiLine && buffered_y + m_BufferZone > m_CachedActualSize.GetHeight())
+			if (m_MultiLine && buffered_y + m_BufferZone > GetActualSize().GetHeight())
 				break;
 
 			const CVector2D savedTranslate = textRenderer.GetTranslate();
@@ -1460,7 +1475,7 @@ void CInput::DrawContent(CCanvas2D& canvas)
 
 				// check it's now outside a one-liner, then we'll break
 				if (!m_MultiLine && i < (int)it->m_ListOfX.size() &&
-					it->m_ListOfX[i] - m_HorizontalScroll > m_CachedActualSize.GetWidth() - m_BufferZone)
+					it->m_ListOfX[i] - m_HorizontalScroll > GetActualSize().GetWidth() - m_BufferZone)
 					break;
 			}
 
@@ -1486,7 +1501,7 @@ void CInput::DrawContent(CCanvas2D& canvas)
 void CInput::Draw(CCanvas2D& canvas)
 {
 	// We'll have to setup clipping manually, since we're doing the rendering manually.
-	CRect cliparea(m_CachedActualSize);
+	CRect cliparea = m_VisibleArea ? m_VisibleArea : GetActualSize();
 
 	// First we'll figure out the clipping area, which is the cached actual size
 	//  substracted by an optional scrollbar
@@ -1521,7 +1536,7 @@ void CInput::Draw(CCanvas2D& canvas)
 		IGUIScrollBarOwner::Draw(canvas);
 
 	// Draw the overlays last
-	m_pGUI.DrawSprite(m_SpriteOverlay, canvas, m_CachedActualSize);
+	m_pGUI.DrawSprite(m_SpriteOverlay, canvas, GetActualSize(), m_VisibleArea);
 }
 
 void CInput::DrawPlaceholderText(CCanvas2D& canvas, const CRect& clipping)
@@ -1529,7 +1544,7 @@ void CInput::DrawPlaceholderText(CCanvas2D& canvas, const CRect& clipping)
 	if (!m_GeneratedPlaceholderTextValid)
 		SetupGeneratedPlaceholderText();
 
-	m_GeneratedPlaceholderText.Draw(m_pGUI, canvas, m_PlaceholderColor, m_CachedActualSize.TopLeft(), clipping);
+	m_GeneratedPlaceholderText.Draw(m_pGUI, canvas, m_PlaceholderColor, GetActualSize().TopLeft(), clipping);
 }
 
 void CInput::UpdateText(int from, int to_before, int to_after)
@@ -1879,8 +1894,8 @@ void CInput::UpdateText(int from, int to_before, int to_after)
 
 	if (m_ScrollBar)
 	{
-		GetScrollBar(0).SetScrollRange(m_CharacterPositions.size() * font.GetLineSpacing() + m_BufferZone * 2.f);
-		GetScrollBar(0).SetScrollSpace(m_CachedActualSize.GetHeight());
+		GetScrollBar(0).SetScrollRange(m_CharacterPositions.size() * font.GetHeight() + m_BufferZone * 2.f);
+		GetScrollBar(0).SetScrollSpace(GetActualSize().GetHeight());
 	}
 }
 
@@ -1902,13 +1917,11 @@ int CInput::GetMouseHoveringTextPosition() const
 		if (m_ScrollBar)
 			scroll = GetScrollBarPos(0);
 
-		// Now get the height of the font.
-						// TODO: Get the real font
-		CFontMetrics font(CStrIntern(m_Font->ToUTF8()));
-		float spacing = (float)font.GetLineSpacing();
+		const CFontMetrics font{CStrIntern{m_Font->ToUTF8()}};
+		const float spacing{font.GetHeight()};
 
 		// Change mouse position relative to text.
-		mouse -= m_CachedActualSize.TopLeft();
+		mouse -= GetActualSize().TopLeft();
 		mouse.X -= m_BufferZone;
 		mouse.Y += scroll - m_BufferZone;
 
@@ -1930,7 +1943,7 @@ int CInput::GetMouseHoveringTextPosition() const
 	{
 		// current is already set to begin,
 		//  but we'll change the mouse.x to fit our horizontal scrolling
-		mouse -= m_CachedActualSize.TopLeft();
+		mouse -= GetActualSize().TopLeft();
 		mouse.X -= m_BufferZone - m_HorizontalScroll;
 		// mouse.y is moot
 	}
@@ -2016,9 +2029,9 @@ bool CInput::SelectingText() const
 float CInput::GetTextAreaWidth()
 {
 	if (m_ScrollBar && GetScrollBar(0).GetStyle())
-		return m_CachedActualSize.GetWidth() - m_BufferZone * 2.f - GetScrollBar(0).GetStyle()->m_Width;
+		return GetActualSize().GetWidth() - m_BufferZone * 2.f - GetScrollBar(0).GetStyle()->m_Width;
 
-	return m_CachedActualSize.GetWidth() - m_BufferZone * 2.f;
+	return GetActualSize().GetWidth() - m_BufferZone * 2.f;
 }
 
 void CInput::UpdateAutoScroll()
@@ -2031,11 +2044,8 @@ void CInput::UpdateAutoScroll()
 
 		const float scroll = GetScrollBar(0).GetPos();
 
-		// Now get the height of the font.
-						// TODO: Get the real font
-		CFontMetrics font(CStrIntern(m_Font->ToUTF8()));
-		float spacing = (float)font.GetLineSpacing();
-		//float height = font.GetHeight();
+		const CFontMetrics font{CStrIntern{m_Font->ToUTF8()}};
+		const float spacing{font.GetHeight()};
 
 		// TODO Gee (2004-11-21): Okay, I need a 'std::list' for some reasons, but I would really like to
 		//  be able to get the specific element here. This is hopefully a temporary hack.
@@ -2053,10 +2063,10 @@ void CInput::UpdateAutoScroll()
 		}
 
 		// If scrolling down
-		if (-scroll + static_cast<float>(row + 1) * spacing + m_BufferZone * 2.f > m_CachedActualSize.GetHeight())
+		if (-scroll + static_cast<float>(row + 1) * spacing + m_BufferZone * 2.f > GetActualSize().GetHeight())
 		{
 			// Scroll so the selected row is shown completely, also with m_BufferZone length to the edge.
-			GetScrollBar(0).SetPos(static_cast<float>(row + 1) * spacing - m_CachedActualSize.GetHeight() + m_BufferZone * 2.f);
+			GetScrollBar(0).SetPos(static_cast<float>(row + 1) * spacing - GetActualSize().GetHeight() + m_BufferZone * 2.f);
 		}
 		// If scrolling up
 		else if (-scroll + (float)row * spacing < 0.f)
@@ -2086,8 +2096,8 @@ void CInput::UpdateAutoScroll()
 		}
 
 		// Check if outside to the right
-		if (x_position - m_HorizontalScroll + m_BufferZone * 2.f > m_CachedActualSize.GetWidth())
-			m_HorizontalScroll = x_position - m_CachedActualSize.GetWidth() + m_BufferZone * 2.f;
+		if (x_position - m_HorizontalScroll + m_BufferZone * 2.f > GetActualSize().GetWidth())
+			m_HorizontalScroll = x_position - GetActualSize().GetWidth() + m_BufferZone * 2.f;
 
 		// Check if outside to the left
 		if (x_position - m_HorizontalScroll < 0.f)
@@ -2095,12 +2105,12 @@ void CInput::UpdateAutoScroll()
 
 		// Check if the text doesn't even fill up to the right edge even though scrolling is done.
 		if (m_HorizontalScroll != 0.f &&
-			x_total - m_HorizontalScroll + m_BufferZone * 2.f < m_CachedActualSize.GetWidth())
-			m_HorizontalScroll = x_total - m_CachedActualSize.GetWidth() + m_BufferZone * 2.f;
+			x_total - m_HorizontalScroll + m_BufferZone * 2.f < GetActualSize().GetWidth())
+			m_HorizontalScroll = x_total - GetActualSize().GetWidth() + m_BufferZone * 2.f;
 
 		// Now this is the fail-safe, if x_total isn't even the length of the control,
 		//  remove all scrolling
-		if (x_total + m_BufferZone * 2.f < m_CachedActualSize.GetWidth())
+		if (x_total + m_BufferZone * 2.f < GetActualSize().GetWidth())
 			m_HorizontalScroll = 0.f;
 	}
 }

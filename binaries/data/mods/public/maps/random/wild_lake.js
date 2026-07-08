@@ -3,7 +3,7 @@ Engine.LoadLibrary("rmgen-common");
 Engine.LoadLibrary("rmbiome");
 Engine.LoadLibrary("heightmap");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
 	globalThis.g_Map = new RandomMap(0, "whiteness");
 
@@ -12,12 +12,12 @@ function* GenerateMap()
 	 */
 	function getArray(stringOrArrayOfStrings)
 	{
-		if (typeof stringOrArrayOfStrings == "string")
+		if (typeof stringOrArrayOfStrings === "string")
 			return [stringOrArrayOfStrings];
 		return stringOrArrayOfStrings;
 	}
 
-	setSelectedBiome();
+	setBiome(mapSettings.Biome);
 
 	// Terrain, entities and actors
 	const wildLakeBiome = [
@@ -451,7 +451,7 @@ function* GenerateMap()
 	// NOTE: Since terrain generation is quite unpredictable actual water
 	//	coverage might vary much with the same value
 	const averageWaterCoverage = 1 / 5;
-	 // Water height in environment and the engine
+	// Water height in environment and the engine
 	const heightSeaGround = -MIN_HEIGHT + heightRange.min + averageWaterCoverage *
 		(heightRange.max - heightRange.min);
 	// Water height as terrain height
@@ -634,7 +634,7 @@ function* GenerateMap()
 	yield 55;
 
 	g_Map.log("Placing players");
-	if (isNomad())
+	if (mapSettings.Nomad)
 		placePlayersNomad(
 			g_Map.createTileClass(),
 			[
@@ -648,12 +648,12 @@ function* GenerateMap()
 			placeStartLocationResources(playerPosition[p]);
 		}
 
-	let mercenaryCamps = isNomad() ? 0 : Math.ceil(g_Map.size / 256);
+	let mercenaryCamps = mapSettings.Nomad ? 0 : Math.ceil(g_Map.size / 256);
 	g_Map.log("Placing at most " + mercenaryCamps + " mercenary camps");
 	for (let i = 0; i < resourceSpots.length; ++i)
 	{
 		let radius;
-		const choice = i % (isNomad() ? 4 : 5);
+		const choice = i % (mapSettings.Nomad ? 4 : 5);
 		if (choice == 0)
 			placeMine(resourceSpots[i], g_Gaia.stoneLarge);
 		if (choice == 1)

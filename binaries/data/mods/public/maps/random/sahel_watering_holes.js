@@ -1,7 +1,7 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 
-function* GenerateMap()
+export function* generateMap()
 {
 	const tGrass = "savanna_grass_a";
 	const tForestFloor = "savanna_forestfloor_a";
@@ -65,7 +65,7 @@ function* GenerateMap()
 	const clBaseResource = g_Map.createTileClass();
 	const clShallows = g_Map.createTileClass();
 
-	const [playerIDs, playerPosition, playerAngle, startAngle] =
+	const { playerIDs, playerPosition, playerAngle, startAngle } =
 		playerPlacementCircle(fractionToTiles(0.35));
 
 	placePlayerBases({
@@ -336,8 +336,8 @@ function* GenerateMap()
 		true, clFood
 	);
 	createObjectGroupsDeprecated(group, 0,
-		[avoidClasses(clFood, 20), stayClasses(clWater, 6)],
-		25 * numPlayers, 60
+		[avoidClasses(clFood, 14), stayClasses(clWater, 6)],
+		35 * numPlayers, 60
 	);
 
 	g_Map.log("Creating berry bush");

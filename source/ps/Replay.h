@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,15 +18,20 @@
 #ifndef INCLUDED_REPLAY
 #define INCLUDED_REPLAY
 
+#include "lib/code_annotation.h"
 #include "lib/os_path.h"
-#include "ps/CStr.h"
-#include "scriptinterface/ScriptTypes.h"
+#include "lib/types.h"
 
+#include <iosfwd>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <string>
 #include <vector>
 
-struct SimulationCommand;
 class CSimulation2;
-class ScriptInterface;
+namespace Script { class Interface; }
+struct SimulationCommand;
 
 /**
  * Replay log recorder interface.
@@ -70,10 +75,10 @@ public:
 class CDummyReplayLogger : public IReplayLogger
 {
 public:
-	virtual void StartGame(JS::MutableHandleValue UNUSED(attribs)) { }
-	virtual void Turn(u32 UNUSED(n), u32 UNUSED(turnLength), std::vector<SimulationCommand>& UNUSED(commands)) { }
-	virtual void Hash(const std::string& UNUSED(hash), bool UNUSED(quick)) { }
-	virtual void SaveMetadata(const CSimulation2& UNUSED(simulation)) { };
+	virtual void StartGame(JS::MutableHandleValue /*attribs*/) { }
+	virtual void Turn(u32 /*n*/, u32 /*turnLength*/, std::vector<SimulationCommand>&) { }
+	virtual void Hash(const std::string& /*hash*/, bool /*quick*/) { }
+	virtual void SaveMetadata(const CSimulation2&) { };
 	virtual OsPath GetDirectory() const { return OsPath(); }
 };
 
@@ -84,7 +89,7 @@ class CReplayLogger : public IReplayLogger
 {
 	NONCOPYABLE(CReplayLogger);
 public:
-	CReplayLogger(const ScriptInterface& scriptInterface);
+	CReplayLogger(const Script::Interface& scriptInterface);
 	~CReplayLogger();
 
 	virtual void StartGame(JS::MutableHandleValue attribs);
@@ -94,7 +99,7 @@ public:
 	virtual OsPath GetDirectory() const;
 
 private:
-	const ScriptInterface& m_ScriptInterface;
+	const Script::Interface& m_ScriptInterface;
 	std::ostream* m_Stream;
 	OsPath m_Directory;
 };
@@ -109,7 +114,8 @@ public:
 	~CReplayPlayer();
 
 	void Load(const OsPath& path);
-	void Replay(const bool serializationtest, const int rejointestturn, const bool ooslog, const bool testHashFull, const bool testHashQuick);
+	void Replay(const int serializationtestturn, const int rejointestturn, const bool ooslog,
+		const bool testHashFull, const bool testHashQuick);
 
 private:
 	std::istream* m_Stream;

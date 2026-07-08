@@ -3,10 +3,13 @@
  */
 class GameSettingsController
 {
-	constructor(setupWindow, netMessages, playerAssignmentsController, mapCache)
+	constructor(setupWindow, netMessages, playerAssignmentsController, mapCache, closePageCallback,
+		isSavedGame)
 	{
 		this.setupWindow = setupWindow;
 		this.mapCache = mapCache;
+		this.closePageCallback = closePageCallback;
+		this.isSavedGame = isSavedGame;
 		this.persistentMatchSettings = new PersistentMatchSettings(g_IsNetworked);
 
 		this.guiData = new GameSettingsGuiData();
@@ -77,37 +80,50 @@ class GameSettingsController
 
 	onLoad(initData, hotloadData)
 	{
-		// This initial settings parsing in wrapped in a try-catch because it can fail unexpectedly,
-		// and particularly could fail with mods that change persistent settings, so this is
-		// difficult to fully fix from the gameSettings code.
-		// Also include hotloaded data because that can also fail and having to restart isn't very useful.
-		try {
-			if (hotloadData)
-				this.parseSettings(hotloadData.initAttributes);
-			else if (g_IsController && (initData?.gameSettings || this.persistentMatchSettings.enabled))
+		if (!this.isSavedGame)
+		{
+			// This initial settings parsing in wrapped in a try-catch because it can fail unexpectedly,
+			// and particularly could fail with mods that change persistent settings, so this is
+			// difficult to fully fix from the gameSettings code.
+			// Also include hotloaded data because that can also fail and having to restart isn't very useful.
+			try
 			{
-				// Allow opting-in to persistence when sending initial data (though default off)
-				if (initData?.gameSettings)
-					this.persistentMatchSettings.enabled = !!initData.gameSettings?.usePersistence;
-				const settings = initData?.gameSettings || this.persistentMatchSettings.loadFile();
+				if (hotloadData)
+					this.parseSettings(hotloadData.initAttributes, false);
+				else if (g_IsController && (initData?.gameSettings || this.persistentMatchSettings.enabled))
+				{
+					// Allow opting-in to persistence when sending initial data (though default off)
+					if (initData?.gameSettings)
+						this.persistentMatchSettings.enabled = !!initData.gameSettings?.usePersistence;
+					const settings = initData?.gameSettings || this.persistentMatchSettings.loadFile();
 					if (settings)
-						this.parseSettings(settings);
+						this.parseSettings(settings, true);
+				}
 			}
-		} catch(err) {
-			error("There was an error loading game settings. You may need to disable persistent match settings.");
-			warn(err?.toString() ?? uneval(err));
-			if (err.stack)
-				warn(err.stack)
+			catch(err)
+			{
+				error("There was an error loading game settings. You may need to disable persistent match settings.");
+				warn(err?.toString() ?? uneval(err));
+				if (err.stack)
+					warn(err.stack);
+			}
 		}
 
-		// If the new settings led to AI & players conflict, remove the AI.
 		for (const guid in g_PlayerAssignments)
+		{
+			// If the new settings led to AI & players conflict, remove the AI.
 			if (g_PlayerAssignments[guid].player !== -1 &&
 				g_GameSettings.playerAI.get(g_PlayerAssignments[guid].player - 1))
 				g_GameSettings.playerAI.set(g_PlayerAssignments[guid].player - 1, undefined);
 
+			// If the updated settings assign a player to a slot still marked as “removed”, clear that flag.
+			if (g_PlayerAssignments[guid].player !== -1 &&
+				g_GameSettings.playerRemoved.get(g_PlayerAssignments[guid].player - 1))
+				g_GameSettings.playerRemoved.set(g_PlayerAssignments[guid].player - 1, false);
+		}
+
 		for (const handler of this.settingsLoadedHandlers)
-			handler();
+			handler(this.isSavedGame);
 
 		this.updateLayout();
 		this.setNetworkInitAttributes();
@@ -174,12 +190,12 @@ class GameSettingsController
 			this.setLoading(false);
 		}
 
-		this.parseSettings(message.data.initAttribs);
+		this.parseSettings(message.data.initAttribs, false);
 
 		// This assumes that messages aren't sent spuriously without changes
 		// (which is generally fair), but technically it would be good
 		// to check if the new data is different from the previous data.
-		for (let handler of this.settingsChangeHandlers)
+		for (const handler of this.settingsChangeHandlers)
 			handler();
 	}
 
@@ -188,7 +204,7 @@ class GameSettingsController
 	 */
 	getSettings()
 	{
-		let ret = g_GameSettings.toInitAttributes();
+		const ret = g_GameSettings.toInitAttributes();
 		ret.guiData = this.guiData.Serialize();
 		return ret;
 	}
@@ -196,11 +212,11 @@ class GameSettingsController
 	/**
 	 * Parse the following settings.
 	 */
-	parseSettings(settings)
+	parseSettings(settings, fromPersistentSettings)
 	{
 		if (settings.guiData)
 			this.guiData.Deserialize(settings.guiData);
-		g_GameSettings.fromInitAttributes(settings);
+		g_GameSettings.fromInitAttributes(settings, fromPersistentSettings);
 	}
 
 	setLoading(loading)
@@ -208,7 +224,7 @@ class GameSettingsController
 		if (this.loading === loading)
 			return;
 		this.loading = loading;
-		for (let handler of this.loadingChangeHandlers)
+		for (const handler of this.loadingChangeHandlers)
 			handler(loading);
 	}
 
@@ -220,8 +236,9 @@ class GameSettingsController
 	{
 		if (this.layoutTimer)
 			return;
-		this.layoutTimer = setTimeout(() => {
-			for (let handler of this.updateLayoutHandlers)
+		this.layoutTimer = setTimeout(() =>
+		{
+			for (const handler of this.updateLayoutHandlers)
 				handler();
 			delete this.layoutTimer;
 		}, 0);
@@ -238,7 +255,7 @@ class GameSettingsController
 	 */
 	setNetworkInitAttributes()
 	{
-		for (let handler of this.settingsChangeHandlers)
+		for (const handler of this.settingsChangeHandlers)
 			handler();
 
 		if (g_IsNetworked && this.timer === undefined)
@@ -291,10 +308,13 @@ class GameSettingsController
 
 	switchToLoadingPage(attributes)
 	{
-		Engine.SwitchGuiPage("page_loading.xml", {
-			"attribs": attributes?.initAttributes || g_GameSettings.finalizedAttributes,
-			"playerAssignments": g_PlayerAssignments
-		});
+		this.closePageCallback({ [Engine.openRequest]: {
+			"page": "page_loading.xml",
+			"argument": {
+				"attribs": attributes?.initAttributes || g_GameSettings.finalizedAttributes,
+				"playerAssignments": g_PlayerAssignments
+			}
+		} });
 	}
 
 	onClose()
@@ -304,7 +324,7 @@ class GameSettingsController
 
 	savePersistentMatchSettings()
 	{
-		if (g_IsController)
+		if (g_IsController && !this.isSavedGame)
 			// TODO: ought to only save a subset of settings.
 			this.persistentMatchSettings.saveFile(this.getSettings());
 	}

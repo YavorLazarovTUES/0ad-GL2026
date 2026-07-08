@@ -22281,85 +22281,85 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="4234">
-			<Template>gaia/ore/tropical_large</Template>
+			<Template>gaia/ore/india_01</Template>
 			<Player>0</Player>
 			<Position x="135.4662" z="460.0586"/>
 			<Orientation y="-0.53177"/>
 		</Entity>
 		<Entity uid="4235">
-			<Template>gaia/ore/tropical_large</Template>
+			<Template>gaia/ore/india_01</Template>
 			<Player>0</Player>
 			<Position x="168.74973" z="692.48255"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="4236">
-			<Template>gaia/ore/tropical_large</Template>
+			<Template>gaia/ore/india_01</Template>
 			<Player>0</Player>
 			<Position x="450.42539" z="605.91248"/>
 			<Orientation y="-2.877"/>
 		</Entity>
 		<Entity uid="4237">
-			<Template>gaia/ore/tropical_large</Template>
+			<Template>gaia/ore/india_01</Template>
 			<Player>0</Player>
 			<Position x="561.07892" z="380.41157"/>
 			<Orientation y="-0.08202"/>
 		</Entity>
 		<Entity uid="4238">
-			<Template>gaia/ore/tropical_large</Template>
+			<Template>gaia/ore/india_01</Template>
 			<Player>0</Player>
 			<Position x="643.73462" z="487.72028"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="4239">
-			<Template>gaia/ore/tropical_large</Template>
+			<Template>gaia/ore/india_01</Template>
 			<Player>0</Player>
 			<Position x="368.00202" z="435.4604"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="4240">
-			<Template>gaia/ore/tropical_large</Template>
+			<Template>gaia/ore/india_01</Template>
 			<Player>0</Player>
 			<Position x="872.10584" z="559.78248"/>
 			<Orientation y="0.878"/>
 		</Entity>
 		<Entity uid="4241">
-			<Template>gaia/ore/tropical_large</Template>
+			<Template>gaia/ore/india_01</Template>
 			<Player>0</Player>
 			<Position x="724.89356" z="673.52564"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="4242">
-			<Template>gaia/ore/tropical_large</Template>
+			<Template>gaia/ore/india_01</Template>
 			<Player>0</Player>
 			<Position x="708.52167" z="181.21488"/>
 			<Orientation y="0.62641"/>
 		</Entity>
 		<Entity uid="4243">
-			<Template>gaia/ore/tropical_large</Template>
+			<Template>gaia/ore/india_01</Template>
 			<Player>0</Player>
 			<Position x="405.12583" z="74.86329"/>
 			<Orientation y="-2.88305"/>
 		</Entity>
 		<Entity uid="4244">
-			<Template>gaia/ore/tropical_large</Template>
+			<Template>gaia/ore/india_01</Template>
 			<Player>0</Player>
 			<Position x="216.01381" z="319.28791"/>
 			<Orientation y="0.42878"/>
 		</Entity>
 		<Entity uid="4245">
-			<Template>gaia/ore/tropical_large</Template>
+			<Template>gaia/ore/india_01</Template>
 			<Player>0</Player>
 			<Position x="247.96752" z="806.65748"/>
 			<Orientation y="-1.62984"/>
 		</Entity>
 		<Entity uid="4246">
-			<Template>gaia/ore/tropical_large</Template>
+			<Template>gaia/ore/india_01</Template>
 			<Player>0</Player>
 			<Position x="445.1634" z="314.06882"/>
 			<Orientation y="0.4117"/>
 		</Entity>
 		<Entity uid="4247">
-			<Template>gaia/ore/tropical_large</Template>
+			<Template>gaia/ore/india_01</Template>
 			<Player>0</Player>
 			<Position x="648.89606" z="300.65668"/>
 			<Orientation y="2.35621"/>

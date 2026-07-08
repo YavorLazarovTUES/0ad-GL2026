@@ -1,4 +1,4 @@
-/* Copyright (C) 2017 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,6 +18,14 @@
 #include "precompiled.h"
 
 #include "LocalTurnManager.h"
+
+#include "lib/debug.h"
+#include "simulation2/system/TurnManager.h"
+
+#include <js/RootingAPI.h>
+
+class CSimulation2;
+class IReplayLogger;
 
 CLocalTurnManager::CLocalTurnManager(CSimulation2& simulation, IReplayLogger& replay)
 	: CTurnManager(simulation, DEFAULT_TURN_LENGTH, COMMAND_DELAY_SP, 0, replay)
@@ -39,7 +47,7 @@ void CLocalTurnManager::NotifyFinishedOwnCommands(u32 turn)
 	FinishedAllCommands(turn, m_TurnLength);
 }
 
-void CLocalTurnManager::NotifyFinishedUpdate(u32 UNUSED(turn))
+void CLocalTurnManager::NotifyFinishedUpdate(u32 /*turn*/, const UpdateCallback&)
 {
 #if 0 // this hurts performance and is only useful for verifying log replays
 	std::string hash;
@@ -51,7 +59,7 @@ void CLocalTurnManager::NotifyFinishedUpdate(u32 UNUSED(turn))
 #endif
 }
 
-void CLocalTurnManager::OnSimulationMessage(CSimulationMessage* UNUSED(msg))
+void CLocalTurnManager::OnSimulationMessage(CSimulationMessage*)
 {
 	debug_warn(L"This should never be called");
 }

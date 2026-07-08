@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,8 +18,10 @@
 #ifndef INCLUDED_MATHUTIL
 #define INCLUDED_MATHUTIL
 
-#define DEGTORAD(a)					((a) * ((float)M_PI/180.0f))
-#define RADTODEG(a)					((a) * (180.0f/(float)M_PI))
+#include <numbers>
+
+#define DEGTORAD(a)					((a) * (std::numbers::pi_v<float> / 180.0f))
+#define RADTODEG(a)					((a) * (180.0f / std::numbers::pi_v<float>))
 #define SQR(x)						((x) * (x))
 
 template<typename T>
@@ -41,7 +43,7 @@ inline T Clamp(T value, T min, T max)
 template<typename T>
 inline T SmoothStep(T edge0, T edge1, T value)
 {
-	value = Clamp<T>((value - edge0) / (edge1 - edge0), 0, 1); 
+	value = Clamp<T>((value - edge0) / (edge1 - edge0), 0, 1);
 	return value * value * (3 - 2 * value);
 }
 

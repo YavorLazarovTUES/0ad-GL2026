@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -31,20 +31,22 @@ GUI Object Base - Text Owner
 #define INCLUDED_IGUITEXTOWNER
 
 #include "gui/CGUISetting.h"
-#include "gui/SettingTypes/EAlign.h"
+#include "lib/code_annotation.h"
 #include "maths/Rect.h"
-#include "ps/CStrForward.h"
 
+#include <cstddef>
 #include <vector>
 
 class CCanvas2D;
+class CGUIString;
+class CGUIText;
+class CStrW;
+class CVector2D;
+class IGUIObject;
+enum class EAlign;
+enum class EVAlign;
 struct CGUIColor;
 struct SGUIMessage;
-class CGUIText;
-class CGUIString;
-class IGUIObject;
-
-class CVector2D;
 
 /**
  * Framework for handling Output text.
@@ -73,9 +75,9 @@ public:
 	virtual void HandleMessage(SGUIMessage& Message);
 
 	/**
-	 * @see IGUIObject#UpdateCachedSize()
+	 * @see IGUIObject#HandleSizeChanged()
 	 */
-	virtual void UpdateCachedSize();
+	virtual void HandleSizeChanged();
 
 	/**
 	 * Draws the Text.
@@ -113,7 +115,7 @@ protected:
 	/**
 	 * Calculate the position for the text, based on the alignment.
 	 */
-	void CalculateTextPosition(CRect& ObjSize, CVector2D& TextPos, CGUIText& Text);
+	void CalculateTextPosition(const CRect& ObjSize, CVector2D& TextPos, CGUIText& Text);
 
 	CGUISimpleSetting<EAlign> m_TextAlign;
 	CGUISimpleSetting<EVAlign> m_TextVAlign;

@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,19 +17,27 @@
 
 #include "precompiled.h"
 
-#include "ScenarioEditor/ScenarioEditor.h"
-#include "Common/Tools.h"
-#include "Common/Brushes.h"
-#include "Common/MiscState.h"
-#include "Common/ObjectSettings.h"
-#include "GameInterface/Messages.h"
+#include "tools/atlas/AtlasUI/General/Observable.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/ScenarioEditor.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/ObjectSettings.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/Tools.h"
+#include "tools/atlas/GameInterface/MessagePasser.h"
+#include "tools/atlas/GameInterface/Messages.h"
+#include "tools/atlas/GameInterface/SharedTypes.h"
 
 #include <ctime>
+#include <numbers>
 #include <random>
+#include <string>
+#include <wx/chartype.h>
+#include <wx/debug.h>
+#include <wx/event.h>
+#include <wx/object.h>
+#include <wx/string.h>
 
 using AtlasMessage::Position;
 
-static float g_DefaultAngle = (float)(M_PI*3.0/4.0);
+static float g_DefaultAngle = std::numbers::pi_v<float> * 3.f / 4.f;
 
 class PlaceObject : public StateDrivenTool<PlaceObject>
 {
@@ -140,7 +148,7 @@ public:
 	{
 		if (m_RotationDirection)
 		{
-			float speed = M_PI/2.f * ScenarioEditor::GetSpeedModifier(); // radians per second
+			float speed = std::numbers::pi_v<float> / 2.f * ScenarioEditor::GetSpeedModifier(); // radians per second
 			g_DefaultAngle += (m_RotationDirection * dt * speed);
 			SendObjectMsg(true);
 		}
@@ -178,12 +186,16 @@ public:
 		}
 		bool OnKey(PlaceObject* obj, wxKeyEvent& evt, KeyEventType type)
 		{
-			if (type == KEY_CHAR && (evt.GetKeyCode() >= '0' && evt.GetKeyCode() <= '9'))
+			if (type == KEY_CHAR && (evt.GetKeyCode() >= '0' && evt.GetKeyCode() <= '8'))
 			{
-				int playerID = evt.GetKeyCode() - '0';
-				obj->GetScenarioEditor().GetObjectSettings().SetPlayerID(playerID);
-				obj->GetScenarioEditor().GetObjectSettings().NotifyObservers();
-				obj->SendObjectMsg(true);
+				const int maxPlayerID = obj->GetScenarioEditor().GetMapSettings()["PlayerData"]["item"].count();
+				const int playerID = evt.GetKeyCode() - '0';
+				if (playerID <= maxPlayerID)
+				{
+					obj->GetScenarioEditor().GetObjectSettings().SetPlayerID(playerID);
+					obj->GetScenarioEditor().GetObjectSettings().NotifyObservers();
+					obj->SendObjectMsg(true);
+				}
 				return true;
 			}
 			else

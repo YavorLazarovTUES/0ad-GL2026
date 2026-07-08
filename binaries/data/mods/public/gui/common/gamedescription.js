@@ -20,7 +20,7 @@ var g_BuddyListDelimiter = ",";
  */
 function splitRatingFromNick(playerName)
 {
-	let result = /^(\S+)\ \((\d+)\)$/g.exec(playerName);
+	const result = /^(\S+) \((\d+)\)$/g.exec(playerName);
 	return { "nick": result ? result[1] : playerName, "rating": result ? +result[2] : "" };
 }
 
@@ -44,19 +44,19 @@ var g_BuddySymbol = '•';
  */
 function formatPlayerInfo(playerDataArray, playerStates)
 {
-	let playerDescriptions = {};
+	const playerDescriptions = {};
 	let playerIdx = 0;
 
-	for (let playerData of playerDataArray)
+	for (const playerData of playerDataArray)
 	{
 		if (playerData == null || playerData.Civ && playerData.Civ == "gaia")
 			continue;
 
 		++playerIdx;
-		let teamIdx = playerData.Team;
-		let isAI = playerData.AI && playerData.AI != "";
-		let playerState = playerStates && playerStates[playerIdx] || playerData.State;
-		let isActive = !playerState || playerState == "active";
+		const teamIdx = playerData.Team;
+		const isAI = playerData.AI && playerData.AI != "";
+		const playerState = playerStates && playerStates[playerIdx] || playerData.State;
+		const isActive = !playerState || playerState == "active";
 
 		let playerDescription;
 		if (isAI)
@@ -115,13 +115,13 @@ function formatPlayerInfo(playerDataArray, playerStates)
 		if (!playerDescriptions[teamIdx])
 			playerDescriptions[teamIdx] = [];
 
-		let playerNick = splitRatingFromNick(playerData.Name).nick;
+		const playerNick = splitRatingFromNick(playerData.Name).nick;
 		playerDescriptions[teamIdx].push(sprintf(playerDescription, {
 			"playerName":
 			coloredText(
 				(g_Buddies.indexOf(playerNick) != -1 ? g_BuddySymbol + " " : "") +
 				escapeText(playerData.Name),
-				(typeof getPlayerColor == 'function' ?
+				(typeof getPlayerColor === 'function' ?
 					(isAI ? "white" : getPlayerColor(playerNick)) :
 					rgbToGuiColor(playerData.Color || g_Settings.PlayerDefaults[playerIdx].Color))),
 
@@ -141,7 +141,7 @@ function formatPlayerInfo(playerDataArray, playerStates)
 		}));
 	}
 
-	let teams = Object.keys(playerDescriptions);
+	const teams = Object.keys(playerDescriptions);
 	if (teams.indexOf("observer") > -1)
 		teams.splice(teams.indexOf("observer"), 1);
 
@@ -153,9 +153,10 @@ function formatPlayerInfo(playerDataArray, playerStates)
 
 	// If there are teams, merge "Team N:" + playerDescriptions
 	else
-		teamDescription = teams.map(team => {
+		teamDescription = teams.map(team =>
+		{
 
-			let teamCaption = team == -1 ?
+			const teamCaption = team == -1 ?
 				translate("No Team") :
 				sprintf(translate("Team %(team)s"), { "team": +team + 1 });
 
@@ -182,14 +183,14 @@ function formatPlayerInfo(playerDataArray, playerStates)
  */
 function getGameDescription(initAttributes, mapCache)
 {
-	let titles = [];
+	const titles = [];
 	if (!initAttributes.settings.VictoryConditions.length)
 		titles.push({
 			"label": translateWithContext("victory condition", "Endless Game"),
 			"value": translate("No winner will be determined, even if everyone is defeated.")
 		});
 
-	for (let victoryCondition of g_VictoryConditions)
+	for (const victoryCondition of g_VictoryConditions)
 	{
 		if (initAttributes.settings.VictoryConditions.indexOf(victoryCondition.Name) == -1)
 			continue;
@@ -197,7 +198,7 @@ function getGameDescription(initAttributes, mapCache)
 		let title = translateVictoryCondition(victoryCondition.Name);
 		if (victoryCondition.Name == "wonder")
 		{
-			let wonderDuration = Math.round(initAttributes.settings.WonderDuration);
+			const wonderDuration = Math.round(initAttributes.settings.WonderDuration);
 			title = sprintf(
 				translatePluralWithContext(
 					"victory condition",
@@ -208,10 +209,10 @@ function getGameDescription(initAttributes, mapCache)
 				{ "min": wonderDuration });
 		}
 
-		let isCaptureTheRelic = victoryCondition.Name == "capture_the_relic";
+		const isCaptureTheRelic = victoryCondition.Name == "capture_the_relic";
 		if (isCaptureTheRelic)
 		{
-			let relicDuration = Math.round(initAttributes.settings.RelicDuration);
+			const relicDuration = Math.round(initAttributes.settings.RelicDuration);
 			title = sprintf(
 				translatePluralWithContext(
 					"victory condition",
@@ -268,7 +269,7 @@ function getGameDescription(initAttributes, mapCache)
 			"value": translate("If one player wins, his or her allies win too. If one group of allies remains, they win.")
 		});
 
-	let ceasefire = Math.round(initAttributes.settings.Ceasefire);
+	const ceasefire = Math.round(initAttributes.settings.Ceasefire);
 	titles.push({
 		"label": translate("Ceasefire"),
 		"value":
@@ -309,7 +310,7 @@ function getGameDescription(initAttributes, mapCache)
 
 	if (initAttributes.mapType == "random")
 	{
-		let mapSize = g_MapSizes.Name[g_MapSizes.Tiles.indexOf(initAttributes.settings.Size)];
+		const mapSize = g_MapSizes.Name[g_MapSizes.Tiles.indexOf(initAttributes.settings.Size)];
 		if (mapSize)
 			titles.push({
 				"label": translate("Map Size"),
@@ -317,9 +318,18 @@ function getGameDescription(initAttributes, mapCache)
 			});
 	}
 
+	if (initAttributes.settings.PlayerPlacement)
+	{
+		const playerPlacement = g_Settings.PlayerPlacements.find(placement => placement.Id === initAttributes.settings.PlayerPlacement);
+		titles.push({
+			"label": playerPlacement ? playerPlacement.Name : translateWithContext("player placement", "Random Player Placement"),
+			"value": playerPlacement ? playerPlacement.Description : translate("Randomly select a player placement from the list.")
+		});
+	}
+
 	if (initAttributes.settings.Biome)
 	{
-		let biome = g_Settings.Biomes.find(b => b.Id == initAttributes.settings.Biome);
+		const biome = g_Settings.Biomes.find(b => b.Id == initAttributes.settings.Biome);
 		titles.push({
 			"label": biome ? biome.Title : translateWithContext("biome", "Random Biome"),
 			"value": biome ? biome.Description : translate("Randomly select a biome from the list.")
@@ -328,7 +338,7 @@ function getGameDescription(initAttributes, mapCache)
 
 	if (initAttributes.settings.TriggerDifficulty !== undefined)
 	{
-		let triggerDifficulty = g_Settings.TriggerDifficulties.find(difficulty => difficulty.Difficulty == initAttributes.settings.TriggerDifficulty);
+		const triggerDifficulty = g_Settings.TriggerDifficulties.find(difficulty => difficulty.Difficulty == initAttributes.settings.TriggerDifficulty);
 		titles.push({
 			"label": triggerDifficulty.Title,
 			"value": triggerDifficulty.Tooltip
@@ -360,25 +370,21 @@ function getGameDescription(initAttributes, mapCache)
 					})
 		});
 
-	if (initAttributes.settings.PopulationCap !== undefined)
+	if (initAttributes.settings.PopulationCapType !== undefined)
 		titles.push({
-			"label": translate("Population Limit"),
-			"value":
-				initAttributes.settings.PlayerData &&
-				initAttributes.settings.PlayerData.some(pData => pData && pData.PopulationLimit !== undefined) ?
-					translateWithContext("population limit", "Per Player") :
-					g_PopulationCapacities.Title[
-						g_PopulationCapacities.Population.indexOf(
-							initAttributes.settings.PopulationCap)]
+			"label": translate("Population Cap Type"),
+			"value": translate(g_PopulationCapacities.Title[g_PopulationCapacities.Name.indexOf(initAttributes.settings.PopulationCapType)])
 		});
 
-	if (initAttributes.settings.WorldPopulationCap !== undefined)
+	if (initAttributes.settings.PopulationCap !== undefined)
 		titles.push({
-			"label": translate("World Population Cap"),
+			"label": translate(g_PopulationCapacities.CapTitle[g_PopulationCapacities.Name.indexOf(initAttributes.settings.PopulationCapType)]),
 			"value":
-				g_WorldPopulationCapacities.Title[
-					g_WorldPopulationCapacities.Population.indexOf(
-						initAttributes.settings.WorldPopulationCap)]
+				initAttributes.settings.PlayerData?.some(pData => pData?.PopulationLimit !== undefined) ?
+					translateWithContext("population capacity", "Per Player") :
+					initAttributes.settings.PopulationCap === Infinity ?
+						translateWithContext("population capacity", "Unlimited") :
+						initAttributes.settings.PopulationCap
 		});
 
 	titles.push({
@@ -414,12 +420,12 @@ function getGameDescription(initAttributes, mapCache)
 		titles.push({
 			"label": translate("Rated game"),
 			"value": ratingDescription
-	});
+		});
 	else if (g_IsNetworked && Engine.HasXmppClient())
 		titles.push({
 			"label": translate("Rated game"),
-			"value": initAttributes.settings.RatingEnabled === true ?  ratingDescription : translateWithContext("game setup option", "disabled")
-	});
+			"value": initAttributes.settings.RatingEnabled === true ? ratingDescription : translateWithContext("game setup option", "disabled")
+		});
 
 	return titles.map(title => sprintf(translate("%(label)s %(details)s"), {
 		"label": coloredText(title.label, g_DescriptionHighlight),

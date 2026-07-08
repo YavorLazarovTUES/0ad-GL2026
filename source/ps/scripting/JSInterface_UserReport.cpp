@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,11 +19,13 @@
 
 #include "JSInterface_UserReport.h"
 
+#include "lib/file/vfs/vfs.h"
+#include "lib/path.h"
+#include "lib/status.h"
 #include "ps/Filesystem.h"
 #include "ps/Pyrogenesis.h"
 #include "ps/UserReport.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptRequest.h"
 
 #include <string>
 
@@ -56,12 +58,12 @@ std::string GetUserReportConfigPath()
 	return configPath.string8();
 }
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
-	ScriptFunction::Register<&IsUserReportEnabled>(rq, "IsUserReportEnabled");
-	ScriptFunction::Register<&SetUserReportEnabled>(rq, "SetUserReportEnabled");
-	ScriptFunction::Register<&GetUserReportStatus>(rq, "GetUserReportStatus");
-	ScriptFunction::Register<&GetUserReportLogPath>(rq, "GetUserReportLogPath");
-	ScriptFunction::Register<&GetUserReportConfigPath>(rq, "GetUserReportConfigPath");
+	Script::Function::Register<&IsUserReportEnabled>(rq, "IsUserReportEnabled");
+	Script::Function::Register<&SetUserReportEnabled>(rq, "SetUserReportEnabled");
+	Script::Function::Register<&GetUserReportStatus>(rq, "GetUserReportStatus");
+	Script::Function::Register<&GetUserReportLogPath>(rq, "GetUserReportLogPath");
+	Script::Function::Register<&GetUserReportConfigPath>(rq, "GetUserReportConfigPath");
 }
 }

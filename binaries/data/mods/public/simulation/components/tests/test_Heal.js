@@ -19,7 +19,7 @@ AddMock(SYSTEM_ENTITY, IID_ObstructionManager, {
 	"IsInTargetRange": () => true
 });
 
-let template = {
+const template = {
 	"Range": "20",
 	"RangeOverlay": {
 		"LineTexture": "heal_overlay_range.png",
@@ -65,7 +65,7 @@ ApplyValueModificationsToEntity = function(value, stat, ent)
 	}
 };
 
-let cmpHeal = ConstructComponent(60, "Heal", template);
+const cmpHeal = ConstructComponent(60, "Heal", template);
 
 // Test Getters
 TS_ASSERT_EQUALS(cmpHeal.GetInterval(), 2000 + 200);
@@ -88,7 +88,7 @@ TS_ASSERT_UNEVAL_EQUALS(cmpHeal.GetRangeOverlays(), [{
 }]);
 
 // Test healing.
-let target = 70;
+const target = 70;
 AddMock(target, IID_Ownership, {
 	"GetOwner": () => player
 });
@@ -98,12 +98,13 @@ AddMock(target, IID_Identity, {
 	"GetClassesList": () => targetClasses
 });
 
-let cmpTimer = ConstructComponent(SYSTEM_ENTITY, "Timer");
+const cmpTimer = ConstructComponent(SYSTEM_ENTITY, "Timer");
 let increased;
 let unhealable = false;
 AddMock(target, IID_Health, {
 	"GetMaxHitpoints": () => 700,
-	"Increase": amount => {
+	"Increase": amount =>
+	{
 		increased = true;
 		TS_ASSERT_EQUALS(amount, 5 + 100);
 		return { "old": 600, "new": 600 + 5 + 100 };
@@ -128,14 +129,16 @@ TS_ASSERT(!increased);
 // Test experience.
 let looted;
 AddMock(target, IID_Loot, {
-	"GetXp": () => {
-		 looted = true; return 80;
+	"GetXp": () =>
+	{
+		looted = true; return 80;
 	}
 });
 
 let promoted;
 AddMock(entity, IID_Promotion, {
-	"IncreaseXp": amount => {
+	"IncreaseXp": amount =>
+	{
 		promoted = true;
 		TS_ASSERT_EQUALS(amount, (5 + 100) * 80 / 700);
 	}
@@ -150,7 +153,8 @@ TS_ASSERT(increased && looted && promoted);
 let updated;
 AddMock(entity, IID_UnitAI, {
 	"FaceTowardsTarget": () => {},
-	"UpdateRangeQueries": () => {
+	"UpdateRangeQueries": () =>
+	{
 		updated = true;
 	}
 });
@@ -180,7 +184,7 @@ TS_ASSERT_UNEVAL_EQUALS(cmpHeal.CanHeal(target), true);
 unhealable = true;
 TS_ASSERT_UNEVAL_EQUALS(cmpHeal.CanHeal(target), false);
 
-let otherTarget = 71;
+const otherTarget = 71;
 AddMock(otherTarget, IID_Ownership, {
 	"GetOwner": () => otherPlayer
 });
@@ -199,7 +203,8 @@ TS_ASSERT(!cmpHeal.CanHeal(otherTarget));
 increased = false;
 AddMock(target, IID_Health, {
 	"GetMaxHitpoints": () => 700,
-	"Increase": amount => {
+	"Increase": amount =>
+	{
 		increased = true;
 		TS_ASSERT_EQUALS(amount, 5 + 100);
 		return { "old": 600, "new": 600 + 5 + 100 };
@@ -214,7 +219,8 @@ TS_ASSERT(increased);
 increased = false;
 AddMock(target, IID_Health, {
 	"GetMaxHitpoints": () => 700,
-	"Increase": amount => {
+	"Increase": amount =>
+	{
 		increased = true;
 		TS_ASSERT(false);
 	},

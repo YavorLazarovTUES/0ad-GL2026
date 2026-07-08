@@ -1,18 +1,24 @@
-local m = {}
-m._VERSION = "1.1.2-dev"
+local pkg_config_command = "pkg-config"
+if os.getenv("PKG_CONFIG") then
+	pkg_config_command = os.getenv("PKG_CONFIG")
+end
 
-m.additional_pc_path = nil
-m.static_link_libs = false
+local pkg_config_path = ""
+if os.getenv("PKG_CONFIG_PATH") then
+	pkg_config_path = os.getenv("PKG_CONFIG_PATH")
+end
+
+local static_link_libs = false
+
 
 local function os_capture(cmd)
 	return io.popen(cmd, 'r'):read('*a'):gsub("\n", " ")
 end
 
-function m.add_includes(lib, alternative_cmd, alternative_flags)
+local function parse_pkg_config_includes(lib, alternative_cmd, alternative_flags)
 	local result
 	if not alternative_cmd then
-		local pc_path = m.additional_pc_path and "PKG_CONFIG_PATH="..m.additional_pc_path or ""
-		result = os_capture(pc_path.." pkg-config --cflags "..lib)
+		result = os_capture("PKG_CONFIG_PATH=" .. pkg_config_path .. " " .. pkg_config_command .. " --cflags " .. lib)
 	else
 		if not alternative_flags then
 			result = os_capture(alternative_cmd.." --cflags")
@@ -24,6 +30,7 @@ function m.add_includes(lib, alternative_cmd, alternative_flags)
 	-- Small trick: delete the space after -include so that we can detect
 	-- which files have to be force-included without difficulty.
 	result = result:gsub("%-include +(%g+)", "-include%1")
+	result = result:gsub("%-isystem +(%g+)", "-isystem%1")
 
 	local dirs = {}
 	local files = {}
@@ -31,6 +38,8 @@ function m.add_includes(lib, alternative_cmd, alternative_flags)
 	for w in string.gmatch(result, "[^' ']+") do
 		if string.sub(w,1,2) == "-I" then
 			table.insert(dirs, string.sub(w,3))
+		elseif string.sub(w,1,8) == "-isystem" then
+			table.insert(dirs, string.sub(w,9))
 		elseif string.sub(w,1,8) == "-include" then
 			table.insert(files, string.sub(w,9))
 		else
@@ -38,27 +47,14 @@ function m.add_includes(lib, alternative_cmd, alternative_flags)
 		end
 	end
 
-	-- As of premake5-beta2, `sysincludedirs` has been deprecated in favour of
-	-- `externalincludedirs`, and continuing to use it causes warnings to be emitted.
-	-- We use `externalincludedirs` when available to prevent the warnings, falling back
-	-- to `sysincludedirs` when not to prevent breakage of the `--with-system-premake5`
-	-- build argument.
-	if externalincludedirs then
-		externalincludedirs(dirs)
-	else
-		sysincludedirs(dirs)
-	end
-
-	forceincludes(files)
-	buildoptions(options)
+	return dirs, files, options
 end
 
-function m.add_links(lib, alternative_cmd, alternative_flags)
+local function parse_pkg_config_links(lib, alternative_cmd, alternative_flags)
 	local result
 	if not alternative_cmd then
-		local pc_path = m.additional_pc_path and "PKG_CONFIG_PATH="..m.additional_pc_path or ""
-		local static = m.static_link_libs and " --static " or ""
-		result = os_capture(pc_path.." pkg-config --libs "..static..lib)
+		local static = static_link_libs and " --static " or ""
+		result = os_capture("PKG_CONFIG_PATH=" .. pkg_config_path .. " " .. pkg_config_command .. " --libs " .. static .. lib)
 	else
 		if not alternative_flags then
 			result = os_capture(alternative_cmd.." --libs")
@@ -85,8 +81,64 @@ function m.add_links(lib, alternative_cmd, alternative_flags)
 		end
 	end
 
-	links(libs)
+	return dirs, libs, options
+end
+
+-- ----------------------------------------------------------------------------
+-- Public API
+-- ----------------------------------------------------------------------------
+local m = {}
+m._VERSION = "2.0.0"
+
+--- Append path to PKG_CONFIG_PATH
+-- @param path string Path to append to PKG_CONFIG_PATH
+function m.add_pkg_config_path(path)
+	if pkg_config_path == "" then
+		pkg_config_path = path
+	else
+		pkg_config_path = pkg_config_path .. ":" .. path
+	end
+end
+
+--- Set whether to link libraries statically.
+-- @param value boolean True for static linking, false otherwise.
+function m.set_static_link_libs(value)
+	static_link_libs = value
+end
+
+--- Add include directories and build options for a library.
+-- @param lib string The library name.
+-- @param alternative_cmd string|nil Optional alternative command.
+-- @param alternative_flags string|nil Optional alternative flags.
+function m.add_includes(lib, alternative_cmd, alternative_flags)
+	local dirs, files, options = parse_pkg_config_includes(lib, alternative_cmd, alternative_flags)
+
+	externalincludedirs(dirs)
+	forceincludes(files)
+	buildoptions(options)
+end
+
+--- Add include directories after the default ones (used for overrides).
+-- @param lib string The library name.
+-- @param alternative_cmd string|nil Optional alternative command.
+-- @param alternative_flags string|nil Optional alternative flags.
+function m.add_includes_after(lib, alternative_cmd, alternative_flags)
+	local dirs, files, options = parse_pkg_config_includes(lib, alternative_cmd, alternative_flags)
+
+	includedirsafter(dirs)
+	forceincludes(files)
+	buildoptions(options)
+end
+
+--- Add library directories, libraries, and link options for a library.
+-- @param lib string The library name.
+-- @param alternative_cmd string|nil Optional alternative command.
+-- @param alternative_flags string|nil Optional alternative flags.
+function m.add_links(lib, alternative_cmd, alternative_flags)
+	local dirs, libs, options = parse_pkg_config_links(lib, alternative_cmd, alternative_flags)
+
 	libdirs(dirs)
+	links(libs)
 	linkoptions(options)
 end
 

@@ -1,35 +1,73 @@
 #!/bin/sh
 set -e
-LIB_VERSION="fcollada-3.05+wildfiregames.8"
-JOBS=${JOBS:="-j2"}
-MAKE=${MAKE:="make"}
-LDFLAGS=${LDFLAGS:=""}
-CFLAGS=${CFLAGS:=""}
-CXXFLAGS=${CXXFLAGS:=""}
 
-if [ -e .already-built ] && [ "$(cat .already-built)" = "${LIB_VERSION}" ]
-then
-  echo "FCollada is already up to date."
-  exit
-fi
+: "${TAR:=tar}"
+
+cd "$(dirname "$0")"
+
+PV=28209
+LIB_VERSION=${PV}+wfg1
+
+fetch()
+{
+	tar_version=$(tar --version | head --lines 1)
+	case "${tar_version}" in
+		*"GNU tar"*)
+			tar_extra_opts="--owner root --group root"
+			;;
+		*"libarchive"*)
+			tar_extra_opts="--uname root --gname root"
+			;;
+		*)
+			echo "unknown tar implementation ${tar_version}"
+			;;
+	esac
+
+	rm -Rf fcollada-${PV}
+	svn export https://svn.wildfiregames.com/public/source-libs/trunk/fcollada@${PV} fcollada-${PV}
+	# shellcheck disable=SC2086
+	"${TAR}" -c ${tar_extra_opts} -Jf fcollada-${PV}.tar.xz fcollada-${PV}
+	rm -R fcollada-${PV}
+}
 
 echo "Building FCollada..."
-echo
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		--fetch-only)
+			fetch
+			exit
+			;;
+		--force-rebuild) rm -f .already-built ;;
+		*)
+			echo "Unknown option: $1"
+			exit 1
+			;;
+	esac
+	shift
+done
 
-if [ "$(uname -s)" = "Darwin" ]; then
-  # The Makefile refers to pkg-config for libxml2, but we
-  # don't have that (replace with xml2-config instead).
-  sed -i.bak -e 's/pkg-config libxml-2.0/xml2-config/' src/Makefile
+if [ -e .already-built ] && [ "$(cat .already-built || true)" = "${LIB_VERSION}" ]; then
+	echo "Skipping - already built (use --force-rebuild to override)"
+	exit
 fi
 
-rm -f .already-built
-rm -f lib/*.a
-mkdir -p lib
-(cd src && rm -rf "output/" && "${MAKE}" clean && CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" && LDFLAGS="$LDFLAGS" "${MAKE}" "${JOBS}")
-
-if [ "$(uname -s)" = "Darwin" ]; then
-  # Undo Makefile change as we don't want to have it when creating patches.
-  mv src/Makefile.bak src/Makefile
+# fetch
+if [ ! -e "fcollada-${PV}.tar.xz" ]; then
+	fetch
 fi
 
-echo "$LIB_VERSION" > .already-built
+# unpack
+rm -Rf fcollada-${PV}
+"${TAR}" xf fcollada-${PV}.tar.xz
+
+# build
+(
+	cd fcollada-${PV}
+	./build.sh
+)
+
+# install
+rm -Rf include lib
+cp -R fcollada-${PV}/include fcollada-${PV}/lib .
+
+echo "${LIB_VERSION}" >.already-built

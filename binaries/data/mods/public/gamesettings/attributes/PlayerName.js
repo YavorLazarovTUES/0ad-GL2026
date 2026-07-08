@@ -21,14 +21,15 @@ GameSettings.prototype.Attributes.PlayerName = class PlayerName extends GameSett
 			attribs.settings.PlayerData = [];
 		while (attribs.settings.PlayerData.length < this.values.length)
 			attribs.settings.PlayerData.push({});
-		for (let i in this.values)
+
+		for (const i in this.values)
 			if (this.values[i])
 				attribs.settings.PlayerData[i].Name = this.values[i];
 	}
 
-	fromInitAttributes(attribs)
+	fromInitAttributes(attribs, fromPersistentSettings)
 	{
-		if (!this.getLegacySetting(attribs, "PlayerData"))
+		if (fromPersistentSettings || !this.getLegacySetting(attribs, "PlayerData"))
 			return;
 		const pData = this.getLegacySetting(attribs, "PlayerData");
 		for (let i = 0; i < this.values.length; ++i)
@@ -68,17 +69,17 @@ GameSettings.prototype.Attributes.PlayerName = class PlayerName extends GameSett
 	{
 		const AIPlayerNamesList = [];
 		let picked = false;
-		for (let i in this.values)
+		for (const i in this.values)
 		{
 			if (!!this.values[i] &&
 				this.values[i] !== g_Settings.PlayerDefaults[+i + 1].Name)
 				continue;
 
-			let ai = this.settings.playerAI.values[i];
+			const ai = this.settings.playerAI.values[i];
 			if (!ai)
 				continue;
 
-			let civ = this.settings.playerCiv.values[i];
+			const civ = this.settings.playerCiv.values[i];
 			if (!civ || civ == "random")
 				continue;
 
@@ -87,18 +88,19 @@ GameSettings.prototype.Attributes.PlayerName = class PlayerName extends GameSett
 			const names = this.settings.civData[civ].AINames;
 			const remainingNames = names.filter(name => !AIPlayerNamesList.includes(name));
 			const chosenName = pickRandom(remainingNames.length ? remainingNames : names);
-			
+
 			// Avoid translating AI names if the game is networked, so all players see and refer to
 			// English names instead of names in the language of the host.
 			const translatedCountLabel = this.settings.isNetworked ? this.CountLabel : translate(this.CountLabel);
 			const translatedChosenName = this.settings.isNetworked ? chosenName : translate(chosenName);
 
-			const duplicateNameCount = AIPlayerNamesList.reduce((count, name) => {
+			const duplicateNameCount = AIPlayerNamesList.reduce((count, name) =>
+			{
 				if (name == chosenName)
 					count++;
 				return count;
 			}, 0);
-			
+
 			AIPlayerNamesList.push(chosenName);
 
 			this.values[i] = !duplicateNameCount ? translatedChosenName :
@@ -108,7 +110,9 @@ GameSettings.prototype.Attributes.PlayerName = class PlayerName extends GameSett
 				});
 		}
 		if (picked)
+		{
 			this.trigger("values");
+		}
 		return picked;
 	}
 
@@ -122,7 +126,7 @@ GameSettings.prototype.Attributes.PlayerName = class PlayerName extends GameSett
 
 	_getMapData(i)
 	{
-		let data = this.settings.map.data;
+		const data = this.settings.map.data;
 		if (!data || !data.settings || !data.settings.PlayerData)
 			return undefined;
 		if (data.settings.PlayerData.length <= i)

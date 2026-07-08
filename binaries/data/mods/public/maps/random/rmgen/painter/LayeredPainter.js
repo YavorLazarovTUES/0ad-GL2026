@@ -22,8 +22,9 @@ LayeredPainter.prototype.paint = function(area)
 		"area": area,
 		"brushSize": 1,
 		"gridSize": g_Map.getSize(),
-		"withinArea": (area, position) => area.contains(position),
-		"paintTile": (point, distance) => {
+		"withinArea": (bounds, position) => bounds.contains(position),
+		"paintTile": (point, distance) =>
+		{
 			let width = 0;
 			let i = 0;
 

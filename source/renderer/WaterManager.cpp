@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,28 +17,52 @@
 
 #include "precompiled.h"
 
+#include "WaterManager.h"
+
+#include "graphics/Camera.h"
+#include "graphics/ShaderManager.h"
+#include "graphics/ShaderTechnique.h"
+#include "graphics/ShaderTechniquePtr.h"
 #include "graphics/Terrain.h"
 #include "graphics/TextureManager.h"
-#include "graphics/ShaderManager.h"
-#include "graphics/ShaderProgram.h"
 #include "lib/bits.h"
-#include "lib/timer.h"
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
+#include "lib/path.h"
+#include "lib/secure_crt.h"
+#include "maths/BoundingBoxAligned.h"
+#include "maths/Frustum.h"
 #include "maths/MathUtil.h"
 #include "maths/Vector2D.h"
-#include "ps/CLogger.h"
+#include "maths/Vector3D.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
 #include "ps/Game.h"
 #include "ps/World.h"
-#include "renderer/backend/IDevice.h"
+#include "renderer/PostprocManager.h"
 #include "renderer/Renderer.h"
 #include "renderer/RenderingOptions.h"
 #include "renderer/SceneRenderer.h"
-#include "renderer/WaterManager.h"
-#include "simulation2/Simulation2.h"
-#include "simulation2/components/ICmpWaterManager.h"
-#include "simulation2/components/ICmpRangeManager.h"
+#include "renderer/VertexBuffer.h"
+#include "renderer/backend/Backend.h"
+#include "renderer/backend/Format.h"
+#include "renderer/backend/IBuffer.h"
+#include "renderer/backend/IDevice.h"
+#include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/IFramebuffer.h"
+#include "renderer/backend/IShaderProgram.h"
+#include "renderer/backend/ITexture.h"
+#include "renderer/backend/Sampler.h"
 
 #include <algorithm>
+#include <array>
+#include <climits>
+#include <cmath>
+#include <cstdint>
+#include <cstdlib>
+#include <deque>
+#include <set>
+#include <utility>
 
 struct CoastalPoint
 {
@@ -236,6 +260,11 @@ void WaterManager::RecreateOrLoadTexturesIfNeeded()
 				Renderer::Backend::ITexture::Usage::DEPTH_STENCIL_ATTACHMENT,
 			true, false);
 
+	Renderer::Backend::Format framebufferColorFormat{
+		g_Renderer.GetPostprocManager().IsEnabled()
+		? g_Renderer.GetPostprocManager().GetFramebufferColorFormat()
+		: Renderer::Backend::Format::R8G8B8A8_UNORM};
+
 	// Create reflection textures.
 	const bool needsReflectionTextures =
 		g_RenderingOptions.GetWaterEffects() &&
@@ -245,7 +274,7 @@ void WaterManager::RecreateOrLoadTexturesIfNeeded()
 		m_ReflectionTexture = m_Device->CreateTexture2D("WaterReflectionTexture",
 			Renderer::Backend::ITexture::Usage::SAMPLED |
 				Renderer::Backend::ITexture::Usage::COLOR_ATTACHMENT,
-			Renderer::Backend::Format::R8G8B8A8_UNORM, m_RefTextureSize, m_RefTextureSize,
+			framebufferColorFormat, m_RefTextureSize, m_RefTextureSize,
 			Renderer::Backend::Sampler::MakeDefaultSampler(
 				Renderer::Backend::Sampler::Filter::LINEAR,
 				Renderer::Backend::Sampler::AddressMode::MIRRORED_REPEAT));
@@ -276,6 +305,7 @@ void WaterManager::RecreateOrLoadTexturesIfNeeded()
 			g_RenderingOptions.SetWaterReflection(false);
 			UpdateQuality();
 		}
+		m_ReflectionFramebufferInitialized = false;
 	}
 
 	// Create refraction textures.
@@ -287,7 +317,7 @@ void WaterManager::RecreateOrLoadTexturesIfNeeded()
 		m_RefractionTexture = m_Device->CreateTexture2D("WaterRefractionTexture",
 			Renderer::Backend::ITexture::Usage::SAMPLED |
 				Renderer::Backend::ITexture::Usage::COLOR_ATTACHMENT,
-			Renderer::Backend::Format::R8G8B8A8_UNORM, m_RefTextureSize, m_RefTextureSize,
+			framebufferColorFormat, m_RefTextureSize, m_RefTextureSize,
 			Renderer::Backend::Sampler::MakeDefaultSampler(
 				Renderer::Backend::Sampler::Filter::LINEAR,
 				Renderer::Backend::Sampler::AddressMode::MIRRORED_REPEAT));
@@ -318,10 +348,13 @@ void WaterManager::RecreateOrLoadTexturesIfNeeded()
 			g_RenderingOptions.SetWaterRefraction(false);
 			UpdateQuality();
 		}
+		m_RefractionFramebufferInitialized = false;
 	}
 
-	const uint32_t newWidth = static_cast<uint32_t>(g_Renderer.GetWidth());
-	const uint32_t newHeight = static_cast<uint32_t>(g_Renderer.GetHeight());
+	const float scale{g_Renderer.GetPostprocManager().IsEnabled()
+		? g_Renderer.GetPostprocManager().GetScale() : 1.0f};
+	const uint32_t newWidth{static_cast<uint32_t>(g_Renderer.GetWidth() * scale)};
+	const uint32_t newHeight{static_cast<uint32_t>(g_Renderer.GetHeight() * scale)};
 	if (m_FancyTexture && (m_FancyTexture->GetWidth() != newWidth || m_FancyTexture->GetHeight() != newHeight))
 	{
 		m_FancyEffectsFramebuffer.reset();
@@ -339,14 +372,14 @@ void WaterManager::RecreateOrLoadTexturesIfNeeded()
 		m_FancyTexture = m_Device->CreateTexture2D("WaterFancyTexture",
 			Renderer::Backend::ITexture::Usage::SAMPLED |
 				Renderer::Backend::ITexture::Usage::COLOR_ATTACHMENT,
-			Renderer::Backend::Format::R8G8B8A8_UNORM, g_Renderer.GetWidth(), g_Renderer.GetHeight(),
+			Renderer::Backend::Format::R8G8B8A8_UNORM, newWidth, newHeight,
 			Renderer::Backend::Sampler::MakeDefaultSampler(
 				Renderer::Backend::Sampler::Filter::LINEAR,
 				Renderer::Backend::Sampler::AddressMode::REPEAT));
 
 		m_FancyTextureDepth = m_Device->CreateTexture2D("WaterFancyDepthTexture",
 			Renderer::Backend::ITexture::Usage::DEPTH_STENCIL_ATTACHMENT,
-			depthFormat, g_Renderer.GetWidth(), g_Renderer.GetHeight(),
+			depthFormat, newWidth, newHeight,
 			Renderer::Backend::Sampler::MakeDefaultSampler(
 				Renderer::Backend::Sampler::Filter::LINEAR,
 				Renderer::Backend::Sampler::AddressMode::REPEAT));
@@ -1137,9 +1170,7 @@ void WaterManager::UpdateQuality()
 
 bool WaterManager::WillRenderFancyWater() const
 {
-	return
-		m_RenderWater && m_Device->GetBackend() != Renderer::Backend::Backend::GL_ARB &&
-		g_RenderingOptions.GetWaterEffects();
+	return m_RenderWater && g_RenderingOptions.GetWaterEffects();
 }
 
 size_t WaterManager::GetCurrentTextureIndex(const double& period) const

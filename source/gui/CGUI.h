@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,35 +24,55 @@
 #define INCLUDED_CGUI
 
 #include "gui/GUITooltip.h"
-#include "gui/SettingTypes/CGUIColor.h"
+#include "gui/IGUIScrollBar.h"
 #include "gui/SGUIIcon.h"
 #include "gui/SGUIMessage.h"
 #include "gui/SGUIStyle.h"
-#include "lib/input.h"
+#include "gui/SettingTypes/CGUIColor.h"
+#include "lib/code_annotation.h"
+#include "lib/file/vfs/vfs_path.h"
+#include "lib/types.h"
 #include "maths/Rect.h"
-#include "maths/Size2D.h"
 #include "maths/Vector2D.h"
-#include "ps/XML/Xeromyces.h"
-#include "scriptinterface/ScriptForward.h"
+#include "ps/CStr.h"
+#include "scriptinterface/ModuleLoader.h"
+#include "scriptinterface/StructuredClone.h"
+#include "ps/Input.h"
 
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/ValueArray.h>
 #include <map>
 #include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
+
+class CCanvas2D;
+class CGUISprite;
+class CGUISpriteInstance;
+class CSize2D;
+class GUIProxyProps;
+class IGUIObject;
+class JSObject;
+class XMBData;
+class XMBElement;
+namespace JS { class HandleValueArray; }
+namespace JS { class Value; }
+namespace js { class BaseProxyHandler; }
+namespace Script { class Context; }
+namespace Script { class Interface; }
+namespace Script { class Request; }
+struct SGUIImageEffects;
+union SDL_Event;
 
 extern const double SELECT_DBLCLICK_RATE;
 
-class CCanvas2D;
-class CGUISpriteInstance;
-class CGUISprite;
-class IGUIObject;
-struct SGUIImageEffects;
-struct SGUIScrollBarStyle;
-
-class GUIProxyProps;
-
-using map_pObjects = std::map<CStr, IGUIObject*>;
+using map_pObjects = std::map<CStr, std::unique_ptr<IGUIObject>>;
 
 /**
  * The main object that represents a whole GUI page.
@@ -63,10 +83,10 @@ class CGUI
 
 private:
 	// Private typedefs
-	using ConstructObjectFunction = IGUIObject* (*)(CGUI&);
+	using ConstructObjectFunction = std::unique_ptr<IGUIObject> (*)(CGUI&);
 
 public:
-	CGUI(ScriptContext& context);
+	CGUI(Script::Context& context);
 	~CGUI();
 
 	/**
@@ -74,18 +94,17 @@ public:
 	 */
 	void AddObjectTypes();
 
+	JS::Value GetHotloadData(const Script::Request& rq);
+
+	JSObject* CallPageInit(const Script::Request& rq, Script::StructuredClone initDataVal,
+		JS::HandleValue hotloadDataVal, const std::string_view scriptName);
+
 	/**
 	 * Performs processing that should happen every frame
 	 * (including sending the "Tick" event to scripts)
 	 */
-	void TickObjects();
-
-	/**
-	 * Sends a specified script event to every object
-	 *
-	 * @param eventName String representation of event name
-	 */
-	void SendEventToAll(const CStr& eventName);
+	JSObject* TickObjects(const Script::Request& rq, Script::StructuredClone initData,
+		const std::string_view scriptName);
 
 	/**
 	 * Sends a specified script event to every object
@@ -93,7 +112,8 @@ public:
 	 * @param eventName String representation of event name
 	 * @param paramData JS::HandleValueArray storing the arguments passed to the event handler.
 	 */
-	void SendEventToAll(const CStr& eventName, const JS::HandleValueArray& paramData);
+	void SendEventToAll(const CStr& eventName,
+		const JS::HandleValueArray paramData = JS::HandleValueArray::empty());
 
 	/**
 	 * Displays the whole GUI
@@ -112,11 +132,11 @@ public:
 	void DrawSprite(const CGUISpriteInstance& Sprite, CCanvas2D& canvas, const CRect& Rect, const CRect& Clipping = CRect());
 
 	/**
-	 * The replacement of Process(), handles an SDL_Event_
+	 * The replacement of Process(), handles an SDL_Event
 	 *
 	 * @param ev SDL Event, like mouse/keyboard input
 	 */
-	InReaction HandleEvent(const SDL_Event_* ev);
+	Input::Reaction HandleEvent(const SDL_Event& ev);
 
 	/**
 	 * Load a GUI XML file into the GUI.
@@ -137,14 +157,14 @@ public:
 	/**
 	 * Allows the JS side to modify the hotkey setting assigned to a GUI object.
 	 */
-	void SetObjectHotkey(IGUIObject* pObject, const CStr& hotkeyTag);
-	void UnsetObjectHotkey(IGUIObject* pObject, const CStr& hotkeyTag);
+	void SetObjectHotkey(IGUIObject& object, const CStr& hotkeyTag);
+	void UnsetObjectHotkey(IGUIObject& object, const CStr& hotkeyTag);
 
 	/**
 	 * Allows the JS side to modify the style setting assigned to a GUI object.
 	 */
-	void SetObjectStyle(IGUIObject* pObject, const CStr& styleName);
-	void UnsetObjectStyle(IGUIObject* pObject);
+	void SetObjectStyle(IGUIObject& object, const CStr& styleName);
+	void UnsetObjectStyle(IGUIObject& object);
 
 	/**
 	 * Allows the JS side to add or remove global hotkeys.
@@ -167,7 +187,17 @@ public:
 
 	/**
 	 * Returns the GUI object with the desired name, or nullptr
-	 * if no match is found,
+	 * if no match is found.
+	 *
+	 * @param Name String name of object
+	 * @return Matching object, or nullptr
+	 */
+	IGUIObject* TryFindObjectByName(const CStr& Name) const;
+
+	/**
+	 * Returns the GUI object with the desired name, or nullptr
+	 * and logs an error if no match is found.
+	 * .
 	 *
 	 * @param Name String name of object
 	 * @return Matching object, or nullptr
@@ -220,7 +250,7 @@ public:
 	 *
 	 * Needs no input since screen resolution is global.
 	 *
-	 * @see IGUIObject#UpdateCachedSize()
+	 * @see IGUIObject#HandleSizeChanged()
 	 */
 	void UpdateResolution();
 
@@ -256,14 +286,14 @@ public:
 
 	GUIProxyProps* GetProxyData(const js::BaseProxyHandler* ptr) { return m_ProxyData.at(ptr).get(); }
 
-	std::shared_ptr<ScriptInterface> GetScriptInterface() { return m_ScriptInterface; };
+	std::shared_ptr<Script::Interface> GetScriptInterface() { return m_ScriptInterface; };
 
 private:
 	/**
 	 * The CGUI takes ownership of the child object and links the parent with the child.
 	 * Returns false on failure to take over ownership of the child object.
 	 */
-	bool AddObject(IGUIObject& parent, IGUIObject& child);
+	void AddObject(IGUIObject& parent, std::unique_ptr<IGUIObject> child);
 
 	/**
 	 * You input the name of the object type, and let's
@@ -273,7 +303,7 @@ private:
 	 * @param str Name of object type
 	 * @return Newly constructed IGUIObject (but constructed as a subclass)
 	 */
-	IGUIObject* ConstructObject(const CStr& str);
+	std::unique_ptr<IGUIObject> ConstructObject(const CStr& str);
 
 public:
 	/**
@@ -370,7 +400,8 @@ private:
 	 *
 	 * @see LoadXmlFile()
 	 */
-	void Xeromyces_ReadRootObjects(const XMBData& xmb, XMBElement element, std::unordered_set<VfsPath>& Paths);
+	void Xeromyces_ReadRootObjects(const XMBData& xmb, XMBElement element,
+		std::unordered_set<VfsPath>& Paths);
 
 	/**
 	 * Reads in the root element \<sprites\> (the DOMElement).
@@ -429,7 +460,9 @@ private:
 	 *
 	 * @see LoadXmlFile()
 	 */
-	IGUIObject* Xeromyces_ReadObject(const XMBData& xmb, XMBElement element, IGUIObject* pParent, std::vector<std::pair<CStr, CStr> >& NameSubst, std::unordered_set<VfsPath>& Paths, u32 nesting_depth);
+	void Xeromyces_ReadObject(const XMBData& xmb, XMBElement element, IGUIObject& parent,
+		std::vector<std::pair<CStr, CStr> >& NameSubst, std::unordered_set<VfsPath>& Paths,
+		u32 nesting_depth);
 
 	/**
 	 * Reads in the element \<repeat\>, which repeats its child \<object\>s
@@ -437,7 +470,9 @@ private:
 	 * 'var' enclosed in square brackets) in its descendants' names with "[0]",
 	 * "[1]", etc.
 	 */
-	void Xeromyces_ReadRepeat(const XMBData& xmb, XMBElement element, IGUIObject* pParent, std::vector<std::pair<CStr, CStr> >& NameSubst, std::unordered_set<VfsPath>& Paths, u32 nesting_depth);
+	void Xeromyces_ReadRepeat(const XMBData& xmb, XMBElement element, IGUIObject& parent,
+		std::vector<std::pair<CStr, CStr> >& NameSubst, std::unordered_set<VfsPath>& Paths,
+		u32 nesting_depth);
 
 	/**
 	 * Reads in the element \<script\> (the XMBElement) and executes
@@ -561,7 +596,7 @@ private:
 	//--------------------------------------------------------
 	//@{
 
-	std::shared_ptr<ScriptInterface> m_ScriptInterface;
+	std::shared_ptr<Script::Interface> m_ScriptInterface;
 
 	/**
 	 * don't want to pass this around with the
@@ -662,6 +697,8 @@ private:
 	static const CStr EventNameMouseLeftPress;
 	static const CStr EventNameMouseWheelDown;
 	static const CStr EventNameMouseWheelUp;
+	static const CStr EventNameMouseWheelLeft;
+	static const CStr EventNameMouseWheelRight;
 	static const CStr EventNameMouseLeftDoubleClick;
 	static const CStr EventNameMouseLeftRelease;
 	static const CStr EventNameMouseRightDoubleClick;
@@ -689,6 +726,16 @@ private:
 	std::map<CStr, const SGUIIcon> m_Icons;
 
 public:
+	struct ModuleArtifact
+	{
+		ModuleArtifact(const Script::Request& rq, VfsPath filename);
+
+		Script::ModuleLoader::Result result;
+		Script::ModuleLoader::Result::iterator iterator{result.begin()};
+		JS::PersistentRootedObject moduleNamespace;
+	};
+	std::optional<ModuleArtifact> m_LoadModuleResult;
+
 	/**
 	 * Map from event names to object which listen to a given event.
 	 */

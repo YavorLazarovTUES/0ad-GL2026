@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,19 +18,24 @@
 #ifndef INCLUDED_RENDERER_BACKEND_GL_DEVICECOMMANDCONTEXT
 #define INCLUDED_RENDERER_BACKEND_GL_DEVICECOMMANDCONTEXT
 
+#include "graphics/Color.h"
 #include "lib/ogl.h"
-#include "ps/containers/Span.h"
-#include "renderer/backend/Format.h"
-#include "renderer/backend/gl/Buffer.h"
+#include "lib/types.h"
+#include "renderer/backend/IBuffer.h"
 #include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/IShaderProgram.h"
 #include "renderer/backend/PipelineState.h"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
-#include <optional>
+#include <span>
 #include <utility>
+
+namespace Renderer::Backend { enum class Format; }
+namespace Renderer::Backend::GL { class CBuffer; }
 
 namespace Renderer
 {
@@ -69,7 +74,8 @@ public:
 	void EndFramebufferPass() override;
 	void ClearFramebuffer(const bool color, const bool depth, const bool stencil) override;
 	void ReadbackFramebufferSync(
-		const uint32_t x, const uint32_t y, const uint32_t width, const uint32_t height,
+		ISwapChain& swapChain, const uint32_t x, const uint32_t y,
+		const uint32_t width, const uint32_t height,
 		void* data) override;
 
 	void UploadTexture(ITexture* texture, const Format dataFormat,
@@ -129,9 +135,14 @@ public:
 		const uint32_t groupCountY,
 		const uint32_t groupCountZ) override;
 
+	void InsertMemoryBarrier(
+		const uint32_t srcStageMask, const uint32_t dstStageMask,
+		const uint32_t srcAccessMask, const uint32_t dstAccessMask) override;
+
 	void SetTexture(const int32_t bindingSlot, ITexture* texture) override;
 
 	void SetStorageTexture(const int32_t bindingSlot, ITexture* texture) override;
+	void SetStorageBuffer(const int32_t bindingSlot, IBuffer* buffer) override;
 
 	void SetUniform(
 		const int32_t bindingSlot,
@@ -148,7 +159,9 @@ public:
 		const float valueX, const float valueY,
 		const float valueZ, const float valueW) override;
 	void SetUniform(
-		const int32_t bindingSlot, PS::span<const float> values) override;
+		const int32_t bindingSlot, std::span<const float> values) override;
+
+	void InsertTimestampQuery(const uint32_t handle, const bool isScopeBegin) override;
 
 	void BeginScopedLabel(const char* name) override;
 	void EndScopedLabel() override;
@@ -216,7 +229,7 @@ private:
 	};
 
 	using BoundBuffer = std::pair<GLenum, GLuint>;
-	std::array<BoundBuffer, 2> m_BoundBuffers;
+	std::array<BoundBuffer, 4> m_BoundBuffers;
 	class ScopedBufferBind
 	{
 	public:

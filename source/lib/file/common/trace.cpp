@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -25,14 +25,24 @@
  */
 
 #include "precompiled.h"
-#include "lib/file/common/trace.h"
 
-#include <cstdio>
-#include <sstream>
+#include "trace.h"
 
+#include "lib/allocators/dynarray.h"
 #include "lib/allocators/pool.h"
-#include "lib/timer.h"	// timer_Time
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
+#include "lib/secure_crt.h"
 #include "lib/sysdep/sysdep.h"	// sys_OpenFile
+#include "lib/timer.h"	// timer_Time
+
+#include <cerrno>
+#include <clocale>
+#include <cstdint>
+#include <cstdio>
+#include <cwchar>
+#include <new>
+#include <sstream>
 
 
 /*virtual*/ ITrace::~ITrace()
@@ -104,25 +114,25 @@ std::wstring TraceEntry::EncodeAsText() const
 class Trace_Dummy : public ITrace
 {
 public:
-	Trace_Dummy(size_t UNUSED(maxSize))
+	Trace_Dummy(size_t /*maxSize*/)
 	{
 
 	}
 
-	virtual void NotifyLoad(const Path& UNUSED(pathname), size_t UNUSED(size))
+	virtual void NotifyLoad(const Path&, size_t /*size*/)
 	{
 	}
 
-	virtual void NotifyStore(const Path& UNUSED(pathname), size_t UNUSED(size))
+	virtual void NotifyStore(const Path&, size_t /*size*/)
 	{
 	}
 
-	virtual Status Load(const OsPath& UNUSED(pathname))
+	virtual Status Load(const OsPath&)
 	{
 		return INFO::OK;
 	}
 
-	virtual Status Store(const OsPath& UNUSED(pathname)) const
+	virtual Status Store(const OsPath&) const
 	{
 		return INFO::OK;
 	}

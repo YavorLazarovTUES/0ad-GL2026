@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2024 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -29,11 +29,11 @@
 
 #include "lib/byte_order.h"		// FOURCC
 #include "lib/utf8.h"
-#include "lib/sysdep/cpu.h"
 #include "lib/sysdep/os/win/win.h"
 #include "lib/sysdep/os/win/wutil.h"
 #include "lib/sysdep/os/win/wdbg_sym.h"			// wdbg_sym_WriteMinidump
 
+#include <atomic>
 #include <process.h>			// __security_init_cookie
 #define NEED_COOKIE_INIT
 
@@ -162,7 +162,11 @@ static const wchar_t* GetSehExceptionDescription(const EXCEPTION_RECORD* er,
 		// special case: display type and address.
 		const wchar_t* accessType = (ei[0])? L"writing" : L"reading";
 		const ULONG_PTR address = ei[1];
+#if defined(_WIN64)
+		swprintf_s(description, maxChars, L"Access violation %ls 0x%08llX", accessType, address);
+#else
 		swprintf_s(description, maxChars, L"Access violation %ls 0x%08X", accessType, address);
+#endif
 		return description;
 	}
 	case EXCEPTION_DATATYPE_MISALIGNMENT:    return L"Datatype misalignment";
@@ -249,8 +253,8 @@ long __stdcall wseh_ExceptionFilter(struct _EXCEPTION_POINTERS* ep)
 	// make sure we don't recurse infinitely if this function raises an
 	// SEH exception. (we may only have the guard page's 4 KB worth of
 	// stack space if the exception is EXCEPTION_STACK_OVERFLOW)
-	static intptr_t nestingLevel = 0;
-	cpu_AtomicAdd(&nestingLevel, 1);
+	static std::atomic<intptr_t> nestingLevel{ 0 };
+	++nestingLevel;
 	if(nestingLevel >= 3)
 		return EXCEPTION_CONTINUE_SEARCH;
 
@@ -277,8 +281,8 @@ long __stdcall wseh_ExceptionFilter(struct _EXCEPTION_POINTERS* ep)
 	const wchar_t* messageFormat =
 		L"Much to our regret we must report the program has encountered an error.\r\n"
 		L"\r\n"
-		L"Please let us know at https://trac.wildfiregames.com/ and attach the crashlog.txt and crashlog.dmp files.\r\n"
-		L"You may find paths to these files at https://trac.wildfiregames.com/wiki/GameDataPaths \r\n"
+		L"Please let us know at https://gitea.wildfiregames.com/0ad/0ad/issues/ and attach the crashlog.txt and crashlog.dmp files.\r\n"
+		L"You may find paths to these files at https://gitea.wildfiregames.com/0ad/0ad/wiki/GameDataPaths \r\n"
 		L"\r\n"
 		L"Details: unhandled exception (%ls)\r\n";
 	swprintf_s(message, ARRAY_SIZE(message), messageFormat, description);

@@ -1,7 +1,7 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 
-function* GenerateMap()
+export function* generateMap()
 {
 	const tGrass = ["medit_grass_field_a", "medit_grass_field_b"];
 	const tForestFloorC = "medit_plants_dirt";
@@ -132,7 +132,8 @@ function* GenerateMap()
 		"heightLand": heightShore,
 		"meanderShort": 12,
 		"meanderLong": 0,
-		"waterFunc": (position, height, z) => {
+		"waterFunc": (position, height, z) =>
+		{
 			clRiver.add(position);
 			createTerrain(tWater).place(position);
 
@@ -262,9 +263,9 @@ function* GenerateMap()
 			[new SimpleObject(oFish, 2, 3, 0, 2)]
 		],
 		[
-			25 * numPlayers
+			40 * numPlayers
 		],
-		avoidClasses(clLand, 2, clRiver, 1),
+		avoidClasses(clLand, 2, clFood, 8),
 		clFood);
 
 	yield 85;

@@ -27,7 +27,8 @@ class ChatWindow
 	{
 		this.closeChat.onPress = this.closePage.bind(this);
 
-		this.extendedChat.onPress = () => {
+		this.extendedChat.onPress = () =>
+		{
 			Engine.ConfigDB_CreateAndSaveValue("user", "chat.session.extended", String(this.isExtended()));
 			this.resizeChatWindow();
 			this.chatInput.focus();
@@ -81,13 +82,11 @@ class ChatWindow
 		{
 			this.chatDialogPanel.size = this.chatDialogPanelLargeSize;
 
-			let chatHistoryTextSize = this.chatHistoryText.getComputedSize();
-			let width = this.aspectRatio * (chatHistoryTextSize.bottom - chatHistoryTextSize.top);
+			const chatHistoryTextSize = this.chatHistoryText.getComputedSize();
+			const width = this.aspectRatio * (chatHistoryTextSize.bottom - chatHistoryTextSize.top);
 
-			let size = this.chatDialogPanel.size;
-			size.left = -width / 2 - this.chatHistoryText.size.left;
-			size.right = width / 2 + this.chatHistoryText.size.left;
-			this.chatDialogPanel.size = size;
+			this.chatDialogPanel.size.left = -width / 2 - this.chatHistoryText.size.left;
+			this.chatDialogPanel.size.right = width / 2 + this.chatHistoryText.size.left;
 		}
 		else
 			this.chatDialogPanel.size = this.chatDialogPanelSmallSize;

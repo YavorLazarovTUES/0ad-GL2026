@@ -1,4 +1,4 @@
-/* Copyright (C) 2017 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -16,10 +16,18 @@
  */
 
 #include "precompiled.h"
+
 #include "Globals.h"
 
+#include "lib/code_annotation.h"
+#include "lib/external_libraries/libsdl.h"
+
+#include <SDL_events.h>
+#include <SDL_video.h>
+#include <cstddef>
 #include "network/NetClient.h"
 #include "ps/GameSetup/Config.h"
+#include "ps/Input.h"
 #include "soundmanager/ISoundManager.h"
 
 bool g_app_minimized = false;
@@ -36,14 +44,14 @@ bool g_mouse_buttons[MOUSE_LAST - MOUSE_BASE] = {0};
 PIFrequencyFilter g_frequencyFilter;
 
 // updates the state of the above; never swallows messages.
-InReaction GlobalsInputHandler(const SDL_Event_* ev)
+Input::Reaction GlobalsInputHandler(const SDL_Event& ev)
 {
 	size_t c;
 
-	switch(ev->ev.type)
+	switch(ev.type)
 	{
 	case SDL_WINDOWEVENT:
-		switch(ev->ev.window.event)
+		switch(ev.window.event)
 		{
 		case SDL_WINDOWEVENT_MINIMIZED:
 			g_app_minimized = true;
@@ -65,32 +73,32 @@ InReaction GlobalsInputHandler(const SDL_Event_* ev)
 			g_mouse_active = false;
 			break;
 		}
-		return IN_PASS;
+		return Input::Reaction::PASS;
 
 	case SDL_MOUSEMOTION:
-		g_mouse_x = ev->ev.motion.x;
-		g_mouse_y = ev->ev.motion.y;
-		return IN_PASS;
+		g_mouse_x = ev.motion.x;
+		g_mouse_y = ev.motion.y;
+		return Input::Reaction::PASS;
 
 	case SDL_MOUSEBUTTONDOWN:
 	case SDL_MOUSEBUTTONUP:
-		c = ev->ev.button.button;
+		c = ev.button.button;
 		if(c < ARRAY_SIZE(g_mouse_buttons))
-			g_mouse_buttons[c] = (ev->ev.type == SDL_MOUSEBUTTONDOWN);
+			g_mouse_buttons[c] = (ev.type == SDL_MOUSEBUTTONDOWN);
 		else
 		{
 			// don't complain: just ignore people with too many mouse buttons
 			//debug_warn(L"invalid mouse button");
 		}
-		return IN_PASS;
+		return Input::Reaction::PASS;
 
 	case SDL_KEYDOWN:
 	case SDL_KEYUP:
-		g_scancodes[ev->ev.key.keysym.scancode] = (ev->ev.type == SDL_KEYDOWN);
-		return IN_PASS;
+		g_scancodes[ev.key.keysym.scancode] = (ev.type == SDL_KEYDOWN);
+		return Input::Reaction::PASS;
 
 	default:
-		return IN_PASS;
+		return Input::Reaction::PASS;
 	}
 
 	UNREACHABLE;

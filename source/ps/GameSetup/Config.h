@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,12 +18,8 @@
 #ifndef INCLUDED_PS_GAMESETUP_CONFIG
 #define INCLUDED_PS_GAMESETUP_CONFIG
 
-#include "ps/CStr.h"
-
 // flag to pause the game on window focus loss
 extern bool g_PauseOnFocusLoss;
-
-extern int g_xres, g_yres;
 
 extern bool g_Quickstart;
 extern bool g_DisableAudio;

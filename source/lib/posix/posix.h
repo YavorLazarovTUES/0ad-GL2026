@@ -1,4 +1,4 @@
-/* Copyright (C) 2020 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -60,18 +60,18 @@ need only be renamed (e.g. _open, _stat).
 #ifndef INCLUDED_POSIX
 #define INCLUDED_POSIX
 
+#include "lib/sysdep/compiler.h"
+#include "lib/sysdep/os.h"
+
 #if OS_WIN
 # include "lib/sysdep/os/win/wposix/wposix.h"
 #endif
-
-#include "lib/posix/posix_types.h"
 
 // disabled to reduce dependencies. include them where needed.
 //#include "lib/posix/posix_aio.h"
 //#include "lib/posix/posix_dlfcn.h"
 //#include "lib/posix/posix_filesystem.h"
 //#include "lib/posix/posix_mman.h"
-//#include "lib/posix/posix_time.h"
 //#include "lib/posix/posix_utsname.h"
 
 
@@ -93,6 +93,8 @@ need only be renamed (e.g. _open, _stat).
 #define strncasecmp _strnicmp
 #define wcscasecmp _wcsicmp
 #define wcsncasecmp _wcsnicmp
+#else
+#include <strings.h> // IWYU pragma: export
 #endif
 
 #if OS_MACOSX

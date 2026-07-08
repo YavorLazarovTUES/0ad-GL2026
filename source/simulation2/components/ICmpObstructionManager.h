@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,20 +18,24 @@
 #ifndef INCLUDED_ICMPOBSTRUCTIONMANAGER
 #define INCLUDED_ICMPOBSTRUCTIONMANAGER
 
-#include "simulation2/system/Interface.h"
-
+#include "lib/debug.h"
+#include "lib/types.h"
+#include "maths/Fixed.h"
 #include "maths/FixedVector2D.h"
 #include "simulation2/helpers/Position.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+#include "simulation2/system/Interface.h"
 
+#include <js/Value.h>
 #include <vector>
 
 class IObstructionTestFilter;
-template<typename T>
-class Grid;
-struct GridUpdateInformation;
-using NavcellData = u16;
 class PathfinderPassability;
+struct GridUpdateInformation;
+template<typename T> class Grid;
 
+using NavcellData = u16;
 
 /**
  * Obstruction manager: provides efficient spatial queries over objects in the world.
@@ -251,6 +255,8 @@ public:
 	 */
 	virtual bool TestLine(const IObstructionTestFilter& filter, entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, entity_pos_t r, bool relaxClearanceForUnits) const = 0;
 
+	virtual bool TestUnitLine(const IObstructionTestFilter& filter, entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, entity_pos_t r, bool relaxClearanceForUnits) const = 0;
+
 	/**
 	 * Collision test a static square shape against the current set of shapes.
 	 * @param filter filter to restrict the shapes that are being tested against
@@ -375,7 +381,7 @@ public:
 class NullObstructionFilter : public IObstructionTestFilter
 {
 public:
-	virtual bool TestShape(tag_t UNUSED(tag), flags_t UNUSED(flags), entity_id_t UNUSED(group), entity_id_t UNUSED(group2)) const
+	virtual bool TestShape(tag_t, flags_t /*flags*/, entity_id_t /*group*/, entity_id_t /*group2*/) const
 	{
 		return true;
 	}
@@ -387,7 +393,7 @@ public:
 class StationaryOnlyObstructionFilter : public IObstructionTestFilter
 {
 public:
-	virtual bool TestShape(tag_t UNUSED(tag), flags_t flags, entity_id_t UNUSED(group), entity_id_t UNUSED(group2)) const
+	virtual bool TestShape(tag_t, flags_t flags, entity_id_t /*group*/, entity_id_t /*group2*/) const
 	{
 		return !(flags & ICmpObstructionManager::FLAG_MOVING);
 	}
@@ -407,7 +413,7 @@ public:
 		m_AvoidMoving(avoidMoving), m_Group(group)
 	{}
 
-	virtual bool TestShape(tag_t UNUSED(tag), flags_t flags, entity_id_t group, entity_id_t group2) const
+	virtual bool TestShape(tag_t, flags_t flags, entity_id_t group, entity_id_t group2) const
 	{
 		if (group == m_Group || (group2 != INVALID_ENTITY && group2 == m_Group))
 			return false;
@@ -455,7 +461,7 @@ public:
 		Init();
 	}
 
-	virtual bool TestShape(tag_t UNUSED(tag), flags_t flags, entity_id_t group, entity_id_t group2) const
+	virtual bool TestShape(tag_t, flags_t flags, entity_id_t group, entity_id_t group2) const
 	{
 		// Don't test shapes that share one or more of our control groups.
 		if (group == m_Group || group == m_Group2 || (group2 != INVALID_ENTITY &&
@@ -529,7 +535,7 @@ public:
 	{
 	}
 
-	virtual bool TestShape(tag_t tag, flags_t UNUSED(flags), entity_id_t UNUSED(group), entity_id_t UNUSED(group2)) const
+	virtual bool TestShape(tag_t tag, flags_t, entity_id_t /*group*/, entity_id_t /*group2*/) const
 	{
 		return tag.n != m_Tag.n;
 	}
@@ -582,7 +588,7 @@ public:
 	{
 	}
 
-	virtual bool TestShape(tag_t tag, flags_t flags, entity_id_t UNUSED(group), entity_id_t UNUSED(group2)) const
+	virtual bool TestShape(tag_t tag, flags_t flags, entity_id_t /*group*/, entity_id_t /*group2*/) const
 	{
 		return (tag.n != m_Tag.n && (flags & m_Mask) != 0);
 	}

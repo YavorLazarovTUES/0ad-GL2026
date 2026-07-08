@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -23,14 +23,18 @@
 #ifndef INCLUDED_MODIO
 #define INCLUDED_MODIO
 
+#include "lib/code_annotation.h"
 #include "lib/external_libraries/curl.h"
 #include "lib/os_path.h"
-#include "scriptinterface/ScriptForward.h"
+#include "lib/types.h"
 
+#include <cstddef>
 #include <map>
 #include <sodium.h>
 #include <string>
 #include <vector>
+
+namespace Script { class Interface; }
 
 // TODO: Allocate instance of the below two using sodium_malloc?
 struct PKStruct
@@ -143,7 +147,7 @@ public:
 	 * @param scriptInterface used for parsing the data and possibly install the mod.
 	 * @return true if the download is complete (successful or not), false otherwise.
 	 */
-	bool AdvanceRequest(const ScriptInterface& scriptInterface);
+	bool AdvanceRequest(const Script::Interface& scriptInterface);
 
 	/**
 	 * Cancel the current async request and clean things up
@@ -167,15 +171,15 @@ private:
 	CURLMcode SetupRequest(const std::string& url, bool fileDownload);
 	void TearDownRequest();
 
-	bool ParseGameId(const ScriptInterface& scriptInterface, std::string& err);
-	bool ParseMods(const ScriptInterface& scriptInterface, std::string& err);
+	bool ParseGameId(const Script::Interface& scriptInterface, std::string& err);
+	bool ParseMods(const Script::Interface& scriptInterface, std::string& err);
 
 	void DeleteDownloadedFile();
 	bool VerifyDownloadedFile(std::string& err);
 
 	// Utility methods for parsing mod.io responses and metadata
-	static bool ParseGameIdResponse(const ScriptInterface& scriptInterface, const std::string& responseData, int& id, std::string& err);
-	static bool ParseModsResponse(const ScriptInterface& scriptInterface, const std::string& responseData, std::vector<ModIoModData>& modData, const PKStruct& pk, std::string& err);
+	static bool ParseGameIdResponse(const Script::Interface& scriptInterface, const std::string& responseData, int& id, std::string& err);
+	static bool ParseModsResponse(const Script::Interface& scriptInterface, const std::string& responseData, std::vector<ModIoModData>& modData, const PKStruct& pk, std::string& err);
 	static bool ParseSignature(const std::vector<std::string>& minisigs, SigStruct& sig, const PKStruct& pk, std::string& err);
 
 	// Url parts

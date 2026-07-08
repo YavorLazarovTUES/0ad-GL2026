@@ -4729,97 +4729,97 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="840">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="810.12232" z="535.20105"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="841">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="457.32581" z="121.70643"/>
 			<Orientation y="-1.62154"/>
 		</Entity>
 		<Entity uid="842">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="177.33979" z="467.80494"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="843">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="535.99842" z="817.5843"/>
 			<Orientation y="-0.61187"/>
 		</Entity>
 		<Entity uid="844">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="775.6875" z="117.1699"/>
 			<Orientation y="-1.97132"/>
 		</Entity>
 		<Entity uid="845">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="849.54603" z="229.27225"/>
 			<Orientation y="-1.79961"/>
 		</Entity>
 		<Entity uid="846">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="94.97591" z="271.40018"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="847">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="189.27698" z="161.64722"/>
 			<Orientation y="-0.42063"/>
 		</Entity>
 		<Entity uid="848">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="122.23382" z="778.22437"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="849">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="270.71357" z="806.11011"/>
 			<Orientation y="-2.71282"/>
 		</Entity>
 		<Entity uid="850">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="779.78681" z="836.55622"/>
 			<Orientation y="-2.55025"/>
 		</Entity>
 		<Entity uid="851">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="843.87732" z="785.42219"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="852">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="627.36274" z="74.45023"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="853">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="40.43123" z="633.2569"/>
 			<Orientation y="0.25112"/>
 		</Entity>
 		<Entity uid="854">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="401.76697" z="995.1313"/>
 			<Orientation y="-0.43592"/>
 		</Entity>
 		<Entity uid="855">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="945.49482" z="329.77201"/>
 			<Orientation y="-1.8009"/>
@@ -14149,97 +14149,97 @@
 			<Orientation y="0.06661"/>
 		</Entity>
 		<Entity uid="2885">
-			<Template>gaia/treasure/metal_persian_big</Template>
+			<Template>gaia/treasure/metal_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="242.32479" z="722.82294"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="2886">
-			<Template>gaia/treasure/metal_persian_small</Template>
+			<Template>gaia/treasure/metal_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="248.79026" z="727.45716"/>
 			<Orientation y="-2.69608"/>
 		</Entity>
 		<Entity uid="2887">
-			<Template>gaia/treasure/food_persian_big</Template>
+			<Template>gaia/treasure/food_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="233.52492" z="722.26362"/>
 			<Orientation y="-1.21189"/>
 		</Entity>
 		<Entity uid="2888">
-			<Template>gaia/treasure/food_persian_big</Template>
+			<Template>gaia/treasure/food_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="739.22077" z="282.12876"/>
 			<Orientation y="-0.26603"/>
 		</Entity>
 		<Entity uid="2889">
-			<Template>gaia/treasure/food_persian_small</Template>
+			<Template>gaia/treasure/food_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="738.9109" z="273.51935"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="2890">
-			<Template>gaia/treasure/metal_persian_big</Template>
+			<Template>gaia/treasure/metal_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="742.19898" z="214.3059"/>
 			<Orientation y="-2.51508"/>
 		</Entity>
 		<Entity uid="2891">
-			<Template>gaia/treasure/metal_persian_small</Template>
+			<Template>gaia/treasure/metal_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="770.05823" z="234.9"/>
 			<Orientation y="0.3145"/>
 		</Entity>
 		<Entity uid="2892">
-			<Template>gaia/treasure/metal_persian_small</Template>
+			<Template>gaia/treasure/metal_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="284.92258" z="303.42701"/>
 			<Orientation y="2.74517"/>
 		</Entity>
 		<Entity uid="2893">
-			<Template>gaia/treasure/metal_persian_big</Template>
+			<Template>gaia/treasure/metal_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="276.19071" z="305.00358"/>
 			<Orientation y="-0.65973"/>
 		</Entity>
 		<Entity uid="2894">
-			<Template>gaia/treasure/food_persian_big</Template>
+			<Template>gaia/treasure/food_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="241.60044" z="270.80588"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="2895">
-			<Template>gaia/treasure/food_persian_small</Template>
+			<Template>gaia/treasure/food_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="241.75582" z="278.73911"/>
 			<Orientation y="-2.92179"/>
 		</Entity>
 		<Entity uid="2896">
-			<Template>gaia/treasure/food_persian_small</Template>
+			<Template>gaia/treasure/food_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="267.5568" z="744.76001"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="2897">
-			<Template>gaia/treasure/food_persian_small</Template>
+			<Template>gaia/treasure/food_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="776.69764" z="772.15284"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="2898">
-			<Template>gaia/treasure/food_persian_big</Template>
+			<Template>gaia/treasure/food_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="768.53486" z="779.57984"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="2899">
-			<Template>gaia/treasure/metal_persian_small</Template>
+			<Template>gaia/treasure/metal_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="727.21326" z="746.06952"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="2900">
-			<Template>gaia/treasure/metal_persian_big</Template>
+			<Template>gaia/treasure/metal_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="731.37238" z="750.35505"/>
 			<Orientation y="2.35621"/>
@@ -14453,28 +14453,28 @@
 			<Actor seed="59612"/>
 		</Entity>
 		<Entity uid="3037">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>4</Player>
 			<Position x="155.73401" z="499.43659"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="12616"/>
 		</Entity>
 		<Entity uid="3038">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>4</Player>
 			<Position x="158.12662" z="501.69541"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="6826"/>
 		</Entity>
 		<Entity uid="3039">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>4</Player>
 			<Position x="160.54062" z="504.08155"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="49860"/>
 		</Entity>
 		<Entity uid="3040">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>4</Player>
 			<Position x="163.8235" z="506.63157"/>
 			<Orientation y="2.35621"/>
@@ -14635,56 +14635,56 @@
 			<Actor seed="10830"/>
 		</Entity>
 		<Entity uid="3064">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>2</Player>
 			<Position x="513.92981" z="135.06868"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="17750"/>
 		</Entity>
 		<Entity uid="3065">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>2</Player>
 			<Position x="516.44306" z="138.05204"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="28734"/>
 		</Entity>
 		<Entity uid="3066">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>2</Player>
 			<Position x="519.51777" z="141.95446"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="37944"/>
 		</Entity>
 		<Entity uid="3067">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>2</Player>
 			<Position x="523.07496" z="144.86638"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="61456"/>
 		</Entity>
 		<Entity uid="3068">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>3</Player>
 			<Position x="880.0387" z="489.27369"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="58266"/>
 		</Entity>
 		<Entity uid="3069">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>3</Player>
 			<Position x="882.98981" z="492.29468"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="22688"/>
 		</Entity>
 		<Entity uid="3070">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>3</Player>
 			<Position x="885.26264" z="494.64133"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="23552"/>
 		</Entity>
 		<Entity uid="3071">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>3</Player>
 			<Position x="888.13154" z="497.81293"/>
 			<Orientation y="2.35621"/>
@@ -14845,28 +14845,28 @@
 			<Actor seed="58228"/>
 		</Entity>
 		<Entity uid="3094">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>1</Player>
 			<Position x="525.04645" z="849.03364"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="44224"/>
 		</Entity>
 		<Entity uid="3095">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>1</Player>
 			<Position x="527.75141" z="852.72492"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="25566"/>
 		</Entity>
 		<Entity uid="3096">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>1</Player>
 			<Position x="530.76368" z="854.54902"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="14564"/>
 		</Entity>
 		<Entity uid="3097">
-			<Template>skirmish/units/default_support_female_citizen</Template>
+			<Template>skirmish/units/default_support_civilian</Template>
 			<Player>1</Player>
 			<Position x="534.00611" z="856.89728"/>
 			<Orientation y="2.35621"/>

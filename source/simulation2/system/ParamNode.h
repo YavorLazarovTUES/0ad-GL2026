@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,18 +19,21 @@
 #define INCLUDED_PARAMNODE
 
 #include "lib/file/vfs/vfs_path.h"
+#include "lib/types.h"
 #include "maths/Fixed.h"
 #include "ps/Errors.h"
-#include "scriptinterface/ScriptTypes.h"
 
+#include <cstddef>
+#include <iosfwd>
+#include <js/TypeDecls.h>
 #include <map>
+#include <memory>
 #include <string>
 
+class CStrIntern;
 class XMBData;
 class XMBElement;
-
-class CStrIntern;
-class ScriptRequest;
+namespace Script { class Request; }
 
 /**
  * An entity initialisation parameter node.
@@ -252,11 +255,13 @@ public:
 	 * If @p cacheValue is true, then the same JS::Value will be returned each time
 	 * this is called (regardless of whether you passed the same @p cx - be careful
 	 * to only use the cache in one context).
+	 * Cached object values are frozen, using DeepFreezeObject, so that it's safe to
+	 * share between components and to reconstruct on deserialization.
 	 * When caching, the lifetime of @p cx must be longer than the lifetime of this node.
 	 * The cache will be reset if *this* node is modified (e.g. by LoadXML),
 	 * but *not* if any child nodes are modified (so don't do that).
 	 */
-	void ToJSVal(const ScriptRequest& rq, bool cacheValue, JS::MutableHandleValue ret) const;
+	void ToJSVal(const Script::Request& rq, bool cacheValue, JS::MutableHandleValue ret) const;
 
 	/**
 	 * Returns the names/nodes of the children of this node, ordered by name
@@ -286,7 +291,7 @@ private:
 
 	void ResetScriptVal();
 
-	void ConstructJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret) const;
+	void ConstructJSVal(const Script::Request& rq, JS::MutableHandleValue ret) const;
 
 	std::string m_Value;
 	ChildrenMap m_Childs;

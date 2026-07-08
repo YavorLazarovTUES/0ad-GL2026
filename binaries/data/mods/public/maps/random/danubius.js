@@ -1,7 +1,7 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 
-function* GenerateMap(mapSettings)
+export function* generateMap(mapSettings)
 {
 	const day = mapSettings.Daytime !== undefined ? mapSettings.Daytime == "day" : randBool(2/3);
 
@@ -81,7 +81,7 @@ function* GenerateMap(mapSettings)
 	const oPalisadeGate = "uncapturable|structures/palisades_gate";
 	const oPalisadePillar = "uncapturable|structures/palisades_tower";
 
-	const oFemale = "units/gaul/support_female_citizen";
+	const oCivilian = "units/gaul/support_civilian";
 	const oHealer = "units/gaul/support_healer_b";
 	const oSkirmisher = "units/gaul/infantry_javelineer_b";
 	const oNakedFanatic = "units/gaul/champion_fanatic";
@@ -183,7 +183,7 @@ function* GenerateMap(mapSettings)
 	const ritualParticipants = [
 		{
 			"radius": 0.6,
-			"templates": [oFemale],
+			"templates": [oCivilian],
 			"count": 9,
 			"angle": Math.PI
 		},
@@ -254,7 +254,7 @@ function* GenerateMap(mapSettings)
 			"length": 0,
 			"indent": 4,
 			"bend": 0,
-			"templateName": mapSize >= normalMapSize ? (isNomad() ? oSentryTower : oTower) :
+			"templateName": mapSize >= normalMapSize ? (mapSettings.Nomad ? oSentryTower : oTower) :
 				oWatchTower
 		},
 		"pillar": readyWallElement(oPalisadePillar),
@@ -411,7 +411,7 @@ function* GenerateMap(mapSettings)
 					randomAngle());
 		}
 	}
-	Engine.SetProgress(10);
+	yield 10;
 
 	placePlayerBases({
 		"PlayerPlacement": playerPlacementRiver(startAngle, fractionToTiles(0.6)),
@@ -444,7 +444,7 @@ function* GenerateMap(mapSettings)
 			"template": aBush1
 		}
 	});
-	Engine.SetProgress(20);
+	yield 20;
 
 	paintRiver({
 		"parallel": true,
@@ -457,14 +457,16 @@ function* GenerateMap(mapSettings)
 		"heightLand": heightLand,
 		"meanderShort": 30,
 		"meanderLong": 0,
-		"waterFunc": (position, height, riverFraction) => {
+		"waterFunc": (position, height, riverFraction) =>
+		{
 			const origPos = position.clone().rotateAround(-startAngle, mapCenter);
 			// Distinguish left and right shoreline
 			if (height > 0 && height < 1 &&
 				origPos.y > ShorelineDistance && origPos.y < mapSize - ShorelineDistance)
 				clShore[origPos.x < mapCenter.x ? 0 : 1].add(position);
 		},
-		"landFunc": (position, shoreDist1, shoreDist2) => {
+		"landFunc": (position, shoreDist1, shoreDist2) =>
+		{
 
 			if (shoreDist1 > 0)
 				clLand[0].add(position);
@@ -473,7 +475,7 @@ function* GenerateMap(mapSettings)
 				clLand[1].add(position);
 		}
 	});
-	Engine.SetProgress(30);
+	yield 30;
 
 	paintTileClassBasedOnHeight(-Infinity, 0.7, Elevation_ExcludeMin_ExcludeMax, clWater);
 
@@ -492,12 +494,12 @@ function* GenerateMap(mapSettings)
 	g_Map.log("Creating shores");
 	paintTerrainBasedOnHeight(-Infinity, heightShore, 0, tWater);
 	paintTerrainBasedOnHeight(heightShore, heightLand, 0, tShore);
-	Engine.SetProgress(35);
+	yield 35;
 
 	createBumps(
 		avoidClasses(clPlayer, 6, clWater, 2, clPath, 1, clGauls, 1), scaleByMapSize(30, 300),
 		1, 8, 4, 0, 3);
-	Engine.SetProgress(40);
+	yield 40;
 
 	if (randBool())
 		createHills(
@@ -512,7 +514,7 @@ function* GenerateMap(mapSettings)
 			clHill,
 			scaleByMapSize(3, 15));
 
-	Engine.SetProgress(45);
+	yield 45;
 
 	const [forestTrees, stragglerTrees] = getTreeCounts(500, 3000, 0.7);
 	createForests(
@@ -521,7 +523,7 @@ function* GenerateMap(mapSettings)
 		clForest,
 		forestTrees);
 
-	Engine.SetProgress(50);
+	yield 50;
 
 	g_Map.log("Creating grass patches");
 	createLayeredPatches(
@@ -539,7 +541,7 @@ function* GenerateMap(mapSettings)
 		scaleByMapSize(15, 45),
 		clDirt);
 
-	Engine.SetProgress(55);
+	yield 55;
 
 	g_Map.log("Creating islands");
 	const areaIslands = createAreas(
@@ -556,7 +558,7 @@ function* GenerateMap(mapSettings)
 		[avoidClasses(clIsland, 30), stayClasses(clWater, 10)],
 		scaleByMapSize(1, 4) * numPlayers);
 
-	Engine.SetProgress(60);
+	yield 60;
 
 	createBumps(stayClasses(clIsland, 2), scaleByMapSize(50, 400), 1, 8, 4, 0, 3);
 
@@ -580,7 +582,7 @@ function* GenerateMap(mapSettings)
 		scaleByMapSize(3, 10),
 		20,
 		areaIslands);
-	Engine.SetProgress(65);
+	yield 65;
 
 	g_Map.log("Creating island towers");
 	createObjectGroupsByAreas(
@@ -650,7 +652,7 @@ function* GenerateMap(mapSettings)
 		scaleByMapSize(2, 10),
 		20,
 		areasLand);
-	Engine.SetProgress(70);
+	yield 70;
 
 	g_Map.log("Creating decoratives");
 	for (let i = 0; i < 2; ++i)
@@ -692,7 +694,7 @@ function* GenerateMap(mapSettings)
 					clGauls, 5,
 					clPath, 1) :
 				[stayClasses(clIsland, 4), avoidClasses(clForest, 1, clRock, 4, clMetal, 4)]);
-	Engine.SetProgress(75);
+	yield 75;
 
 	g_Map.log("Creating fish");
 	createFood(
@@ -705,7 +707,7 @@ function* GenerateMap(mapSettings)
 		[avoidClasses(clIsland, 2, clFood, 10, clPath, 1), stayClasses(clWater, 5)],
 		clFood);
 
-	Engine.SetProgress(80);
+	yield 80;
 
 	g_Map.log("Creating huntable animals");
 	createFood(
@@ -734,7 +736,7 @@ function* GenerateMap(mapSettings)
 		clFood);
 
 	g_Map.log("Creating violent animals");
-	if (!isNomad())
+	if (!mapSettings.Nomad)
 		createFood(
 			[
 				[new SimpleObject(oWolf, 1, 3, 0, 4)],
@@ -756,7 +758,7 @@ function* GenerateMap(mapSettings)
 				clPath, 1),
 			clFood);
 
-	Engine.SetProgress(85);
+	yield 85;
 
 	g_Map.log("Creating fruits");
 	createFood(

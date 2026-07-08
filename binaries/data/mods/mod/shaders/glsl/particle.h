@@ -8,15 +8,17 @@ BEGIN_DRAW_TEXTURES
 END_DRAW_TEXTURES
 
 BEGIN_DRAW_UNIFORMS
-	UNIFORM(mat4, modelViewMatrix)
+	UNIFORM(mat4, spaceTransform)
 END_DRAW_UNIFORMS
 
 BEGIN_MATERIAL_UNIFORMS
 	UNIFORM(mat4, transform)
+	UNIFORM(mat4, modelViewMatrix)
 	UNIFORM(vec3, sunColor)
 	UNIFORM(vec3, fogColor)
 	UNIFORM(vec2, fogParams)
 	UNIFORM(vec2, losTransform)
+	UNIFORM(vec3, cameraPos)
 END_MATERIAL_UNIFORMS
 
 VERTEX_OUTPUT(0, vec2, v_tex);

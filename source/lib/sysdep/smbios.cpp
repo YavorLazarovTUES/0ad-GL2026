@@ -1,4 +1,4 @@
-/* Copyright (C) 2020 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -25,19 +25,29 @@
  */
 
 #include "precompiled.h"
-#include "lib/sysdep/smbios.h"
 
-#include "lib/bits.h"
+#include "smbios.h"
+
 #include "lib/alignment.h"
-#include "lib/byte_order.h"	// FOURCC_BE
+#include "lib/bits.h"
+#include "lib/code_annotation.h"
+#include "lib/code_generation.h"
+#include "lib/debug.h"
 #include "lib/module_init.h"
+#include "lib/posix/posix.h"
+#include "lib/status.h"
+#include "lib/sysdep/os.h"
 
 #if OS_WIN
-# include "lib/sysdep/os/win/wutil.h"
+# include "lib/byte_order.h"
 # include "lib/sysdep/os/win/wfirmware.h"
+# include "lib/sysdep/os/win/wutil.h"
 #endif
 
+#include <cinttypes>
+#include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <sstream>
 #include <vector>
 
@@ -164,7 +174,7 @@ public:
 	}
 
 	template<typename Field>
-	void operator()(size_t flags, Field& field, const char* UNUSED(name), const char* UNUSED(units))
+	void operator()(size_t flags, Field& field, const char* /*name*/, const char* /*units*/)
 	{
 		if((flags & F_DERIVED) || data >= end)
 		{
@@ -210,7 +220,8 @@ private:
 
 // (this specialization avoids a "forcing value to bool true or false" warning)
 template<>
-void FieldInitializer::operator()<bool>(size_t flags, bool& UNUSED(t), const char* UNUSED(name), const char* UNUSED(units))
+void FieldInitializer::operator()<bool>(size_t flags, bool& /*t*/, const char* /*name*/,
+	const char* /*units*/)
 {
 	// SMBIOS doesn't specify any individual booleans, so we're only called for
 	// derived fields and don't need to do anything.
@@ -218,7 +229,8 @@ void FieldInitializer::operator()<bool>(size_t flags, bool& UNUSED(t), const cha
 }
 
 template<>
-void FieldInitializer::operator()<const char*>(size_t flags, const char*& t, const char* UNUSED(name), const char* UNUSED(units))
+void FieldInitializer::operator()<const char*>(size_t flags, const char*& t, const char* /*name*/,
+	const char* /*units*/)
 {
 	t = 0;	// (allow immediate `return' when the string is found to be invalid)
 
@@ -244,7 +256,7 @@ void FieldInitializer::operator()<const char*>(size_t flags, const char*& t, con
 // Fixup (e.g. compute derived fields)
 
 template<class Structure>
-void Fixup(Structure& UNUSED(structure))
+void Fixup(Structure&)
 {
 	// primary template: do nothing
 }
@@ -444,7 +456,7 @@ static Status InitStructures()
 		if(header->id == 127)	// end
 			break;
 		if(header->length < sizeof(Header))
-			return ERR::_3; // NOWARN (happens on some unknown BIOS, see http://trac.wildfiregames.com/ticket/2985)
+			return ERR::_3; // NOWARN (happens on some unknown BIOS, see https://gitea.wildfiregames.com/0ad/0ad/issues/2985)
 
 		const Header* next;
 		const Strings strings = ExtractStrings(header, (const char*)end, next);
@@ -472,7 +484,7 @@ static Status InitStructures()
 // StringFromEnum
 
 template<class Enum>
-std::string StringFromEnum(Enum UNUSED(field))
+std::string StringFromEnum(Enum /*field*/)
 {
 	return "(unknown enumeration)";
 }
@@ -592,7 +604,7 @@ private:
 
 	// enumerations and bit flags
 	template<typename Field>
-	void Write(size_t UNUSED(flags), Field& field, const char* name, const char* units, typename Field::Enum*)
+	void Write(size_t /*flags*/, Field& field, const char* name, const char* units, typename Field::Enum*)
 	{
 		// 0 usually means "not included in structure", but some packed
 		// enumerations actually use that value. therefore, only skip this
@@ -690,11 +702,10 @@ void FieldStringizer::operator()<const char*>(size_t flags, const char*& value, 
 
 const Structures* GetStructures()
 {
-	static ModuleInitState initState;
-	Status ret = ModuleInit(&initState, InitStructures);
+	static ModuleInitState initState{ 0 };
+	std::ignore = ModuleInit(&initState, InitStructures);
 	// (callers have to check if member pointers are nonzero anyway, so
 	// we always return a valid pointer to simplify most use cases.)
-	UNUSED2(ret);
 	return &g_Structures;
 }
 

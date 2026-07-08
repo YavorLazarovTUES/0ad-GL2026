@@ -9,7 +9,7 @@ class GameSettingTabs
 
 		this.settingsTabButtonsFrame = Engine.GetGUIObjectByName("settingTabButtonsFrame");
 
-		for (let tab in g_GameSettingsLayout)
+		for (const tab in g_GameSettingsLayout)
 			g_GameSettingsLayout[tab].tooltip = sprintf(this.ToggleTooltip, { "name": g_GameSettingsLayout[tab].label });
 
 		setupWindow.registerLoadHandler(this.onLoad.bind(this));
@@ -44,17 +44,17 @@ class GameSettingTabs
 
 	resize()
 	{
-		let size = this.settingsTabButtonsFrame.size;
-		size.bottom = size.top + g_GameSettingsLayout.length * (this.TabButtonHeight + this.TabButtonMargin);
+		this.settingsTabButtonsFrame.size.bottom =
+			this.settingsTabButtonsFrame.size.top +
+			g_GameSettingsLayout.length * (this.TabButtonHeight + this.TabButtonMargin);
 
 		if (!this.lobbyButton.lobbyButton.hidden)
 		{
-			let lobbyButtonSize = this.lobbyButton.lobbyButton.parent.size;
-			size.right -= lobbyButtonSize.right - lobbyButtonSize.left + this.LobbyButtonMargin;
+			const lobbyButtonSize = this.lobbyButton.lobbyButton.parent.size;
+			this.settingsTabButtonsFrame.size.right -= lobbyButtonSize.right - lobbyButtonSize.left + this.LobbyButtonMargin;
 		}
-		this.settingsTabButtonsFrame.size = size;
 
-		for (let handler of this.tabsResizeHandlers)
+		for (const handler of this.tabsResizeHandlers)
 			handler(this.settingsTabButtonsFrame);
 	}
 
@@ -65,7 +65,7 @@ class GameSettingTabs
 
 	onTabSelect()
 	{
-		for (let handler of this.tabSelectHandlers)
+		for (const handler of this.tabSelectHandlers)
 			handler();
 	}
 }
@@ -73,7 +73,7 @@ class GameSettingTabs
 GameSettingTabs.prototype.ToggleTooltip =
 	translate("Click to toggle the %(name)s settings tab.");
 
-GameSettingTabs.prototype.TabButtonHeight = 30;
+GameSettingTabs.prototype.TabButtonHeight = 34;
 
 GameSettingTabs.prototype.TabButtonMargin = 4;
 

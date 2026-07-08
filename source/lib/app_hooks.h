@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -91,7 +91,11 @@ extern const wchar_t*, translate, (const wchar_t* text), (text), return)
 #ifndef INCLUDED_APP_HOOKS
 #define INCLUDED_APP_HOOKS
 
+#include "lib/debug.h"
 #include "lib/os_path.h"
+
+#include <cstddef>
+#include <cstdio>
 
 // trampolines for user code to call the hooks. they encapsulate
 // the details of how exactly to do this.
@@ -149,7 +153,7 @@ struct AppHooks
  * override the previous function pointer value
  * (these default to the stub hooks which are functional but basic).
  **/
-void app_hooks_update(AppHooks* ah);
+void app_hooks_update(const AppHooks& ah);
 
 /**
  * was the app hook changed via app_hooks_update from its default value?

@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,16 +21,21 @@
 
 #include "graphics/TextureManager.h"
 #include "ps/CLogger.h"
-#include "ps/ConfigDB.h"
 #include "ps/CStr.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
+#include "ps/ConfigDB.h"
 #include "ps/VideoMode.h"
-#include "renderer/backend/IDevice.h"
-#include "renderer/Renderer.h"
 #include "renderer/PostprocManager.h"
+#include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
 #include "renderer/ShadowMap.h"
 #include "renderer/WaterManager.h"
+#include "renderer/backend/IDevice.h"
+
+#include <functional>
+#include <string>
+#include <vector>
 
 CRenderingOptions g_RenderingOptions;
 
@@ -42,7 +47,9 @@ public:
 	template<typename T>
 	void Setup(CStr8 name, T& variable)
 	{
-		hooks.emplace_back(g_ConfigDB.RegisterHookAndCall(name, [name, &variable]() { CFG_GET_VAL(name, variable); }));
+		hooks.emplace_back(g_ConfigDB.RegisterHookAndCall(name, [name, &variable]() {
+			variable = g_ConfigDB.Get(name, variable);
+		}));
 	}
 	void Setup(CStr8 name, std::function<void()> hook)
 	{
@@ -52,33 +59,6 @@ public:
 private:
 	std::vector<CConfigDBHook> hooks;
 };
-
-RenderPath RenderPathEnum::FromString(const CStr8& name)
-{
-	if (name == "default")
-		return DEFAULT;
-	if (name == "fixed")
-		return FIXED;
-	if (name == "shader")
-		return SHADER;
-
-	LOGWARNING("Unknown render path %s", name.c_str());
-	return DEFAULT;
-}
-
-CStr8 RenderPathEnum::ToString(RenderPath path)
-{
-	switch (path)
-	{
-	case RenderPath::DEFAULT:
-		return "default";
-	case RenderPath::FIXED:
-		return "fixed";
-	case RenderPath::SHADER:
-		return "shader";
-	}
-	return "default"; // Silence warning about reaching end of non-void function.
-}
 
 RenderDebugMode RenderDebugModeEnum::FromString(const CStr8& name)
 {
@@ -113,7 +93,6 @@ CStrIntern RenderDebugModeEnum::ToString(RenderDebugMode mode)
 
 CRenderingOptions::CRenderingOptions() : m_ConfigHooks(new ConfigHooks())
 {
-	m_RenderPath = RenderPath::DEFAULT;
 	m_Shadows = false;
 	m_WaterEffects = false;
 	m_WaterFancyEffects = false;
@@ -131,6 +110,7 @@ CRenderingOptions::CRenderingOptions() : m_ConfigHooks(new ConfigHooks())
 	m_DisplayFrustum = false;
 	m_DisplayShadowsFrustum = false;
 	m_RenderActors = true;
+	m_CutsceneMode = false;
 }
 
 CRenderingOptions::~CRenderingOptions()
@@ -140,12 +120,6 @@ CRenderingOptions::~CRenderingOptions()
 
 void CRenderingOptions::ReadConfigAndSetupHooks()
 {
-	m_ConfigHooks->Setup("renderpath", [this]() {
-		CStr renderPath;
-		CFG_GET_VAL("renderpath", renderPath);
-		SetRenderPath(RenderPathEnum::FromString(renderPath));
-	});
-
 	m_ConfigHooks->Setup("shadowquality", []() {
 		if (CRenderer::IsInitialised())
 			g_Renderer.GetSceneRenderer().GetShadowMap().RecreateTexture();
@@ -170,14 +144,10 @@ void CRenderingOptions::ReadConfigAndSetupHooks()
 	});
 
 	m_ConfigHooks->Setup("shadows", [this]() {
-		bool enabled;
-		CFG_GET_VAL("shadows", enabled);
-		SetShadows(enabled);
+		SetShadows(g_ConfigDB.Get("shadows", false));
 	});
 	m_ConfigHooks->Setup("shadowpcf", [this]() {
-		bool enabled;
-		CFG_GET_VAL("shadowpcf", enabled);
-		SetShadowPCF(enabled);
+		SetShadowPCF(g_ConfigDB.Get("shadowpcf", false));
 	});
 
 	m_ConfigHooks->Setup("postproc", m_PostProc);
@@ -205,64 +175,58 @@ void CRenderingOptions::ReadConfigAndSetupHooks()
 
 	m_ConfigHooks->Setup("renderer.upscale.technique", []()
 		{
-			CStr upscaleName;
-			CFG_GET_VAL("renderer.upscale.technique", upscaleName);
-			if (CRenderer::IsInitialised())
-				g_Renderer.GetPostprocManager().SetUpscaleTechnique(upscaleName);
+			if (!CRenderer::IsInitialised())
+				return;
+			g_Renderer.GetPostprocManager().SetUpscaleTechnique(
+				g_ConfigDB.Get("renderer.upscale.technique", std::string{}));
 		});
 
 	m_ConfigHooks->Setup("smoothlos", m_SmoothLOS);
 
 	m_ConfigHooks->Setup("watereffects", [this]() {
-		bool enabled;
-		CFG_GET_VAL("watereffects", enabled);
-		SetWaterEffects(enabled);
+		SetWaterEffects(g_ConfigDB.Get("watereffects", false));
 		if (CRenderer::IsInitialised())
 			g_Renderer.GetSceneRenderer().GetWaterManager().RecreateOrLoadTexturesIfNeeded();
 	});
 	m_ConfigHooks->Setup("waterfancyeffects", [this]() {
-		bool enabled;
-		CFG_GET_VAL("waterfancyeffects", enabled);
-		SetWaterFancyEffects(enabled);
+		SetWaterFancyEffects(g_ConfigDB.Get("waterfancyeffects", false));
 		if (CRenderer::IsInitialised())
 			g_Renderer.GetSceneRenderer().GetWaterManager().RecreateOrLoadTexturesIfNeeded();
 	});
 	m_ConfigHooks->Setup("waterrealdepth", m_WaterRealDepth);
 	m_ConfigHooks->Setup("waterrefraction", [this]() {
-		bool enabled;
-		CFG_GET_VAL("waterrefraction", enabled);
-		SetWaterRefraction(enabled);
+		SetWaterRefraction(g_ConfigDB.Get("waterrefraction", false));
 		if (CRenderer::IsInitialised())
 			g_Renderer.GetSceneRenderer().GetWaterManager().RecreateOrLoadTexturesIfNeeded();
 	});
 	m_ConfigHooks->Setup("waterreflection", [this]() {
-		bool enabled;
-		CFG_GET_VAL("waterreflection", enabled);
-		SetWaterReflection(enabled);
+		SetWaterReflection(g_ConfigDB.Get("waterreflection", false));
 		if (CRenderer::IsInitialised())
 			g_Renderer.GetSceneRenderer().GetWaterManager().RecreateOrLoadTexturesIfNeeded();
 	});
 
 	m_ConfigHooks->Setup("particles", m_Particles);
 	m_ConfigHooks->Setup("fog", [this]() {
-		bool enabled;
-		CFG_GET_VAL("fog", enabled);
-		SetFog(enabled);
+		SetFog(g_ConfigDB.Get("fog", false));
 	});
 	m_ConfigHooks->Setup("silhouettes", m_Silhouettes);
 
 	m_ConfigHooks->Setup("gpuskinning", [this]() {
-		bool enabled;
-		CFG_GET_VAL("gpuskinning", enabled);
-		if (enabled)
+		const Renderer::Backend::IDevice::Capabilities& capabilities{
+			g_VideoMode.GetBackendDevice()->GetCapabilities()};
+		if (!g_ConfigDB.Get("gpuskinning", false))
+			return;
+
+		if (capabilities.computeShaders && capabilities.storage)
+			m_GPUSkinning = true;
+		else
 		{
-			if (g_VideoMode.GetBackendDevice()->GetBackend() == Renderer::Backend::Backend::GL_ARB)
-				LOGWARNING("GPUSkinning has been disabled, because it is not supported with ARB shaders.");
-			else if (g_VideoMode.GetBackendDevice()->GetBackend() == Renderer::Backend::Backend::VULKAN)
-				LOGWARNING("GPUSkinning has been disabled, because it is not supported for Vulkan backend yet.");
-			else
-				m_GPUSkinning = true;
+			m_GPUSkinning = false;
+			LOGMESSAGE("GPU skinning isn't supported on the current hardware.");
 		}
+
+		if (CRenderer::IsInitialised())
+			g_Renderer.MakeShadersDirty();
 	});
 
 	m_ConfigHooks->Setup("renderactors", m_RenderActors);
@@ -275,6 +239,8 @@ void CRenderingOptions::ReadConfigAndSetupHooks()
 		if (CRenderer::IsInitialised())
 			g_Renderer.GetTextureManager().OnQualityChanged();
 	});
+
+	m_ConfigHooks->Setup("pbr.brightness", m_PBRBrightness);
 }
 
 void CRenderingOptions::ClearHooks()
@@ -301,13 +267,6 @@ void CRenderingOptions::SetFog(bool value)
 	m_Fog = value;
 	if (CRenderer::IsInitialised())
 		g_Renderer.MakeShadersDirty();
-}
-
-void CRenderingOptions::SetRenderPath(RenderPath value)
-{
-	m_RenderPath = value;
-	if (CRenderer::IsInitialised())
-		g_Renderer.SetRenderPath(m_RenderPath);
 }
 
 void CRenderingOptions::SetRenderDebugMode(RenderDebugMode value)

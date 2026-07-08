@@ -23,7 +23,7 @@ Math.cos = function(a)
 
 	// make b = 0 if a < pi/2 and b=1 if a > pi/2
 	var b = (a-Math.PI/2) + Math.abs(a-Math.PI/2);
-	b = b/(b+1e-30); // normalize b to one while avoiding divide by zero errors.
+	b /=(b+1e-30); // normalize b to one while avoiding divide by zero errors.
 
 	// if a > pi/2 send a to pi-a, otherwise just send a to -a which has no effect
 	// Using the symmetry cos(x) = -cos(pi-x) to bring a to the 0 to pi/2 range.
@@ -90,7 +90,7 @@ Math.atan = function(a)
 /**
  * Approximation of arctangent of y/x, returns angle from -pi to pi
  */
-Math.atan2 = function(y,x)
+Math.atan2 = function(y, x)
 {
 	// get unsigned x,y for ease of calculation, this means all angles are in the range [0, pi/2]
 	var ux = Math.abs(x);
@@ -101,43 +101,26 @@ Math.atan2 = function(y,x)
 	// Handle all edges cases to match the spec
 	if (uy === 0)
 		r = 0;
+	else if (uy === Infinity)
+	{
+		if (ux === Infinity)
+			r = Math.PI / 4;
+		else
+			r = Math.PI / 2;
+	}
 	else
 	{
-		if (ux === 0)
-			r = Math.PI / 2;
-
-		if (uy === Infinity)
-		{
-			if (ux === Infinity)
-				r = Math.PI / 4;
-			else
-				r = Math.PI / 2;
-		}
+		if (ux === Infinity)
+			r = 0;
 		else
-		{
-			if (ux === Infinity)
-				r = 0;
-			else
-				r = Math.atan(uy/ux);
-		}
+			r = Math.atan(uy/ux);
 	}
 
 	// puts the result into the correct quadrant
 	// 1/(-0) is the only way to determine the sign for a 0 value
 	if (x < 0 || 1/x === -Infinity)
-	{
-		if (y < 0 || 1/y === -Infinity)
-			return -Math.PI + r;
-		else
-			return Math.PI - r;
-	}
-	else
-	{
-		if (y < 0 || 1/y === -Infinity)
-			return -r;
-		else
-			return r;
-	}
+		return (y < 0 || 1/y === -Infinity) ? -Math.PI + r : Math.PI - r;
+	return (y < 0 || 1/y === -Infinity) ? -r : r;
 };
 
 Math.acos = function()
@@ -187,17 +170,18 @@ Math.square = function(x)
  */
 Math.exp = function(x)
 {
+	let iPart;
 	if (x < 0)
-		var iPart = 1/Math.intPow(Math.E, -Math.floor(x));
+		iPart = 1/Math.intPow(Math.E, -Math.floor(x));
 	else
-		var iPart = Math.intPow(Math.E, Math.floor(x));
+		iPart = Math.intPow(Math.E, Math.floor(x));
 
 	if (x === Math.floor(x))
 		// no need to loop if we know the answer
 		return iPart;
 
 	// the integer part is known, work further with the decimal part of x
-	x = x - Math.floor(x); // x \in [0,1)
+	x -= Math.floor(x); // x \in [0,1)
 
 	// taylor series around 0
 	// max error ~=~ 10^(-16)
@@ -237,9 +221,10 @@ Math.log = function(x)
 	// when implemented in C, just count the number of bits before the fraction
 	// without leading zeros. This may be negative.
 	var log = 0;
+	let i;
 	if (x >= 1)
 	{
-		for (var i = 1; i <= x; i *= 2)
+		for (i = 1; i <= x; i *= 2)
 			log++;
 
 		log--;
@@ -247,7 +232,7 @@ Math.log = function(x)
 	}
 	else
 	{
-		for (var i = 1; i > x; i /= 2)
+		for (i = 1; i > x; i /= 2)
 			log--;
 	}
 	// now lb(x) = log + lb(y) with y = x/i. So y \in [1,2)
@@ -308,14 +293,14 @@ Math.intPow = function(x, y)
 
 	var result = 1;
 
-	var i = binary.length;
+	var l = binary.length;
 
 	while (y > 0)
 	{
-		if (binary[--i] <= y)
+		if (binary[--l] <= y)
 		{
-			result *= powers[i];
-			y -= binary[i];
+			result *= powers[l];
+			y -= binary[l];
 		}
 	}
 	// error margin = 0 (default JS error)

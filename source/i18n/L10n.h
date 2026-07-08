@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -23,13 +23,15 @@
 #ifndef INCLUDED_L10N
 #define INCLUDED_L10N
 
-#include "lib/code_annotation.h"
-#include "lib/external_libraries/icu.h"
 #include "lib/file/vfs/vfs_path.h"
+#include "lib/status.h"
 #include "ps/Singleton.h"
 
 #include <memory>
 #include <string>
+#include <unicode/datefmt.h>
+#include <unicode/locid.h>
+#include <unicode/utypes.h>
 #include <vector>
 
 namespace tinygettext
@@ -42,7 +44,7 @@ class Dictionary;
 /**
  * %Singleton for internationalization and localization.
  *
- * @sa http://trac.wildfiregames.com/wiki/Internationalization_and_Localization
+ * @sa https://gitea.wildfiregames.com/0ad/0ad/wiki/Internationalization_and_Localization
  */
 class L10n : public Singleton<L10n>
 {
@@ -144,7 +146,7 @@ public:
 	 * @sa GetAllLocales()
 	 * @sa GetCurrentLocale()
 	 *
-	 * @sa http://trac.wildfiregames.com/wiki/Implementation_of_Internationalization_and_Localization#LongStringsLocale
+	 * @sa https://gitea.wildfiregames.com/0ad/0ad/wiki/Implementation_of_Internationalization_and_Localization#LongStringsLocale
 	 */
 	std::vector<std::string> GetSupportedLocaleBaseNames() const;
 
@@ -162,7 +164,7 @@ public:
 	 *
 	 * @sa GetSupportedLocaleBaseNames()
 	 *
-	 * @sa http://trac.wildfiregames.com/wiki/Implementation_of_Internationalization_and_Localization#LongStringsLocale
+	 * @sa https://gitea.wildfiregames.com/0ad/0ad/wiki/Implementation_of_Internationalization_and_Localization#LongStringsLocale
 	 */
 	std::vector<std::wstring> GetSupportedLocaleDisplayNames() const;
 
@@ -211,15 +213,6 @@ public:
 	std::string GetLocaleScript(const std::string& locale) const;
 
 	/**
-	 * Returns @c true if the current locale is the special "Long Strings"
-	 * locale. It returns @c false otherwise.
-	 *
-	 * @return Whether the current locale is the special "Long Strings"
-	 *         (@c true) or not (@c false).
-	 */
-	bool UseLongStrings() const;
-
-	/**
 	 * Returns an array of paths to files in the virtual filesystem that provide
 	 * translations for the specified locale code.
 	 *
@@ -252,7 +245,7 @@ public:
 	 *        empty string to check the system locale directly.
 	 * @return Code of a locale that the game supports.
 	 *
-	 * @sa http://trac.wildfiregames.com/wiki/Implementation_of_Internationalization_and_Localization#LongStringsLocale
+	 * @sa https://gitea.wildfiregames.com/0ad/0ad/wiki/Implementation_of_Internationalization_and_Localization#LongStringsLocale
 	 */
 	std::string GetDictionaryLocale(const std::string& configLocaleString) const;
 
@@ -275,7 +268,7 @@ public:
 	 *        empty string to check the system locale directly.
 	 * @param outLocale The recommended locale.
 	 *
-	 * @sa http://trac.wildfiregames.com/wiki/Implementation_of_Internationalization_and_Localization#LongStringsLocale
+	 * @sa https://gitea.wildfiregames.com/0ad/0ad/wiki/Implementation_of_Internationalization_and_Localization#LongStringsLocale
 	 */
 	void GetDictionaryLocale(const std::string& configLocaleString, icu::Locale& outLocale) const;
 
@@ -469,7 +462,7 @@ public:
 	 * @param sourcePath %Path to localize.
 	 * @return Localized path if it exists, @c sourcePath otherwise.
 	 *
-	 * @sa http://trac.wildfiregames.com/wiki/Localization#LocalizingImages
+	 * @sa https://gitea.wildfiregames.com/0ad/0ad/wiki/Localization#LocalizingImages
 	 */
 	VfsPath LocalizePath(const VfsPath& sourcePath) const;
 
@@ -522,14 +515,6 @@ private:
 	 * Many localization steps can be skipped when this variable is @c true.
 	 */
 	bool m_CurrentLocaleIsOriginalGameLocale{false};
-
-	/**
-	 * Whether the game is using the special game locale with the longest
-	 * strings of each translation (@c true) or not (@c false).
-	 *
-	 * @sa http://trac.wildfiregames.com/wiki/Implementation_of_Internationalization_and_Localization#LongStringsLocale
-	 */
-	bool m_UseLongStrings{false};
 
 	/**
 	 * Loads the translation files for the

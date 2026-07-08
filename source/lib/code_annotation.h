@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Wildfire Games.
+/* Copyright (c) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -27,42 +27,11 @@
 #ifndef INCLUDED_CODE_ANNOTATION
 #define INCLUDED_CODE_ANNOTATION
 
-#include "lib/sysdep/compiler.h"
+#include "lib/code_generation.h"
 #include "lib/sysdep/arch.h"	// ARCH_AMD64
+#include "lib/sysdep/compiler.h"
 
-/**
- * mark a function parameter as unused and avoid
- * the corresponding compiler warning.
- * wrap around the parameter name, e.g. void f(int UNUSED(x))
- **/
-#define UNUSED(param)
-
-/**
- * mark a function local variable or parameter as unused and avoid
- * the corresponding compiler warning.
- * note that UNUSED is not applicable to variable definitions that
- * involve initialization, nor is it sufficient in cases where
- * an argument is unused only in certain situations.
- * example: void f(int x) { ASSERT(x == 0); UNUSED2(x); }
- * this asserts in debug builds and avoids warnings in release.
- **/
-#if HAVE_C99 && GCC_VERSION	// _Pragma from C99, unused from GCC
-# define UNUSED2(param) _Pragma("unused " #param)
-#elif ICC_VERSION
-// ICC 12 still doesn't recognize pragma unused, casting to void
-// isn't sufficient, and self-assignment doesn't work for references.
-# define UNUSED2(param) do{ if(&param) {} } while(false)
-#else
-# define UNUSED2(param) ((void)(param))
-#endif
-
-/**
- * Silence the 'unused result' warning.
- * (void) would be sufficient but Spidermonkey still uses warn_unused_result,
- * and GCC is stricter about that. See https://bugzilla.mozilla.org/show_bug.cgi?id=1571631.
- **/
-template<typename T>
-inline void ignore_result(const T&) {}
+#include <cstddef>
 
 /**
  * indicate a function will not throw any synchronous exceptions,
@@ -140,7 +109,7 @@ inline void ignore_result(const T&) {}
 // compiler-specific backend for UNREACHABLE.
 // #define it to nothing if the compiler doesn't support such a hint.
 #define HAVE_ASSUME_UNREACHABLE 1
-#if MSC_VERSION && !ICC_VERSION // (ICC ignores this)
+#if MSC_VERSION
 # define ASSUME_UNREACHABLE __assume(0)
 #elif GCC_VERSION
 # define ASSUME_UNREACHABLE __builtin_unreachable()
@@ -156,14 +125,12 @@ inline void ignore_result(const T&) {}
 #if HAVE_ASSUME_UNREACHABLE && !CONFIG_ENABLE_CHECKS
 # define UNREACHABLE ASSUME_UNREACHABLE
 // otherwise (or if CONFIG_ENABLE_CHECKS is set), add a user-visible
-// warning if the code is reached. note that abort() fails to stop
-// ICC from warning about the lack of a return statement, so we
-// use an infinite loop instead.
+// warning if the code is reached.
 #else
 # define UNREACHABLE\
 	STMT(\
 		DEBUG_WARN_ERR(ERR::LOGIC);	/* hit supposedly unreachable code */\
-		for(;;){};\
+		abort();\
 	)
 #endif
 
@@ -220,9 +187,6 @@ switch(x % 2)
  * };
  * @endcode
  *
- * This is preferable to inheritance from boost::noncopyable because it avoids
- * ICC 11 W4 warnings about non-virtual dtors and suppression of the copy
- * assignment operator.
  */
 #define NONCOPYABLE(className) \
 	className(const className&) = delete; \
@@ -235,12 +199,6 @@ switch(x % 2)
 #define MOVABLE(className) \
 	className(className&&) = default; \
 	className& operator=(className&&) = default
-
-#if ICC_VERSION
-# define ASSUME_ALIGNED(ptr, multiple) __assume_aligned(ptr, multiple)
-#else
-# define ASSUME_ALIGNED(ptr, multiple)
-#endif
 
 // annotate printf-style functions for compile-time type checking.
 // fmtpos is the index of the format argument, counting from 1 or
@@ -269,9 +227,7 @@ switch(x % 2)
 /**
  * prevent the compiler from reordering loads or stores across this point.
  **/
-#if ICC_VERSION
-# define COMPILER_FENCE __memory_barrier()
-#elif MSC_VERSION
+#if MSC_VERSION
 # include <intrin.h>
 # pragma intrinsic(_ReadWriteBarrier)
 # define COMPILER_FENCE _ReadWriteBarrier()
@@ -320,14 +276,6 @@ switch(x % 2)
 // .. VC8 provides __restrict
 #elif MSC_VERSION
 # define RESTRICT __restrict
-// .. ICC supports the keyword 'restrict' when run with the /Qrestrict option,
-//    but it always also supports __restrict__ or __restrict to be compatible
-//    with GCC/MSVC, so we'll use the underscored version. One of {GCC,MSC}_VERSION
-//    should have been defined in addition to ICC_VERSION, so we should be using
-//    one of the above cases (unless it's an old VS7.1-emulating ICC).
-#elif ICC_VERSION
-# error ICC_VERSION defined without either GCC_VERSION or an adequate MSC_VERSION
-// .. unsupported; remove it from code
 #else
 # define RESTRICT
 #endif
@@ -400,17 +348,5 @@ template<typename T, size_t n> char (*ArraySizeDeducer(T (&)[n]))[n];
 // widening it via preprocessor.
 #define WIDEN2(x) L ## x
 #define WIDEN(x) WIDEN2(x)
-
-// TODO: Replace this with [[fallthrough]] once we support C++17
-#if __has_cpp_attribute(fallthrough) || defined(__cplusplus) && __cplusplus >= 201703L
-# define FALLTHROUGH [[fallthrough]]
-#elif __has_cpp_attribute(gnu::fallthrough)
-# define FALLTHROUGH [[gnu::fallthrough]]
-#elif __has_cpp_attribute(clang::fallthrough)
-# define FALLTHROUGH [[clang::fallthrough]]
-#else
-# define FALLTHROUGH
-// TODO: Maybe use __fallthrough for the MSVC code analyzer (also figure out if we need to add some switch when switching to a newer version of VS that supports [[fallthrough]]
-#endif
 
 #endif	// #ifndef INCLUDED_CODE_ANNOTATION

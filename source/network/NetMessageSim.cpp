@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,14 +19,24 @@
 
 #include "NetMessage.h"
 
-#include "lib/utf8.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "lib/code_annotation.h"
+#include "lib/types.h"
+#include "network/NetMessage.h"
+#include "ps/CStr.h"
 #include "scriptinterface/JSON.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/serialization/BinarySerializer.h"
 #include "simulation2/serialization/StdDeserializer.h"
-#include "simulation2/serialization/StdSerializer.h" // for DEBUG_SERIALIZER_ANNOTATE
+#include "simulation2/serialization/StdSerializer.h"
 
+#include <cstring>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
 #include <sstream>
+#include <string>
+
+namespace Script { class Interface; }
 
 class CBufferBinarySerializerImpl
 {
@@ -36,7 +46,7 @@ public:
 	{
 	}
 
-	void Put(const char* name, const u8* data, size_t len)
+	void Put([[maybe_unused]] const char* name, const u8* data, size_t len)
 	{
 		#if DEBUG_SERIALIZER_ANNOTATE
 			std::string tag = "<";
@@ -44,8 +54,6 @@ public:
 			tag.append(">");
 			memcpy(m_Buffer, tag.c_str(), tag.length());
 			m_Buffer += tag.length();
-		#else
-			UNUSED2(name);
 		#endif
 		memcpy(m_Buffer, data, len);
 		m_Buffer += len;
@@ -60,7 +68,7 @@ public:
 class CBufferBinarySerializer : public CBinarySerializer<CBufferBinarySerializerImpl>
 {
 public:
-	CBufferBinarySerializer(const ScriptInterface& scriptInterface, u8* buffer) :
+	CBufferBinarySerializer(const Script::Interface& scriptInterface, u8* buffer) :
 		CBinarySerializer<CBufferBinarySerializerImpl>(scriptInterface, buffer)
 	{
 	}
@@ -79,13 +87,11 @@ public:
 	{
 	}
 
-	void Put(const char* name, const u8* UNUSED(data), size_t len)
+	void Put([[maybe_unused]] const char* name, const u8* /*data*/, size_t len)
 	{
 		#if DEBUG_SERIALIZER_ANNOTATE
 		m_Length += 2;	// '<' and '>'
 		m_Length += strlen(name);
-		#else
-			UNUSED2(name);
 		#endif
 		m_Length += len;
 	}
@@ -99,7 +105,7 @@ public:
 class CLengthBinarySerializer : public CBinarySerializer<CLengthBinarySerializerImpl>
 {
 public:
-	CLengthBinarySerializer(const ScriptInterface& scriptInterface) :
+	CLengthBinarySerializer(const Script::Interface& scriptInterface) :
 		CBinarySerializer<CLengthBinarySerializerImpl>(scriptInterface)
 	{
 	}
@@ -110,18 +116,18 @@ public:
 	}
 };
 
-CSimulationMessage::CSimulationMessage(const ScriptInterface& scriptInterface) :
+CSimulationMessage::CSimulationMessage(const Script::Interface& scriptInterface) :
 	CNetMessage(NMT_SIMULATION_COMMAND), m_ScriptInterface(scriptInterface)
 {
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 	m_Data.init(rq.cx);
 }
 
-CSimulationMessage::CSimulationMessage(const ScriptInterface& scriptInterface, u32 client, i32 player, u32 turn, JS::HandleValue data) :
+CSimulationMessage::CSimulationMessage(const Script::Interface& scriptInterface, u32 client, i32 player, u32 turn, JS::HandleValue data) :
 	CNetMessage(NMT_SIMULATION_COMMAND), m_ScriptInterface(scriptInterface),
 	m_Client(client), m_Player(player), m_Turn(turn)
 {
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 	m_Data.init(rq.cx, data);
 }
 
@@ -132,7 +138,7 @@ CSimulationMessage::CSimulationMessage(const CSimulationMessage& orig) :
 	m_Turn(orig.m_Turn),
 	CNetMessage(orig)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 	m_Data.init(rq.cx, orig.m_Data);
 }
 
@@ -181,7 +187,7 @@ size_t CSimulationMessage::GetSerializedLength() const
 
 CStr CSimulationMessage::ToString() const
 {
-	std::string source = Script::ToString(ScriptRequest(m_ScriptInterface), const_cast<JS::PersistentRootedValue*>(&m_Data));
+	std::string source = Script::ToString(Script::Request(m_ScriptInterface), const_cast<JS::PersistentRootedValue*>(&m_Data));
 
 	std::stringstream stream;
 	stream << "CSimulationMessage { m_Client: " << m_Client << ", m_Player: " << m_Player << ", m_Turn: " << m_Turn << ", m_Data: " << source << " }";
@@ -189,17 +195,17 @@ CStr CSimulationMessage::ToString() const
 }
 
 
-CGameSetupMessage::CGameSetupMessage(const ScriptInterface& scriptInterface) :
+CGameSetupMessage::CGameSetupMessage(const Script::Interface& scriptInterface) :
 	CNetMessage(NMT_GAME_SETUP), m_ScriptInterface(scriptInterface)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 	m_Data.init(rq.cx);
 }
 
-CGameSetupMessage::CGameSetupMessage(const ScriptInterface& scriptInterface, JS::HandleValue data) :
+CGameSetupMessage::CGameSetupMessage(const Script::Interface& scriptInterface, JS::HandleValue data) :
 	CNetMessage(NMT_GAME_SETUP), m_ScriptInterface(scriptInterface)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 	m_Data.init(rq.cx, data);
 }
 
@@ -231,7 +237,7 @@ size_t CGameSetupMessage::GetSerializedLength() const
 
 CStr CGameSetupMessage::ToString() const
 {
-	std::string source = Script::ToString(ScriptRequest(m_ScriptInterface), const_cast<JS::PersistentRootedValue*>(&m_Data));
+	std::string source = Script::ToString(Script::Request(m_ScriptInterface), const_cast<JS::PersistentRootedValue*>(&m_Data));
 
 	std::stringstream stream;
 	stream << "CGameSetupMessage { m_Data: " << source << " }";

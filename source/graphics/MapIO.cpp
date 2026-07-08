@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,16 +20,23 @@
 #include "MapIO.h"
 
 #include "graphics/Patch.h"
+#include "lib/alignment.h"
 #include "lib/allocators/shared_ptr.h"
 #include "lib/file/file.h"
+#include "lib/file/vfs/vfs.h"
 #include "lib/file/vfs/vfs_path.h"
 #include "lib/os_path.h"
+#include "lib/posix/posix_types.h"
 #include "lib/status.h"
 #include "lib/tex/tex.h"
 #include "maths/MathUtil.h"
 #include "ps/Filesystem.h"
 
 #include <algorithm>
+#include <cstddef>
+#include <fcntl.h>
+#include <memory>
+#include <string>
 #include <vector>
 
 Status ParseHeightmapImage(const std::shared_ptr<u8>& fileData, size_t fileSize, std::vector<u16>& heightmap);
@@ -49,8 +56,14 @@ Status LoadHeightmapImageOs(const OsPath& filepath, std::vector<u16>& heightmap)
 	File file;
 	RETURN_STATUS_IF_ERR(file.Open(OsString(filepath), O_RDONLY));
 
+#if OS_WIN
+	// sizeof(long) == 4 on Windows so we can't use lseek.
+	size_t fileSize = _lseeki64(file.Descriptor(), 0, SEEK_END);
+	_lseeki64(file.Descriptor(), 0, SEEK_SET);
+#else
 	size_t fileSize = lseek(file.Descriptor(), 0, SEEK_END);
 	lseek(file.Descriptor(), 0, SEEK_SET);
+#endif
 
 	std::shared_ptr<u8> fileData;
 	RETURN_STATUS_IF_ERR(AllocateAligned(fileData, fileSize, maxSectorSize));

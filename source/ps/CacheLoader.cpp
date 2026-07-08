@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,11 +19,15 @@
 
 #include "CacheLoader.h"
 
+#include "lib/debug.h"
+#include "lib/file/file_system.h"
+#include "lib/os_path.h"
+#include "lib/path.h"
+#include "lib/utf8.h"
 #include "maths/MD5.h"
-#include "ps/CLogger.h"
 #include "ps/Util.h"
 
-#include <iomanip>
+#include <ctime>
 
 CCacheLoader::CCacheLoader(PIVFS vfs, const std::wstring& fileExtension) :
 	m_VFS(vfs), m_FileExtension(fileExtension)
@@ -112,7 +116,7 @@ bool CCacheLoader::CanUseArchiveCache(const VfsPath& sourcePath, const VfsPath& 
 
 VfsPath CCacheLoader::ArchiveCachePath(const VfsPath& sourcePath) const
 {
-	return sourcePath.ChangeExtension(sourcePath.Extension().string() + L".cached" + m_FileExtension);
+	return sourcePath.ChangeExtension(std::wstring{sourcePath.Extension()} + L".cached" + m_FileExtension);
 }
 
 VfsPath CCacheLoader::LooseCachePath(const VfsPath& sourcePath, const MD5& initialHash, u32 version)
@@ -144,7 +148,7 @@ VfsPath CCacheLoader::LooseCachePath(const VfsPath& sourcePath, const MD5& initi
 
 	return VfsPath("cache") /
 		path_name_only(path.BeforeCommon(sourcePath).Parent().string().c_str()) /
-			sourcePath.ChangeExtension(sourcePath.Extension().string() +
+			sourcePath.ChangeExtension(std::wstring{sourcePath.Extension()} +
 			L"." +
 			// Use a short prefix of the full hash (we don't need high collision-resistance)
 			wstring_from_utf8(Hexify(digest, 8)) +

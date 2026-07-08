@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,14 +19,26 @@
 
 #include "ICmpAIManager.h"
 
+#include "lib/code_annotation.h"
 #include "lib/file/vfs/vfs_util.h"
+#include "lib/path.h"
+#include "lib/status.h"
+#include "lib/types.h"
 #include "ps/Filesystem.h"
-#include "simulation2/system/InterfaceScripted.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptExtraHeaders.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
+#include "simulation2/system/InterfaceScripted.h"
 
-#include <boost/filesystem.hpp>
+#include <filesystem>
+#include <iterator>
+#include <js/Array.h>
+#include <js/PropertyAndElement.h>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+
+class CFileInfo;
 
 BEGIN_INTERFACE_WRAPPER(AIManager)
 DEFINE_INTERFACE_METHOD("AddPlayer", ICmpAIManager, AddPlayer)
@@ -41,11 +53,11 @@ struct GetAIsHelper
 {
 	NONCOPYABLE(GetAIsHelper);
 public:
-	GetAIsHelper(const ScriptInterface& scriptInterface) :
+	GetAIsHelper(const Script::Interface& scriptInterface) :
 		m_ScriptInterface(scriptInterface),
 		m_AIs(scriptInterface.GetGeneralJSContext())
 	{
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 		m_AIs = JS::NewArrayObject(rq.cx, 0);
 	}
 
@@ -54,16 +66,16 @@ public:
 		vfs::ForEachFile(g_VFS, L"simulation/ai/", Callback, (uintptr_t)this, L"*.json", vfs::DIR_RECURSIVE);
 	}
 
-	static Status Callback(const VfsPath& pathname, const CFileInfo& UNUSED(fileInfo), const uintptr_t cbData)
+	static Status Callback(const VfsPath& pathname, const CFileInfo&, const uintptr_t cbData)
 	{
 		GetAIsHelper* self = (GetAIsHelper*)cbData;
-		ScriptRequest rq(self->m_ScriptInterface);
+		Script::Request rq(self->m_ScriptInterface);
 
 		// Extract the 3rd component of the path (i.e. the directory after simulation/ai/)
-		fs::wpath components = pathname.string();
-		fs::wpath::iterator it = components.begin();
+		std::filesystem::path components = pathname.string();
+		std::filesystem::path::iterator it = components.begin();
 		std::advance(it, 2);
-		std::wstring dirname = GetWstringFromWpath(*it);
+		std::wstring dirname = it->wstring();
 
 		JS::RootedValue ai(rq.cx);
 		Script::CreateObject(rq, &ai);
@@ -80,10 +92,10 @@ public:
 	}
 
 	JS::PersistentRootedObject m_AIs;
-	const ScriptInterface& m_ScriptInterface;
+	const Script::Interface& m_ScriptInterface;
 };
 
-JS::Value ICmpAIManager::GetAIs(const ScriptInterface& scriptInterface)
+JS::Value ICmpAIManager::GetAIs(const Script::Interface& scriptInterface)
 {
 	GetAIsHelper helper(scriptInterface);
 	helper.Run();

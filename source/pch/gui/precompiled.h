@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -15,11 +15,13 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+// IWYU pragma: begin_keep
+
 #define MINIMAL_PCH 2
 #include "lib/precompiled.h"	// common precompiled header
 
 #if MSC_VERSION
-# pragma warning(disable:4250)	// "inherits 'IGUITextOwner::IGUITextOwner::UpdateCachedSize' via dominance"
+# pragma warning(disable:4250)	// "inherits 'IGUITextOwner::IGUITextOwner::HandleSizeChanged' via dominance"
 #endif
 
 #if CONFIG_ENABLE_PCH
@@ -28,3 +30,5 @@
 #include "ps/CStr.h"
 
 #endif // CONFIG_ENABLE_PCH
+
+// IWYU pragma: end_keep

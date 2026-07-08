@@ -1,4 +1,4 @@
-/* Copyright (C) 2009 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,8 +19,22 @@
 
 #include "PropListEditor.h"
 
-#include "EditableListCtrl/FieldEditCtrl.h"
-#include "AtlasObject/AtlasObject.h"
+#include "tools/atlas/AtlasObject/AtlasObject.h"
+#include "tools/atlas/AtlasUI/CustomControls/DraggableListCtrl/DraggableListCtrl.h"
+#include "tools/atlas/AtlasUI/CustomControls/EditableListCtrl/FieldEditCtrl.h"
+#include "tools/atlas/AtlasUI/CustomControls/Windows/AtlasDialog.h"
+
+#include <cstddef>
+#include <vector>
+#include <wx/chartype.h>
+#include <wx/gdicmn.h>
+#include <wx/listctrl.h>
+#include <wx/panel.h>
+#include <wx/sizer.h>
+#include <wx/toolbar.h>
+#include <wx/translation.h>
+
+class wxWindow;
 
 //////////////////////////////////////////////////////////////////////////
 

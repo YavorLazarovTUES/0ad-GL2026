@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,32 +17,62 @@
 
 #include "precompiled.h"
 
-#include "simulation2/system/Component.h"
 #include "ICmpRangeManager.h"
 
 #include "ICmpTerrain.h"
-#include "simulation2/system/EntityMap.h"
+#include "graphics/Color.h"
+#include "graphics/Overlay.h"
+#include "lib/debug.h"
+#include "lib/posix/posix_types.h"
+#include "lib/types.h"
+#include "maths/Fixed.h"
+#include "maths/FixedVector2D.h"
+#include "maths/FixedVector3D.h"
+#include "maths/MathUtil.h"
+#include "maths/Sqrt.h"
+#include "ps/CLogger.h"
+#include "ps/Future.h"
+#include "ps/Profile.h"
+#include "ps/TaskManager.h"
+#include "renderer/Scene.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/ICmpFogging.h"
 #include "simulation2/components/ICmpMirage.h"
+#include "simulation2/components/ICmpObstruction.h"
 #include "simulation2/components/ICmpOwnership.h"
+#include "simulation2/components/ICmpPathfinder.h"
 #include "simulation2/components/ICmpPosition.h"
-#include "simulation2/components/ICmpObstructionManager.h"
 #include "simulation2/components/ICmpTerritoryManager.h"
 #include "simulation2/components/ICmpVisibility.h"
 #include "simulation2/components/ICmpVision.h"
 #include "simulation2/components/ICmpWaterManager.h"
+#include "simulation2/helpers/Grid.h"
 #include "simulation2/helpers/Los.h"
 #include "simulation2/helpers/MapEdgeTiles.h"
+#include "simulation2/helpers/Pathfinding.h"
+#include "simulation2/helpers/Player.h"
+#include "simulation2/helpers/Position.h"
 #include "simulation2/helpers/Render.h"
 #include "simulation2/helpers/Spatial.h"
+#include "simulation2/serialization/SerializeTemplates.h"
 #include "simulation2/serialization/SerializedTypes.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+#include "simulation2/system/EntityMap.h"
+#include "simulation2/system/Message.h"
 
-#include "graphics/Overlay.h"
-#include "lib/timer.h"
-#include "ps/CLogger.h"
-#include "ps/Profile.h"
-#include "renderer/Scene.h"
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <cstdlib>
+#include <iterator>
+#include <limits>
+#include <map>
+#include <set>
+#include <string>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 #define DEBUG_RANGE_MANAGER_BOUNDS 0
 
@@ -286,7 +316,7 @@ template<>
 struct SerializeHelper<Query>
 {
 	template<typename S>
-	void Common(S& serialize, const char* UNUSED(name), Serialize::qualify<S, Query> value)
+	void Common(S& serialize, const char* /*name*/, Serialize::qualify<S, Query> value)
 	{
 		serialize.NumberFixed_Unbounded("min range", value.minRange);
 		serialize.NumberFixed_Unbounded("max range", value.maxRange);
@@ -300,7 +330,7 @@ struct SerializeHelper<Query>
 		serialize.Bool("account for size",value.accountForSize);
 	}
 
-	void operator()(ISerializer& serialize, const char* name, Query& value, const CSimContext& UNUSED(context))
+	void operator()(ISerializer& serialize, const char* name, Query& value, const CSimContext&)
 	{
 		Common(serialize, name, value);
 
@@ -327,7 +357,7 @@ template<>
 struct SerializeHelper<EntityData>
 {
 	template<typename S>
-	void operator()(S& serialize, const char* UNUSED(name), Serialize::qualify<S, EntityData> value)
+	void operator()(S& serialize, const char* /*name*/, Serialize::qualify<S, EntityData> value)
 	{
 		serialize.NumberFixed_Unbounded("x", value.x);
 		serialize.NumberFixed_Unbounded("z", value.z);
@@ -387,15 +417,22 @@ public:
 	std::map<tag_t, Query> m_Queries;
 	EntityMap<EntityData> m_EntityData;
 
+	using RangeUpdateMessage = std::pair<entity_id_t, CMessageRangeUpdate>;
+
 	FastSpatialSubdivision m_Subdivision; // spatial index of m_EntityData
-	std::vector<entity_id_t> m_SubdivisionResults;
+
+	// One persistent buffer for each hardware thread including the main thread.
+	// Used to temporarily store the results of all the asynchronous spatial subdivision queries
+	// (which can get quite long) always in the same place to minimize reallocations and memory fragmentation.
+	std::vector<std::vector<entity_id_t>> m_SubdivisionResultBuffers;
 
 	// LOS state:
 	static const player_id_t MAX_LOS_PLAYER_ID = 16;
 
 	using LosRegion = std::pair<u16, u16>;
 
-	std::array<bool, MAX_LOS_PLAYER_ID+2> m_LosRevealAll;
+	std::array<bool, MAX_LOS_PLAYER_ID+1> m_LosRevealWholeMap;
+	bool m_LosRevealWholeMapForAll;
 	bool m_LosCircular;
 	i32 m_LosVerticesPerSide;
 
@@ -436,7 +473,7 @@ public:
 		return "<a:component type='system'/><empty/>";
 	}
 
-	void Init(const CParamNode& UNUSED(paramNode)) override
+	void Init(const CParamNode&) override
 	{
 		m_QueryNext = 1;
 
@@ -450,11 +487,14 @@ public:
 		// SetBounds is called)
 		ResetSubdivisions(entity_pos_t::FromInt(1024), entity_pos_t::FromInt(1024));
 
-		m_SubdivisionResults.reserve(4096);
+
+		m_SubdivisionResultBuffers.resize(g_TaskManager.GetNumberOfWorkers() + 1);
+		for (std::vector<entity_id_t>& buffer : m_SubdivisionResultBuffers)
+			buffer.reserve(4096);
 
 		// The whole map should be visible to Gaia by default, else e.g. animals
 		// will get confused when trying to run from enemies
-		m_LosRevealAll[0] = true;
+		m_LosRevealWholeMap[0] = true;
 
 		m_GlobalVisibilityUpdate = true;
 
@@ -478,7 +518,7 @@ public:
 		Serializer(serialize, "queries", m_Queries, GetSimContext());
 		Serializer(serialize, "entity data", m_EntityData);
 
-		Serializer(serialize, "los reveal all", m_LosRevealAll);
+		Serializer(serialize, "los reveal all", m_LosRevealWholeMap);
 		serialize.Bool("los circular", m_LosCircular);
 		serialize.NumberI32_Unbounded("los verts per side", m_LosVerticesPerSide);
 
@@ -508,7 +548,7 @@ public:
 		SerializeCommon(deserialize);
 	}
 
-	void HandleMessage(const CMessage& msg, bool UNUSED(global)) override
+	void HandleMessage(const CMessage& msg, bool /*global*/) override
 	{
 		switch (msg.GetType())
 		{
@@ -997,7 +1037,7 @@ public:
 	{
 		Query q = ConstructQuery(INVALID_ENTITY, minRange, maxRange, owners, requiredInterface, GetEntityFlagMask("normal"), accountForSize);
 		std::vector<entity_id_t> r;
-		PerformQuery(q, r, pos);
+		PerformQuery(q, r, pos, m_SubdivisionResultBuffers[0]);
 
 		// Return the list sorted by distance from the entity
 		std::stable_sort(r.begin(), r.end(), EntityDistanceOrdering(m_EntityData, pos));
@@ -1023,7 +1063,7 @@ public:
 		}
 
 		CFixedVector2D pos = cmpSourcePosition->GetPosition2D();
-		PerformQuery(q, r, pos);
+		PerformQuery(q, r, pos, m_SubdivisionResultBuffers[0]);
 
 		// Return the list sorted by distance from the entity
 		std::stable_sort(r.begin(), r.end(), EntityDistanceOrdering(m_EntityData, pos));
@@ -1056,7 +1096,7 @@ public:
 		}
 
 		CFixedVector2D pos = cmpSourcePosition->GetPosition2D();
-		PerformQuery(q, r, pos);
+		PerformQuery(q, r, pos, m_SubdivisionResultBuffers[0]);
 
 		q.lastMatch = r;
 
@@ -1110,55 +1150,101 @@ public:
 	{
 		PROFILE3("ExecuteActiveQueries");
 
-		// Store a queue of all messages before sending any, so we can assume
-		// no entities will move until we've finished checking all the ranges
-		std::vector<std::pair<entity_id_t, CMessageRangeUpdate> > messages;
-		std::vector<entity_id_t> results;
-		std::vector<entity_id_t> added;
-		std::vector<entity_id_t> removed;
+		std::mutex mtx;
 
-		for (std::map<tag_t, Query>::iterator it = m_Queries.begin(); it != m_Queries.end(); ++it)
-		{
-			Query& query = it->second;
+		// Points to the first unexecuted query (to be processed next).
+		std::map<tag_t, Query>::iterator it = m_Queries.begin();
 
-			if (!query.enabled)
-				continue;
+		// Store a queue of all range update messages before sending any, since they modify the state of the simulation
+		// (including this component), which would interfere with the asynchronous tasks.
+		// Important: The order of messages must be fully deterministic.
+		std::vector<std::optional<RangeUpdateMessage>> messages(m_Queries.size());
 
-			results.clear();
-			CmpPtr<ICmpPosition> cmpSourcePosition(query.source);
-			if (cmpSourcePosition && cmpSourcePosition->IsInWorld())
-			{
-				results.reserve(query.lastMatch.size());
-				PerformQuery(query, results, cmpSourcePosition->GetPosition2D());
-			}
+		// Used to write update messages to the corresponding index in the message vector and maintain the original order.
+		size_t messageIdx = 0;
 
-			// Compute the changes vs the last match
-			added.clear();
-			removed.clear();
-			// Return the 'added' list sorted by distance from the entity
-			// (Don't bother sorting 'removed' because they might not even have positions or exist any more)
-			std::set_difference(results.begin(), results.end(), query.lastMatch.begin(), query.lastMatch.end(),
-				std::back_inserter(added));
-			std::set_difference(query.lastMatch.begin(), query.lastMatch.end(), results.begin(), results.end(),
-				std::back_inserter(removed));
-			if (added.empty() && removed.empty())
-				continue;
+		const auto ProcessQueriesAsync = [&](std::vector<entity_id_t>& subdivisionResultsBuffer) {
+				PROFILE2("Async range query execution");
 
-			if (cmpSourcePosition && cmpSourcePosition->IsInWorld())
-				std::stable_sort(added.begin(), added.end(), EntityDistanceOrdering(m_EntityData, cmpSourcePosition->GetPosition2D()));
+				std::vector<entity_id_t> results;
+				std::vector<entity_id_t> added;
+				std::vector<entity_id_t> removed;
 
-			messages.resize(messages.size() + 1);
-			std::pair<entity_id_t, CMessageRangeUpdate>& back = messages.back();
-			back.first = query.source.GetId();
-			back.second.tag = it->first;
-			back.second.added.swap(added);
-			back.second.removed.swap(removed);
-			query.lastMatch.swap(results);
-		}
+				while (true)
+				{
+					size_t idxCopy;
+					std::map<tag_t, Query>::iterator itCopy;
+
+					{
+						// Critical section:
+						// Retrieve the next query to process or stop if none are left.
+
+						std::lock_guard lg(mtx);
+						if (it == m_Queries.end())
+							break;
+
+						itCopy = it++; // Only copy the iterator now and dereference it later, outside the critical section.
+						idxCopy = messageIdx++;
+					}
+
+					tag_t tag = itCopy->first;
+					Query& query = itCopy->second;
+
+					if (!query.enabled)
+						continue;
+
+					results.clear();
+					CmpPtr<ICmpPosition> cmpSourcePosition(query.source);
+					if (cmpSourcePosition && cmpSourcePosition->IsInWorld())
+					{
+						results.reserve(query.lastMatch.size());
+						PerformQuery(query, results, cmpSourcePosition->GetPosition2D(), subdivisionResultsBuffer);
+					}
+
+					// Compute the changes vs the last match
+					added.clear();
+					removed.clear();
+					// Return the 'added' list sorted by distance from the entity
+					// (Don't bother sorting 'removed' because they might not even have positions or exist any more)
+					std::set_difference(results.begin(), results.end(), query.lastMatch.begin(), query.lastMatch.end(),
+						std::back_inserter(added));
+					std::set_difference(query.lastMatch.begin(), query.lastMatch.end(), results.begin(), results.end(),
+						std::back_inserter(removed));
+					if (added.empty() && removed.empty())
+						continue;
+
+					if (cmpSourcePosition && cmpSourcePosition->IsInWorld())
+						std::stable_sort(added.begin(), added.end(), EntityDistanceOrdering(m_EntityData, cmpSourcePosition->GetPosition2D()));
+
+					// Safe because it's guaranteed that no two threads can write to the same index anyway.
+					messages[idxCopy].emplace(
+						query.source.GetId(),
+						CMessageRangeUpdate(tag, std::move(added), std::move(removed))
+					);
+					query.lastMatch.swap(results);
+				}
+			};
+
+		size_t numFutures = std::min(g_TaskManager.GetNumberOfWorkers(), m_Queries.size());
+		std::vector<Future<void>> futures;
+		futures.reserve(numFutures);
+		for (size_t i = 0; i < numFutures; i++)
+			futures.push_back({g_TaskManager,
+				[&ProcessQueriesAsync, &subdivisionResultsBuffer = m_SubdivisionResultBuffers[i]]() {
+					ProcessQueriesAsync(subdivisionResultsBuffer);
+				}
+			});
+
+		// Start working in the main thread as well.
+		ProcessQueriesAsync(m_SubdivisionResultBuffers[numFutures]);
+
+		for (Future<void>& future : futures)
+			future.Get();
 
 		CComponentManager& cmpMgr = GetSimContext().GetComponentManager();
-		for (size_t i = 0; i < messages.size(); ++i)
-			cmpMgr.PostMessage(messages[i].first, messages[i].second);
+		for (const auto& msg : messages)
+			if (msg.has_value())
+				cmpMgr.PostMessage(msg->first, msg->second);
 	}
 
 	/**
@@ -1192,7 +1278,7 @@ public:
 	/**
 	 * Returns a list of distinct entity IDs that match the given query, sorted by ID.
 	 */
-	void PerformQuery(const Query& q, std::vector<entity_id_t>& r, CFixedVector2D pos)
+	void PerformQuery(const Query& q, std::vector<entity_id_t>& r, CFixedVector2D pos, std::vector<uint32_t>& subdivisionResultsBuffer)
 	{
 
 		// Special case: range is ALWAYS_IN_RANGE means check all entities ignoring distance.
@@ -1214,18 +1300,18 @@ public:
 			CFixedVector3D pos3d = cmpSourcePosition->GetPosition()+
 			    CFixedVector3D(entity_pos_t::Zero(), q.yOrigin, entity_pos_t::Zero()) ;
 			// Get a quick list of entities that are potentially in range, with a cutoff of 2*maxRange.
-			m_SubdivisionResults.clear();
-			m_Subdivision.GetNear(m_SubdivisionResults, pos, q.maxRange * 2);
+			subdivisionResultsBuffer.clear();
+			m_Subdivision.GetNear(subdivisionResultsBuffer, pos, q.maxRange * 2);
 
-			for (size_t i = 0; i < m_SubdivisionResults.size(); ++i)
+			for (size_t i = 0; i < subdivisionResultsBuffer.size(); ++i)
 			{
-				EntityMap<EntityData>::const_iterator it = m_EntityData.find(m_SubdivisionResults[i]);
+				EntityMap<EntityData>::const_iterator it = m_EntityData.find(subdivisionResultsBuffer[i]);
 				ENSURE(it != m_EntityData.end());
 
 				if (!TestEntityQuery(q, it->first, it->second))
 					continue;
 
-				CmpPtr<ICmpPosition> cmpSecondPosition(GetSimContext(), m_SubdivisionResults[i]);
+				CmpPtr<ICmpPosition> cmpSecondPosition(GetSimContext(), subdivisionResultsBuffer[i]);
 				if (!cmpSecondPosition || !cmpSecondPosition->IsInWorld())
 					continue;
 				CFixedVector3D secondPosition = cmpSecondPosition->GetPosition();
@@ -1253,12 +1339,12 @@ public:
 		else
 		{
 			// Get a quick list of entities that are potentially in range
-			m_SubdivisionResults.clear();
-			m_Subdivision.GetNear(m_SubdivisionResults, pos, q.maxRange);
+			subdivisionResultsBuffer.clear();
+			m_Subdivision.GetNear(subdivisionResultsBuffer, pos, q.maxRange);
 
-			for (size_t i = 0; i < m_SubdivisionResults.size(); ++i)
+			for (size_t i = 0; i < subdivisionResultsBuffer.size(); ++i)
 			{
-				EntityMap<EntityData>::const_iterator it = m_EntityData.find(m_SubdivisionResults[i]);
+				EntityMap<EntityData>::const_iterator it = m_EntityData.find(subdivisionResultsBuffer[i]);
 				ENSURE(it != m_EntityData.end());
 
 				if (!TestEntityQuery(q, it->first, it->second))
@@ -1329,7 +1415,7 @@ public:
 
 	}
 
-	virtual std::vector<entity_pos_t> getParabolicRangeForm(CFixedVector3D pos, entity_pos_t maxRange, entity_pos_t cutoff, entity_pos_t minAngle, entity_pos_t maxAngle, int numberOfSteps) const
+	std::vector<entity_pos_t> getParabolicRangeForm(CFixedVector3D pos, entity_pos_t maxRange, entity_pos_t cutoff, entity_pos_t minAngle, entity_pos_t maxAngle, int numberOfSteps) const
 	{
 		std::vector<entity_pos_t> r;
 
@@ -1637,7 +1723,7 @@ public:
 
 	CLosQuerier GetLosQuerier(player_id_t player) const override
 	{
-		if (GetLosRevealAll(player))
+		if (GetLosRevealWholeMap(player))
 			return CLosQuerier(0xFFFFFFFFu, m_LosStateRevealed, m_LosVerticesPerSide);
 		else
 			return CLosQuerier(GetSharedLosMask(player), m_LosState, m_LosVerticesPerSide);
@@ -1669,7 +1755,7 @@ public:
 		int j = (pos.Y / LOS_TILE_SIZE).ToInt_RoundToNearest();
 
 		// Reveal flag makes all positioned entities visible and all mirages useless
-		if (GetLosRevealAll(player))
+		if (GetLosRevealWholeMap(player))
 		{
 			if (LosIsOffWorld(i, j) || cmpMirage)
 				return LosVisibility::HIDDEN;
@@ -1796,7 +1882,7 @@ public:
 		int j = (z / LOS_TILE_SIZE).ToInt_RoundToNearest();
 
 		// Reveal flag makes all positioned entities visible and all mirages useless
-		if (GetLosRevealAll(player))
+		if (GetLosRevealWholeMap(player))
 		{
 			if (LosIsOffWorld(i, j))
 				return LosVisibility::HIDDEN;
@@ -1916,31 +2002,36 @@ public:
 			UpdateVisibility(ent, player);
 	}
 
-	void SetLosRevealAll(player_id_t player, bool enabled) override
+	void SetLosRevealWholeMap(player_id_t player, bool enabled) override
 	{
-		if (player == -1)
-			m_LosRevealAll[MAX_LOS_PLAYER_ID+1] = enabled;
-		else
-		{
-			ENSURE(player >= 0 && player <= MAX_LOS_PLAYER_ID);
-			m_LosRevealAll[player] = enabled;
-		}
+		m_LosRevealWholeMap.at(player) = enabled;
 
 		// On next update, update the visibility of every entity in the world
 		m_GlobalVisibilityUpdate = true;
 	}
 
-	bool GetLosRevealAll(player_id_t player) const override
+	void SetLosRevealWholeMapForAll(bool enabled) override {
+		m_LosRevealWholeMapForAll = enabled;
+
+		// On next update, update the visibility of every entity in the world
+		m_GlobalVisibilityUpdate = true;
+	}
+
+	bool GetLosRevealWholeMap(player_id_t player) const override
 	{
-		// Special player value can force reveal-all for every player
-		if (m_LosRevealAll[MAX_LOS_PLAYER_ID+1] || player == -1)
+		// Always reveal the whole map to observers.
+		if (m_LosRevealWholeMapForAll || player == -1)
 			return true;
+
 		ENSURE(player >= 0 && player <= MAX_LOS_PLAYER_ID+1);
-		// Otherwise check the player-specific flag
-		if (m_LosRevealAll[player])
+		if (m_LosRevealWholeMap[player])
 			return true;
 
 		return false;
+	}
+
+	bool GetLosRevealWholeMapForAll() const override {
+		return m_LosRevealWholeMapForAll;
 	}
 
 	void SetLosCircular(bool enabled) override

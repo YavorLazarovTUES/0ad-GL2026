@@ -30,8 +30,10 @@ Engine.LoadComponentScript("interfaces/StatusEffectsReceiver.js");
 
 // TODO: Some of it is tested in components/test_Damage.js, which should be spliced and moved.
 
-class testHandleAttackEffects {
-	constructor() {
+class testHandleAttackEffects
+{
+	constructor()
+	{
 		this.resultString = "";
 		this.TESTED_ENTITY_ID = 5;
 
@@ -47,7 +49,8 @@ class testHandleAttackEffects {
 	/**
 	 * This tests that we inflict multiple effect types.
 	 */
-	testMultipleEffects() {
+	testMultipleEffects()
+	{
 		AddMock(this.TESTED_ENTITY_ID, IID_Health, {
 			"TakeDamage": x => { this.resultString += x; },
 			"GetHitpoints": () => 1,
@@ -72,7 +75,8 @@ class testHandleAttackEffects {
 	/**
 	 * This tests that we correctly handle effect types if one is not received.
 	 */
-	testSkippedEffect() {
+	testSkippedEffect()
+	{
 		AddMock(this.TESTED_ENTITY_ID, IID_Capturable, {
 			"Capture": x => { this.resultString += x; },
 		});
@@ -107,7 +111,8 @@ class testHandleAttackEffects {
 	/**
 	 * Check that the Attacked message is [not] sent if [no] receivers exist.
 	 */
-	testAttackedMessage() {
+	testAttackedMessage()
+	{
 		Engine.PostMessage = () => TS_ASSERT(false);
 		AttackHelper.HandleAttackEffects(this.TESTED_ENTITY_ID, {
 			"type": "Test",
@@ -148,13 +153,15 @@ class testHandleAttackEffects {
 	/**
 	 * Regression test that StatusEffects are handled correctly.
 	 */
-	testStatusEffects() {
-		let cmpStatusEffectsReceiver = AddMock(this.TESTED_ENTITY_ID, IID_StatusEffectsReceiver, {
-			"ApplyStatus": (effectData, __, ___) => {
+	testStatusEffects()
+	{
+		const cmpStatusEffectsReceiver = AddMock(this.TESTED_ENTITY_ID, IID_StatusEffectsReceiver, {
+			"ApplyStatus": (effectData, __, ___) =>
+			{
 				TS_ASSERT_UNEVAL_EQUALS(effectData, this.attackData.ApplyStatus);
 			}
 		});
-		let spy = new Spy(cmpStatusEffectsReceiver, "ApplyStatus");
+		const spy = new Spy(cmpStatusEffectsReceiver, "ApplyStatus");
 
 		AttackHelper.HandleAttackEffects(this.TESTED_ENTITY_ID, {
 			"type": "Test",
@@ -168,16 +175,19 @@ class testHandleAttackEffects {
 	/**
 	 * Regression test that bonus multiplier is handled correctly.
 	 */
-	testBonusMultiplier() {
+	testBonusMultiplier()
+	{
 		AddMock(this.TESTED_ENTITY_ID, IID_Health, {
-			"TakeDamage": (amount, __, ___) => {
+			"TakeDamage": (amount, __, ___) =>
+			{
 				TS_ASSERT_EQUALS(amount, this.attackData.Damage * 2);
 			},
 			"GetHitpoints": () => 1,
 			"GetMaxHitpoints": () => 1,
 		});
 		AddMock(this.TESTED_ENTITY_ID, IID_Capturable, {
-			"Capture": (amount, __, ___) => {
+			"Capture": (amount, __, ___) =>
+			{
 				TS_ASSERT_EQUALS(amount, this.attackData.Capture * 2);
 			},
 		});

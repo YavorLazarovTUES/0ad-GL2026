@@ -613,13 +613,13 @@
 			<Orientation y="-0.33194"/>
 		</Entity>
 		<Entity uid="261">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="426.56055" z="740.96491"/>
 			<Orientation y="0.12256"/>
 		</Entity>
 		<Entity uid="264">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="465.80927" z="706.28077"/>
 			<Orientation y="-2.79426"/>
@@ -5425,13 +5425,13 @@
 			<Orientation y="0.55466"/>
 		</Entity>
 		<Entity uid="1252">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="620.97107" z="430.68085"/>
 			<Orientation y="1.85373"/>
 		</Entity>
 		<Entity uid="1253">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="572.21705" z="596.0221"/>
 			<Orientation y="2.35621"/>
@@ -9026,7 +9026,7 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="2005">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="61.21502" z="182.0027"/>
 			<Orientation y="2.04146"/>
@@ -9188,19 +9188,19 @@
 			<Orientation y="0.13775"/>
 		</Entity>
 		<Entity uid="2053">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="378.17685" z="48.48273"/>
 			<Orientation y="-2.45231"/>
 		</Entity>
 		<Entity uid="2054">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="366.69532" z="16.17867"/>
 			<Orientation y="0.9344"/>
 		</Entity>
 		<Entity uid="2055">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="84.62514" z="336.71793"/>
 			<Orientation y="2.35621"/>
@@ -12102,61 +12102,61 @@
 			<Orientation y="2.6866"/>
 		</Entity>
 		<Entity uid="2628">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="244.86333" z="424.80512"/>
 			<Orientation y="2.3398"/>
 		</Entity>
 		<Entity uid="2629">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="382.313" z="325.38575"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="2630">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="187.84232" z="459.80542"/>
 			<Orientation y="-1.80033"/>
 		</Entity>
 		<Entity uid="2631">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="171.05459" z="703.27155"/>
 			<Orientation y="1.0541"/>
 		</Entity>
 		<Entity uid="2632">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="402.63202" z="191.59923"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="2633">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="556.68903" z="261.10755"/>
 			<Orientation y="-2.63958"/>
 		</Entity>
 		<Entity uid="2634">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="663.45984" z="116.80803"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="2635">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="522.6396" z="14.88828"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="2636">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="302.33234" z="252.59144"/>
 			<Orientation y="-2.90995"/>
 		</Entity>
 		<Entity uid="2637">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="323.59308" z="408.50916"/>
 			<Orientation y="0.49268"/>
@@ -22444,19 +22444,19 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="4753">
-			<Template>units/spart/support_female_citizen</Template>
+			<Template>units/spart/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="612.5633" z="619.4928"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="4754">
-			<Template>units/spart/support_female_citizen</Template>
+			<Template>units/spart/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="615.30042" z="620.83411"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="4755">
-			<Template>units/spart/support_female_citizen</Template>
+			<Template>units/spart/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="617.83796" z="623.41419"/>
 			<Orientation y="2.35621"/>
@@ -22492,19 +22492,19 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="4761">
-			<Template>units/gaul/support_female_citizen</Template>
+			<Template>units/gaul/support_civilian</Template>
 			<Player>2</Player>
 			<Position x="109.66626" z="126.18107"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="4762">
-			<Template>units/gaul/support_female_citizen</Template>
+			<Template>units/gaul/support_civilian</Template>
 			<Player>2</Player>
 			<Position x="120.08632" z="134.20115"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="4763">
-			<Template>units/gaul/support_female_citizen</Template>
+			<Template>units/gaul/support_civilian</Template>
 			<Player>2</Player>
 			<Position x="122.31467" z="135.75773"/>
 			<Orientation y="2.35621"/>

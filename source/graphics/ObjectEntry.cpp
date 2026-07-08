@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,24 +24,32 @@
 #include "graphics/MaterialManager.h"
 #include "graphics/MeshManager.h"
 #include "graphics/Model.h"
+#include "graphics/ModelAbstract.h"
 #include "graphics/ModelDef.h"
 #include "graphics/ModelDummy.h"
 #include "graphics/ObjectBase.h"
 #include "graphics/ObjectManager.h"
+#include "graphics/ParticleEmitter.h"
 #include "graphics/ParticleManager.h"
 #include "graphics/SkeletonAnim.h"
 #include "graphics/SkeletonAnimManager.h"
+#include "graphics/Texture.h"
 #include "graphics/TextureManager.h"
+#include "lib/debug.h"
 #include "lib/rand.h"
+#include "lib/utf8.h"
+#include "maths/Vector4D.h"
 #include "ps/CLogger.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
-#include "ps/Game.h"
-#include "ps/World.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
-#include "simulation2/Simulation2.h"
+#include "renderer/backend/Sampler.h"
 
+#include <algorithm>
+#include <cstddef>
 #include <sstream>
+#include <utility>
 
 CObjectEntry::CObjectEntry(const std::shared_ptr<CObjectBase>& base, const CSimulation2& simulation) :
 	m_Base(base), m_Color(1.0f, 1.0f, 1.0f, 1.0f), m_Simulation(simulation)
@@ -88,7 +96,7 @@ bool CObjectEntry::BuildVariation(const std::vector<const std::set<CStr>*>& comp
 					? Renderer::Backend::Sampler::AddressMode::CLAMP_TO_BORDER
 					: Renderer::Backend::Sampler::AddressMode::CLAMP_TO_EDGE);
 			CTexturePtr texture = g_Renderer.GetTextureManager().CreateTexture(textureProps);
-			// TODO: Should check which renderpath is selected and only preload the necessary textures.
+			// TODO: Should check which material is selected and only preload the necessary textures.
 			texture->Prefetch();
 			material.AddSampler(CMaterial::TextureSampler(samp.m_SamplerName, texture));
 		}
@@ -143,7 +151,7 @@ bool CObjectEntry::BuildVariation(const std::vector<const std::set<CStr>*>& comp
 		CTexturePtr texture = g_Renderer.GetTextureManager().CreateTexture(textureProps);
 		// if we've loaded this model we're probably going to render it soon, so prefetch its texture.
 		// All textures are prefetched even in the fixed pipeline, including the normal maps etc.
-		// TODO: Should check which renderpath is selected and only preload the necessary textures.
+		// TODO: Should check which material is selected and only preload the necessary textures.
 		texture->Prefetch();
 		material.AddSampler(CMaterial::TextureSampler(samp.m_SamplerName, texture));
 	}

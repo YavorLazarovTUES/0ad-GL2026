@@ -5,7 +5,6 @@ const g_CivData = loadCivData(false, true);
 const g_MapSizes = prepareForDropdown(g_Settings && g_Settings.MapSizes);
 const g_MapTypes = prepareForDropdown(g_Settings && g_Settings.MapTypes);
 const g_PopulationCapacities = prepareForDropdown(g_Settings && g_Settings.PopulationCapacities);
-const g_WorldPopulationCapacities = prepareForDropdown(g_Settings && g_Settings.WorldPopulationCapacities);
 const g_StartingResources = prepareForDropdown(g_Settings && g_Settings.StartingResources);
 const g_VictoryConditions = g_Settings && g_Settings.VictoryConditions;
 
@@ -13,15 +12,16 @@ var g_Ambient;
 var g_AutoFormation;
 var g_Chat;
 var g_Cheats;
+var g_CinemaOverlay;
 var g_DeveloperOverlay;
 var g_DiplomacyColors;
 var g_DiplomacyDialog;
 var g_GameSpeedControl;
+var g_MatchSettingsDialog;
 var g_Menu;
 var g_MiniMapPanel;
 var g_NetworkStatusOverlay;
 var g_NetworkDelayOverlay;
-var g_ObjectivesDialog;
 var g_OutOfSyncNetwork;
 var g_OutOfSyncReplay;
 var g_PanelEntityManager;
@@ -173,7 +173,7 @@ var g_PanelEntityOrder = ["Hero", "Relic"];
 /**
  * Unit classes to be checked for the idle-worker-hotkey.
  */
-var g_WorkerTypes = ["FemaleCitizen", "Trader", "FishingBoat", "Citizen"];
+var g_WorkerTypes = ["Civilian", "Trader", "FishingBoat", "Citizen"];
 
 /**
  * Unit classes to be checked for the military-only-selection modifier and for the idle-warrior-hotkey.
@@ -192,17 +192,24 @@ function GetMultipleEntityStates(ents)
 {
 	if (!ents.length)
 		return null;
-	let entityStates = Engine.GuiInterfaceCall("GetMultipleEntityStates", ents);
-	for (let item of entityStates)
+	const entityStates = Engine.GuiInterfaceCall("GetMultipleEntityStates", ents);
+	for (const item of entityStates)
 		g_EntityStates[item.entId] = item.state && deepfreeze(item.state);
 	return entityStates;
 }
 
+/**
+ * Get the current state of a given entity. The data is pulled from the simulation.
+ * The state is null, if the ID is undefined, invalid or no entity with the ID exists (anymore).
+ */
 function GetEntityState(entId)
 {
+	if (!entId || entId == INVALID_ENTITY)
+		return null;
+
 	if (!g_EntityStates[entId])
 	{
-		let entityState = Engine.GuiInterfaceCall("GetEntityState", entId);
+		const entityState = Engine.GuiInterfaceCall("GetEntityState", entId);
 		g_EntityStates[entId] = entityState && deepfreeze(entityState);
 	}
 
@@ -220,7 +227,7 @@ function GetTemplateData(templateName, player)
 {
 	if (!(templateName in g_TemplateData))
 	{
-		let template = Engine.GuiInterfaceCall("GetTemplateData", { "templateName": templateName, "player": player });
+		const template = Engine.GuiInterfaceCall("GetTemplateData", { "templateName": templateName, "player": player });
 		translateObjectKeys(template, ["specific", "generic", "tooltip"]);
 		g_TemplateData[templateName] = deepfreeze(template);
 	}
@@ -236,8 +243,8 @@ function GetTechnologyData(technologyName, civ)
 	{
 		const tech = TechnologyTemplates.Get(technologyName);
 		if (!tech)
-			return;
-		let template = GetTechnologyDataHelper(tech, civ, g_ResourceData);
+			return undefined;
+		const template = GetTechnologyDataHelper(tech, civ, g_ResourceData);
 		translateObjectKeys(template, ["specific", "generic", "description", "tooltip", "requirementsTooltip"]);
 		g_TechnologyData[civ][technologyName] = deepfreeze(template);
 	}
@@ -245,13 +252,12 @@ function GetTechnologyData(technologyName, civ)
 	return g_TechnologyData[civ][technologyName];
 }
 
-function init(initData, hotloadData)
+async function init(initData, hotloadData)
 {
 	if (!g_Settings)
 	{
 		Engine.EndGame();
-		Engine.SwitchGuiPage("page_pregame.xml");
-		return;
+		return { [Engine.openRequest]: { "page": "page_pregame.xml" } };
 	}
 
 	// Fallback used by atlas
@@ -273,7 +279,7 @@ function init(initData, hotloadData)
 	if (g_InitAttributes.campaignData)
 		g_CampaignSession = new CampaignSession(g_InitAttributes.campaignData);
 
-	let mapCache = new MapCache();
+	const mapCache = new MapCache();
 	g_Cheats = new Cheats();
 	g_DiplomacyColors = new DiplomacyColors();
 	g_PlayerViewControl = new PlayerViewControl();
@@ -282,31 +288,27 @@ function init(initData, hotloadData)
 	g_DiplomacyColors.registerDiplomacyColorsChangeHandler(updateGUIObjects);
 	g_PauseControl = new PauseControl();
 	g_PlayerViewControl.registerPreViewedPlayerChangeHandler(removeStatusBarDisplay);
-	g_PlayerViewControl.registerViewedPlayerChangeHandler(resetTemplates);
-
 	g_Ambient = new Ambient();
 	g_AutoFormation = new AutoFormation();
 	g_Chat = new Chat(g_PlayerViewControl, g_Cheats);
+	g_CinemaOverlay = new CinemaOverlay();
 	g_DeveloperOverlay = new DeveloperOverlay(g_PlayerViewControl, g_Selection);
 	g_DiplomacyDialog = new DiplomacyDialog(g_PlayerViewControl, g_DiplomacyColors);
 	g_GameSpeedControl = new GameSpeedControl(g_PlayerViewControl);
-	g_Menu = new Menu(g_PauseControl, g_PlayerViewControl, g_Chat);
+	g_MatchSettingsDialog = new MatchSettingsDialog(g_PlayerViewControl, mapCache);
 	g_MiniMapPanel = new MiniMapPanel(g_PlayerViewControl, g_DiplomacyColors, g_WorkerTypes);
-	g_NetworkStatusOverlay = new NetworkStatusOverlay();
 	g_NetworkDelayOverlay = new NetworkDelayOverlay();
-	g_ObjectivesDialog = new ObjectivesDialog(g_PlayerViewControl, mapCache);
 	g_OutOfSyncNetwork = new OutOfSyncNetwork();
 	g_OutOfSyncReplay = new OutOfSyncReplay();
 	g_PanelEntityManager = new PanelEntityManager(g_PlayerViewControl, g_Selection, g_PanelEntityOrder);
 	g_PauseOverlay = new PauseOverlay(g_PauseControl);
-	g_QuitConfirmationDefeat = new QuitConfirmationDefeat();
-	g_QuitConfirmationReplay = new QuitConfirmationReplay();
 	g_RangeOverlayManager = new RangeOverlayManager(g_Selection);
 	g_ResearchProgress = new ResearchProgress(g_PlayerViewControl, g_Selection);
 	g_TradeDialog = new TradeDialog(g_PlayerViewControl);
-	g_TopPanel = new TopPanel(g_PlayerViewControl, g_DiplomacyDialog, g_TradeDialog, g_ObjectivesDialog, g_GameSpeedControl);
+	g_TopPanel = new TopPanel(g_PlayerViewControl, g_DiplomacyDialog, g_TradeDialog, g_MatchSettingsDialog, g_GameSpeedControl);
 	g_TimeNotificationOverlay = new TimeNotificationOverlay(g_PlayerViewControl);
 
+	initUnitsAndBuildingsHotkeys();
 	initBatchTrain();
 	initDisplayedNames();
 	initSelectionPanels();
@@ -314,11 +316,45 @@ function init(initData, hotloadData)
 	updatePlayerData();
 	initializeMusic(); // before changing the perspective
 	Engine.SetBoundingBoxDebugOverlay(false);
+	Engine.SetGlobalHotkey("catafalque", "Press", async() =>
+	{
+		closeOpenDialogs();
+		g_PauseControl.implicitPause();
+		await Engine.OpenChildPage("page_catafalque.xml");
+		resumeGame();
+	});
+	Engine.SetGlobalHotkey("tips", "Press", async() =>
+	{
+		closeOpenDialogs();
+		g_PauseControl.implicitPause();
+		await Engine.OpenChildPage("page_tips.xml");
+		resumeGame();
+	});
 
-	for (let handler of g_PlayersInitHandlers)
+	g_DiplomacyColors.updateDisplayedPlayerColors();
+
+	const promise = Promise.race([new Promise((_, reject) =>
+	{
+		if (g_IsNetworked)
+			handleNetMessages().catch(reject);
+	}), new Promise(closePageCallback =>
+	{
+		g_PlayerViewControl.registerViewedPlayerChangeHandler(resetTemplates.bind(undefined,
+			closePageCallback));
+		g_Menu = new Menu(g_PauseControl, g_PlayerViewControl, g_Chat, closePageCallback);
+		g_NetworkStatusOverlay = new NetworkStatusOverlay(closePageCallback);
+		g_QuitConfirmationDefeat = new QuitConfirmationDefeat(closePageCallback);
+		g_QuitConfirmationReplay = new QuitConfirmationReplay(closePageCallback);
+		// TODO: use event instead
+		onSimulationUpdate(closePageCallback);
+		Engine.GetGUIObjectByName("session").onSimulationUpdate =
+			onSimulationUpdate.bind(undefined, closePageCallback);
+	})]);
+
+	for (const handler of g_PlayersInitHandlers)
 		handler();
 
-	for (let handler of g_HotkeyChangeHandlers)
+	for (const handler of g_HotkeyChangeHandlers)
 		handler();
 
 	if (hotloadData)
@@ -328,10 +364,9 @@ function init(initData, hotloadData)
 		g_Players = hotloadData.player;
 	}
 
-	// TODO: use event instead
-	onSimulationUpdate();
-
 	setTimeout(displayGamestateNotifications, 1000);
+
+	return promise;
 }
 
 function registerPlayersInitHandler(handler)
@@ -371,15 +406,15 @@ function registerHotkeyChangeHandler(handler)
 
 function updatePlayerData()
 {
-	let simState = GetSimState();
+	const simState = GetSimState();
 	if (!simState)
 		return;
 
-	let playerData = [];
+	const playerData = [];
 
 	for (let i = 0; i < simState.players.length; ++i)
 	{
-		let playerState = simState.players[i];
+		const playerState = simState.players[i];
 
 		playerData.push({
 			"name": playerState.name,
@@ -392,7 +427,6 @@ function updatePlayerData()
 			},
 			"team": playerState.team,
 			"teamLocked": playerState.teamLocked,
-			"cheatsEnabled": playerState.cheatsEnabled,
 			"state": playerState.state,
 			"isAlly": playerState.isAlly,
 			"isMutualAlly": playerState.isMutualAlly,
@@ -403,9 +437,9 @@ function updatePlayerData()
 		});
 	}
 
-	for (let guid in g_PlayerAssignments)
+	for (const guid in g_PlayerAssignments)
 	{
-		let playerID = g_PlayerAssignments[guid].player;
+		const playerID = g_PlayerAssignments[guid].player;
 
 		if (!playerData[playerID])
 			continue;
@@ -423,7 +457,7 @@ function updatePlayerData()
  */
 function getEntityOrHolder(ent)
 {
-	let entState = GetEntityState(ent);
+	const entState = GetEntityState(ent);
 	if (entState && !entState.position && entState.garrisonable && entState.garrisonable.holder != INVALID_ENTITY)
 		return getEntityOrHolder(entState.garrisonable.holder);
 
@@ -438,14 +472,14 @@ function initializeMusic()
 	global.music.setState(global.music.states.PEACE);
 }
 
-function resetTemplates()
+function resetTemplates(closePageCallback)
 {
 	// Update GUI and clear player-dependent cache
 	g_TemplateData = {};
 	Engine.GuiInterfaceCall("ResetTemplateModified");
 
 	// TODO: do this more selectively
-	onSimulationUpdate();
+	onSimulationUpdate(closePageCallback);
 }
 
 /**
@@ -453,7 +487,7 @@ function resetTemplates()
  */
 function isPlayerObserver(playerID)
 {
-	let playerStates = GetSimState().players;
+	const playerStates = GetSimState().players;
 	return !playerStates[playerID] || playerStates[playerID].state != "active";
 }
 
@@ -462,7 +496,7 @@ function isPlayerObserver(playerID)
  */
 function controlsPlayer(playerID)
 {
-	let playerStates = GetSimState().players;
+	const playerStates = GetSimState().players;
 
 	return !!playerStates[Engine.GetPlayerID()] &&
 		playerStates[Engine.GetPlayerID()].controlsAll ||
@@ -489,7 +523,7 @@ function playersFinished(players, victoryString, won)
 	updatePlayerData();
 
 	// TODO: The other calls in this function should move too
-	for (let handler of g_PlayerFinishedHandlers)
+	for (const handler of g_PlayerFinishedHandlers)
 		handler(players, won);
 
 	if (players.indexOf(Engine.GetPlayerID()) == -1 || Engine.IsAtlasRunning())
@@ -512,16 +546,16 @@ function closeOpenDialogs()
 	g_Menu.close();
 	g_Chat.closePage();
 	g_DiplomacyDialog.close();
-	g_ObjectivesDialog.close();
+	g_MatchSettingsDialog.close();
 	g_TradeDialog.close();
 }
 
 function endGame(showSummary)
 {
 	// Before ending the game
-	let replayDirectory = Engine.GetCurrentReplayDirectory();
-	let simData = Engine.GuiInterfaceCall("GetReplayMetadata");
-	let playerID = Engine.GetPlayerID();
+	const replayDirectory = Engine.GetCurrentReplayDirectory();
+	const simData = Engine.GuiInterfaceCall("GetReplayMetadata");
+	const playerID = Engine.GetPlayerID();
 
 	Engine.EndGame();
 
@@ -533,7 +567,7 @@ function endGame(showSummary)
 	if (g_IsController && Engine.HasXmppClient())
 		Engine.SendUnregisterGame();
 
-	let summaryData = {
+	const summaryData = {
 		"sim": simData,
 		"gui": {
 			"dialog": false,
@@ -547,26 +581,25 @@ function endGame(showSummary)
 
 	if (g_InitAttributes.campaignData)
 	{
-		let menu = g_CampaignSession.getMenu();
+		const menu = g_CampaignSession.getMenu();
 		if (g_InitAttributes.campaignData.skipSummary)
 		{
-			Engine.SwitchGuiPage(menu);
-			return;
+			return { "page": menu };
 		}
 		summaryData.campaignData = { "filename": g_InitAttributes.campaignData.run };
 		summaryData.nextPage = menu;
 	}
 
 	if (showSummary)
-		Engine.SwitchGuiPage("page_summary.xml", summaryData);
-	else if (g_InitAttributes.campaignData)
-		Engine.SwitchGuiPage(summaryData.nextPage, summaryData.campaignData);
-	else if (Engine.HasXmppClient())
-		Engine.SwitchGuiPage("page_lobby.xml", { "dialog": false });
-	else if (g_IsReplay)
-		Engine.SwitchGuiPage("page_replaymenu.xml");
-	else
-		Engine.SwitchGuiPage("page_pregame.xml");
+		return { "page": "page_summary.xml", "argument": summaryData };
+	if (g_InitAttributes.campaignData)
+		return { "page": summaryData.nextPage, "argument": summaryData.campaignData };
+	if (Engine.HasXmppClient())
+		return { "page": "page_lobby.xml", "argument": { "dialog": false } };
+	if (g_IsReplay)
+		return { "page": "page_replaymenu.xml" };
+
+	return { "page": "page_pregame.xml" };
 }
 
 // Return some data that we'll use when hotloading this file after changes
@@ -597,7 +630,7 @@ function restoreSavedGameData(data)
 	g_Selection.reset();
 
 	// Restore control groups
-	for (let groupNumber in data.groups)
+	for (const groupNumber in data.groups)
 	{
 		g_Groups.groups[groupNumber].groups = data.groups[groupNumber].groups;
 		g_Groups.groups[groupNumber].ents = data.groups[groupNumber].ents;
@@ -613,13 +646,15 @@ function onTick()
 	if (!g_Settings)
 		return;
 
-	let now = Date.now();
-	let tickLength = now - g_LastTickTime;
+	const now = Date.now();
+	const tickLength = now - g_LastTickTime;
 	g_LastTickTime = now;
 
-	handleNetMessages();
-
 	updateCursorAndTooltip();
+	updateTimers();
+
+	if (g_CinemaOverlay.isInCutsceneMode())
+		return;
 
 	if (g_Selection.dirty)
 	{
@@ -627,7 +662,7 @@ function onTick()
 		// When selection changed, get the entityStates of new entities
 		GetMultipleEntityStates(g_Selection.filter(entId => !g_EntityStates[entId]));
 
-		for (let handler of g_EntitySelectionChangeHandlers)
+		for (const handler of g_EntitySelectionChangeHandlers)
 			handler();
 
 		updateGUIObjects();
@@ -639,15 +674,10 @@ function onTick()
 	else if (g_ShowAllStatusBars && now % g_StatusBarUpdate <= tickLength)
 		recalculateStatusBarDisplay();
 
-	updateTimers();
 	Engine.GuiInterfaceCall("ClearRenamedEntities");
-
-	let isPlayingCinemaPath = GetSimState().cinemaPlaying && !g_Disconnected;
-	if (isPlayingCinemaPath)
-		updateCinemaOverlay();
 }
 
-function onSimulationUpdate()
+function onSimulationUpdate(closePageCallback)
 {
 	// Templates change depending on technologies and auras, so they have to be reloaded after such a change.
 	// g_TechnologyData data never changes, so it shouldn't be deleted.
@@ -671,61 +701,19 @@ function onSimulationUpdate()
 
 	GetMultipleEntityStates(g_Selection.toList());
 
-	for (let handler of g_SimulationUpdateHandlers)
+	for (const handler of g_SimulationUpdateHandlers)
 		handler();
 
 	// TODO: Move to handlers
-	updateCinemaPath();
-	handleNotifications();
+	handleNotifications(closePageCallback);
 	updateGUIObjects();
 }
 
 function toggleGUI()
 {
 	g_ShowGUI = !g_ShowGUI;
-	updateCinemaPath();
-}
-
-var g_HasHiddenSilhouettes = false;
-function updateCinemaPath()
-{
-	let isPlayingCinemaPath = GetSimState().cinemaPlaying && !g_Disconnected;
-
-	Engine.GetGUIObjectByName("session").hidden = !g_ShowGUI || isPlayingCinemaPath;
-	Engine.GetGUIObjectByName("cinemaOverlay").hidden = !isPlayingCinemaPath;
-	// TODO: This isn't great and should use a different system.
-	if (isPlayingCinemaPath && Engine.ConfigDB_GetValue("user", "silhouettes") == "true")
-	{
-		Engine.ConfigDB_CreateValue("user", "silhouettes", "false");
-		g_HasHiddenSilhouettes = true;
-	}
-	else if (!isPlayingCinemaPath && g_HasHiddenSilhouettes)
-	{
-		// TODO: Keyboard shortcuts can still try to toggle silhouettes
-		// which would behave incorrectly on reset.
-		Engine.ConfigDB_Reload();
-		g_HasHiddenSilhouettes = false;
-	}
-}
-
-function updateCinemaOverlay()
-{
-	let cinemaOverlay = Engine.GetGUIObjectByName("cinemaOverlay");
-	let width = cinemaOverlay.getComputedSize().right;
-	let height = cinemaOverlay.getComputedSize().bottom;
-	let barHeight = (height - width / 2.39) / 2;
-	if (barHeight < 0)
-		barHeight = 0;
-
-	let cinemaBarTop = Engine.GetGUIObjectByName("cinemaBarTop");
-	let cinemaBarTopSize = cinemaBarTop.size;
-	cinemaBarTopSize.bottom = barHeight;
-	cinemaBarTop.size = cinemaBarTopSize;
-
-	let cinemaBarBottom = Engine.GetGUIObjectByName("cinemaBarBottom");
-	let cinemaBarBottomSize = cinemaBarBottom.size;
-	cinemaBarBottomSize.top = -barHeight;
-	cinemaBarBottom.size = cinemaBarBottomSize;
+	Engine.GetGUIObjectByName("primaryOverlays").hidden = !g_ShowGUI;
+	Engine.GetGUIObjectByName("supplementaryOverlays").hidden = !g_ShowGUI;
 }
 
 // TODO: Use event subscription onSimulationUpdate, onEntitySelectionChange, onPlayerViewChange, ... instead
@@ -746,7 +734,7 @@ function updateGUIObjects()
 	if (!g_IsObserver)
 	{
 		// Update music state on basis of battle state.
-		let battleState = Engine.GuiInterfaceCall("GetBattleState", g_ViewedPlayer);
+		const battleState = Engine.GuiInterfaceCall("GetBattleState", g_ViewedPlayer);
 		if (battleState)
 			global.music.setState(global.music.states[battleState]);
 	}
@@ -757,25 +745,27 @@ function updateGroups()
 	g_Groups.update();
 
 	// Determine the sum of the costs of a given template
-	let getCostSum = (ent) => {
-		let cost = GetTemplateData(GetEntityState(ent).template).cost;
+	const getCostSum = (ent) =>
+	{
+		const cost = GetTemplateData(GetEntityState(ent).template).cost;
 		return cost ? Object.keys(cost).map(key => cost[key]).reduce((sum, cur) => sum + cur) : 0;
 	};
 
-	for (let i in Engine.GetGUIObjectByName("unitGroupPanel").children)
+	for (const i in Engine.GetGUIObjectByName("unitGroupPanel").children)
 	{
 		Engine.GetGUIObjectByName("unitGroupLabel[" + i + "]").caption = +i + 1;
 
-		let button = Engine.GetGUIObjectByName("unitGroupButton[" + i + "]");
+		const button = Engine.GetGUIObjectByName("unitGroupButton[" + i + "]");
 		button.hidden = g_Groups.groups[i].getTotalCount() == 0;
-		button.onPress = (function(i) { return function() { performGroup((Engine.HotkeyIsPressed("selection.add") ? "add" : "select"), i); }; })(i);
-		button.onDoublePress = (function(i) { return function() { performGroup("snap", i); }; })(i);
-		button.onPressRight = (function(i) { return function() { performGroup("breakUp", i); }; })(i);
+		button.onPress = (function(groupId) { return function() { performGroup((Engine.HotkeyIsPressed("selection.add") ? "add" : "select"), groupId); }; })(i);
+		button.onDoublePress = (function(groupId) { return function() { performGroup("snap", groupId); }; })(i);
+		button.onPressRight = (function(groupId) { return function() { performGroup("breakUp", groupId); }; })(i);
 
 		// Choose the icon of the most common template (or the most costly if it's not unique)
 		if (g_Groups.groups[i].getTotalCount() > 0)
 		{
-			let icon = GetTemplateData(GetEntityState(g_Groups.groups[i].getEntsGrouped().reduce((pre, cur) => {
+			const icon = GetTemplateData(GetEntityState(g_Groups.groups[i].getEntsGrouped().reduce((pre, cur) =>
+			{
 				if (pre.ents.length == cur.ents.length)
 					return getCostSum(pre.ents[0]) > getCostSum(cur.ents[0]) ? pre : cur;
 				return pre.ents.length > cur.ents.length ? pre : cur;
@@ -803,7 +793,7 @@ function recalculateStatusBarDisplay(remove = false)
 			Engine.PickPlayerEntitiesOnScreen(g_ViewedPlayer);
 	else
 	{
-		let selected = g_Selection.toList();
+		const selected = g_Selection.toList();
 		for (const ent of g_Selection.highlighted)
 			selected.push(ent);
 
@@ -844,7 +834,7 @@ function updateDisplayedNames()
  */
 function toggleConfigBool(configName)
 {
-	let enabled = Engine.ConfigDB_GetValue("user", configName) != "true";
+	const enabled = Engine.ConfigDB_GetValue("user", configName) != "true";
 	Engine.ConfigDB_CreateAndSaveValue("user", configName, String(enabled));
 	return enabled;
 }
@@ -852,9 +842,9 @@ function toggleConfigBool(configName)
 // Update the additional list of entities to be highlighted.
 function updateAdditionalHighlight()
 {
-	let entsAdd = []; // list of entities units to be highlighted
-	let entsRemove = [];
-	let highlighted = g_Selection.toList();
+	const entsAdd = []; // list of entities units to be highlighted
+	const entsRemove = [];
+	const highlighted = g_Selection.toList();
 	for (const ent of g_Selection.highlighted)
 		highlighted.push(ent);
 
@@ -866,7 +856,7 @@ function updateAdditionalHighlight()
 			if (!state.guard || !state.guard.entities.length)
 				continue;
 
-			for (let ent of state.guard.entities)
+			for (const ent of state.guard.entities)
 				if (highlighted.indexOf(ent) == -1 && entsAdd.indexOf(ent) == -1)
 					entsAdd.push(ent);
 		}
@@ -878,13 +868,13 @@ function updateAdditionalHighlight()
 			const state = GetEntityState(sel);
 			if (!state.unitAI || !state.unitAI.isGuarding)
 				continue;
-			let ent = state.unitAI.isGuarding;
+			const ent = state.unitAI.isGuarding;
 			if (highlighted.indexOf(ent) == -1 && entsAdd.indexOf(ent) == -1)
 				entsAdd.push(ent);
 		}
 
 	// flag the entities to remove (from the previously added) from this additional highlight
-	for (let ent of g_AdditionalHighlight)
+	for (const ent of g_AdditionalHighlight)
 		if (highlighted.indexOf(ent) == -1 && entsAdd.indexOf(ent) == -1 && entsRemove.indexOf(ent) == -1)
 			entsRemove.push(ent);
 

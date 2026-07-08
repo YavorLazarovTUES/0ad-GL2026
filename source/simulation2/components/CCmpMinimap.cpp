@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,15 +17,20 @@
 
 #include "precompiled.h"
 
-#include "simulation2/system/Component.h"
 #include "ICmpMinimap.h"
 
-#include "simulation2/components/ICmpPlayerManager.h"
-#include "simulation2/components/ICmpPlayer.h"
-#include "simulation2/components/ICmpOwnership.h"
-#include "simulation2/MessageTypes.h"
-
 #include "graphics/Color.h"
+#include "lib/types.h"
+#include "simulation2/MessageTypes.h"
+#include "simulation2/components/ICmpOwnership.h"
+#include "simulation2/components/ICmpPlayer.h"
+#include "simulation2/components/ICmpPlayerManager.h"
+#include "simulation2/helpers/Player.h"
+#include "simulation2/helpers/Position.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Message.h"
+
+#include <string>
 
 class CCmpMinimap final : public ICmpMinimap
 {
@@ -64,18 +69,6 @@ public:
 	static std::string GetSchema()
 	{
 		return
-			"<element name='Type'>"
-				"<choice>"
-					"<value>food</value>"
-					"<value>wood</value>"
-					"<value>stone</value>"
-					"<value>metal</value>"
-					"<value>structure</value>"
-					"<value>unit</value>"
-					"<value>support</value>"
-					"<value>hero</value>"
-				"</choice>"
-			"</element>"
 			"<optional>"
 				"<element name='Color'>"
 					"<attribute name='r'>"
@@ -164,7 +157,7 @@ public:
 		SerializeCommon(deserialize);
 	}
 
-	void HandleMessage(const CMessage& msg, bool UNUSED(global)) override
+	void HandleMessage(const CMessage& msg, bool /*global*/) override
 	{
 		switch (msg.GetType())
 		{

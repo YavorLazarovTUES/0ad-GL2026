@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -23,9 +23,11 @@
 #include "ps/CLogger.h"
 #include "scriptinterface/FunctionWrapper.h"
 
+namespace JS { class CallArgs; }
+
 namespace JSI_Console
 {
-CConsole* ConsoleGetter(const ScriptRequest&, JS::CallArgs&)
+CConsole* ConsoleGetter(const Script::Request&, JS::CallArgs&)
 {
 	if (!g_Console)
 	{
@@ -35,9 +37,9 @@ CConsole* ConsoleGetter(const ScriptRequest&, JS::CallArgs&)
 	return g_Console;
 }
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
-	ScriptFunction::Register<&CConsole::IsActive, ConsoleGetter>(rq, "Console_GetVisibleEnabled");
-	ScriptFunction::Register<&CConsole::SetVisible, ConsoleGetter>(rq, "Console_SetVisibleEnabled");
+	Script::Function::Register<&CConsole::IsActive, ConsoleGetter>(rq, "Console_GetVisibleEnabled");
+	Script::Function::Register<&CConsole::SetVisible, ConsoleGetter>(rq, "Console_SetVisibleEnabled");
 }
 }

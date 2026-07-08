@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -24,9 +24,13 @@
 
 #include "ps/CLogger.h"
 #include "ps/ModIo.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 
+#include <cstddef>
+#include <map>
 #include <sodium.h>
+#include <string>
+#include <vector>
 
 class TestModIo : public CxxTest::TestSuite
 {
@@ -42,7 +46,7 @@ public:
 
 	void test_id_parsing()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 
 #define TS_ASSERT_PARSE(input, expected_error, expected_id) \
 	{ \
@@ -90,7 +94,7 @@ public:
 
 	void test_mods_parsing()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 
 		PKStruct pk;
 

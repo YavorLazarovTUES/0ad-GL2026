@@ -7,17 +7,15 @@ class PhaseIdentManager
 
 		this.PhaseIdents = Engine.GetGUIObjectByName("phaseIdents");
 		this.Idents = [];
-		for (let identIdx in this.PhaseIdents.children)
+		for (const identIdx in this.PhaseIdents.children)
 			this.Idents.push(new PhaseIdent(this.page, identIdx));
 	}
 
-	draw(phaseList, civCode, runningWidths, leftMargin)
+	draw(phaseList, civCode)
 	{
 		for (let i = 0; i < phaseList.length; ++i)
-		{
-			let barLength = leftMargin + runningWidths[i] + EntityBox.prototype.HMargin * 0.75;
-			this.Idents[i].draw(phaseList, barLength, civCode);
-		}
+			this.Idents[i].draw(phaseList, civCode);
+
 		hideRemaining(this.PhaseIdents.name, phaseList.length);
 	}
 }

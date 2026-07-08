@@ -1,4 +1,4 @@
-/* Copyright (C) 2020 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -37,6 +37,7 @@
 
 #include <map>
 #include <Psapi.h>
+#include <utility>
 
 #if ARCH_X86_X64
 #include "lib/sysdep/arch/x86_x64/apic.h"	// ProcessorFromApicId
@@ -271,7 +272,7 @@ static void PopulateNodesFromProximityDomains(const ProximityDomains& proximityD
 
 //-----------------------------------------------------------------------------
 
-static ModuleInitState initState;
+static ModuleInitState initState{ 0 };
 
 static Status InitTopology()
 {
@@ -301,13 +302,13 @@ static Status InitTopology()
 
 size_t numa_NumNodes()
 {
-	UNUSED2(ModuleInit(&initState, InitTopology));
+	std::ignore = ModuleInit(&initState, InitTopology);
 	return numNodes;
 }
 
 size_t numa_NodeFromProcessor(size_t processor)
 {
-	UNUSED2(ModuleInit(&initState, InitTopology));
+	std::ignore = ModuleInit(&initState, InitTopology);
 	ENSURE(processor < os_cpu_NumProcessors());
 	Node* node = FindNodeWithProcessor(processor);
 	ENSURE(node);
@@ -316,14 +317,14 @@ size_t numa_NodeFromProcessor(size_t processor)
 
 uintptr_t numa_ProcessorMaskFromNode(size_t node)
 {
-	UNUSED2(ModuleInit(&initState, InitTopology));
+	std::ignore = ModuleInit(&initState, InitTopology);
 	ENSURE(node < numNodes);
 	return nodes[node].processorMask;
 }
 
 static UCHAR NodeNumberFromNode(size_t node)
 {
-	UNUSED2(ModuleInit(&initState, InitTopology));
+	std::ignore = ModuleInit(&initState, InitTopology);
 	ENSURE(node < numa_NumNodes());
 	return nodes[node].nodeNumber;
 }
@@ -384,7 +385,6 @@ static double MeasureRelativeDistance()
 {
 	const size_t size = 32*MiB;
 	void* mem = vm::Allocate(size);
-	ASSUME_ALIGNED(mem, pageSize);
 
 	const uintptr_t previousProcessorMask = os_cpu_SetThreadAffinityMask(os_cpu_ProcessorMask());
 
@@ -402,7 +402,7 @@ static double MeasureRelativeDistance()
 		maxTime = std::max(maxTime, elapsedTime);
 	}
 
-	UNUSED2(os_cpu_SetThreadAffinityMask(previousProcessorMask));
+	std::ignore = os_cpu_SetThreadAffinityMask(previousProcessorMask);
 
 	vm::Free(mem, size);
 
@@ -434,8 +434,8 @@ static Status InitRelativeDistance()
 
 double numa_Factor()
 {
-	static ModuleInitState _initState;
-	UNUSED2(ModuleInit(&_initState, InitRelativeDistance));
+	static ModuleInitState _initState{ 0 };
+	std::ignore = ModuleInit(&_initState, InitRelativeDistance);
 	return relativeDistance;
 }
 
@@ -464,8 +464,8 @@ static Status InitMemoryInterleaved()
 
 bool numa_IsMemoryInterleaved()
 {
-	static ModuleInitState _initState;
-	UNUSED2(ModuleInit(&_initState, InitMemoryInterleaved));
+	static ModuleInitState _initState{ 0 };
+	std::ignore = ModuleInit(&_initState, InitMemoryInterleaved);
 	return isMemoryInterleaved;
 }
 
@@ -474,7 +474,8 @@ bool numa_IsMemoryInterleaved()
 
 #if 0
 
-static bool VerifyPages(void* mem, size_t size, size_t pageSize, size_t node)
+static bool VerifyPages([[maybe_unused]] void* mem, [[maybe_unused]] size_t size,
+	[[maybe_unused]] size_t pageSize, [[maybe_unused]] size_t node)
 {
 	WUTIL_FUNC(pQueryWorkingSetEx, BOOL, (HANDLE, PVOID, DWORD));
 	WUTIL_IMPORT_KERNEL32(QueryWorkingSetEx, pQueryWorkingSetEx);
@@ -511,11 +512,6 @@ static bool VerifyPages(void* mem, size_t size, size_t pageSize, size_t node)
 	}
 
 	delete[] wsi;
-#else
-	UNUSED2(mem);
-	UNUSED2(size);
-	UNUSED2(pageSize);
-	UNUSED2(node);
 #endif
 
 	return true;

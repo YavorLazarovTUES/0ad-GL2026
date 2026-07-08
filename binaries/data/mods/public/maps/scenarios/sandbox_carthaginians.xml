@@ -689,19 +689,19 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="141">
-			<Template>units/cart/support_female_citizen</Template>
+			<Template>units/cart/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="428.85456" z="218.54062"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="142">
-			<Template>units/cart/support_female_citizen</Template>
+			<Template>units/cart/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="429.90967" z="219.71848"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="143">
-			<Template>units/cart/support_female_citizen</Template>
+			<Template>units/cart/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="431.34464" z="221.20066"/>
 			<Orientation y="2.35621"/>
@@ -1367,31 +1367,31 @@
 			<Orientation y="-2.87711"/>
 		</Entity>
 		<Entity uid="285">
-			<Template>units/pers/champion_elephant</Template>
+			<Template>units/achae/champion_elephant</Template>
 			<Player>2</Player>
 			<Position x="644.1316" z="466.40235"/>
 			<Orientation y="-2.17167"/>
 		</Entity>
 		<Entity uid="286">
-			<Template>units/pers/champion_elephant</Template>
+			<Template>units/achae/champion_elephant</Template>
 			<Player>2</Player>
 			<Position x="630.41773" z="485.40418"/>
 			<Orientation y="-2.28068"/>
 		</Entity>
 		<Entity uid="287">
-			<Template>units/pers/champion_elephant</Template>
+			<Template>units/achae/champion_elephant</Template>
 			<Player>2</Player>
 			<Position x="640.14563" z="472.33365"/>
 			<Orientation y="-2.25867"/>
 		</Entity>
 		<Entity uid="288">
-			<Template>units/pers/champion_elephant</Template>
+			<Template>units/achae/champion_elephant</Template>
 			<Player>2</Player>
 			<Position x="636.60694" z="476.21637"/>
 			<Orientation y="-2.37955"/>
 		</Entity>
 		<Entity uid="289">
-			<Template>units/pers/champion_elephant</Template>
+			<Template>units/achae/champion_elephant</Template>
 			<Player>2</Player>
 			<Position x="633.54847" z="480.69922"/>
 			<Orientation y="-2.3435"/>
@@ -1811,13 +1811,13 @@
 			<Orientation y="2.01143"/>
 		</Entity>
 		<Entity uid="359">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="336.4549" z="276.43592"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="360">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="415.44169" z="133.18917"/>
 			<Orientation y="-0.81905"/>
@@ -5634,19 +5634,19 @@
 			<Orientation y="0.53631"/>
 		</Entity>
 		<Entity uid="1078">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="571.61738" z="466.12409"/>
 			<Orientation y="-1.87697"/>
 		</Entity>
 		<Entity uid="1079">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="804.6678" z="739.16382"/>
 			<Orientation y="0.59626"/>
 		</Entity>
 		<Entity uid="1080">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="607.68116" z="196.34845"/>
 			<Orientation y="-3.07903"/>

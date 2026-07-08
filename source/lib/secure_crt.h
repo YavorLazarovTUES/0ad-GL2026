@@ -1,4 +1,4 @@
-/* Copyright (C) 2015 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -27,9 +27,12 @@
 #ifndef INCLUDED_SECURE_CRT
 #define INCLUDED_SECURE_CRT
 
-#include <stdarg.h>
-
+#include "lib/code_annotation.h"
 #include "lib/status.h"
+#include "lib/sysdep/compiler.h"
+
+#include <cstdarg>
+#include <cstddef>
 
 namespace ERR
 {
@@ -46,18 +49,13 @@ namespace ERR
 
 #if EMULATE_SECURE_CRT
 
-// (conflicts with glibc definitions)
-#if !OS_UNIX || OS_MACOSX || OS_OPENBSD
 // return length [in characters] of a string, not including the trailing
 // null character. to protect against access violations, only the
 // first <max_len> characters are examined; if the null character is
 // not encountered by then, <max_len> is returned.
 // strnlen is available on OpenBSD and MacOS
-#if !OS_OPENBSD && !OS_MACOSX
-extern size_t strnlen(const char* str, size_t max_len);
-#endif
-extern size_t wcsnlen(const wchar_t* str, size_t max_len);
-#endif
+extern size_t strnlen_s(const char* str, size_t max_len);
+extern size_t wcsnlen_s(const wchar_t* str, size_t max_len);
 
 // copy at most <max_src_chars> (not including trailing null) from
 // <src> into <dst>, which must not overlap.

@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,24 +19,40 @@
 #define INCLUDED_RENDERER_BACKEND_IDEVICE
 
 #include "graphics/Color.h"
-#include "ps/containers/Span.h"
-#include "renderer/backend/Backend.h"
-#include "renderer/backend/Format.h"
 #include "renderer/backend/IBuffer.h"
 #include "renderer/backend/IDevice.h"
-#include "renderer/backend/IDeviceCommandContext.h"
-#include "renderer/backend/IFramebuffer.h"
-#include "renderer/backend/IShaderProgram.h"
 #include "renderer/backend/ITexture.h"
-#include "renderer/backend/PipelineState.h"
-#include "scriptinterface/ScriptForward.h"
 
+#include <cstdint>
+#include <js/TypeDecls.h>
 #include <memory>
+#include <span>
 #include <string>
+#include <variant>
 #include <vector>
 
 class CShaderDefines;
 class CStr;
+namespace Renderer::Backend { class IComputePipelineState; }
+namespace Renderer::Backend { class IDeviceCommandContext; }
+namespace Renderer::Backend { class IFramebuffer; }
+namespace Renderer::Backend { class IGraphicsPipelineState; }
+namespace Renderer::Backend { class IShaderProgram; }
+namespace Renderer::Backend { class ISwapChain; }
+namespace Renderer::Backend { class IVertexInputLayout; }
+namespace Renderer::Backend { enum class AttachmentLoadOp; }
+namespace Renderer::Backend { enum class AttachmentStoreOp; }
+namespace Renderer::Backend { enum class Backend; }
+namespace Renderer::Backend { enum class Format; }
+namespace Renderer::Backend { struct SColorAttachment; }
+namespace Renderer::Backend { struct SComputePipelineStateDesc; }
+namespace Renderer::Backend { struct SDepthStencilAttachment; }
+namespace Renderer::Backend { struct SGraphicsPipelineStateDesc; }
+namespace Renderer::Backend { struct SVertexAttributeFormat; }
+namespace Renderer::Backend::Sampler { struct Desc; }
+namespace Script { class Request; }
+
+typedef struct SDL_Window SDL_Window;
 
 namespace Renderer
 {
@@ -50,8 +66,6 @@ public:
 	struct Capabilities
 	{
 		bool S3TC;
-		bool ARBShaders;
-		bool ARBShadersShadow;
 		bool computeShaders;
 		bool debugLabels;
 		bool debugScopedLabels;
@@ -61,8 +75,15 @@ public:
 		float maxAnisotropy;
 		uint32_t maxTextureSize;
 		bool instancing;
+		bool storage;
+		bool timestamps;
+		double timestampMultiplier;
 	};
 
+	/**
+	 * It's a responsibility of a device owner to make sure (via WaitUntilIdle)
+	 * that the device is available to be destroyed.
+	 */
 	virtual ~IDevice() {}
 
 	virtual Backend GetBackend() const = 0;
@@ -72,9 +93,30 @@ public:
 	virtual const std::string& GetDriverInformation() const = 0;
 	virtual const std::vector<std::string>& GetExtensions() const = 0;
 
-	virtual void Report(const ScriptRequest& rq, JS::HandleValue settings) = 0;
+	virtual void Report(const Script::Request& rq, JS::HandleValue settings) = 0;
 
 	virtual std::unique_ptr<IDeviceCommandContext> CreateCommandContext() = 0;
+
+	/**
+	 * To be able to present something on a window it needs to create swapchain
+	 * which provides framebuffer to output rendering result. Generally it's
+	 * not allowed to have multiple swapchains for the same window.
+	 *
+	 * We use the provided surface size when the window is nullptr. It's used
+	 * in Atlas when we don't have an SDL_Window.
+	 *
+	 * @return A valid swapchain if it was created successfully else nullptr.
+	 */
+	virtual std::unique_ptr<ISwapChain> CreateSwapChain(
+		const char* name, SDL_Window* window,
+		int surfaceDrawableWidth, int surfaceDrawableHeight, const bool vsync,
+		std::unique_ptr<ISwapChain> oldSwapChain) = 0;
+
+	/**
+	 * Waits until all submitted work (via DeviceCommandContext::Flush) to
+	 * backend is completed and it's safe to release a resource like SwapChain.
+	 */
+	virtual void WaitUntilIdle() = 0;
 
 	/**
 	 * Creates a graphics pipeline state. It's a caller responsibility to
@@ -95,7 +137,7 @@ public:
 	 * layouts as posible.
 	 */
 	virtual std::unique_ptr<IVertexInputLayout> CreateVertexInputLayout(
-		const PS::span<const SVertexAttributeFormat> attributes) = 0;
+		const std::span<const SVertexAttributeFormat> attributes) = 0;
 
 	virtual std::unique_ptr<ITexture> CreateTexture(
 		const char* name, const ITexture::Type type, const uint32_t usage,
@@ -127,45 +169,6 @@ public:
 	virtual std::unique_ptr<IShaderProgram> CreateShaderProgram(
 		const CStr& name, const CShaderDefines& defines) = 0;
 
-	/**
-	 * Acquires a backbuffer for rendering a frame.
-	 *
-	 * @return True if it was successfully acquired and we can render to it.
-	 */
-	virtual bool AcquireNextBackbuffer() = 0;
-
-	/**
-	 * Returns a framebuffer for the current backbuffer with the required
-	 * attachment operations. It should not be called if the last
-	 * AcquireNextBackbuffer call returned false.
-	 *
-	 * It's guaranteed that for the same acquired backbuffer this function returns
-	 * a framebuffer with the same attachments and properties except load and
-	 * store operations.
-	 *
-	 * @return The last successfully acquired framebuffer that wasn't
-	 * presented.
-	 */
-	virtual IFramebuffer* GetCurrentBackbuffer(
-		const AttachmentLoadOp colorAttachmentLoadOp,
-		const AttachmentStoreOp colorAttachmentStoreOp,
-		const AttachmentLoadOp depthStencilAttachmentLoadOp,
-		const AttachmentStoreOp depthStencilAttachmentStoreOp) = 0;
-
-	/**
-	 * Presents the backbuffer to the swapchain queue to be flipped on a
-	 * screen. Should be called only if the last AcquireNextBackbuffer call
-	 * returned true.
-	 */
-	virtual void Present() = 0;
-
-	/**
-	 * Should be called on window surface resize. It's the device owner
-	 * responsibility to call that function. Shouldn't be called during
-	 * rendering to an acquired backbuffer.
-	 */
-	virtual void OnWindowResize(const uint32_t width, const uint32_t height) = 0;
-
 	virtual bool IsTextureFormatSupported(const Format format) const = 0;
 
 	virtual bool IsFramebufferFormatSupported(const Format format) const = 0;
@@ -177,7 +180,53 @@ public:
 	virtual Format GetPreferredDepthStencilFormat(
 		const uint32_t usage, const bool depth, const bool stencil) const = 0;
 
+	virtual uint32_t AllocateQuery() = 0;
+
+	virtual void FreeQuery(const uint32_t handle) = 0;
+
+	/**
+	 * @see GetQueryResult
+	 *
+	 * It must be called only if the query was submitted via
+	 * IDeviceCommandContext::Flush.
+	 *
+	 * @param handle Must be a valid handle of a query.
+	 *
+	 * @return True if a result for the query is available.
+	 */
+	virtual bool IsQueryResultAvailable(const uint32_t handle) const = 0;
+
+	/**
+	 * After a call of the function the query result becomes invalid.
+	 *
+	 * @param handle Must be a valid handle of a query.
+	 *
+	 * @return A result for the query. The result is undefined if the query isn't
+	 * ready.
+	 */
+	virtual uint64_t GetQueryResult(const uint32_t handle) = 0;
+
 	virtual const Capabilities& GetCapabilities() const = 0;
+
+	/**
+	 * Collects backend-specific statistics.
+	 */
+	struct StatisticsItem
+	{
+		std::string_view name;
+		std::string_view unit;
+		std::variant<float, uint32_t> value;
+
+		// clang can't do emplace_back yet because of the aggregate type.
+		StatisticsItem(
+			std::string_view name, std::string_view unit,
+			std::variant<float, uint32_t> value)
+			: name(name), unit(unit), value(value)
+		{
+		}
+	};
+	using StatisticsVector = std::vector<StatisticsItem>;
+	virtual void CollectStatistics(StatisticsVector& statistics) const = 0;
 };
 
 } // namespace Backend

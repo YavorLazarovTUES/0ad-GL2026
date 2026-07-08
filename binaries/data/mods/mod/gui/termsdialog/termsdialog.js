@@ -11,7 +11,7 @@ var g_TermsPage;
 var g_TermsFile;
 var g_TermsSprintf;
 
-function init(data)
+async function init(data)
 {
 	g_TermsPage = data.page;
 	g_TermsFile = data.file;
@@ -20,6 +20,16 @@ function init(data)
 	Engine.GetGUIObjectByName("title").caption = data.title;
 	initURLButtons(data.termsURL, data.urlButtons);
 	initLanguageSelection();
+
+	const accepted = await new Promise(resolve =>
+	{
+		Engine.GetGUIObjectByName("cancelButton").onPress = resolve.bind(null, false);
+		Engine.GetGUIObjectByName("connectButton").onPress = resolve.bind(null, true);
+	});
+	return {
+		"page": g_TermsPage,
+		"accepted": accepted
+	};
 }
 
 function initURLButtons(termsURL, urlButtons)
@@ -31,14 +41,16 @@ function initURLButtons(termsURL, urlButtons)
 			"url": termsURL
 		});
 
-	urlButtons.forEach((urlButton, i) => {
-		let button = Engine.GetGUIObjectByName("button[" + i + "]");
+	urlButtons.forEach((urlButton, i) =>
+	{
+		const button = Engine.GetGUIObjectByName("button[" + i + "]");
 		button.caption = urlButton.caption;
 		button.hidden = false;
 		button.tooltip = sprintf(translate("Open %(url)s in the browser."), {
 			"url": urlButton.url
 		});
-		button.onPress = () => {
+		button.onPress = () =>
+		{
 			openURL(urlButton.url);
 		};
 	});
@@ -46,23 +58,24 @@ function initURLButtons(termsURL, urlButtons)
 
 function initLanguageSelection()
 {
-	let languageLabel = Engine.GetGUIObjectByName("languageLabel");
-	let languageLabelWidth = Engine.GetTextWidth(languageLabel.font, languageLabel.caption);
+	const languageLabel = Engine.GetGUIObjectByName("languageLabel");
+	const languageLabelWidth = languageLabel.getPreferredTextSize().width;
 	languageLabel.size = "0 0 " + languageLabelWidth + " 100%";
 
-	let languageDropdown = Engine.GetGUIObjectByName("languageDropdown");
+	const languageDropdown = Engine.GetGUIObjectByName("languageDropdown");
 	languageDropdown.size = (languageLabelWidth + 10) + " 4 100% 100%";
 
-	languageDropdown.list = (() => {
-		let displayNames = Engine.GetSupportedLocaleDisplayNames();
-		let baseNames = Engine.GetSupportedLocaleBaseNames();
+	languageDropdown.list = (() =>
+	{
+		const displayNames = Engine.GetSupportedLocaleDisplayNames();
+		const baseNames = Engine.GetSupportedLocaleBaseNames();
 
 		// en-US
-		let list = [displayNames[0]];
+		const list = [displayNames[0]];
 
 		// current locale
-		let currentLocaleDict = Engine.GetFallbackToAvailableDictLocale(Engine.GetCurrentLocale());
-		let index = baseNames.indexOf(currentLocaleDict);
+		const currentLocaleDict = Engine.GetFallbackToAvailableDictLocale(Engine.GetCurrentLocale());
+		const index = baseNames.indexOf(currentLocaleDict);
 		if (index == -1)
 			warn("Language '" + currentLocaleDict + "' is not available");
 		else if (currentLocaleDict != baseNames[0])
@@ -71,7 +84,8 @@ function initLanguageSelection()
 		return list;
 	})();
 
-	languageDropdown.onSelectionChange = () => {
+	languageDropdown.onSelectionChange = () =>
+	{
 		Engine.GetGUIObjectByName("mainText").caption =
 			sprintf(
 				languageDropdown.selected == 1 ?
@@ -81,12 +95,4 @@ function initLanguageSelection()
 	};
 
 	languageDropdown.selected = languageDropdown.list.length - 1;
-}
-
-function closeTerms(accepted)
-{
-	Engine.PopGuiPage({
-		"page": g_TermsPage,
-		"accepted": accepted
-	});
 }

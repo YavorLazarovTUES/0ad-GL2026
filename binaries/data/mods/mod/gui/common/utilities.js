@@ -16,20 +16,23 @@ function distributeButtonsHorizontally(button, captions)
 		button[1].size = "33%+5 " + y1 + " 66%-5 " + y2;
 		button[2].size = "66%+5 " + y1 + " 100%-18 " + y2;
 		break;
+	default:
+		error("distributeButtonsHorizontally does not yet support more than 3 buttons, attempting to use " + captions.length);
 	}
 }
 
-function setButtonCaptionsAndVisibitily(button, captions, cancelHotkey, name)
+function setButtonCaptionsAndVisibility(buttons, captions, cancelHotkey, name)
 {
-	captions.forEach((caption, i) => {
-		button[i] = Engine.GetGUIObjectByName(name + (i + 1));
-		button[i].caption = caption;
-		button[i].hidden = false;
-		button[i].onPress = () => {
-			Engine.PopGuiPage(i);
-		};
+	return new Promise(resolve =>
+	{
+		captions.forEach((caption, i) =>
+		{
+			buttons[i] = Engine.GetGUIObjectByName(name + (i + 1));
+			buttons[i].caption = caption;
+			buttons[i].hidden = false;
+			buttons[i].onPress = resolve.bind(null, i);
 
-		if (i == 0)
-			cancelHotkey.onPress = button[i].onPress;
+		});
+		cancelHotkey.onPress = buttons[0].onPress;
 	});
 }

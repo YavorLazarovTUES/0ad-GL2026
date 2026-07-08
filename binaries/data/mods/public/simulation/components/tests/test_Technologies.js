@@ -2,27 +2,30 @@ Resources = {
 	"GetCodes": () => ["food", "metal", "stone", "wood"],
 	"GetTradableCodes": () => ["food", "metal", "stone", "wood"],
 	"GetBarterableCodes": () => ["food", "metal", "stone", "wood"],
-	"BuildSchema": () => {
+	"BuildSchema": () =>
+	{
 		let schema = "";
-		for (let res of ["food", "metal"])
+		for (const res of ["food", "metal"])
 		{
-			for (let subtype in ["meat", "grain"])
+			for (const subtype in ["meat", "grain"])
 				schema += "<value>" + res + "." + subtype + "</value>";
 			schema += "<value> treasure." + res + "</value>";
 		}
 		return "<choice>" + schema + "</choice>";
 	},
-	"BuildChoicesSchema": () => {
+	"BuildChoicesSchema": () =>
+	{
 		let schema = "";
-		for (let res of ["food", "metal"])
+		for (const res of ["food", "metal"])
 		{
-			for (let subtype in ["meat", "grain"])
+			for (const subtype in ["meat", "grain"])
 				schema += "<value>" + res + "." + subtype + "</value>";
 			schema += "<value> treasure." + res + "</value>";
 		}
 		return "<choice>" + schema + "</choice>";
 	},
-	"GetResource": (type) => {
+	"GetResource": (type) =>
+	{
 		return {
 			"subtypes": {
 				"meat": "meat",
@@ -57,7 +60,8 @@ const template = {
 };
 Engine.RegisterGlobal("TechnologyTemplates", {
 	"GetAll": () => [],
-	"Get": (tech) => {
+	"Get": (tech) =>
+	{
 		return template;
 	}
 });

@@ -10,12 +10,13 @@ Engine.LoadComponentScript("interfaces/StatisticsTracker.js");
 Engine.LoadComponentScript("VisionSharing.js");
 
 const ent = 170;
-let template = {
+const template = {
 	"Bribable": "true"
 };
 
 AddMock(SYSTEM_ENTITY, IID_TemplateManager, {
-	"GetTemplate": (name) => {
+	"GetTemplate": (name) =>
+	{
 		return name == "special/spy" ?
 			{
 				"Cost": { "Resources": { "wood": 1000 } },
@@ -32,7 +33,7 @@ AddMock(ent, IID_Ownership, {
 	"GetOwner": () => 1
 });
 
-let cmpVisionSharing = ConstructComponent(ent, "VisionSharing", template);
+const cmpVisionSharing = ConstructComponent(ent, "VisionSharing", template);
 
 // Add some entities
 AddMock(180, IID_Ownership, {
@@ -157,7 +158,7 @@ AddMock(14, IID_Player, {
 	"TrySubtractResources": costs => true
 });
 AddMock(SYSTEM_ENTITY, IID_Timer, {
-	"SetTimeout": (ent, iid, funcname, time, data) => TS_ASSERT_EQUALS(time, 25 * 1000)
+	"SetTimeout": (entity, iid, funcname, time, data) => TS_ASSERT_EQUALS(time, 25 * 1000)
 });
 cmpVisionSharing.AddSpy(4, 25);
 TS_ASSERT_UNEVAL_EQUALS(cmpVisionSharing.shared, new Set([1, 2, 5, 4]));
@@ -171,7 +172,7 @@ AddMock(ent, IID_Vision, {
 	"GetRange": () => 48
 });
 AddMock(SYSTEM_ENTITY, IID_Timer, {
-	"SetTimeout": (ent, iid, funcname, time, data) => TS_ASSERT_EQUALS(time, 15 * 1000 * 60 / 48)
+	"SetTimeout": (entity, iid, funcname, time, data) => TS_ASSERT_EQUALS(time, 15 * 1000 * 60 / 48)
 });
 cmpVisionSharing.AddSpy(4);
 TS_ASSERT_UNEVAL_EQUALS(cmpVisionSharing.shared, new Set([1, 2, 5, 4]));

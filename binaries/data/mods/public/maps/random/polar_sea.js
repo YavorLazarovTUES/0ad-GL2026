@@ -1,7 +1,7 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 
-function* GenerateMap(mapSettings)
+export function* generateMap(mapSettings)
 {
 	const tPrimary = ["alpine_snow_01"];
 	const tSecondary = "alpine_snow_02";
@@ -45,15 +45,15 @@ function* GenerateMap(mapSettings)
 	const clBaseResource = g_Map.createTileClass();
 	const clArcticWolf = g_Map.createTileClass();
 
-	let [playerIDs, playerPosition] = playerPlacementCircle(fractionToTiles(0.35));
+	let { playerIDs, playerPosition } = playerPlacementCircle(fractionToTiles(0.35));
 
 	const treasures = [{
 		"template": oWoodTreasure,
-		"count": isNomad() ? 16 : 14
+		"count": mapSettings.Nomad ? 16 : 14
 	}];
 
 	g_Map.log("Creating player markets");
-	if (!isNomad())
+	if (!mapSettings.Nomad)
 		for (let i = 0; i < numPlayers; ++i)
 		{
 			const marketPos =
@@ -188,7 +188,7 @@ function* GenerateMap(mapSettings)
 	createFood(
 		[
 			[new SimpleObject(oArcticFox, 1, 2, 0, 3)],
-			[new SimpleObject(isNomad() ? oArcticFox : oArcticWolf, 4, 6, 0, 4)],
+			[new SimpleObject(mapSettings.Nomad ? oArcticFox : oArcticWolf, 4, 6, 0, 4)],
 			[new SimpleObject(oWalrus, 2, 3, 0, 2)],
 			[new SimpleObject(oMuskox, 2, 3, 0, 2)]
 		],
@@ -246,7 +246,7 @@ function* GenerateMap(mapSettings)
 		setSunElevation(Math.PI * randFloat(1/9, 1/7));
 	}
 
-	if (isNomad())
+	if (mapSettings.Nomad)
 	{
 		const constraint = avoidClasses(clWater, 4, clMetal, 4, clRock, 4, clHill, 4, clFood, 2);
 		[playerIDs, playerPosition] = placePlayersNomad(clPlayer, constraint);

@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,19 +24,31 @@
 
 #include "precompiled.h"
 
-#include <fstream>
-
 #include "lib/self_test.h"
-#include <cxxtest/GlobalFixture.h>
 
-#include "lib/timer.h"
+#include "lib/code_generation.h"
+#include "lib/debug.h"
+#include "lib/os_path.h"
+#include "lib/path.h"
+#include "lib/sysdep/compiler.h"
+#include "lib/sysdep/os.h"
 #include "lib/sysdep/sysdep.h"
+#include "lib/timer.h"
+#include "lib/utf8.h"
 #include "ps/Profiler2.h"
 #include "ps/TaskManager.h"
+#include "ps/ThreadUtil.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptEngine.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Engine.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
+
+#include <fstream>
+#include <iterator>
+#include <memory>
+#include <optional>
+#include <string>
 
 class LeakReporter : public CxxTest::GlobalFixture
 {
@@ -72,17 +84,17 @@ class MiscSetup : public CxxTest::GlobalFixture
 		Threading::SetMainThread();
 
 		g_Profiler2.Initialise();
-		m_ScriptEngine = new ScriptEngine;
-		g_ScriptContext = ScriptContext::CreateContext();
+		m_ScriptEngine = new Script::Engine;
+		g_ScriptContext = std::make_shared<Script::Context>();
 
-		Threading::TaskManager::Initialise();
+		taskManager.emplace();
 
 		return true;
 	}
 
 	virtual bool tearDownWorld()
 	{
-		Threading::TaskManager::Instance().ClearQueue();
+		taskManager.reset();
 		g_ScriptContext.reset();
 		SAFE_DELETE(m_ScriptEngine);
 		g_Profiler2.Shutdown();
@@ -100,9 +112,10 @@ class MiscSetup : public CxxTest::GlobalFixture
 
 private:
 
-	// We're doing the initialization and shutdown of the ScriptEngine explicitly here
+	// We're doing the initialization and shutdown of the Script::Engine explicitly here
 	// to make sure it's only initialized when setUpWorld is called.
-	ScriptEngine* m_ScriptEngine;
+	Script::Engine* m_ScriptEngine;
+	std::optional<Threading::TaskManager> taskManager;
 };
 
 static LeakReporter leakReporter;
@@ -126,7 +139,7 @@ bool ts_str_contains(const std::wstring& str1, const std::wstring& str2)
 // available, so we use sys_ExecutablePathname.
 OsPath DataDir()
 {
-	return sys_ExecutablePathname().Parent()/".."/"data";
+	return sys_ExecutablePathname().Parent().Parent()/"data";
 }
 
 // Script-based testing setup:
@@ -139,15 +152,15 @@ namespace
 	}
 }
 
-void ScriptTestSetup(const ScriptInterface& scriptInterface)
+void ScriptTestSetup(const Script::Interface& scriptInterface)
 {
-	ScriptRequest rq(scriptInterface);
-	ScriptFunction::Register<script_TS_FAIL>(rq, "TS_FAIL");
+	Script::Request rq(scriptInterface);
+	Script::Function::Register<script_TS_FAIL>(rq, "TS_FAIL");
 
 	// Load the TS_* function definitions
 	// (We don't use VFS because tests might not have the normal VFS paths loaded)
 	OsPath path = DataDir()/"tests"/"test_setup.js";
-	std::ifstream ifs(OsString(path).c_str());
+	std::ifstream ifs(OsString(path));
 	ENSURE(ifs.good());
 	std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
 	ENSURE(scriptInterface.LoadScript(L"test_setup.js", content));

@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,20 +17,25 @@
 
 #include "precompiled.h"
 
-#include "simulation2/system/Component.h"
 #include "ICmpSoundManager.h"
 
-#include "simulation2/MessageTypes.h"
+#include "lib/path.h"
+#include "maths/Vector3D.h"
+#include "scriptinterface/Interface.h"
+#include "simulation2/components/ICmpOwnership.h"
 #include "simulation2/components/ICmpPosition.h"
 #include "simulation2/components/ICmpRangeManager.h"
-#include "simulation2/components/ICmpOwnership.h"
-
+#include "simulation2/helpers/Player.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
 #include "soundmanager/ISoundManager.h"
+
+#include <string>
 
 class CCmpSoundManager final : public ICmpSoundManager
 {
 public:
-	static void ClassInit(CComponentManager& UNUSED(componentManager) )
+	static void ClassInit(CComponentManager&)
 	{
 	}
 
@@ -41,7 +46,7 @@ public:
 		return "<a:component type='system'/><empty/>";
 	}
 
-	void Init(const CParamNode& UNUSED(paramNode)) override
+	void Init(const CParamNode&) override
 	{
 	}
 
@@ -49,13 +54,13 @@ public:
 	{
 	}
 
-	void Serialize(ISerializer& UNUSED(serialize)) override
+	void Serialize(ISerializer&) override
 	{
 		// Do nothing here - sounds are purely local, and don't need to be preserved across saved games etc
 		// (If we add music support in here then we might want to save the music state, though)
 	}
 
-	void Deserialize(const CParamNode& paramNode, IDeserializer& UNUSED(deserialize)) override
+	void Deserialize(const CParamNode& paramNode, IDeserializer&) override
 	{
 		Init(paramNode);
 	}

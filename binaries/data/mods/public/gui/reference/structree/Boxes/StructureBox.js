@@ -21,15 +21,13 @@ class StructureBox extends EntityBox
 		// Draw the production rows
 		this.ProductionRows.draw(this.template, civCode, this.phaseIdx);
 
-		let boxWidth = Math.max(this.MinWidth, this.captionWidth(), this.ProductionRows.width);
+		const boxWidth = Math.max(this.MinWidth, this.captionWidth(), this.ProductionRows.width);
 
 		// Set position of the Structure Box
-		let size = this.gui.size;
-		size.left = this.HMargin + runningWidths[this.phaseIdx];
-		size.right = this.HMargin + runningWidths[this.phaseIdx] + boxWidth;
-		size.top = TreeSection.getPositionOffset(this.phaseIdx, this.page.TemplateParser);
-		size.bottom = TreeSection.getPositionOffset(this.phaseIdx + 1, this.page.TemplateParser) - this.VMargin;
-		this.gui.size = size;
+		Object.assign(this.gui.size, {
+			"left": this.HMargin + runningWidths[this.phaseIdx], "top": TreeSection.getPositionOffset(this.phaseIdx, this.page.TemplateParser),
+			"right": this.HMargin + runningWidths[this.phaseIdx] + boxWidth, "bottom": TreeSection.getPositionOffset(this.phaseIdx + 1, this.page.TemplateParser) - this.VMargin
+		});
 
 		// Update new right-side-edge dimension
 		runningWidths[this.phaseIdx] += boxWidth + this.HMargin / 2;

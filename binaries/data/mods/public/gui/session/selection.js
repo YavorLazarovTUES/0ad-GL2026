@@ -1,5 +1,5 @@
 // Limits selection size
-var g_MaxSelectionSize = 200;
+var g_MaxSelectionSize = 300;
 
 // Alpha value of hovered/mouseover/highlighted selection overlays
 // (should probably be greater than always visible alpha value,
@@ -24,10 +24,28 @@ function _setStatusBars(ents, enabled)
 	});
 }
 
-function _setMotionOverlay(ents, enabled)
+function _setMotionOverlay(ents, enabled, motionDebugOverlay, force = false)
 {
-	if (ents.length)
-		Engine.GuiInterfaceCall("SetMotionDebugOverlay", { "entities": ents, "enabled": enabled });
+	if (!force && !motionDebugOverlay)
+		return;
+
+	// Get entities plus their formation controllers (if any)
+	const resultSet = new Set();
+	for (const ent of ents)
+	{
+		resultSet.add(ent);
+		const entState = GetEntityState(ent);
+		if (entState?.unitAI?.formation)
+		{
+			resultSet.add(entState.unitAI.formation);
+		}
+	}
+
+	if (resultSet.size)
+		Engine.GuiInterfaceCall("SetMotionDebugOverlay", {
+			"entities": resultSet,
+			"enabled": enabled
+		});
 }
 
 function _playSound(ent)
@@ -52,7 +70,7 @@ EntityGroups.prototype.reset = function()
 
 EntityGroups.prototype.add = function(ents)
 {
-	for (let ent of ents)
+	for (const ent of ents)
 	{
 		if (this.ents[ent])
 			continue;
@@ -113,7 +131,7 @@ EntityGroups.prototype.getCount = function(key)
 EntityGroups.prototype.getTotalCount = function()
 {
 	let totalCount = 0;
-	for (let key in this.groups)
+	for (const key in this.groups)
 		totalCount += this.groups[key];
 	return totalCount;
 };
@@ -177,7 +195,8 @@ function EntitySelection()
 	this.groups = new EntityGroups();
 
 	this.UpdateFormationSelectionBehaviour();
-	registerConfigChangeHandler(changes => {
+	registerConfigChangeHandler(changes =>
+	{
 		if (changes.has("gui.session.selectformationasone"))
 			this.UpdateFormationSelectionBehaviour();
 	});
@@ -186,7 +205,7 @@ function EntitySelection()
 EntitySelection.prototype.UpdateFormationSelectionBehaviour = function()
 {
 	this.SelectFormationAsOne = Engine.ConfigDB_GetValue("user", "gui.session.selectformationasone") == "true";
-}
+};
 
 /**
  * Deselect everything but entities of the chosen type.
@@ -255,7 +274,7 @@ EntitySelection.prototype.update = function()
 			// Disable any highlighting of the disappeared unit
 			_setHighlight([ent], 0, false);
 			_setStatusBars([ent], false);
-			_setMotionOverlay([ent], false);
+			_setMotionOverlay([ent], false, this.motionDebugOverlay);
 
 			this.selected.delete(ent);
 			this.groups.removeEnt(ent);
@@ -263,6 +282,10 @@ EntitySelection.prototype.update = function()
 			continue;
 		}
 	}
+	// Refresh the motion overlay
+	if (this.motionDebugOverlay)
+		_setMotionOverlay([...this.selected], true, this.motionDebugOverlay);
+
 	if (changed)
 		this.onChange();
 };
@@ -277,11 +300,11 @@ EntitySelection.prototype.checkRenamedEntities = function()
 	if (renamedEntities.length > 0)
 	{
 		var renamedLookup = {};
-		for (let renamedEntity of renamedEntities)
+		for (const renamedEntity of renamedEntities)
 			renamedLookup[renamedEntity.entity] = renamedEntity.newentity;
 
 		// Reconstruct the selection if at least one entity has been renamed.
-		for (let renamedEntity of renamedEntities)
+		for (const renamedEntity of renamedEntities)
 			if (this.selected.has(renamedEntity.entity))
 			{
 				this.rebuildSelection(renamedLookup);
@@ -315,7 +338,7 @@ EntitySelection.prototype.addList = function(ents, quiet, force = false, addForm
 		if (!entState)
 			continue;
 
-		let isUnowned = g_ViewedPlayer != -1 && entState.player != g_ViewedPlayer ||
+		const isUnowned = g_ViewedPlayer != -1 && entState.player != g_ViewedPlayer ||
 		                g_ViewedPlayer == -1 && entState.player == 0;
 
 		if (isUnowned && (ents.length > 1 || this.selected.size) && !force)
@@ -327,7 +350,7 @@ EntitySelection.prototype.addList = function(ents, quiet, force = false, addForm
 
 	_setHighlight(added, 1, true);
 	_setStatusBars(added, true);
-	_setMotionOverlay(added, this.motionDebugOverlay);
+	_setMotionOverlay(added, this.motionDebugOverlay, this.motionDebugOverlay);
 	if (added.length)
 	{
 		// Play the sound if the entity is controllable by us or Gaia-owned.
@@ -358,7 +381,7 @@ EntitySelection.prototype.removeList = function(ents, addFormationMembers = true
 
 	_setHighlight(removed, 0, false);
 	_setStatusBars(removed, false);
-	_setMotionOverlay(removed, false);
+	_setMotionOverlay(removed, false, this.motionDebugOverlay);
 
 	this.onChange();
 };
@@ -367,7 +390,7 @@ EntitySelection.prototype.reset = function()
 {
 	_setHighlight(this.toList(), 0, false);
 	_setStatusBars(this.toList(), false);
-	_setMotionOverlay(this.toList(), false);
+	_setMotionOverlay(this.toList(), false, this.motionDebugOverlay);
 	this.selected.clear();
 	this.groups.reset();
 	this.onChange();
@@ -460,7 +483,7 @@ EntitySelection.prototype.setHighlightList = function(entities)
 EntitySelection.prototype.SetMotionDebugOverlay = function(enabled)
 {
 	this.motionDebugOverlay = enabled;
-	_setMotionOverlay(this.toList(), enabled);
+	_setMotionOverlay(this.toList(), enabled, this.motionDebugOverlay, true);
 };
 
 EntitySelection.prototype.onChange = function()
@@ -472,15 +495,15 @@ EntitySelection.prototype.onChange = function()
 
 EntitySelection.prototype.selectAndMoveTo = function(entityID)
 {
-	let entState = GetEntityState(entityID);
+	const entState = GetEntityState(entityID);
 	if (!entState || !entState.position)
 		return;
 
 	this.reset();
 	this.addList([entityID]);
 
-	Engine.CameraMoveTo(entState.position.x, entState.position.z);
-}
+	setCameraFollow(entityID);
+};
 
 /**
  * Adds the formation members of a selected entities to the selection.
@@ -541,8 +564,8 @@ function EntityGroupsContainer()
 EntityGroupsContainer.prototype.addEntities = function(groupName, ents)
 {
 	if (Engine.ConfigDB_GetValue("user", "gui.session.disjointcontrolgroups") == "true")
-		for (let ent of ents)
-			for (let group of this.groups)
+		for (const ent of ents)
+			for (const group of this.groups)
 				if (ent in group.ents)
 					group.removeEnt(ent);
 
@@ -552,7 +575,7 @@ EntityGroupsContainer.prototype.addEntities = function(groupName, ents)
 EntityGroupsContainer.prototype.update = function()
 {
 	this.checkRenamedEntities();
-	for (let group of this.groups)
+	for (const group of this.groups)
 		for (var ent in group.ents)
 		{
 			var entState = GetEntityState(+ent);
@@ -572,11 +595,11 @@ EntityGroupsContainer.prototype.checkRenamedEntities = function()
 	if (renamedEntities.length > 0)
 	{
 		var renamedLookup = {};
-		for (let renamedEntity of renamedEntities)
+		for (const renamedEntity of renamedEntities)
 			renamedLookup[renamedEntity.entity] = renamedEntity.newentity;
 
-		for (let group of this.groups)
-			for (let renamedEntity of renamedEntities)
+		for (const group of this.groups)
+			for (const renamedEntity of renamedEntities)
 				// Reconstruct the group if at least one entity has been renamed.
 				if (renamedEntity.entity in group.ents)
 				{

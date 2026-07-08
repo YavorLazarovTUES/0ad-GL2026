@@ -7,7 +7,7 @@ Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 Engine.LoadLibrary("heightmap");
 
-function* GenerateMap(mapSettings)
+export function* generateMap(mapSettings)
 {
 	TILE_CENTERED_HEIGHT_MAP = true;
 
@@ -392,11 +392,13 @@ function* GenerateMap(mapSettings)
 		"heightRiverbed": heightFertileLand,
 		"meanderShort": 40,
 		"meanderLong": 0,
-		"waterFunc": (position, height, riverFraction) => {
+		"waterFunc": (position, height, riverFraction) =>
+		{
 			createTerrain(tGrass).place(position);
 			clFertileLand.add(position);
 		},
-		"landFunc": (position, shoreDist1, shoreDist2) => {
+		"landFunc": (position, shoreDist1, shoreDist2) =>
+		{
 
 			for (const riv of layoutFertileLandTextures)
 				if (riv.left < +shoreDist1 && +shoreDist1 < riv.right ||
@@ -433,7 +435,7 @@ function* GenerateMap(mapSettings)
 		0.05 * Math.PI,
 		0.55 * Math.PI);
 
-	if (!isNomad())
+	if (!mapSettings.Nomad)
 	{
 		g_Map.log("Marking player positions");
 		for (const position of playerPosition)
@@ -1271,7 +1273,7 @@ function* GenerateMap(mapSettings)
 				[areaDesert]);
 	}
 
-	for (let i = 0; i < (isNomad() ? scaleByMapSize(6, 16) : scaleByMapSize(0, 8)); ++i)
+	for (let i = 0; i < (mapSettings.Nomad ? scaleByMapSize(6, 16) : scaleByMapSize(0, 8)); ++i)
 	{
 		const mineObjectsBiome = pickRandom(mineObjectsPerBiome);
 		createObjectGroupsByAreas(
@@ -1351,7 +1353,7 @@ function* GenerateMap(mapSettings)
 		50,
 		[areaDesert]);
 
-	if (!isNomad())
+	if (!mapSettings.Nomad)
 	{
 		g_Map.log("Creating lions");
 		createObjectGroupsByAreas(
@@ -1381,7 +1383,7 @@ function* GenerateMap(mapSettings)
 		[areaDesert]);
 
 	g_Map.log("Creating crocodiles");
-	if (!isNomad())
+	if (!mapSettings.Nomad)
 		createObjectGroupsByAreas(
 			new SimpleGroup([new SimpleObject(oCrocodile, 2, 3, 3, 5)], true, clFood),
 			0,
@@ -1467,7 +1469,7 @@ function* GenerateMap(mapSettings)
 			avoidCollisions,
 			new NearTileClassConstraint(clPyramid, 10)
 		]);
-	if (!isNomad())
+	if (!mapSettings.Nomad)
 	{
 		g_Map.log("Placing soldiers near pyramids");
 		createObjectGroupsByAreas(

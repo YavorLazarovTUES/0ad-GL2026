@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,29 +19,42 @@
 
 #include "NetClient.h"
 
-#include "NetClientTurnManager.h"
-#include "NetEnet.h"
-#include "NetMessage.h"
-#include "NetSession.h"
-
 #include "lib/byte_order.h"
+#include "lib/debug.h"
 #include "lib/external_libraries/enet.h"
-#include "lib/external_libraries/libsdl.h"
-#include "lib/sysdep/sysdep.h"
-#include "lobby/IXmppClient.h"
-#include "ps/CConsole.h"
+#include "lib/status.h"
+#include "lib/utf8.h"
+#include "lobby/XmppClient.h"
+#include "network/NetClientSession.h"
+#include "network/NetClientTurnManager.h"
+#include "network/NetEnet.h"
+#include "network/NetFileTransfer.h"
+#include "network/NetMessage.h"
+#include "network/NetProtocol.h"
+#include "network/StunClient.h"
 #include "ps/CLogger.h"
-#include "ps/Compress.h"
 #include "ps/CStr.h"
 #include "ps/Game.h"
 #include "ps/Hashing.h"
-#include "ps/Loader.h"
 #include "ps/Profile.h"
 #include "ps/Threading.h"
-#include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/JSON.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/Simulation2.h"
-#include "network/StunClient.h"
+#include "simulation2/system/TurnManager.h"
+
+#include <SDL_timer.h>
+#include <algorithm>
+#include <functional>
+#include <iterator>
+#include <js/GCAPI.h>
+#include <js/Promise.h>
+#include <js/TracingAPI.h>
+#include <map>
+#include <memory>
+#include <sstream>
+#include <utility>
 
 /**
  * Once ping goes above turn length * command delay,
@@ -53,18 +66,29 @@ constexpr u32 NETWORK_BAD_PING = DEFAULT_TURN_LENGTH * COMMAND_DELAY_MP / 2;
 
 CNetClient *g_NetClient = NULL;
 
-CNetClient::CNetClient(CGame* game) :
-	m_Session(NULL),
-	m_UserName(L"anonymous"),
-	m_HostID((u32)-1), m_ClientTurnManager(NULL), m_Game(game),
-	m_LastConnectionCheck(0),
-	m_ServerAddress(),
-	m_ServerPort(0),
-	m_Rejoin(false)
+CNetClient::CNetClient(CGame* game, std::string serverAddressOrHostname, std::uint16_t serverPort,
+	const CStrW& username, const CStr& hostJID, std::string hashedPassword,
+	std::string controllerSecret) :
+	CNetClient{PrivateTag{}, game, std::move(serverAddressOrHostname), serverPort, username, hostJID,
+		std::move(hashedPassword), std::move(controllerSecret)}
+{
+	SetupConnection(nullptr);
+}
+
+CNetClient::CNetClient(PrivateTag, CGame* game, std::string serverAddressOrHostname,
+	std::uint16_t serverPort, const CStrW& username, const CStr& hostJID, std::string hashedPassword,
+	std::string controllerSecret) :
+	m_UserName{username},
+	m_HostJID{hostJID},
+	m_Game{game},
+	m_ServerAddressOrHostname{std::move(serverAddressOrHostname)},
+	m_ServerPort{serverPort},
+	// Hash on top with the user's name, to make sure not all
+	// hashing data is in control of the host.
+	m_Password{HashCryptographically(std::move(hashedPassword), m_UserName.ToUTF8())},
+	m_ControllerSecret{std::move(controllerSecret)}
 {
 	m_Game->SetTurnManager(NULL); // delete the old local turn manager so we don't accidentally use it
-
-	JS_AddExtraGCRootsTracer(GetScriptInterface().GetGeneralJSContext(), CNetClient::Trace, this);
 
 	// Set up transitions for session
 	AddTransition(NCS_UNCONNECTED, (uint)NMT_CONNECT_COMPLETE, NCS_CONNECT, &OnConnect, this);
@@ -84,6 +108,7 @@ CNetClient::CNetClient(CGame* game) :
 	AddTransition(NCS_PREGAME, (uint)NMT_CLIENT_TIMEOUT, NCS_PREGAME, &OnClientTimeout, this);
 	AddTransition(NCS_PREGAME, (uint)NMT_CLIENT_PERFORMANCE, NCS_PREGAME, &OnClientPerformance, this);
 	AddTransition(NCS_PREGAME, (uint)NMT_GAME_START, NCS_LOADING, &OnGameStart, this);
+	AddTransition(NCS_PREGAME, (uint)NMT_SAVED_GAME_START, NCS_LOADING, &OnSavedGameStart, this);
 	AddTransition(NCS_PREGAME, (uint)NMT_JOIN_SYNC_START, NCS_JOIN_SYNCING, &OnJoinSyncStart, this);
 
 	AddTransition(NCS_JOIN_SYNCING, (uint)NMT_CHAT, NCS_JOIN_SYNCING, &OnChat, this);
@@ -93,6 +118,7 @@ CNetClient::CNetClient(CGame* game) :
 	AddTransition(NCS_JOIN_SYNCING, (uint)NMT_CLIENT_TIMEOUT, NCS_JOIN_SYNCING, &OnClientTimeout, this);
 	AddTransition(NCS_JOIN_SYNCING, (uint)NMT_CLIENT_PERFORMANCE, NCS_JOIN_SYNCING, &OnClientPerformance, this);
 	AddTransition(NCS_JOIN_SYNCING, (uint)NMT_GAME_START, NCS_JOIN_SYNCING, &OnGameStart, this);
+	AddTransition(NCS_JOIN_SYNCING, (uint)NMT_SAVED_GAME_START, NCS_LOADING, &OnSavedGameStart, this);
 	AddTransition(NCS_JOIN_SYNCING, (uint)NMT_SIMULATION_COMMAND, NCS_JOIN_SYNCING, &OnInGame, this);
 	AddTransition(NCS_JOIN_SYNCING, (uint)NMT_END_COMMAND_BATCH, NCS_JOIN_SYNCING, &OnJoinSyncEndCommandBatch, this);
 	AddTransition(NCS_JOIN_SYNCING, (uint)NMT_LOADED_GAME, NCS_INGAME, &OnLoadedGame, this);
@@ -116,6 +142,7 @@ CNetClient::CNetClient(CGame* game) :
 	AddTransition(NCS_INGAME, (uint)NMT_GAME_SETUP, NCS_INGAME, &OnGameSetup, this);
 	AddTransition(NCS_INGAME, (uint)NMT_PLAYER_ASSIGNMENT, NCS_INGAME, &OnPlayerAssignment, this);
 	AddTransition(NCS_INGAME, (uint)NMT_SIMULATION_COMMAND, NCS_INGAME, &OnInGame, this);
+	AddTransition(NCS_INGAME, (uint)NMT_FLARE, NCS_INGAME, &OnFlare, this);
 	AddTransition(NCS_INGAME, (uint)NMT_SYNC_ERROR, NCS_INGAME, &OnInGame, this);
 	AddTransition(NCS_INGAME, (uint)NMT_END_COMMAND_BATCH, NCS_INGAME, &OnInGame, this);
 
@@ -123,69 +150,34 @@ CNetClient::CNetClient(CGame* game) :
 	SetFirstState(NCS_UNCONNECTED);
 }
 
+CNetClient::CNetClient(CGame* game, const CStrW& username, const CStr& hostJID,
+	std::string hashedPassword, XmppClient& xmppClient) :
+	CNetClient{PrivateTag{}, game, {}, 0, username, hostJID, std::move(hashedPassword)}
+{
+	xmppClient.SendIqGetConnectionData(m_HostJID, m_Password, m_UserName.ToUTF8(), false);
+}
+
 CNetClient::~CNetClient()
 {
+	Unregister(nullptr);
+
 	// Try to flush messages before dying (probably fails).
 	if (m_ClientTurnManager)
 		m_ClientTurnManager->OnDestroyConnection();
 
 	DestroyConnection();
-	JS_RemoveExtraGCRootsTracer(GetScriptInterface().GetGeneralJSContext(), CNetClient::Trace, this);
-}
-
-void CNetClient::TraceMember(JSTracer *trc)
-{
-	for (JS::Heap<JS::Value>& guiMessage : m_GuiMessageQueue)
-		JS::TraceEdge(trc, &guiMessage, "m_GuiMessageQueue");
-}
-
-void CNetClient::SetUserName(const CStrW& username)
-{
-	ENSURE(!m_Session); // must be called before we start the connection
-
-	m_UserName = username;
-}
-
-void CNetClient::SetHostJID(const CStr& jid)
-{
-	m_HostJID = jid;
-}
-
-void CNetClient::SetGamePassword(const CStr& hashedPassword)
-{
-	// Hash on top with the user's name, to make sure not all
-	// hashing data is in control of the host.
-	m_Password = HashCryptographically(hashedPassword, m_UserName.ToUTF8());
-}
-
-void CNetClient::SetControllerSecret(const std::string& secret)
-{
-	m_ControllerSecret = secret;
 }
 
 
-bool CNetClient::SetupConnection(ENetHost* enetClient)
+void CNetClient::SetupConnection(ENetHost* enetClient)
 {
 	CNetClientSession* session = new CNetClientSession(*this);
-	bool ok = session->Connect(m_ServerAddress, m_ServerPort, enetClient);
+	bool ok = session->Connect(m_ServerAddressOrHostname, m_ServerPort, enetClient);
 	SetAndOwnSession(session);
 	if (ok)
 		m_PollingThread = std::thread(Threading::HandleExceptions<CNetClientSession::RunNetLoop>::Wrapper, m_Session);
-	return ok;
-}
-
-void CNetClient::SetupConnectionViaLobby()
-{
-	g_XmppClient->SendIqGetConnectionData(m_HostJID, m_Password, m_UserName.ToUTF8(), false);
-}
-
-void CNetClient::SetupServerData(CStr address, u16 port, bool stun)
-{
-	ENSURE(!m_Session);
-
-	m_ServerAddress = address;
-	m_ServerPort = port;
-	m_UseSTUN = stun;
+	else
+		throw std::runtime_error{"Failed to connect to server"};
 }
 
 void CNetClient::HandleGetServerDataFailed(const CStr& error)
@@ -200,12 +192,18 @@ void CNetClient::HandleGetServerDataFailed(const CStr& error)
 	);
 }
 
-bool CNetClient::TryToConnect(const CStr& hostJID, bool localNetwork)
+bool CNetClient::TryToConnectWithSTUN(std::string serverAddressOrHostname, std::uint16_t serverPort,
+	const CStr& hostJID, bool localNetwork)
 {
+	ENSURE(g_XmppClient);
+
+	m_ServerAddressOrHostname = std::move(serverAddressOrHostname);
+	m_ServerPort = serverPort;
+
 	if (m_Session)
 		return false;
 
-	if (m_ServerAddress.empty())
+	if (m_ServerAddressOrHostname.empty())
 	{
 		PushGuiMessage(
 			"type", "netstatus",
@@ -228,7 +226,7 @@ bool CNetClient::TryToConnect(const CStr& hostJID, bool localNetwork)
 
 	CStr ip;
 	u16 port = 0;
-	if (g_XmppClient && m_UseSTUN)
+	if (!localNetwork)
 	{
 		if (!StunClient::FindPublicIP(*enetClient, ip, port))
 		{
@@ -242,14 +240,14 @@ bool CNetClient::TryToConnect(const CStr& hostJID, bool localNetwork)
 		// If the host is on the same network, we risk failing to connect
 		// on routers that don't support NAT hairpinning/NAT loopback.
 		// To work around that, send again a connection data request, but for internal IP this time.
-		if (ip == m_ServerAddress)
+		if (ip == m_ServerAddressOrHostname)
 		{
 			g_XmppClient->SendIqGetConnectionData(m_HostJID, m_Password, m_UserName.ToUTF8(), true);
 			// Return true anyways - we're on a success path here.
 			return true;
 		}
 	}
-	else if (g_XmppClient && localNetwork)
+	else
 	{
 		// We may need to punch a hole through the local firewall, so fetch our local IP.
 		// NB: we'll ignore failures here, and hope that the firewall will be open to connection
@@ -259,15 +257,15 @@ bool CNetClient::TryToConnect(const CStr& hostJID, bool localNetwork)
 		// Check if we're hosting on localhost, and if so, explicitly use that
 		// (this circumvents, at least, the 'block all incoming connections' setting
 		// on the MacOS firewall).
-		if (ip == m_ServerAddress)
+		if (ip == m_ServerAddressOrHostname)
 		{
-			m_ServerAddress = "127.0.0.1";
+			m_ServerAddressOrHostname = "127.0.0.1";
 			ip = "";
 		}
 		port = enetClient->address.port;
 	}
 
-	LOGMESSAGE("NetClient: connecting to server at %s:%i", m_ServerAddress, m_ServerPort);
+	LOGMESSAGE("NetClient: connecting to server at %s:%i", m_ServerAddressOrHostname, m_ServerPort);
 
 	if (!ip.empty())
 	{
@@ -281,10 +279,14 @@ bool CNetClient::TryToConnect(const CStr& hostJID, bool localNetwork)
 
 		// Step 2: Send a message ourselves to the server so that the NAT, if any, routes incoming trafic correctly.
 		// TODO: verify if this step is necessary, since we'll try and connect anyways below.
-		StunClient::SendHolePunchingMessages(*enetClient, m_ServerAddress, m_ServerPort);
+		StunClient::SendHolePunchingMessages(*enetClient, m_ServerAddressOrHostname, m_ServerPort);
 	}
 
-	if (!g_NetClient->SetupConnection(enetClient))
+	try
+	{
+		g_NetClient->SetupConnection(enetClient);
+	}
+	catch (...)
 	{
 		PushGuiMessage(
 			"type", "netstatus",
@@ -327,6 +329,7 @@ void CNetClient::Poll()
 
 	CheckServerConnection();
 	m_Session->ProcessPolledMessages();
+	FetchMessage();
 }
 
 void CNetClient::CheckServerConnection()
@@ -361,42 +364,72 @@ void CNetClient::CheckServerConnection()
 	}
 }
 
-void CNetClient::GuiPoll(JS::MutableHandleValue ret)
+JSObject* CNetClient::GetNextGUIMessage(const Script::Interface& guiInterface)
 {
-	if (m_GuiMessageQueue.empty())
+	Unregister(nullptr);
+	const Script::Request rq{guiInterface};
+	m_GuiMessagePoll.emplace(GuiPollData{guiInterface, {rq.cx, JS::NewPromiseObject(rq.cx, nullptr)}});
+
+	FetchMessage();
+	return m_GuiMessagePoll.value().promise;
+}
+
+void CNetClient::Unregister(const Script::Interface* guiInterface)
+{
+	if (!m_GuiMessagePoll.has_value() ||
+		(guiInterface && &m_GuiMessagePoll.value().interface != guiInterface))
 	{
-		ret.setUndefined();
+		return;
+	}
+	auto& [interface, promise] = m_GuiMessagePoll.value();
+	const Script::Request oldRq{interface};
+	JS::ResolvePromise(oldRq.cx, promise, JS::UndefinedHandleValue);
+	m_GuiMessagePoll.reset();
+}
+
+void CNetClient::FetchMessage()
+{
+	if (m_GuiMessageQueue.empty() || !m_GuiMessagePoll.has_value() ||
+		JS::GetPromiseState(m_GuiMessagePoll.value().promise) != JS::PromiseState::Pending)
+	{
 		return;
 	}
 
-	ret.set(m_GuiMessageQueue.front());
+	const Script::Request rq{m_GuiMessagePoll.value().interface};
+	JS::RootedValue message{rq.cx};
+	Script::ReadStructuredClone(rq, std::move(m_GuiMessageQueue.front()), &message);
 	m_GuiMessageQueue.pop_front();
+
+	JS::ResolvePromise(rq.cx, m_GuiMessagePoll.value().promise, message);
 }
 
 std::string CNetClient::TestReadGuiMessages()
 {
-	ScriptRequest rq(GetScriptInterface());
+	Script::Request rq(GetScriptInterface());
 
 	std::string r;
-	JS::RootedValue msg(rq.cx);
 	while (true)
 	{
-		GuiPoll(&msg);
-		if (msg.isUndefined())
+		JS::RootedObject promise{rq.cx, GetNextGUIMessage(GetScriptInterface())};
+		g_ScriptContext->RunJobs();
+
+		if (JS::GetPromiseState(promise) == JS::PromiseState::Pending)
 			break;
+
+		JS::RootedValue msg{rq.cx, JS::GetPromiseResult(promise)};
 		r += Script::ToString(rq, &msg) + "\n";
 	}
 	return r;
 }
 
-const ScriptInterface& CNetClient::GetScriptInterface()
+const Script::Interface& CNetClient::GetScriptInterface()
 {
 	return m_Game->GetSimulation2()->GetScriptInterface();
 }
 
 void CNetClient::PostPlayerAssignmentsToScript()
 {
-	ScriptRequest rq(GetScriptInterface());
+	Script::Request rq(GetScriptInterface());
 
 	JS::RootedValue newAssignments(rq.cx);
 	Script::CreateObject(rq, &newAssignments);
@@ -435,10 +468,21 @@ void CNetClient::HandleConnect()
 
 void CNetClient::HandleDisconnect(u32 reason)
 {
-	PushGuiMessage(
-		"type", "netstatus",
-		"status", "disconnected",
-		"reason", reason);
+	if (reason == NDR_INCORRECT_SOFTWARE_VERSION) {
+		const auto& mismatch = CheckHandshake(m_ServerHandshake, CreateHandshake<CCliHandshakeMessage>());
+		ENSURE(mismatch.has_value());
+		PushGuiMessage(
+					"type", "netstatus",
+					"status", "disconnected",
+					"reason", reason,
+					"mismatch_type", mismatch->componentType,
+					"client_mismatch_component", mismatch->clientComponent,
+					"server_mismatch_component", mismatch->serverComponent);
+	} else
+		PushGuiMessage(
+					"type", "netstatus",
+					"status", "disconnected",
+					"reason", reason);
 
 	DestroyConnection();
 
@@ -447,7 +491,7 @@ void CNetClient::HandleDisconnect(u32 reason)
 	SetCurrState(NCS_UNCONNECTED);
 }
 
-void CNetClient::SendGameSetupMessage(JS::MutableHandleValue attrs, const ScriptInterface& scriptInterface)
+void CNetClient::SendGameSetupMessage(JS::MutableHandleValue attrs, const Script::Interface& scriptInterface)
 {
 	CGameSetupMessage gameSetup(scriptInterface);
 	gameSetup.m_Data = attrs;
@@ -462,10 +506,17 @@ void CNetClient::SendAssignPlayerMessage(const int playerID, const CStr& guid)
 	SendMessage(&assignPlayer);
 }
 
-void CNetClient::SendChatMessage(const std::wstring& text)
+void CNetClient::SendChatMessage(const std::wstring& text,
+	std::optional<std::vector<std::string>> receivers)
 {
 	CChatMessage chat;
 	chat.m_Message = text;
+	if (receivers)
+		std::transform(receivers->begin(), receivers->end(), std::back_inserter(chat.m_Receivers),
+			[](std::string& receiver)
+			{
+				return CChatMessage::S_m_Receivers{std::move(receiver)};
+			});
 	SendMessage(&chat);
 }
 
@@ -487,6 +538,24 @@ void CNetClient::SendStartGameMessage(const CStr& initAttribs)
 	CGameStartMessage gameStart;
 	gameStart.m_InitAttributes = initAttribs;
 	SendMessage(&gameStart);
+}
+
+void CNetClient::SendFlareMessage(const CStr& positionX, const CStr& positionY, const CStr& positionZ)
+{
+	CFlareMessage flare;
+	flare.m_PositionX = positionX;
+	flare.m_PositionY = positionY;
+	flare.m_PositionZ = positionZ;
+	SendMessage(&flare);
+}
+
+void CNetClient::SendStartSavedGameMessage(const CStr& initAttribs, const CStr& savedState)
+{
+	m_SavedState = savedState;
+
+	CGameSavedStartMessage gameSavedStart;
+	gameSavedStart.m_InitAttributes = initAttribs;
+	SendMessage(&gameSavedStart);
 }
 
 void CNetClient::SendRejoinedMessage()
@@ -524,24 +593,27 @@ bool CNetClient::HandleMessage(CNetMessage* message)
 	{
 		CFileTransferRequestMessage* reqMessage = static_cast<CFileTransferRequestMessage*>(message);
 
-		// TODO: we should support different transfer request types, instead of assuming
-		// it's always requesting the simulation state
+		std::string gameState{[&]
+			{
+				if (static_cast<CNetFileTransferer::RequestType>(reqMessage->m_RequestType) ==
+					CNetFileTransferer::RequestType::LOADGAME)
+				{
+					return std::exchange(m_SavedState, {});
+				}
 
-		std::stringstream stream;
+				std::stringstream stream;
 
-		LOGMESSAGERENDER("Serializing game at turn %u for rejoining player", m_ClientTurnManager->GetCurrentTurn());
-		u32 turn = to_le32(m_ClientTurnManager->GetCurrentTurn());
-		stream.write((char*)&turn, sizeof(turn));
+				LOGMESSAGERENDER("Serializing game at turn %u for rejoining player", m_ClientTurnManager->GetCurrentTurn());
+				u32 turn = to_le32(m_ClientTurnManager->GetCurrentTurn());
+				stream.write((char*)&turn, sizeof(turn));
 
-		bool ok = m_Game->GetSimulation2()->SerializeState(stream);
-		ENSURE(ok);
+				bool ok = m_Game->GetSimulation2()->SerializeState(stream);
+				ENSURE(ok);
+				return stream.str();
+			}()};
 
-		// Compress the content with zlib to save bandwidth
-		// (TODO: if this is still too large, compressing with e.g. LZMA works much better)
-		std::string compressed;
-		CompressZLib(stream.str(), compressed, true);
-
-		m_Session->GetFileTransferer().StartResponse(reqMessage->m_RequestID, compressed);
+		m_Session->GetFileTransferer().StartResponse(reqMessage->m_RequestID,
+			std::move(gameState));
 
 		return true;
 	}
@@ -560,10 +632,7 @@ void CNetClient::LoadFinished()
 		// We're rejoining a game, and just finished loading the initial map,
 		// so deserialize the saved game state now
 
-		std::string state;
-		DecompressZLib(m_JoinSyncBuffer, state, true);
-
-		std::stringstream stream(state);
+		std::stringstream stream(m_JoinSyncBuffer);
 
 		u32 turn;
 		stream.read((char*)&turn, sizeof(turn));
@@ -602,7 +671,19 @@ void CNetClient::SendAuthenticateMessage()
 	SendMessage(&authenticate);
 }
 
-bool CNetClient::OnConnect(CNetClient* client, CFsmEvent* event)
+void CNetClient::StartGame(const JS::MutableHandleValue initAttributes, const std::string& savedState)
+{
+	const auto foundPlayer = m_PlayerAssignments.find(m_GUID);
+	const i32 player{foundPlayer != m_PlayerAssignments.end() ? foundPlayer->second.m_PlayerID : -1};
+
+	m_ClientTurnManager = new CNetClientTurnManager{*m_Game->GetSimulation2(), *this,
+		static_cast<int>(m_HostID), m_Game->GetReplayLogger()};
+
+	m_Game->SetPlayerID(player);
+	m_Game->StartGame(initAttributes, savedState);
+}
+
+bool CNetClient::OnConnect(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_CONNECT_COMPLETE);
 
@@ -613,20 +694,18 @@ bool CNetClient::OnConnect(CNetClient* client, CFsmEvent* event)
 	return true;
 }
 
-bool CNetClient::OnHandshake(CNetClient* client, CFsmEvent* event)
+bool CNetClient::OnHandshake(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_SERVER_HANDSHAKE);
+	client->m_ServerHandshake = *static_cast<CSrvHandshakeMessage*>(event->GetParamRef());
 
-	CCliHandshakeMessage handshake;
-	handshake.m_MagicResponse = PS_PROTOCOL_MAGIC_RESPONSE;
-	handshake.m_ProtocolVersion = PS_PROTOCOL_VERSION;
-	handshake.m_SoftwareVersion = PS_PROTOCOL_VERSION;
+	CCliHandshakeMessage handshake(CreateHandshake<CCliHandshakeMessage>());
+
 	client->SendMessage(&handshake);
-
 	return true;
 }
 
-bool CNetClient::OnHandshakeResponse(CNetClient* client, CFsmEvent* event)
+bool CNetClient::OnHandshakeResponse(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_SERVER_HANDSHAKE_RESPONSE);
 
@@ -654,7 +733,7 @@ bool CNetClient::OnHandshakeResponse(CNetClient* client, CFsmEvent* event)
 	return true;
 }
 
-bool CNetClient::OnAuthenticateRequest(CNetClient* client, CFsmEvent* event)
+bool CNetClient::OnAuthenticateRequest(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_AUTHENTICATE);
 
@@ -662,7 +741,7 @@ bool CNetClient::OnAuthenticateRequest(CNetClient* client, CFsmEvent* event)
 	return true;
 }
 
-bool CNetClient::OnAuthenticate(CNetClient* client, CFsmEvent* event)
+bool CNetClient::OnAuthenticate(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_AUTHENTICATE_RESULT);
 
@@ -677,12 +756,13 @@ bool CNetClient::OnAuthenticate(CNetClient* client, CFsmEvent* event)
 	client->PushGuiMessage(
 		"type", "netstatus",
 		"status", "authenticated",
-		"rejoining", client->m_Rejoin);
+		"rejoining", client->m_Rejoin,
+		"savedGame", message->m_Code == ARC_OK_SAVED_GAME);
 
 	return true;
 }
 
-bool CNetClient::OnChat(CNetClient* client, CFsmEvent* event)
+bool CNetClient::OnChat(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_CHAT);
 
@@ -690,13 +770,13 @@ bool CNetClient::OnChat(CNetClient* client, CFsmEvent* event)
 
 	client->PushGuiMessage(
 		"type", "chat",
-		"guid", message->m_GUID,
+		"guid", message->m_SenderGUID,
 		"text", message->m_Message);
 
 	return true;
 }
 
-bool CNetClient::OnReady(CNetClient* client, CFsmEvent* event)
+bool CNetClient::OnReady(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_READY);
 
@@ -710,7 +790,7 @@ bool CNetClient::OnReady(CNetClient* client, CFsmEvent* event)
 	return true;
 }
 
-bool CNetClient::OnGameSetup(CNetClient* client, CFsmEvent* event)
+bool CNetClient::OnGameSetup(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_GAME_SETUP);
 
@@ -723,7 +803,7 @@ bool CNetClient::OnGameSetup(CNetClient* client, CFsmEvent* event)
 	return true;
 }
 
-bool CNetClient::OnPlayerAssignment(CNetClient* client, CFsmEvent* event)
+bool CNetClient::OnPlayerAssignment(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_PLAYER_ASSIGNMENT);
 
@@ -750,43 +830,51 @@ bool CNetClient::OnPlayerAssignment(CNetClient* client, CFsmEvent* event)
 
 // This is called either when the host clicks the StartGame button or
 // if this client rejoins and finishes the download of the simstate.
-bool CNetClient::OnGameStart(CNetClient* client, CFsmEvent* event)
+bool CNetClient::OnGameStart(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_GAME_START);
 
 	CGameStartMessage* message = static_cast<CGameStartMessage*>(event->GetParamRef());
 
-	// Find the player assigned to our GUID
-	int player = -1;
-	if (client->m_PlayerAssignments.find(client->m_GUID) != client->m_PlayerAssignments.end())
-		player = client->m_PlayerAssignments[client->m_GUID].m_PlayerID;
-
-	client->m_ClientTurnManager = new CNetClientTurnManager(
-			*client->m_Game->GetSimulation2(), *client, client->m_HostID, client->m_Game->GetReplayLogger());
-
-	// Parse init attributes.
-	const ScriptInterface& scriptInterface = client->m_Game->GetSimulation2()->GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
-	JS::RootedValue initAttribs(rq.cx);
+	const Script::Interface& scriptInterface{client->m_Game->GetSimulation2()->GetScriptInterface()};
+	Script::Request rq{scriptInterface};
+	JS::RootedValue initAttribs{rq.cx};
 	Script::ParseJSON(rq, message->m_InitAttributes, &initAttribs);
 
-	client->m_Game->SetPlayerID(player);
-	client->m_Game->StartGame(&initAttribs, "");
-
-	client->PushGuiMessage("type", "start",
-						   "initAttributes", initAttribs);
-
+	client->PushGuiMessage("type", "start", "initAttributes", initAttribs);
+	client->StartGame(&initAttribs, "");
 	return true;
 }
 
-bool CNetClient::OnJoinSyncStart(CNetClient* client, CFsmEvent* event)
+bool CNetClient::OnSavedGameStart(CNetClient* client, CFsmEvent<CNetMessage*>* event)
+{
+	ENSURE(event->GetType() == static_cast<uint>(NMT_SAVED_GAME_START));
+	CGameSavedStartMessage* message{static_cast<CGameSavedStartMessage*>(event->GetParamRef())};
+
+	const Script::Interface& scriptInterface{client->m_Game->GetSimulation2()->GetScriptInterface()};
+	Script::Request rq{scriptInterface};
+	const std::shared_ptr<JS::RootedValue> initAttribs{std::make_shared<JS::RootedValue>(rq.cx)};
+	Script::ParseJSON(rq, message->m_InitAttributes, &*initAttribs);
+
+	client->PushGuiMessage("type", "start", "initAttributes", *initAttribs);
+
+	client->m_Session->GetFileTransferer().StartTask(CNetFileTransferer::RequestType::LOADGAME,
+		[client, initAttribs](std::string buffer)
+		{
+			client->StartGame(&*initAttribs, std::move(buffer));
+		});
+	return true;
+}
+
+
+bool CNetClient::OnJoinSyncStart(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_JOIN_SYNC_START);
 
 	CJoinSyncStartMessage* joinSyncStartMessage = (CJoinSyncStartMessage*)event->GetParamRef();
 
 	// The server wants us to start downloading the game state from it, so do so
-	client->m_Session->GetFileTransferer().StartTask(
+	client->m_Session->GetFileTransferer().StartTask(CNetFileTransferer::RequestType::REJOIN,
 		[client, initAttributes = std::move(joinSyncStartMessage->m_InitAttributes)](std::string buffer)
 			mutable
 		{
@@ -804,7 +892,7 @@ bool CNetClient::OnJoinSyncStart(CNetClient* client, CFsmEvent* event)
 	return true;
 }
 
-bool CNetClient::OnJoinSyncEndCommandBatch(CNetClient* client, CFsmEvent* event)
+bool CNetClient::OnJoinSyncEndCommandBatch(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_END_COMMAND_BATCH);
 
@@ -818,7 +906,7 @@ bool CNetClient::OnJoinSyncEndCommandBatch(CNetClient* client, CFsmEvent* event)
 	return true;
 }
 
-bool CNetClient::OnRejoined(CNetClient* client, CFsmEvent* event)
+bool CNetClient::OnRejoined(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_REJOINED);
 
@@ -831,7 +919,7 @@ bool CNetClient::OnRejoined(CNetClient* client, CFsmEvent* event)
 	return true;
 }
 
-bool CNetClient::OnKicked(CNetClient* client, CFsmEvent* event)
+bool CNetClient::OnKicked(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_KICKED);
 
@@ -845,7 +933,7 @@ bool CNetClient::OnKicked(CNetClient* client, CFsmEvent* event)
 	return true;
 }
 
-bool CNetClient::OnClientTimeout(CNetClient* client, CFsmEvent* event)
+bool CNetClient::OnClientTimeout(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	// Report the timeout of some other client
 
@@ -862,7 +950,7 @@ bool CNetClient::OnClientTimeout(CNetClient* client, CFsmEvent* event)
 	return true;
 }
 
-bool CNetClient::OnClientPerformance(CNetClient* client, CFsmEvent* event)
+bool CNetClient::OnClientPerformance(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	// Performance statistics for one or multiple clients
 
@@ -886,7 +974,7 @@ bool CNetClient::OnClientPerformance(CNetClient* client, CFsmEvent* event)
 	return true;
 }
 
-bool CNetClient::OnClientsLoading(CNetClient* client, CFsmEvent *event)
+bool CNetClient::OnClientsLoading(CNetClient* client, CFsmEvent<CNetMessage*> *event)
 {
 	ENSURE(event->GetType() == (uint)NMT_CLIENTS_LOADING);
 
@@ -903,7 +991,7 @@ bool CNetClient::OnClientsLoading(CNetClient* client, CFsmEvent *event)
 	return true;
 }
 
-bool CNetClient::OnClientPaused(CNetClient* client, CFsmEvent *event)
+bool CNetClient::OnClientPaused(CNetClient* client, CFsmEvent<CNetMessage*> *event)
 {
 	ENSURE(event->GetType() == (uint)NMT_CLIENT_PAUSED);
 
@@ -917,7 +1005,7 @@ bool CNetClient::OnClientPaused(CNetClient* client, CFsmEvent *event)
 	return true;
 }
 
-bool CNetClient::OnLoadedGame(CNetClient* client, CFsmEvent* event)
+bool CNetClient::OnLoadedGame(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_LOADED_GAME);
 
@@ -936,7 +1024,7 @@ bool CNetClient::OnLoadedGame(CNetClient* client, CFsmEvent* event)
 	return true;
 }
 
-bool CNetClient::OnInGame(CNetClient* client, CFsmEvent* event)
+bool CNetClient::OnInGame(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	// TODO: should split each of these cases into a separate method
 
@@ -960,6 +1048,31 @@ bool CNetClient::OnInGame(CNetClient* client, CFsmEvent* event)
 			client->m_ClientTurnManager->FinishedAllCommands(endMessage->m_Turn, endMessage->m_TurnLength);
 		}
 	}
+
+	return true;
+}
+
+bool CNetClient::OnFlare(CNetClient* client, CFsmEvent<CNetMessage*>* event)
+{
+	ENSURE(event->GetType() == static_cast<uint>(NMT_FLARE));
+
+	CFlareMessage* message = static_cast<CFlareMessage*>(event->GetParamRef());
+
+	const Script::Interface& scriptInterface = client->m_Game->GetSimulation2()->GetScriptInterface();
+	Script::Request rq(scriptInterface);
+	JS::RootedValue position(rq.cx);
+	Script::CreateObject(
+		rq, &position,
+		// The coordinates are transmitted as strings (because because direct (de)serialisation of floating point numbers is not supported).
+		"x", message->m_PositionX.ToDouble(),
+		"y", message->m_PositionY.ToDouble(),
+		"z", message->m_PositionZ.ToDouble()
+	);
+
+	client->PushGuiMessage(
+		"type", "flare",
+		"guid", message->m_GUID,
+		"position", position);
 
 	return true;
 }

@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -26,31 +26,34 @@
 #define INCLUDED_IGUIOBJECT
 
 #include "gui/CGUISetting.h"
+#include "gui/SGUIMessage.h"
 #include "gui/SettingTypes/CGUIHotkey.h"
 #include "gui/SettingTypes/CGUISize.h"
-#include "gui/SGUIMessage.h"
-#include "lib/input.h" // just for IN_PASS
+#include "lib/code_annotation.h"
+#include "maths/Rect.h"
 #include "ps/CStr.h"
-#include "ps/XML/Xeromyces.h"
-#include "scriptinterface/ScriptTypes.h"
+#include "ps/Input.h"
 
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/ValueArray.h>
 #include <map>
+#include <memory>
 #include <vector>
 
 class CCanvas2D;
 class CGUI;
-class CGUISize;
-class IGUIObject;
 class IGUIProxyObject;
-class IGUISetting;
-
-template <typename T>
-class JSI_GUIProxy;
+class JSObject;
+class JSTracer;
+class XMBData;
+class XMBElement;
+namespace JS { class HandleValueArray; }
 
 #define GUI_OBJECT(obj) \
 public: \
-	static IGUIObject* ConstructObject(CGUI& pGUI) \
-		{ return new obj(pGUI); }
+	static std::unique_ptr<IGUIObject> ConstructObject(CGUI& pGUI) \
+		{ return std::make_unique<obj>(pGUI); }
 
 /**
  * GUI object such as a button or an input-box.
@@ -59,6 +62,7 @@ public: \
 class IGUIObject
 {
 	friend class CGUI;
+	friend class CGUIObjectEventBroadcaster;
 
 	// For triggering message update handlers.
 	friend class IGUISetting;
@@ -69,6 +73,11 @@ class IGUIObject
 
 public:
 	NONCOPYABLE(IGUIObject);
+
+	// IGUIObjects must not be moved in memory: SpiderMonkey keeps a pointer to
+	// them in order to trace script handlers during GCs (see Set/UnsetScriptHandlers())
+	IGUIObject(IGUIObject&&) = delete;
+	IGUIObject& operator=(IGUIObject&&) = delete;
 
 	IGUIObject(CGUI& pGUI);
 	virtual ~IGUIObject();
@@ -172,24 +181,25 @@ public:
 	 * @param eventName String representation of event name
 	 * @return IN_HANDLED if event was handled, or IN_PASS if skipped
 	 */
-	InReaction SendEvent(EGUIMessageType type, const CStr& eventName);
+	Input::Reaction SendEvent(EGUIMessageType type, const CStr& eventName);
 
 	/**
 	 * Same as SendEvent, but passes mouse coordinates and button state as an argument.
 	 */
-	InReaction SendMouseEvent(EGUIMessageType type, const CStr& eventName);
+	Input::Reaction SendMouseEvent(EGUIMessageType type, const CStr& eventName);
 
 	/**
 	 * All sizes are relative to resolution, and the calculation
 	 * is not wanted in real time, therefore it is cached, update
 	 * the cached size with this function.
 	 */
-	virtual void UpdateCachedSize();
+	virtual void HandleSizeChanged();
 
 	/**
-	 * Updates and returns the size of the object.
+	 * Get the size of the object.
+	 * Besides m_Size it also depends on the parent's size, hence "actual".
 	 */
-	CRect GetComputedSize();
+	virtual const CRect& GetActualSize() const;
 
 	virtual const CStrW& GetTooltipText() const { return m_Tooltip; }
 	virtual const CStr& GetTooltipStyle() const { return m_TooltipStyle; }
@@ -212,6 +222,10 @@ public:
 	 * Retrieves the JSObject representing this GUI object.
 	 */
 	JSObject* GetJSObject();
+
+	virtual const std::vector<IGUIObject*>& GetVisibleChildren() const { return m_Children; }
+	void SetIsInsideBoundaries(bool& isInsideBoundaries) { m_IsInsideBoundaries = isInsideBoundaries; }
+	bool IsHiddenOrGhostOrOutOfBoundaries() const;
 
 	//@}
 protected:
@@ -239,7 +253,7 @@ public:
 	 *
 	 * @param Message GUI Message
 	 */
-	virtual void HandleMessage(SGUIMessage& UNUSED(Message)) {}
+	virtual void HandleMessage(SGUIMessage&) {}
 
 	/**
 	 * Calls an IGUIObject member function recursively on this object and its children.
@@ -261,6 +275,8 @@ public:
 			obj->RecurseObject(isRestricted, callbackFunction, args...);
 	}
 
+	virtual void DrawInArea(CCanvas2D& canvas, CRect& area);
+
 protected:
 	/**
 	 * Draws the object.
@@ -268,17 +284,17 @@ protected:
 	virtual void Draw(CCanvas2D& canvas) = 0;
 
 	/**
-	 * Some objects need to be able to pre-emptively process SDL_Event_.
+	 * Some objects need to be able to pre-emptively process SDL_Event.
 	 *
 	 * Only the object with focus will have this function called.
 	 *
 	 * Returns either IN_PASS or IN_HANDLED. If IN_HANDLED, then
 	 * the event won't be passed on and processed by other handlers.
 	 */
-	virtual InReaction PreemptEvent(const SDL_Event_* UNUSED(ev)) { return IN_PASS; }
+	virtual Input::Reaction PreemptEvent(const SDL_Event&);
 
 	/**
-	 * Some objects need to handle the text-related SDL_Event_ manually.
+	 * Some objects need to handle the text-related SDL_Event manually.
 	 * For instance the input box.
 	 *
 	 * Only the object with focus will have this function called.
@@ -287,7 +303,7 @@ protected:
 	 * the key won't be passed on and processed by other handlers.
 	 * This is used for keys that the GUI uses.
 	 */
-	virtual InReaction ManuallyHandleKeys(const SDL_Event_* UNUSED(ev)) { return IN_PASS; }
+	virtual Input::Reaction ManuallyHandleKeys(const SDL_Event&);
 
 	/**
 	 * Applies the given style to the object.
@@ -361,7 +377,7 @@ protected:
 	 * Notice 'false' is default, because an object not using this function, should not
 	 * have any additional children (and this function should never be called).
 	 */
-	virtual bool HandleAdditionalChildren(const XMBData& UNUSED(file), const XMBElement& UNUSED(child))
+	virtual bool HandleAdditionalChildren(const XMBData& /*file*/, const XMBElement& /*child*/)
 	{
 		return false;
 	}
@@ -373,42 +389,6 @@ protected:
 	virtual void AdditionalChildrenHandled() {}
 
 	/**
-	 * Cached size, real size m_Size is actually dependent on resolution
-	 * and can have different *real* outcomes, this is the real outcome
-	 * cached to avoid slow calculations in real time.
-	 */
-	CRect m_CachedActualSize;
-
-	/**
-	 * Execute the script for a particular action.
-	 * Does nothing if no script has been registered for that action.
-	 * The mouse coordinates will be passed as the first argument.
-	 *
-	 * @param eventName Name of action
-	 */
-	void ScriptEvent(const CStr& eventName);
-
-	/**
-	 * Execute the script for a particular action.
-	 * Does nothing if no script has been registered for that action.
-	 * The mouse coordinates will be passed as the first argument.
-	 *
-	 * @param eventName Name of action
-	 *
-	 * @return True if the script returned something truthy.
-	 */
-	bool ScriptEventWithReturn(const CStr& eventName);
-
-	/**
-	 * Execute the script for a particular action.
-	 * Does nothing if no script has been registered for that action.
-	 *
-	 * @param eventName Name of action
-	 * @param paramData JS::HandleValueArray arguments to pass to the event.
-	 */
-	void ScriptEvent(const CStr& eventName, const JS::HandleValueArray& paramData);
-
-	/**
 	 * Execute the script for a particular action.
 	 * Does nothing if no script has been registered for that action.
 	 *
@@ -417,7 +397,8 @@ protected:
 	 *
 	 * @return True if the script returned something truthy.
 	 */
-	bool ScriptEventWithReturn(const CStr& eventName, const JS::HandleValueArray& paramData);
+	bool ScriptEvent(const CStr& eventName,
+		const JS::HandleValueArray& paramData = JS::HandleValueArray::empty());
 
 	/**
 	 * Assigns a JS function to the event name.
@@ -437,6 +418,11 @@ protected:
 	 * @param pMouseOver Object that is currently hovered, can be nullptr too!
 	 */
 	void UpdateMouseOver(IGUIObject* const& pMouseOver);
+
+	/**
+	 * Recompute the actual (absolute) size from scratch again and cache it.
+	 */
+	virtual void RecalculateActualSize() const;
 
 	//@}
 private:
@@ -524,6 +510,23 @@ protected:
 
 	// Cached JSObject representing this GUI object.
 	std::unique_ptr<IGUIProxyObject> m_JSObject;
+
+	CRect m_VisibleArea;
+	bool m_IsInsideBoundaries = true;
+
+	/**
+	 * The actual size (usually) depends on the size of the parent.
+	 * And to avoid recomputing all the time, it is cached here.
+	 * Do not read from this directly, it is not guaranteed to be up-to-date,
+	 * call GetActualSize() insead.
+	 */
+	mutable CRect m_CachedActualSize;
+
+	/**
+	 * Whether m_CacheActualSize is not up-to-date and will have to be recomputed
+	 * when accessing it the next time.
+	 */
+	mutable bool m_CachedActualSizeDirty = true;
 
 	CGUISimpleSetting<bool> m_Enabled;
 	CGUISimpleSetting<bool> m_Hidden;

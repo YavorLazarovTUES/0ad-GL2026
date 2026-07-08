@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,39 +17,44 @@
 
 #include "precompiled.h"
 
-#include "ps/GameSetup/GameSetup.h"
+#include "GameSetup.h"
 
 #include "graphics/GameView.h"
-#include "graphics/MapReader.h"
-#include "graphics/TerrainTextureManager.h"
 #include "gui/CGUI.h"
 #include "gui/GUIManager.h"
 #include "gui/Scripting/JSInterface_GUIManager.h"
 #include "i18n/L10n.h"
 #include "lib/app_hooks.h"
+#include "lib/code_annotation.h"
+#include "lib/code_generation.h"
 #include "lib/config2.h"
-#include "lib/external_libraries/libsdl.h"
+#include "lib/debug.h"
+#include "lib/external_libraries/curl.h"
 #include "lib/file/common/file_stats.h"
-#include "lib/input.h"
-#include "lib/timer.h"
-#include "lobby/IXmppClient.h"
-#include "network/NetServer.h"
+#include "lib/file/file_system.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/file/vfs/vfs_path.h"
+#include "lib/file/vfs/vfs_util.h"
+#include "lib/path.h"
+#include "lib/status.h"
+#include "lib/sysdep/os.h"
+#include "lobby/XmppClient.h"
 #include "network/NetClient.h"
+#include "network/NetHost.h"
 #include "network/NetMessage.h"
-#include "network/NetMessages.h"
+#include "network/NetServer.h"
 #include "network/scripting/JSInterface_Network.h"
 #include "ps/CConsole.h"
 #include "ps/CLogger.h"
 #include "ps/ConfigDB.h"
+#include "ps/Errors.h"
 #include "ps/Filesystem.h"
 #include "ps/Game.h"
-#include "ps/GameSetup/Atlas.h"
-#include "ps/GameSetup/Paths.h"
-#include "ps/GameSetup/Config.h"
 #include "ps/GameSetup/CmdLineArgs.h"
+#include "ps/GameSetup/Config.h"
 #include "ps/GameSetup/HWDetect.h"
+#include "ps/GameSetup/Paths.h"
 #include "ps/Globals.h"
-#include "ps/GUID.h"
 #include "ps/Hotkey.h"
 #include "ps/Joystick.h"
 #include "ps/Loader.h"
@@ -59,58 +64,78 @@
 #include "ps/ProfileViewer.h"
 #include "ps/Profiler2.h"
 #include "ps/Pyrogenesis.h"	// psSetLogDir
-#include "ps/scripting/JSInterface_Console.h"
+#include "ps/TemplateLoader.h"
+#include "ps/ThreadUtil.h"
+#include "ps/TouchInput.h"
+#include "ps/UserReport.h"
+#include "ps/VideoMode.h"
+#include "ps/World.h"
+#include "ps/XMB/XMBData.h"
+#include "ps/XMB/XMBStorage.h"
+#include "ps/XML/Xeromyces.h"
 #include "ps/scripting/JSInterface_Game.h"
 #include "ps/scripting/JSInterface_Main.h"
 #include "ps/scripting/JSInterface_VFS.h"
-#include "ps/TouchInput.h"
-#include "ps/UserReport.h"
-#include "ps/Util.h"
-#include "ps/VideoMode.h"
-#include "ps/VisualReplay.h"
-#include "ps/World.h"
 #include "renderer/Renderer.h"
+#include "renderer/RenderingOptions.h"
 #include "renderer/SceneRenderer.h"
-#include "renderer/VertexBufferManager.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/JSON.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptStats.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Object.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
+#include "scriptinterface/Stats.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/scripting/JSInterface_Simulation.h"
-#include "soundmanager/scripting/JSInterface_Sound.h"
+#include "simulation2/system/Component.h"
 #include "soundmanager/ISoundManager.h"
-#include "tools/atlas/GameInterface/GameLoop.h"
 
-#if !(OS_WIN || OS_MACOSX || OS_ANDROID) // assume all other platforms use X11 for wxWidgets
-#define MUST_INIT_X11 1
-#include <X11/Xlib.h>
-#else
-#define MUST_INIT_X11 0
-#endif
+#include <SDL.h>
+#include <SDL_error.h>
+#include <SDL_hints.h>
+#include <SDL_keyboard.h>
+#include <SDL_version.h>
+#include <algorithm>
+#include <boost/algorithm/string/classification.hpp>
+#include <boost/algorithm/string/constants.hpp>
+#include <boost/algorithm/string/join.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <chrono>
+#include <cstdlib>
+#include <ctime>
+#include <filesystem>
+#include <fmt/format.h>
+#include <fstream>
+#include <js/CallArgs.h>
+#include <js/Promise.h>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <locale>
+#include <memory>
+#include <optional>
+#include <stdexcept>
+#include <string>
+#include <thread>
+#include <unordered_set>
+#include <utility>
 
 extern void RestartEngine();
 
-#include <fstream>
-#include <iostream>
-
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/join.hpp>
-#include <boost/algorithm/string/split.hpp>
+using namespace std::literals;
 
 ERROR_GROUP(System);
 ERROR_TYPE(System, SDLInitFailed);
 ERROR_TYPE(System, VmodeFailed);
 ERROR_TYPE(System, RequiredExtensionsMissing);
 
-thread_local std::shared_ptr<ScriptContext> g_ScriptContext;
+thread_local std::shared_ptr<Script::Context> g_ScriptContext;
 
 bool g_InDevelopmentCopy;
 bool g_CheckedIfInDevelopmentCopy = false;
 
-ErrorReactionInternal psDisplayError(const wchar_t* UNUSED(text), size_t UNUSED(flags))
+ErrorReactionInternal psDisplayError(const wchar_t* /*text*/, size_t /*flags*/)
 {
 	// If we're fullscreen, then sometimes (at least on some particular drivers on Linux)
 	// displaying the error dialog hangs the desktop since the dialog box is behind the
@@ -149,6 +174,14 @@ void MountMods(const Paths& paths, const std::vector<CStr>& mods)
 			g_VFS->Mount(L"", modPath / modName / "", baseFlags, priority);
 		else
 			g_VFS->Mount(L"", modUserPath / modName / "", userFlags, priority);
+
+		// If mod have a config/<modName>.cfg, load the configuration.
+		VfsPath modConfigPath{fmt::format("config/{}.cfg", mods[i].c_str())};
+		if (!VfsFileExists(modConfigPath))
+			continue;
+
+		g_ConfigDB.SetConfigFile(CFG_MOD, modConfigPath);
+		g_ConfigDB.Reload(CFG_MOD);
 	}
 
 	// Mount the user mod last. In dev copy, mount it with a low priority. Otherwise, make it writable.
@@ -157,7 +190,7 @@ void MountMods(const Paths& paths, const std::vector<CStr>& mods)
 
 void InitVfs(const CmdLineArgs& args)
 {
-	TIMER(L"InitVfs");
+	PROFILE2("InitVfs");
 
 	const Paths paths(args);
 
@@ -167,11 +200,11 @@ void InitVfs(const CmdLineArgs& args)
 	psSetLogDir(logs);
 	// desired location for crashlog is now known. update AppHooks ASAP
 	// (particularly before the following error-prone operations):
-	AppHooks hooks = {0};
-	hooks.bundle_logs = psBundleLogs;
-	hooks.get_log_dir = psLogDir;
-	hooks.display_error = psDisplayError;
-	app_hooks_update(&hooks);
+	app_hooks_update({
+		.get_log_dir = psLogDir,
+		.bundle_logs = psBundleLogs,
+		.display_error = psDisplayError
+	});
 
 	g_VFS = CreateVfs();
 
@@ -195,20 +228,10 @@ void InitVfs(const CmdLineArgs& args)
 }
 
 
-static void InitPs(bool setup_gui, const CStrW& gui_page, ScriptInterface* srcScriptInterface, JS::HandleValue initData)
+static void InitPs(bool setup_gui, const CStrW& gui_page, Script::Interface* srcScriptInterface, JS::HandleValue initData)
 {
-	{
-		// console
-		TIMER(L"ps_console");
-
-		g_Console->Init();
-	}
-
-	// hotkeys
-	{
-		TIMER(L"ps_lang_hotkeys");
-		LoadHotkeys(g_ConfigDB);
-	}
+	g_Console->Init();
+	LoadHotkeys(g_ConfigDB);
 
 	if (!setup_gui)
 	{
@@ -222,44 +245,31 @@ static void InitPs(bool setup_gui, const CStrW& gui_page, ScriptInterface* srcSc
 	g_GUI->SwitchPage(gui_page, srcScriptInterface, initData);
 }
 
-void InitInput()
+[[nodiscard]] std::unique_ptr<InputHandlers> MakeInputHandlers()
 {
 	g_Joystick.Initialise();
 
-	// register input handlers
-	// This stack is constructed so the first added, will be the last
-	//  one called. This is important, because each of the handlers
-	//  has the potential to block events to go further down
-	//  in the chain. I.e. the last one in the list added, is the
-	//  only handler that can block all messages before they are
-	//  processed.
-	in_add_handler(game_view_handler);
+	std::unique_ptr<InputHandlers> handlers{std::make_unique<InputHandlers>()};
 
-	in_add_handler(CProfileViewer::InputThunk);
+	handlers->emplace(g_VideoMode.m_InputManager, Input::Slot::HOTKEY_INPUT, HotkeyInputActualHandler);
 
-	in_add_handler(HotkeyInputActualHandler);
-
-	// gui_handler needs to be registered after (i.e. called before!) the
-	// hotkey handler so that input boxes can be typed in without
-	// setting off hotkeys.
-	in_add_handler(gui_handler);
-	// Likewise for the console.
-	in_add_handler(conInputHandler);
-
-	in_add_handler(touch_input_handler);
+	handlers->emplace(g_VideoMode.m_InputManager, Input::Slot::TOUCH_INPUT, touch_input_handler);
 
 	// Should be called after scancode map update (i.e. after the global input, but before UI).
 	// This never blocks the event, but it does some processing necessary for hotkeys,
 	// which are triggered later down the input chain.
 	// (by calling this before the UI, we can use 'EventWouldTriggerHotkey' in the UI).
-	in_add_handler(HotkeyInputPrepHandler);
+	handlers->emplace(g_VideoMode.m_InputManager, Input::Slot::HOTKEY_INPUT_PREPARATION,
+		HotkeyInputPrepHandler);
 
 	// These two must be called first (i.e. pushed last)
 	// GlobalsInputHandler deals with some important global state,
 	// such as which scancodes are being pressed, mouse buttons pressed, etc.
 	// while HotkeyStateChange updates the map of active hotkeys.
-	in_add_handler(GlobalsInputHandler);
-	in_add_handler(HotkeyStateChange);
+	handlers->emplace(g_VideoMode.m_InputManager, Input::Slot::GLOBAL, GlobalsInputHandler);
+	handlers->emplace(g_VideoMode.m_InputManager, Input::Slot::HOTKEY_STATE_CHANGE, HotkeyStateChange);
+
+	return handlers;
 }
 
 
@@ -272,16 +282,6 @@ static void ShutdownPs()
 
 static void InitSDL()
 {
-#if OS_LINUX
-	// In fullscreen mode when SDL is compiled with DGA support, the mouse
-	// sensitivity often appears to be unusably wrong (typically too low).
-	// (This seems to be reported almost exclusively on Ubuntu, but can be
-	// reproduced on Gentoo after explicitly enabling DGA.)
-	// Disabling the DGA mouse appears to fix that problem, and doesn't
-	// have any obvious negative effects.
-	setenv("SDL_VIDEO_X11_DGAMOUSE", "0", 0);
-#endif
-
 	if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER|SDL_INIT_NOPARACHUTE) < 0)
 	{
 		LOGERROR("SDL library initialization failed: %s", SDL_GetError());
@@ -308,14 +308,14 @@ static void InitSDL()
 #if OS_MACOSX
 	// Some Mac mice only have one button, so they can't right-click
 	// but SDL2 can emulate that with Ctrl+Click
-	bool macMouse = false;
-	CFG_GET_VAL("macmouse", macMouse);
-	SDL_SetHint(SDL_HINT_MAC_CTRL_CLICK_EMULATE_RIGHT_CLICK, macMouse ? "1" : "0");
+	SDL_SetHint(SDL_HINT_MAC_CTRL_CLICK_EMULATE_RIGHT_CLICK,
+		g_ConfigDB.Get("macmouse", false) ? "1" : "0");
 #endif
 }
 
 static void ShutdownSDL()
 {
+	PROFILE2("ShutdownSDL");
 	SDL_Quit();
 }
 
@@ -346,26 +346,18 @@ void ShutdownNetworkAndUI()
 	ShutdownPs();
 
 	if (hasRenderer)
-	{
-		TIMER_BEGIN(L"shutdown Renderer");
-		g_Renderer.~CRenderer();
-		TIMER_END(L"shutdown Renderer");
-	}
+		delete &g_Renderer;
 
 	g_RenderingOptions.ClearHooks();
 
+	g_Profiler2.ShutDownHTTP();
 	g_Profiler2.ShutdownGPU();
 
 	if (hasRenderer)
 		g_VideoMode.Shutdown();
 
-	TIMER_BEGIN(L"shutdown SDL");
 	ShutdownSDL();
-	TIMER_END(L"shutdown SDL");
-
-	TIMER_BEGIN(L"shutdown UserReporter");
 	g_UserReporter.Deinitialize();
-	TIMER_END(L"shutdown UserReporter");
 
 	// Cleanup curl now that g_ModIo and g_UserReporter have been shutdown.
 	curl_global_cleanup();
@@ -375,9 +367,7 @@ void ShutdownNetworkAndUI()
 
 void ShutdownConfigAndSubsequent()
 {
-	TIMER_BEGIN(L"shutdown ConfigDB");
 	CConfigDB::Shutdown();
-	TIMER_END(L"shutdown ConfigDB");
 
 	SAFE_DELETE(g_Console);
 
@@ -387,27 +377,25 @@ void ShutdownConfigAndSubsequent()
 
 	// resource
 	// first shut down all resource owners, and then the handle manager.
-	TIMER_BEGIN(L"resource modules");
+	{
+		PROFILE2("resource modules");
 
 		ISoundManager::SetEnabled(false);
 
 		g_VFS.reset();
 
 		file_stats_dump();
+	}
 
-	TIMER_END(L"resource modules");
+	PROFILE2("shutdown misc");
 
-	TIMER_BEGIN(L"shutdown misc");
-		timer_DisplayClientTotals();
+	CNetHost::Deinitialize();
 
-		CNetHost::Deinitialize();
+	// Should be destroyed last, since the above uses them.
+	delete &g_Profiler;
+	delete &g_ProfileViewer;
 
-		// should be last, since the above use them
-		delete &g_Profiler;
-		delete &g_ProfileViewer;
-
-		SAFE_DELETE(g_ScriptStatsTable);
-	TIMER_END(L"shutdown misc");
+	SAFE_DELETE(g_ScriptStatsTable);
 }
 
 #if OS_UNIX
@@ -483,7 +471,6 @@ void EarlyInit()
 
 	debug_SetThreadName("main");
 	// add all debug_printf "tags" that we are interested in:
-	debug_filter_add("TIMER");
 	debug_filter_add("FILES");
 
 	timer_Init();
@@ -493,17 +480,6 @@ void EarlyInit()
 	g_Profiler2.Initialise();
 
 	FixLocales();
-
-	// Because we do GL calls from a secondary thread, Xlib needs to
-	// be told to support multiple threads safely.
-	// This is needed for Atlas, but we have to call it before any other
-	// Xlib functions (e.g. the ones used when drawing the main menu
-	// before launching Atlas)
-#if MUST_INIT_X11
-	int status = XInitThreads();
-	if (status == 0)
-		debug_printf("Error enabling thread-safety via XInitThreads\n");
-#endif
 
 	// Initialise the low-quality rand function
 	srand(time(NULL));	// NOTE: this rand should *not* be used for simulation!
@@ -521,7 +497,7 @@ bool Init(const CmdLineArgs& args, int flags)
 	new CProfileViewer;
 	new CProfileManager;	// before any script code
 
-	g_ScriptStatsTable = new CScriptStatsTable;
+	g_ScriptStatsTable = new Script::CScriptStatsTable;
 	g_ProfileViewer.AddRootTable(g_ScriptStatsTable);
 
 	// Set up the console early, so that debugging
@@ -535,8 +511,8 @@ bool Init(const CmdLineArgs& args, int flags)
 	// Using a global object for the context is a workaround until Simulation and AI use
 	// their own threads and also their own contexts.
 	const int contextSize = 384 * 1024 * 1024;
-	const int heapGrowthBytesGCTrigger = 20 * 1024 * 1024;
-	g_ScriptContext = ScriptContext::CreateContext(contextSize, heapGrowthBytesGCTrigger);
+	const int heapGrowthBytesGCTrigger = 12 * 1024 * 1024;
+	g_ScriptContext = std::make_shared<Script::Context>(contextSize, heapGrowthBytesGCTrigger);
 
 	// On the first Init (INIT_MODS), check for command-line arguments
 	// or use the default mods from the config and enable those.
@@ -544,16 +520,15 @@ bool Init(const CmdLineArgs& args, int flags)
 	// to avoid overwriting the newly selected mods.
 	if (flags & INIT_MODS)
 	{
-		ScriptInterface modInterface("Engine", "Mod", g_ScriptContext);
+		Script::Interface modInterface("Engine", "Mod", g_ScriptContext);
 		g_Mods.UpdateAvailableMods(modInterface);
 		std::vector<CStr> mods;
 		if (args.Has("mod"))
 			mods = args.GetMultiple("mod");
 		else
 		{
-			CStr modsStr;
-			CFG_GET_VAL("mod.enabledmods", modsStr);
-			boost::split(mods, modsStr, boost::algorithm::is_space(), boost::token_compress_on);
+			boost::split(mods, g_ConfigDB.Get("mod.enabledmods", std::string{}),
+				boost::algorithm::is_space(), boost::token_compress_on);
 		}
 
 		if (!g_Mods.EnableMods(mods, flags & INIT_MODS_PUBLIC))
@@ -577,11 +552,17 @@ bool Init(const CmdLineArgs& args, int flags)
 	// on anything else.)
 	if (args.Has("dumpSchema"))
 	{
-		CSimulation2 sim{NULL, *g_ScriptContext, NULL};
-		sim.LoadDefaultScripts();
-		std::ofstream f("entity.rng", std::ios_base::out | std::ios_base::trunc);
-		f << sim.GenerateSchema();
-		debug_printf("Generated entity.rng\n");
+		try
+		{
+			CSimulation2 sim{NULL, *g_ScriptContext, NULL, CSimulation2::DEFAULT_SCRIPTS};
+			std::ofstream f("entity.rng", std::ios_base::out | std::ios_base::trunc);
+			f << sim.GenerateSchema();
+			debug_printf("Generated entity.rng\n");
+		}
+		catch (const CSimulation2::LoadScriptError& e)
+		{
+			LOGERROR("%s", e.what());
+		}
 		return false;
 	}
 
@@ -596,9 +577,7 @@ bool Init(const CmdLineArgs& args, int flags)
 
 	// Optionally start profiler HTTP output automatically
 	// (By default it's only enabled by a hotkey, for security/performance)
-	bool profilerHTTPEnable = false;
-	CFG_GET_VAL("profiler2.autoenable", profilerHTTPEnable);
-	if (profilerHTTPEnable)
+	if (g_ConfigDB.Get("profiler2.autoenable", false))
 		g_Profiler2.EnableHTTP();
 
 	// Initialise everything except Win32 sockets (because our networking
@@ -612,8 +591,9 @@ bool Init(const CmdLineArgs& args, int flags)
 	return true;
 }
 
-void InitGraphics(const CmdLineArgs& args, int flags, const std::vector<CStr>& installedMods,
-	ScriptContext& scriptContext, ScriptInterface& scriptInterface)
+[[nodiscard]] std::unique_ptr<InputHandlers> InitGraphics(const CmdLineArgs& args, int flags,
+	const std::vector<CStr>& installedMods, Script::Context& scriptContext,
+	Script::Interface& scriptInterface)
 {
 	const bool setup_vmode = (flags & INIT_HAVE_VMODE) == 0;
 
@@ -629,9 +609,7 @@ void InitGraphics(const CmdLineArgs& args, int flags, const std::vector<CStr>& i
 
 	// Optionally start profiler GPU timings automatically
 	// (By default it's only enabled by a hotkey, for performance/compatibility)
-	bool profilerGPUEnable = false;
-	CFG_GET_VAL("profiler2.autoenable", profilerGPUEnable);
-	if (profilerGPUEnable)
+	if (g_ConfigDB.Get("profiler2.autoenable", false))
 		g_Profiler2.EnableGPU();
 
 	if(g_DisableAudio)
@@ -639,30 +617,16 @@ void InitGraphics(const CmdLineArgs& args, int flags, const std::vector<CStr>& i
 
 	g_GUI = new CGUIManager{scriptContext, scriptInterface};
 
-	CStr8 renderPath = "default";
-	CFG_GET_VAL("renderpath", renderPath);
-	if (RenderPathEnum::FromString(renderPath) == FIXED)
-	{
-		// It doesn't make sense to continue working here, because we're not
-		// able to display anything.
-		DEBUG_DISPLAY_FATAL_ERROR(
-			L"Your graphics card doesn't appear to be fully compatible with OpenGL shaders."
-			L" The game does not support pre-shader graphics cards."
-			L" You are advised to try installing newer drivers and/or upgrade your graphics card."
-			L" For more information, please see http://www.wildfiregames.com/forum/index.php?showtopic=16734"
-		);
-	}
-
 	g_RenderingOptions.ReadConfigAndSetupHooks();
 
 	// create renderer
 	new CRenderer(g_VideoMode.GetBackendDevice());
 
-	InitInput();
+	std::unique_ptr<InputHandlers> handlers{MakeInputHandlers()};
 
 	// TODO: Is this the best place for this?
 	if (VfsDirectoryExists(L"maps/"))
-		CXeromyces::AddValidator(g_VFS, "map", "maps/scenario.rng");
+		g_Xeromyces.AddValidator(g_VFS, "map", "maps/scenario.rng");
 
 	try
 	{
@@ -670,7 +634,7 @@ void InitGraphics(const CmdLineArgs& args, int flags, const std::vector<CStr>& i
 		{
 			const bool setup_gui = ((flags & INIT_NO_GUI) == 0);
 
-			ScriptRequest rq{g_GUI->GetScriptInterface()};
+			Script::Request rq{g_GUI->GetScriptInterface()};
 			JS::RootedValue data(rq.cx);
 			Script::CreateObject(rq, &data, "isStartup", true);
 			if (!installedMods.empty())
@@ -689,6 +653,8 @@ void InitGraphics(const CmdLineArgs& args, int flags, const std::vector<CStr>& i
 		//	(delete game data, switch GUI page, show error, etc.)
 		CancelLoad(CStr(e.what()).FromUTF8());
 	}
+
+	return handlers;
 }
 
 bool InitNonVisual(const CmdLineArgs& args)
@@ -741,116 +707,71 @@ CStr8 LoadSettingsOfScenarioMap(const VfsPath &mapPath)
 	return mapElement.GetText();
 }
 
-// TODO: this essentially duplicates the CGUI logic to load directory or scripts.
-// NB: this won't make sure to not double-load scripts, unlike the GUI.
-void AutostartLoadScript(const ScriptInterface& scriptInterface, const VfsPath& path)
-{
-	if (path.IsDirectory())
-	{
-		VfsPaths pathnames;
-		vfs::GetPathnames(g_VFS, path, L"*.js", pathnames);
-		for (const VfsPath& file : pathnames)
-			scriptInterface.LoadGlobalScriptFile(file);
-	}
-	else
-		scriptInterface.LoadGlobalScriptFile(path);
-}
-
-// TODO: this essentially duplicates the CGUI function
-CParamNode GetTemplate(const std::string& templateName)
-{
-	// This is very cheap to create so let's just do it every time.
-	CTemplateLoader templateLoader;
-
-	const CParamNode& templateRoot = templateLoader.GetTemplateFileData(templateName).GetOnlyChild();
-	if (!templateRoot.IsOk())
-		LOGERROR("Invalid template found for '%s'", templateName.c_str());
-
-	return templateRoot;
-}
-
-/*
- * Command line options for autostart
- * (keep synchronized with binaries/system/readme.txt):
- *
- * -autostart="TYPEDIR/MAPNAME"    enables autostart and sets MAPNAME;
- *                                 TYPEDIR is skirmishes, scenarios, or random
- * -autostart-biome=BIOME          sets BIOME for a random map
- * -autostart-seed=SEED            sets randomization seed value (default 0, use -1 for random)
- * -autostart-ai=PLAYER:AI         sets the AI for PLAYER (e.g. 2:petra)
- * -autostart-aidiff=PLAYER:DIFF   sets the DIFFiculty of PLAYER's AI
- *                                 (default 3, 0: sandbox, 5: very hard)
- * -autostart-aiseed=AISEED        sets the seed used for the AI random
- *                                 generator (default 0, use -1 for random)
- * -autostart-player=NUMBER        sets the playerID in non-networked games (default 1, use -1 for observer)
- * -autostart-civ=PLAYER:CIV       sets PLAYER's civilisation to CIV (skirmish and random maps only).
- *                                 Use random for a random civ.
- * -autostart-team=PLAYER:TEAM     sets the team for PLAYER (e.g. 2:2).
- * -autostart-ceasefire=NUM        sets a ceasefire duration NUM
- *                                 (default 0 minutes)
- * -autostart-nonvisual            disable any graphics and sounds
- * -autostart-victory=SCRIPTNAME   sets the victory conditions with SCRIPTNAME
- *                                 located in simulation/data/settings/victory_conditions/
- *                                 (default conquest). When the first given SCRIPTNAME is
- *                                 "endless", no victory conditions will apply.
- * -autostart-wonderduration=NUM   sets the victory duration NUM for wonder victory condition
- *                                 (default 10 minutes)
- * -autostart-relicduration=NUM    sets the victory duration NUM for relic victory condition
- *                                 (default 10 minutes)
- * -autostart-reliccount=NUM       sets the number of relics for relic victory condition
- *                                 (default 2 relics)
- * -autostart-disable-replay       disable saving of replays
- *
- * Multiplayer:
- * -autostart-playername=NAME      sets local player NAME (default 'anonymous')
- * -autostart-host                 sets multiplayer host mode
- * -autostart-host-players=NUMBER  sets NUMBER of human players for multiplayer
- *                                 game (default 2)
- * -autostart-client=IP            sets multiplayer client to join host at
- *                                 given IP address
- * Random maps only:
- * -autostart-size=TILES           sets random map size in TILES (default 192)
- * -autostart-players=NUMBER       sets NUMBER of players on random map
- *                                 (default 2)
- *
- * Examples:
- * 1) "Bob" will host a 2 player game on the Arcadia map:
- * -autostart="scenarios/arcadia" -autostart-host -autostart-host-players=2 -autostart-playername="Bob"
- *  "Alice" joins the match as player 2:
- * -autostart-client=127.0.0.1 -autostart-playername="Alice"
- * The players use the developer overlay to control players.
- *
- * 2) Load Alpine Lakes random map with random seed, 2 players (Athens and Britons), and player 2 is PetraBot:
- * -autostart="random/alpine_lakes" -autostart-seed=-1 -autostart-players=2 -autostart-civ=1:athen -autostart-civ=2:brit -autostart-ai=2:petra
- *
- * 3) Observe the PetraBot on a triggerscript map:
- * -autostart="random/jebel_barkal" -autostart-seed=-1 -autostart-players=2 -autostart-civ=1:athen -autostart-civ=2:brit -autostart-ai=1:petra -autostart-ai=2:petra -autostart-player=-1
+/**
+ * Autostart arguments are parsed in javascript for convenience and moddability.
+ * This C++ part only handles the following arguments:
+ * -autostart=MAP		to enable regular autostart / host mode autostart
+ * -autostart-client=IP	to enable 'MP client' autostart.
+ * -autostart-host		to enable 'MP host' autostart.
+ * -autostart-nonvisual	to start in non-visual mode.
+ *  TODO: it might be nice to move these to JS too.
  */
 bool Autostart(const CmdLineArgs& args)
 {
 	if (!args.Has("autostart-client") && !args.Has("autostart"))
 		return false;
 
-	// Get optional playername.
-	CStrW userName = L"anonymous";
-	if (args.Has("autostart-playername"))
-		userName = args.Get("autostart-playername").FromUTF8();
-
 	// Create some scriptinterface to store the js values for the settings.
-	ScriptInterface scriptInterface("Engine", "Game Setup", g_ScriptContext);
-
-	ScriptRequest rq(scriptInterface);
+	Script::Interface scriptInterface("Engine", "Game Setup", g_ScriptContext);
+	Script::Request rq(scriptInterface);
 
 	// We use the javascript gameSettings to handle options, but that requires running JS.
 	// Since we don't want to use the full Gui manager, we load an entrypoint script
 	// that can run the priviledged "LoadScript" function, and then call the appropriate function.
-	ScriptFunction::Register<&AutostartLoadScript>(rq, "LoadScript");
+
+	// TODO: this essentially duplicates the CGUI logic to load directory or scripts.
+	std::unordered_set<VfsPath> templateCache;
+	const auto autostartLoadScript = [&templateCache](const Script::Interface& scriptInterface,
+		const VfsPath& path)
+	{
+		if (!std::get<1>(templateCache.insert(path)))
+			return;
+
+		if (path.IsDirectory())
+		{
+			VfsPaths pathnames;
+			vfs::GetPathnames(g_VFS, path, L"*.js", pathnames);
+			for (const VfsPath& file : pathnames)
+				scriptInterface.LoadGlobalScriptFile(file);
+		}
+		else
+			scriptInterface.LoadGlobalScriptFile(path);
+	};
+
+	const auto loadScriptCallback = Script::Function::Register(rq, "LoadScript", autostartLoadScript);
 	// Load the entire folder to allow mods to extend the entrypoint without copying the whole file.
-	AutostartLoadScript(scriptInterface, VfsPath(L"autostart/"));
+	autostartLoadScript(scriptInterface, VfsPath(L"autostart/"));
 
 	// Provide some required functions to the script.
+
+	struct GetTemplate
+	{
+		CTemplateLoader templateLoader;
+
+		CParamNode operator()(const std::string& templateName){
+			// TODO: this essentially duplicates the CGUI function
+			const CParamNode& templateRoot{
+				templateLoader.GetTemplateFileData(templateName).GetOnlyChild()};
+			if (!templateRoot.IsOk())
+				LOGERROR("Invalid template found for '%s'", templateName.c_str());
+
+			return templateRoot;
+		}
+	};
+
+	std::optional<Script::Function::StatefulCallback<GetTemplate>> getTemplateCallback;
 	if (args.Has("autostart-nonvisual"))
-		ScriptFunction::Register<&GetTemplate>(rq, "GetTemplate");
+		getTemplateCallback.emplace(rq, "GetTemplate", GetTemplate{});
 	else
 	{
 		JSI_GUIManager::RegisterScriptFunctions(rq);
@@ -864,354 +785,64 @@ bool Autostart(const CmdLineArgs& args)
 	JSI_VFS::RegisterScriptFunctions_ReadWriteAnywhere(rq);
 	JSI_Network::RegisterScriptFunctions(rq);
 
-	JS::RootedValue sessionInitData(rq.cx);
+	JS::RootedValue cmdLineArgs(rq.cx);
+	Script::ToJSVal(rq, &cmdLineArgs, args);
 
-	if (args.Has("autostart-client"))
+	// Pass the default port if undefined, to avoid duplicating it in JS.
+	if (!Script::HasProperty(rq, cmdLineArgs, "autostart-port"))
+		Script::SetProperty(rq, cmdLineArgs, "autostart-port", PS_DEFAULT_PORT);
+
+	JS::RootedValue resultValue{rq.cx};
+	JS::RootedValue global(rq.cx, rq.globalValue());
+	if (!Script::Function::Call(rq, global,
+		args.Has("autostart-client") ? "autostartClient" : "autostartHost", &resultValue,
+		cmdLineArgs, args.Has("autostart-host")) && !resultValue.isObject())
 	{
-		CStr ip = args.Get("autostart-client");
-		if (ip.empty())
-			ip = "127.0.0.1";
-
-		Script::CreateObject(
-			rq,
-			&sessionInitData,
-			"playerName", userName,
-			"ip", ip,
-			"port", PS_DEFAULT_PORT,
-			"storeReplay", !args.Has("autostart-disable-replay"));
-
-		JS::RootedValue global(rq.cx, rq.globalValue());
-		if (!ScriptFunction::CallVoid(rq, global, "autostartClient", sessionInitData, true))
-			return false;
-
-		bool shouldQuit = false;
-		while (!shouldQuit)
-		{
-			g_NetClient->Poll();
-			ScriptFunction::Call(rq, global, "onTick", shouldQuit);
-			std::this_thread::sleep_for(std::chrono::microseconds(200));
-		}
-
-		if (args.Has("autostart-nonvisual"))
-		{
-			LDR_NonprogressiveLoad();
-			g_Game->ReallyStartGame();
-		}
-		return true;
+		return false;
 	}
 
-	CStr autoStartName = args.Get("autostart");
-
-	if (autoStartName.empty())
+	JS::RootedObject result{rq.cx, &resultValue.toObject()};
+	while (JS::IsPromiseObject(result) && JS::GetPromiseState(result) == JS::PromiseState::Pending)
+	{
+		g_ScriptContext->RunJobs();
+		g_NetClient->Poll();
+		std::this_thread::sleep_for(std::chrono::microseconds(200));
+	}
+	if (JS::IsPromiseObject(result) && JS::GetPromiseState(result) == JS::PromiseState::Rejected)
 		return false;
 
-	JS::RootedValue attrs(rq.cx);
-	JS::RootedValue settings(rq.cx);
-	JS::RootedValue playerData(rq.cx);
-
-	Script::CreateObject(rq, &attrs);
-	Script::CreateObject(rq, &settings);
-	Script::CreateArray(rq, &playerData);
-
-	// The directory in front of the actual map name indicates which type
-	// of map is being loaded. Drawback of this approach is the association
-	// of map types and folders is hard-coded, but benefits are:
-	// - No need to pass the map type via command line separately
-	// - Prevents mixing up of scenarios and skirmish maps to some degree
-	Path mapPath = Path(autoStartName);
-	std::wstring mapDirectory = mapPath.Parent().Filename().string();
-	std::string mapType;
-
-	if (mapDirectory == L"random")
-	{
-		// Get optional map size argument (default 192)
-		uint mapSize = 192;
-		if (args.Has("autostart-size"))
-		{
-			CStr size = args.Get("autostart-size");
-			mapSize = size.ToUInt();
-		}
-
-		Script::SetProperty(rq, settings, "Size", mapSize);		// Random map size (in patches)
-
-		if (args.Has("autostart-biome"))
-		{
-			CStr biome = args.Get("autostart-biome");
-			Script::SetProperty(rq, settings, "Biome", biome);
-		}
-
-		// Get optional number of players (default 2)
-		size_t numPlayers = 2;
-		if (args.Has("autostart-players"))
-		{
-			CStr num = args.Get("autostart-players");
-			numPlayers = num.ToUInt();
-		}
-
-		// Set up player data
-		for (size_t i = 0; i < numPlayers; ++i)
-		{
-			JS::RootedValue player(rq.cx);
-
-			// We could load player_defaults.json here, but that would complicate the logic
-			// even more and autostart is only intended for developers anyway
-			Script::CreateObject(rq, &player, "Civ", "athen");
-
-			Script::SetPropertyInt(rq, playerData, i, player);
-		}
-		mapType = "random";
-	}
-	else if (mapDirectory == L"scenarios")
-		mapType = "scenario";
-	else if (mapDirectory == L"skirmishes")
-		mapType = "skirmish";
-	else
-	{
-		LOGERROR("Autostart: Unrecognized map type '%s'", utf8_from_wstring(mapDirectory));
-		throw PSERROR_Game_World_MapLoadFailed("Unrecognized map type.\nConsult readme.txt for the currently supported types.");
-	}
-
-	Script::SetProperty(rq, attrs, "mapType", mapType);
-	Script::SetProperty(rq, attrs, "map", "maps/" + autoStartName);
-	Script::SetProperty(rq, settings, "mapType", mapType);
-	Script::SetProperty(rq, settings, "CheatsEnabled", true);
-
-	// The seed is used for both random map generation and simulation
-	u32 seed = 0;
-	if (args.Has("autostart-seed"))
-	{
-		CStr seedArg = args.Get("autostart-seed");
-		if (seedArg == "-1")
-			seed = rand();
-		else
-			seed = seedArg.ToULong();
-	}
-	Script::SetProperty(rq, settings, "Seed", seed);
-
-	// Set seed for AIs
-	u32 aiseed = 0;
-	if (args.Has("autostart-aiseed"))
-	{
-		CStr seedArg = args.Get("autostart-aiseed");
-		if (seedArg == "-1")
-			aiseed = rand();
-		else
-			aiseed = seedArg.ToULong();
-	}
-	Script::SetProperty(rq, settings, "AISeed", aiseed);
-
-	// Set player data for AIs
-	//		attrs.settings = { PlayerData: [ { AI: ... }, ... ] }
-	//		            or = { PlayerData: [ null, { AI: ... }, ... ] } when gaia set
-	int offset = 1;
-	JS::RootedValue player(rq.cx);
-	if (Script::GetPropertyInt(rq, playerData, 0, &player) && player.isNull())
-		offset = 0;
-
-	// Set teams
-	if (args.Has("autostart-team"))
-	{
-		std::vector<CStr> civArgs = args.GetMultiple("autostart-team");
-		for (size_t i = 0; i < civArgs.size(); ++i)
-		{
-			int playerID = civArgs[i].BeforeFirst(":").ToInt();
-
-			// Instead of overwriting existing player data, modify the array
-			JS::RootedValue currentPlayer(rq.cx);
-			if (!Script::GetPropertyInt(rq, playerData, playerID-offset, &currentPlayer) || currentPlayer.isUndefined())
-				Script::CreateObject(rq, &currentPlayer);
-
-			int teamID = civArgs[i].AfterFirst(":").ToInt() - 1;
-			Script::SetProperty(rq, currentPlayer, "Team", teamID);
-			Script::SetPropertyInt(rq, playerData, playerID-offset, currentPlayer);
-		}
-	}
-
-	int ceasefire = 0;
-	if (args.Has("autostart-ceasefire"))
-		ceasefire = args.Get("autostart-ceasefire").ToInt();
-	Script::SetProperty(rq, settings, "Ceasefire", ceasefire);
-
-	if (args.Has("autostart-ai"))
-	{
-		std::vector<CStr> aiArgs = args.GetMultiple("autostart-ai");
-		for (size_t i = 0; i < aiArgs.size(); ++i)
-		{
-			int playerID = aiArgs[i].BeforeFirst(":").ToInt();
-
-			// Instead of overwriting existing player data, modify the array
-			JS::RootedValue currentPlayer(rq.cx);
-			if (!Script::GetPropertyInt(rq, playerData, playerID-offset, &currentPlayer) || currentPlayer.isUndefined())
-				Script::CreateObject(rq, &currentPlayer);
-
-			Script::SetProperty(rq, currentPlayer, "AI", aiArgs[i].AfterFirst(":"));
-			Script::SetProperty(rq, currentPlayer, "AIDiff", 3);
-			Script::SetProperty(rq, currentPlayer, "AIBehavior", "balanced");
-			Script::SetPropertyInt(rq, playerData, playerID-offset, currentPlayer);
-		}
-	}
-	// Set AI difficulty
-	if (args.Has("autostart-aidiff"))
-	{
-		std::vector<CStr> civArgs = args.GetMultiple("autostart-aidiff");
-		for (size_t i = 0; i < civArgs.size(); ++i)
-		{
-			int playerID = civArgs[i].BeforeFirst(":").ToInt();
-
-			// Instead of overwriting existing player data, modify the array
-			JS::RootedValue currentPlayer(rq.cx);
-			if (!Script::GetPropertyInt(rq, playerData, playerID-offset, &currentPlayer) || currentPlayer.isUndefined())
-				Script::CreateObject(rq, &currentPlayer);
-
-			Script::SetProperty(rq, currentPlayer, "AIDiff", civArgs[i].AfterFirst(":").ToInt());
-			Script::SetPropertyInt(rq, playerData, playerID-offset, currentPlayer);
-		}
-	}
-	// Set player data for Civs
-	if (args.Has("autostart-civ"))
-	{
-		if (mapDirectory != L"scenarios")
-		{
-			std::vector<CStr> civArgs = args.GetMultiple("autostart-civ");
-			for (size_t i = 0; i < civArgs.size(); ++i)
-			{
-				int playerID = civArgs[i].BeforeFirst(":").ToInt();
-
-				// Instead of overwriting existing player data, modify the array
-				JS::RootedValue currentPlayer(rq.cx);
-				if (!Script::GetPropertyInt(rq, playerData, playerID-offset, &currentPlayer) || currentPlayer.isUndefined())
-					Script::CreateObject(rq, &currentPlayer);
-
-				Script::SetProperty(rq, currentPlayer, "Civ", civArgs[i].AfterFirst(":"));
-				Script::SetPropertyInt(rq, playerData, playerID-offset, currentPlayer);
-			}
-		}
-		else
-			LOGWARNING("Autostart: Option 'autostart-civ' is invalid for scenarios");
-	}
-
-	// Add additional scripts to the TriggerScripts property
-	std::vector<CStrW> triggerScriptsVector;
-	JS::RootedValue triggerScripts(rq.cx);
-
-	if (Script::HasProperty(rq, settings, "TriggerScripts"))
-	{
-		Script::GetProperty(rq, settings, "TriggerScripts", &triggerScripts);
-		Script::FromJSVal(rq, triggerScripts, triggerScriptsVector);
-	}
-
-	if (!CRenderer::IsInitialised())
-	{
-		CStr nonVisualScript = "scripts/NonVisualTrigger.js";
-		triggerScriptsVector.push_back(nonVisualScript.FromUTF8());
-	}
-
-	Script::ToJSVal(rq, &triggerScripts, triggerScriptsVector);
-	Script::SetProperty(rq, settings, "TriggerScripts", triggerScripts);
-
-	std::vector<CStr> victoryConditions(1, "conquest");
-	if (args.Has("autostart-victory"))
-		victoryConditions = args.GetMultiple("autostart-victory");
-
-	if (victoryConditions.size() == 1 && victoryConditions[0] == "endless")
-		victoryConditions.clear();
-
-	Script::SetProperty(rq, settings, "VictoryConditions", victoryConditions);
-
-	int wonderDuration = 10;
-	if (args.Has("autostart-wonderduration"))
-		wonderDuration = args.Get("autostart-wonderduration").ToInt();
-	Script::SetProperty(rq, settings, "WonderDuration", wonderDuration);
-
-	int relicDuration = 10;
-	if (args.Has("autostart-relicduration"))
-		relicDuration = args.Get("autostart-relicduration").ToInt();
-	Script::SetProperty(rq, settings, "RelicDuration", relicDuration);
-
-	int relicCount = 2;
-	if (args.Has("autostart-reliccount"))
-		relicCount = args.Get("autostart-reliccount").ToInt();
-	Script::SetProperty(rq, settings, "RelicCount", relicCount);
-
-	// Add player data to map settings.
-	Script::SetProperty(rq, settings, "PlayerData", playerData);
-
-	// Add map settings to game attributes.
-	Script::SetProperty(rq, attrs, "settings", settings);
-
-	if (args.Has("autostart-host"))
-	{
-		int maxPlayers = 2;
-		if (args.Has("autostart-host-players"))
-			maxPlayers = args.Get("autostart-host-players").ToUInt();
-
-		Script::CreateObject(
-			rq,
-			&sessionInitData,
-			"attribs", attrs,
-			"playerName", userName,
-			"port", PS_DEFAULT_PORT,
-			"maxPlayers", maxPlayers,
-			"storeReplay", !args.Has("autostart-disable-replay"));
-
-		JS::RootedValue global(rq.cx, rq.globalValue());
-		if (!ScriptFunction::CallVoid(rq, global, "autostartHost", sessionInitData, true))
-			return false;
-
-		// In MP host mode, we need to wait until clients have loaded.
-		bool shouldQuit = false;
-		while (!shouldQuit)
-		{
-			g_NetClient->Poll();
-			ScriptFunction::Call(rq, global, "onTick", shouldQuit);
-			std::this_thread::sleep_for(std::chrono::microseconds(200));
-		}
-	}
-	else
-	{
-		JS::RootedValue localPlayer(rq.cx);
-		Script::CreateObject(
-			rq,
-			&localPlayer,
-			"player", args.Has("autostart-player") ? args.Get("autostart-player").ToInt() : 1,
-			"name", userName);
-
-		JS::RootedValue playerAssignments(rq.cx);
-		Script::CreateObject(rq, &playerAssignments);
-		Script::SetProperty(rq, playerAssignments, "local", localPlayer);
-
-		Script::CreateObject(
-			rq,
-			&sessionInitData,
-			"attribs", attrs,
-			"playerAssignments", playerAssignments,
-			"storeReplay", !args.Has("autostart-disable-replay"));
-
-		JS::RootedValue global(rq.cx, rq.globalValue());
-		if (!ScriptFunction::CallVoid(rq, global, "autostartHost", sessionInitData, false))
-			return false;
-	}
+	JS::RootedValue pageData{rq.cx, JS::IsPromiseObject(result) ? JS::GetPromiseResult(result) :
+		resultValue};
 
 	if (args.Has("autostart-nonvisual"))
 	{
-		LDR_NonprogressiveLoad();
+		PS::Loader::NonprogressiveLoad();
 		g_Game->ReallyStartGame();
+		return true;
 	}
+
+	std::wstring pageName;
+	Script::GetPropertyInt(rq, pageData, 0, pageName);
+	JS::RootedValue pageArgs{rq.cx};
+	Script::GetPropertyInt(rq, pageData, 1, &pageArgs);
+	Script::StructuredClone clonedpageArgs{Script::WriteStructuredClone(rq, pageArgs)};
+
+	g_GUI->OpenChildPage(pageName, std::move(clonedpageArgs));
 
 	return true;
 }
 
 bool AutostartVisualReplay(const std::string& replayFile)
 {
-	if (!FileExists(OsPath(replayFile)))
+	if (!std::filesystem::is_regular_file(replayFile))
 		return false;
 
 	g_Game = new CGame(false);
 	g_Game->SetPlayerID(-1);
 	g_Game->StartVisualReplay(replayFile);
 
-	ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	Script::Interface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+	Script::Request rq(scriptInterface);
 	JS::RootedValue attrs(rq.cx, g_Game->GetSimulation2()->GetInitAttributes());
 
 	JS::RootedValue playerAssignments(rq.cx);
@@ -1235,17 +866,17 @@ bool AutostartVisualReplay(const std::string& replayFile)
 
 void CancelLoad(const CStrW& message)
 {
-	std::shared_ptr<ScriptInterface> pScriptInterface = g_GUI->GetActiveGUI()->GetScriptInterface();
-	ScriptRequest rq(pScriptInterface);
+	std::shared_ptr<Script::Interface> pScriptInterface = g_GUI->GetActiveGUI()->GetScriptInterface();
+	Script::Request rq(pScriptInterface);
 
 	JS::RootedValue global(rq.cx, rq.globalValue());
 
-	LDR_Cancel();
+	PS::Loader::Cancel();
 
 	if (g_GUI &&
 	    g_GUI->GetPageCount() &&
 		Script::HasProperty(rq, global, "cancelOnLoadGameError"))
-		ScriptFunction::CallVoid(rq, global, "cancelOnLoadGameError", message);
+		Script::Function::CallVoid(rq, global, "cancelOnLoadGameError", message);
 }
 
 bool InDevelopmentCopy()

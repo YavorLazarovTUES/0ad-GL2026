@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,12 +19,26 @@
 
 #include "JSInterface_Mod.h"
 
+#include "ps/CLogger.h"
+#include "ps/CStr.h"
 #include "ps/Mod.h"
 #include "ps/Pyrogenesis.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Request.h"
+
+#include <fmt/format.h>
+#include <js/Array.h>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <stdexcept>
+#include <vector>
+
+namespace JS { class CallArgs; }
+namespace Script { class Interface; }
 
 extern void RestartEngine();
 
@@ -32,7 +46,7 @@ extern void RestartEngine();
 using ModDataCPtr = const Mod::ModData*;
 
 template<>
-void Script::ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret, const ModDataCPtr& data)
+void Script::ToJSVal(const Script::Request& rq, JS::MutableHandleValue ret, const ModDataCPtr& data)
 {
 	ret.set(Script::CreateObject(rq));
 	Script::SetProperty(rq, ret, "mod", data->m_Pathname);
@@ -43,7 +57,7 @@ void Script::ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret, const 
 
 // Required by JSVAL_VECTOR, but can't be implemented.
 template<>
-bool Script::FromJSVal(const ScriptRequest &, const JS::HandleValue, ModDataCPtr&)
+bool Script::FromJSVal(const Script::Request &, const JS::HandleValue, ModDataCPtr&)
 {
 	LOGERROR("Not implemented");
 	return false;
@@ -53,7 +67,7 @@ JSVAL_VECTOR(const Mod::ModData*);
 
 // Implement FromJSVal as a non-pointer type.
 template<>
-void Script::ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret, const Mod::ModData& data)
+void Script::ToJSVal(const Script::Request& rq, JS::MutableHandleValue ret, const Mod::ModData& data)
 {
 	ret.set(Script::CreateObject(rq));
 	Script::SetProperty(rq, ret, "mod", data.m_Pathname);
@@ -63,7 +77,7 @@ void Script::ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret, const 
 }
 
 template<>
-bool Script::FromJSVal(const ScriptRequest& rq, const JS::HandleValue val, Mod::ModData& data)
+bool Script::FromJSVal(const Script::Request& rq, const JS::HandleValue val, Mod::ModData& data)
 {
 	// To avoid errors & for convenience, some retro-compatibility when reading
 	// TODO: remove this once we hit A26.
@@ -105,14 +119,14 @@ JSVAL_VECTOR(Mod::ModData);
 
 namespace JSI_Mod
 {
-Mod* ModGetter(const ScriptRequest&, JS::CallArgs&)
+Mod* ModGetter(const Script::Request&, JS::CallArgs&)
 {
 	return &g_Mods;
 }
 
-JS::Value GetEngineInfo(const ScriptInterface& scriptInterface)
+JS::Value GetEngineInfo(const Script::Interface& scriptInterface)
 {
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 
 	JS::RootedValue mods(rq.cx);
 	Script::ToJSVal(rq, &mods, g_Mods.GetEnabledModsData());
@@ -121,15 +135,16 @@ JS::Value GetEngineInfo(const ScriptInterface& scriptInterface)
 	Script::CreateObject(
 		 rq,
 		 &metainfo,
-		 "engine_version", engine_version,
+		 "engine_version", PS_VERSION,
+		 "engine_serialization_version", PS_SERIALIZATION_VERSION,
 		 "mods", mods);
 
-	Script::FreezeObject(rq, metainfo, true);
+	Script::DeepFreezeObject(rq, metainfo);
 
 	return metainfo;
 }
 
-JS::Value GetAvailableMods(const ScriptRequest& rq)
+JS::Value GetAvailableMods(const Script::Request& rq)
 {
 	JS::RootedValue ret(rq.cx, Script::CreateObject(rq));
 	for (const Mod::ModData& data : g_Mods.GetAvailableMods())
@@ -137,8 +152,8 @@ JS::Value GetAvailableMods(const ScriptRequest& rq)
 		JS::RootedValue json(rq.cx);
 		if (!Script::ParseJSON(rq, data.m_Text, &json))
 		{
-			ScriptException::Raise(rq, "Error parsing mod.json of '%s'", data.m_Pathname.c_str());
-			continue;
+			throw std::runtime_error{fmt::format("Error parsing mod.json of '{}'",
+				data.m_Pathname.c_str())};
 		}
 		Script::SetProperty(rq, ret, data.m_Pathname.c_str(), json);
 	}
@@ -171,14 +186,14 @@ bool HasIncompatibleMods()
 	return g_Mods.GetIncompatibleMods().size() > 0;
 }
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
-	ScriptFunction::Register<GetEngineInfo>(rq, "GetEngineInfo");
-	ScriptFunction::Register<GetAvailableMods>(rq, "GetAvailableMods");
-	ScriptFunction::Register<&Mod::GetEnabledMods, ModGetter>(rq, "GetEnabledMods");
-	ScriptFunction::Register<AreModsPlayCompatible>(rq, "AreModsPlayCompatible");
-	ScriptFunction::Register<HasIncompatibleMods> (rq, "HasIncompatibleMods");
-	ScriptFunction::Register<&Mod::GetIncompatibleMods, ModGetter>(rq, "GetIncompatibleMods");
-	ScriptFunction::Register<&SetModsAndRestartEngine>(rq, "SetModsAndRestartEngine");
+	Script::Function::Register<GetEngineInfo>(rq, "GetEngineInfo");
+	Script::Function::Register<GetAvailableMods>(rq, "GetAvailableMods");
+	Script::Function::Register<&Mod::GetEnabledMods, ModGetter>(rq, "GetEnabledMods");
+	Script::Function::Register<AreModsPlayCompatible>(rq, "AreModsPlayCompatible");
+	Script::Function::Register<HasIncompatibleMods> (rq, "HasIncompatibleMods");
+	Script::Function::Register<&Mod::GetIncompatibleMods, ModGetter>(rq, "GetIncompatibleMods");
+	Script::Function::Register<&SetModsAndRestartEngine>(rq, "SetModsAndRestartEngine");
 }
 }

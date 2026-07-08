@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,44 +22,53 @@
 #include "graphics/MapIO.h"
 #include "graphics/Patch.h"
 #include "graphics/Terrain.h"
-#include "lib/status.h"
-#include "lib/timer.h"
+#include "lib/code_annotation.h"
 #include "lib/file/vfs/vfs_path.h"
+#include "lib/file/vfs/vfs_util.h"
+#include "lib/path.h"
+#include "lib/posix/posix_types.h"
+#include "lib/status.h"
+#include "lib/utf8.h"
 #include "maths/MathUtil.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
 #include "ps/FileIo.h"
-#include "ps/scripting/JSInterface_VFS.h"
+#include "ps/Filesystem.h"
+#include "ps/Future.h"
 #include "ps/TemplateLoader.h"
+#include "ps/scripting/JSInterface_VFS.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/JSON.h"
+#include "scriptinterface/ModuleLoader.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/helpers/MapEdgeTiles.h"
+#include "simulation2/system/Component.h"
 
 #include <boost/random/linear_congruential.hpp>
+#include <cstddef>
+#include <fmt/format.h>
+#include <js/Interrupt.h>
+#include <js/PropertyAndElement.h>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <jsapi.h>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
-extern bool IsQuitRequested();
+struct JSContext;
 
 namespace
 {
-constexpr const char* GENERATOR_NAME{"GenerateMap"};
+constexpr const char* GENERATOR_NAME{"generateMap"};
 
-bool MapGenerationInterruptCallback(JSContext* UNUSED(cx))
-{
-	// This may not use SDL_IsQuitRequested(), because it runs in a thread separate to SDL, see SDL_PumpEvents
-	if (IsQuitRequested())
-	{
-		LOGWARNING("Quit requested!");
-		return false;
-	}
-
-	return true;
-}
+bool MapGenerationInterruptCallback(JSContext* cx);
 
 /**
  * Provides callback's for the JavaScript.
@@ -69,11 +78,10 @@ class CMapGenerationCallbacks
 public:
 	// Only the constructor and the destructor are called by C++.
 
-	CMapGenerationCallbacks(std::atomic<int>& progress, ScriptInterface& scriptInterface,
-		Script::StructuredClone& mapData, const u16 flags) :
-		m_Progress{progress},
-		m_ScriptInterface{scriptInterface},
-		m_MapData{mapData}
+	CMapGenerationCallbacks(const StopToken stopToken, Script::Interface& scriptInterface,
+		const u16 flags) :
+		m_StopToken{stopToken},
+		m_ScriptInterface{scriptInterface}
 	{
 		m_ScriptInterface.SetCallbackData(static_cast<void*>(this));
 
@@ -84,8 +92,8 @@ public:
 		// Set initial seed, callback data.
 		// Expose functions, globals and classes relevant to the map scripts.
 #define REGISTER_MAPGEN_FUNC(func) \
-	ScriptFunction::Register<&CMapGenerationCallbacks::func, \
-		ScriptInterface::ObjectFromCBData<CMapGenerationCallbacks>>(rq, #func, flags);
+	Script::Function::Register<&CMapGenerationCallbacks::func, \
+		Script::Interface::ObjectFromCBData<CMapGenerationCallbacks>>(rq, #func, flags);
 
 		// VFS
 		JSI_VFS::RegisterScriptFunctions_ReadOnlySimulationMaps(m_ScriptInterface, flags);
@@ -94,7 +102,7 @@ public:
 		m_ScriptInterface.LoadGlobalScripts();
 
 		// File loading
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 		REGISTER_MAPGEN_FUNC(LoadLibrary);
 		REGISTER_MAPGEN_FUNC(LoadHeightmapImage);
 		REGISTER_MAPGEN_FUNC(LoadMapTerrain);
@@ -105,10 +113,8 @@ public:
 		REGISTER_MAPGEN_FUNC(FindTemplates);
 		REGISTER_MAPGEN_FUNC(FindActorTemplates);
 
-		// Progression and profiling
-		REGISTER_MAPGEN_FUNC(SetProgress);
+		// Profiling
 		REGISTER_MAPGEN_FUNC(GetMicroseconds);
-		REGISTER_MAPGEN_FUNC(ExportMap);
 
 		// Engine constants
 
@@ -127,6 +133,8 @@ public:
 		JS_AddInterruptCallback(m_ScriptInterface.GetGeneralJSContext(), nullptr);
 		m_ScriptInterface.SetCallbackData(nullptr);
 	}
+
+	StopToken m_StopToken;
 
 private:
 
@@ -181,17 +189,6 @@ private:
 	}
 
 	/**
-	 * Finalize map generation and pass results from the script to the engine.
-	 * The `data` has to be according to this format:
-	 * https://trac.wildfiregames.com/wiki/Random_Map_Generator_Internals#Dataformat
-	 */
-	void ExportMap(JS::HandleValue data)
-	{
-		// Copy results
-		m_MapData = Script::WriteStructuredClone(ScriptRequest(m_ScriptInterface), data);
-	}
-
-	/**
 	 * Load an image file and return it as a height array.
 	 */
 	JS::Value LoadHeightmapImage(const VfsPath& filename)
@@ -203,7 +200,7 @@ private:
 			return JS::UndefinedValue();
 		}
 
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 		JS::RootedValue returnValue(rq.cx);
 		Script::ToJSVal(rq, &returnValue, heightmap);
 		return returnValue;
@@ -216,13 +213,12 @@ private:
 	 */
 	JS::Value LoadMapTerrain(const VfsPath& filename)
 	{
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 
 		if (!VfsFileExists(filename))
 		{
-			ScriptException::Raise(rq, "Terrain file \"%s\" does not exist!",
-				filename.string8().c_str());
-			return JS::UndefinedValue();
+			throw std::runtime_error{fmt::format("Terrain file \"{}\" does not exist!",
+				filename.string8().c_str())};
 		}
 
 		CFileUnpacker unpacker;
@@ -230,9 +226,8 @@ private:
 
 		if (unpacker.GetVersion() < CMapIO::FILE_READ_VERSION)
 		{
-			ScriptException::Raise(rq, "Could not load terrain file \"%s\" too old version!",
-				filename.string8().c_str());
-			return JS::UndefinedValue();
+			throw std::runtime_error{fmt::format(
+				"Could not load terrain file \"{}\" too old version!", filename.string8().c_str())};
 		}
 
 		// unpack size
@@ -290,21 +285,6 @@ private:
 	}
 
 	/**
-	 * Sets the map generation progress, which is one of multiple stages
-	 * determining the loading screen progress.
-	 */
-	void SetProgress(int progress)
-	{
-		// When the task is started, `m_Progress` is only mutated by this thread.
-		const int currentProgress = m_Progress.load();
-		if (progress >= currentProgress)
-			m_Progress.store(progress);
-		else
-			LOGWARNING("The random map script tried to reduce the loading progress from %d to %d",
-				currentProgress, progress);
-	}
-
-	/**
 	 * Microseconds since the epoch.
 	 */
 	double GetMicroseconds() const
@@ -350,19 +330,9 @@ private:
 	}
 
 	/**
-	 * Current map generation progress.
-	 */
-	std::atomic<int>& m_Progress;
-
-	/**
 	 * Provides the script context.
 	 */
-	ScriptInterface& m_ScriptInterface;
-
-	/**
-	 * Result of the mapscript generation including terrain, entities and environment settings.
-	 */
-	Script::StructuredClone& m_MapData;
+	Script::Interface& m_ScriptInterface;
 
 	/**
 	 * Currently loaded script librarynames.
@@ -374,12 +344,18 @@ private:
 	 */
 	CTemplateLoader m_TemplateLoader;
 };
+
+bool MapGenerationInterruptCallback(JSContext* cx)
+{
+	return !Script::Interface::ObjectFromCBData<CMapGenerationCallbacks>(
+		Script::Interface::CmptPrivate::GetScriptInterface(cx))->m_StopToken.IsStopRequested();
+}
 } // anonymous namespace
 
-Script::StructuredClone RunMapGenerationScript(std::atomic<int>& progress, ScriptInterface& scriptInterface,
-	const VfsPath& script, const std::string& settings, const u16 flags)
+Script::StructuredClone RunMapGenerationScript(const StopToken stopToken, std::atomic<int>& progress,
+	Script::Interface& scriptInterface, const VfsPath& script, const std::string& settings, const u16 flags)
 {
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 
 	// Parse settings
 	JS::RootedValue settingsVal(rq.cx);
@@ -390,7 +366,7 @@ Script::StructuredClone RunMapGenerationScript(std::atomic<int>& progress, Scrip
 	}
 
 	// Prevent unintentional modifications to the settings object by random map scripts
-	if (!Script::FreezeObject(rq, settingsVal, true))
+	if (!Script::DeepFreezeObject(rq, settingsVal))
 	{
 		LOGERROR("RunMapGenerationScript: Failed to deepfreeze settings");
 		return nullptr;
@@ -405,8 +381,7 @@ Script::StructuredClone RunMapGenerationScript(std::atomic<int>& progress, Scrip
 	boost::rand48 mapGenRNG{seed};
 	scriptInterface.ReplaceNondeterministicRNG(mapGenRNG);
 
-	Script::StructuredClone mapData;
-	CMapGenerationCallbacks callbackData{progress, scriptInterface, mapData, flags};
+	CMapGenerationCallbacks callbackData{stopToken, scriptInterface, flags};
 
 	// Copy settings to global variable
 	JS::RootedValue global(rq.cx, rq.globalValue());
@@ -419,55 +394,52 @@ Script::StructuredClone RunMapGenerationScript(std::atomic<int>& progress, Scrip
 
 	// Load RMS
 	LOGMESSAGE("Loading RMS '%s'", script.string8());
-	if (!scriptInterface.LoadGlobalScriptFile(script))
+	auto compileResult = scriptInterface.GetModuleLoader().LoadModule(rq, script);
+	scriptInterface.GetContext().RunJobs();
+	auto& future = *compileResult.begin();
+	if (!future.IsDone())
+		throw std::runtime_error{fmt::format("Loading module {:?} takes too long.", script.string8())};
+
+	JS::RootedObject nsAsObject{rq.cx, future.Get()};
+
 	{
-		LOGERROR("RunMapGenerationScript: Failed to load RMS '%s'", script.string8());
-		return nullptr;
+		bool hasGenerator;
+		if (!JS_HasProperty(rq.cx, nsAsObject, GENERATOR_NAME, &hasGenerator))
+		{
+			LOGERROR("RunMapGenerationScript: failed to search `%s` in the module-namespace.",
+				GENERATOR_NAME);
+			return nullptr;
+		}
+
+		if (!hasGenerator)
+		{
+			throw std::runtime_error{fmt::format(
+				"The map generation script {:?} didn't export a {:?}.", script.string8(),
+				GENERATOR_NAME)};
+		}
 	}
 
 	LOGMESSAGE("Run RMS generator");
-	bool hasGenerator;
-	JS::RootedObject globalAsObject{rq.cx, &JS::HandleValue{global}.toObject()};
-	if (!JS_HasProperty(rq.cx, globalAsObject, GENERATOR_NAME, &hasGenerator))
-	{
-		LOGERROR("RunMapGenerationScript: failed to search `%s`.", GENERATOR_NAME);
-		return nullptr;
-	}
-
-	if (mapData != nullptr)
-	{
-		LOGWARNING("The map generation script called `Engine.ExportMap` that's deprecated. The "
-			"generator based interface should be used.");
-		if (hasGenerator)
-			LOGWARNING("The map generation script contains a `%s` but `Engine.ExportMap` was already "
-				"called. `%s` isn't called, preserving the old behavior.", GENERATOR_NAME,
-				GENERATOR_NAME);
-		return mapData;
-	}
-
-	try
-	{
-		JS::RootedValue map{rq.cx, ScriptFunction::RunGenerator(rq, global, GENERATOR_NAME, settingsVal,
-			[&](const JS::HandleValue value)
+	JS::RootedValue ns{rq.cx, JS::ObjectValue(*nsAsObject)};
+	JS::RootedValue map{rq.cx, Script::Function::RunGenerator(rq, ns, GENERATOR_NAME, settingsVal,
+		[&](const JS::HandleValue value)
+		{
+			// When the task is started, `progress` is only mutated by this thread.
+			const int currentProgress{progress.load()};
+			int tempProgress;
+			if (!Script::FromJSVal(rq, value, tempProgress))
+				throw std::runtime_error{"Failed to convert the yielded value to an "
+					"integer."};
+			if (tempProgress < currentProgress)
 			{
-				int tempProgress;
-				if (!Script::FromJSVal(rq, value, tempProgress))
-					throw std::runtime_error{"Failed to convert the yielded value to an "
-						"integer."};
-				progress.store(tempProgress);
-			})};
+				LOGWARNING("The random map script tried to reduce the loading progress from "
+					"%d to %d.", currentProgress, tempProgress);
+				return;
+			}
+			progress.store(tempProgress);
+		})};
 
-		JS::RootedValue exportedMap{rq.cx};
-		const bool exportSuccess{ScriptFunction::Call(rq, map, "MakeExportable", &exportedMap)};
-		return Script::WriteStructuredClone(rq, exportSuccess ? exportedMap : map);
-	}
-	catch(const std::exception& e)
-	{
-		LOGERROR("%s", e.what());
-		return nullptr;
-	}
-	catch(...)
-	{
-		return nullptr;
-	}
+	JS::RootedValue exportedMap{rq.cx};
+	const bool exportSuccess{Script::Function::Call(rq, map, "MakeExportable", &exportedMap)};
+	return Script::WriteStructuredClone(rq, exportSuccess ? exportedMap : map);
 }

@@ -1,4 +1,4 @@
-/* Copyright (C) 2020 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,6 +17,7 @@
 
 #include "precompiled.h"
 
+#include "gui/CGUI.h"
 #include "gui/ObjectTypes/CButton.h"
 #include "gui/ObjectTypes/CChart.h"
 #include "gui/ObjectTypes/CCheckBox.h"
@@ -31,17 +32,27 @@
 #include "gui/ObjectTypes/CProgressBar.h"
 #include "gui/ObjectTypes/CRadioButton.h"
 #include "gui/ObjectTypes/CSlider.h"
+#include "gui/ObjectTypes/CScrollPanel.h"
 #include "gui/ObjectTypes/CText.h"
 #include "gui/ObjectTypes/CTooltip.h"
 #include "gui/Scripting/JSInterface_GUIProxy.h"
+#include "ps/CStr.h"
+
+#include <memory>
+#include <unordered_map>
+#include <utility>
+
+class IGUIObject;
 
 void CGUI::AddObjectTypes()
 {
 	m_ProxyData.insert(JSI_GUIProxy<IGUIObject>::CreateData(*m_ScriptInterface));
 	m_ProxyData.insert(JSI_GUIProxy<CText>::CreateData(*m_ScriptInterface));
 	m_ProxyData.insert(JSI_GUIProxy<CList>::CreateData(*m_ScriptInterface));
+	m_ProxyData.insert(JSI_GUIProxy<CDropDown>::CreateData(*m_ScriptInterface));
 	m_ProxyData.insert(JSI_GUIProxy<CMiniMap>::CreateData(*m_ScriptInterface));
 	m_ProxyData.insert(JSI_GUIProxy<CButton>::CreateData(*m_ScriptInterface));
+	m_ProxyData.insert(JSI_GUIProxy<CScrollPanel>::CreateData(*m_ScriptInterface));
 
 	AddObjectType("button", &CButton::ConstructObject);
 	AddObjectType("chart", &CChart::ConstructObject);
@@ -59,4 +70,5 @@ void CGUI::AddObjectTypes()
 	AddObjectType("slider", &CSlider::ConstructObject);
 	AddObjectType("text", &CText::ConstructObject);
 	AddObjectType("tooltip", &CTooltip::ConstructObject);
+	AddObjectType("scrollpanel", &CScrollPanel::ConstructObject);
 }

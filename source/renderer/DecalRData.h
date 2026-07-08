@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,19 +18,20 @@
 #ifndef INCLUDED_DECALRDATA
 #define INCLUDED_DECALRDATA
 
+#include "graphics/Material.h"
 #include "graphics/RenderableObject.h"
+#include "lib/code_annotation.h"
 #include "maths/Vector2D.h"
 #include "maths/Vector3D.h"
-#include "renderer/backend/IDeviceCommandContext.h"
-#include "renderer/backend/IShaderProgram.h"
 #include "renderer/VertexBufferManager.h"
-
 #include <vector>
 
 class CModelDecal;
 class CShaderDefines;
 class CSimulation2;
 class ShadowMap;
+namespace Renderer::Backend { class IDeviceCommandContext; }
+namespace Renderer::Backend { class IVertexInputLayout; }
 
 class CDecalRData : public CRenderData
 {
@@ -45,7 +46,8 @@ public:
 	static void RenderDecals(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		Renderer::Backend::IVertexInputLayout* vertexInputLayout,
-		const std::vector<CDecalRData*>& decals, const CShaderDefines& context, ShadowMap* shadow);
+		const std::vector<CDecalRData*>& decals, const CShaderDefines& context,
+		ShadowMap* shadow, const CMaterial::Pass materialPass);
 
 	CModelDecal* GetDecal() { return m_Decal; }
 

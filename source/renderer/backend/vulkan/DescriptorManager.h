@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,17 +18,25 @@
 #ifndef INCLUDED_RENDERER_BACKEND_VULKAN_DESCRIPTORMANAGER
 #define INCLUDED_RENDERER_BACKEND_VULKAN_DESCRIPTORMANAGER
 
+#include "lib/debug.h"
 #include "ps/CStrIntern.h"
-#include "renderer/backend/Sampler.h"
 #include "renderer/backend/vulkan/Device.h"
-#include "renderer/backend/vulkan/Texture.h"
+#include "renderer/backend/vulkan/DeviceObjectUID.h"
 
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
 #include <glad/vulkan.h>
 #include <limits>
 #include <memory>
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+namespace Renderer::Backend { class ITexture; }
+namespace Renderer::Backend::Vulkan { class CBuffer; }
+namespace Renderer::Backend::Vulkan { class CTexture; }
 
 namespace Renderer
 {
@@ -38,8 +46,6 @@ namespace Backend
 
 namespace Vulkan
 {
-
-class CDevice;
 
 class CDescriptorManager
 {
@@ -61,17 +67,26 @@ public:
 		const std::vector<DeviceObjectUID>& texturesUID,
 		const std::vector<CTexture*>& textures);
 
+	VkDescriptorSet GetSingleTypeDescritorSet(
+		VkDescriptorType type, VkDescriptorSetLayout layout,
+		const std::vector<DeviceObjectUID>& buffersUID,
+		const std::vector<CBuffer*>& buffers);
+
 	uint32_t GetUniformSet() const;
 
 	uint32_t GetTextureDescriptor(CTexture* texture);
 
 	void OnTextureDestroy(const DeviceObjectUID uid);
 
+	void OnBufferDestroy(const DeviceObjectUID uid);
+
 	const VkDescriptorSetLayout& GetDescriptorIndexingSetLayout() const { return m_DescriptorIndexingSetLayout; }
 	const VkDescriptorSetLayout& GetUniformDescriptorSetLayout() const { return m_UniformDescriptorSetLayout; }
 	const VkDescriptorSet& GetDescriptorIndexingSet() { return m_DescriptorIndexingSet; }
 
 	const std::vector<VkDescriptorSetLayout>& GetDescriptorSetLayouts() const { return m_DescriptorSetLayouts; }
+
+	void CollectStatistics(IDevice::StatisticsVector& statistics) const;
 
 private:
 	struct SingleTypePool
@@ -93,6 +108,8 @@ private:
 	std::pair<VkDescriptorSet, bool> GetSingleTypeDescritorSetImpl(
 		VkDescriptorType type, VkDescriptorSetLayout layout,
 		const std::vector<DeviceObjectUID>& uids);
+
+	void OnDeviceObjectDestroy(const DeviceObjectUID uid);
 
 	CDevice* m_Device = nullptr;
 

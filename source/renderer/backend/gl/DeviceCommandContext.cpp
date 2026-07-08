@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,7 +19,16 @@
 
 #include "DeviceCommandContext.h"
 
+#include "lib/config2.h"
+#include "lib/debug.h"
 #include "ps/CLogger.h"
+#include "renderer/backend/Barrier.h"
+#include "renderer/backend/Format.h"
+#include "renderer/backend/IFramebuffer.h"
+#include "renderer/backend/IShaderProgram.h"
+#include "renderer/backend/ITexture.h"
+#include "renderer/backend/PipelineState.h"
+#include "renderer/backend/Sampler.h"
 #include "renderer/backend/gl/Buffer.h"
 #include "renderer/backend/gl/Device.h"
 #include "renderer/backend/gl/Framebuffer.h"
@@ -31,6 +40,7 @@
 #include <algorithm>
 #include <cstring>
 #include <limits>
+#include <vector>
 
 namespace Renderer
 {
@@ -103,8 +113,14 @@ GLenum BufferTypeToGLTarget(const CBuffer::Type type)
 	case CBuffer::Type::INDEX:
 		target = GL_ELEMENT_ARRAY_BUFFER;
 		break;
-	case CBuffer::Type::UPLOAD:
 	case CBuffer::Type::UNIFORM:
+#if !CONFIG2_GLES
+		target = GL_UNIFORM_BUFFER;
+#else
+		debug_warn("Unsupported buffer type.");
+#endif
+		break;
+	case CBuffer::Type::UPLOAD:
 		debug_warn("Unsupported buffer type.");
 		break;
 	};
@@ -118,7 +134,7 @@ void UploadDynamicBufferRegionImpl(
 {
 	ENSURE(dataOffset < dataSize);
 	// Tell the driver that it can reallocate the whole VBO
-	glBufferDataARB(target, bufferSize, nullptr, GL_DYNAMIC_DRAW);
+	glBufferData(target, bufferSize, nullptr, GL_DYNAMIC_DRAW);
 	ogl_WarnIfError();
 
 	while (true)
@@ -127,7 +143,7 @@ void UploadDynamicBufferRegionImpl(
 		// here instead of glBufferData(..., NULL, ...) plus glMapBuffer(), but with
 		// current Intel Windows GPU drivers (as of 2015-01) it's much faster if you do
 		// the explicit glBufferData.)
-		void* mappedData = glMapBufferARB(target, GL_WRITE_ONLY);
+		void* mappedData = glMapBuffer(target, GL_WRITE_ONLY);
 		if (mappedData == nullptr)
 		{
 			// This shouldn't happen unless we run out of virtual address space
@@ -137,7 +153,7 @@ void UploadDynamicBufferRegionImpl(
 
 		uploadFunction(static_cast<u8*>(mappedData) + dataOffset);
 
-		if (glUnmapBufferARB(target) == GL_TRUE)
+		if (glUnmapBuffer(target) == GL_TRUE)
 			break;
 
 		// Unmap might fail on e.g. resolution switches, so just try again
@@ -211,11 +227,6 @@ void InvalidateFramebuffer(
 std::unique_ptr<CDeviceCommandContext> CDeviceCommandContext::Create(CDevice* device)
 {
 	std::unique_ptr<CDeviceCommandContext> deviceCommandContext(new CDeviceCommandContext(device));
-	deviceCommandContext->m_Framebuffer = device->GetCurrentBackbuffer(
-		Renderer::Backend::AttachmentLoadOp::DONT_CARE,
-		Renderer::Backend::AttachmentStoreOp::DONT_CARE,
-		Renderer::Backend::AttachmentLoadOp::DONT_CARE,
-		Renderer::Backend::AttachmentStoreOp::DONT_CARE)->As<CFramebuffer>();
 	deviceCommandContext->ResetStates();
 	return deviceCommandContext;
 }
@@ -240,6 +251,13 @@ CDeviceCommandContext::CDeviceCommandContext(CDevice* device)
 	for (size_t index = 0; index < m_BoundBuffers.size(); ++index)
 	{
 		const CBuffer::Type type = static_cast<CBuffer::Type>(index);
+		// Currently we don't support upload buffers for GL.
+		if (type == CBuffer::Type::UPLOAD)
+			continue;
+#if CONFIG2_GLES
+		if (type == CBuffer::Type::UNIFORM)
+			continue;
+#endif
 		const GLenum target = BufferTypeToGLTarget(type);
 		const GLuint handle = 0;
 		m_BoundBuffers[index].first = target;
@@ -391,7 +409,7 @@ void CDeviceCommandContext::UploadTextureRegion(
 			}
 
 			ScopedBind scopedBind(this, GL_TEXTURE_2D, texture->GetHandle());
-			glCompressedTexImage2DARB(GL_TEXTURE_2D, level, internalFormat, width, height, 0, dataSize, data);
+			glCompressedTexImage2D(GL_TEXTURE_2D, level, internalFormat, width, height, 0, dataSize, data);
 			ogl_WarnIfError();
 		}
 		else
@@ -433,7 +451,7 @@ void CDeviceCommandContext::UploadTextureRegion(
 void CDeviceCommandContext::UploadBuffer(IBuffer* buffer, const void* data, const uint32_t dataSize)
 {
 	ENSURE(!m_InsideFramebufferPass);
-	UploadBufferRegion(buffer, data, dataSize, 0);
+	UploadBufferRegion(buffer, data, 0, dataSize);
 }
 
 void CDeviceCommandContext::UploadBuffer(
@@ -451,7 +469,9 @@ void CDeviceCommandContext::UploadBufferRegion(
 	ENSURE(dataOffset + dataSize <= buffer->GetSize());
 	const GLenum target = BufferTypeToGLTarget(buffer->GetType());
 	ScopedBufferBind scopedBufferBind(this, buffer->As<CBuffer>());
-	if (buffer->IsDynamic())
+	// Uniform buffers is a relatively new feature so we don't need to use a
+	// dynamic upload.
+	if (buffer->IsDynamic() && buffer->GetType() != IBuffer::Type::UNIFORM)
 	{
 		UploadDynamicBufferRegionImpl(target, buffer->GetSize(), dataOffset, dataSize, [data, dataSize](u8* mappedData)
 		{
@@ -460,7 +480,7 @@ void CDeviceCommandContext::UploadBufferRegion(
 	}
 	else
 	{
-		glBufferSubDataARB(target, dataOffset, dataSize, data);
+		glBufferSubData(target, dataOffset, dataSize, data);
 		ogl_WarnIfError();
 	}
 }
@@ -475,6 +495,13 @@ void CDeviceCommandContext::UploadBufferRegion(
 	ScopedBufferBind scopedBufferBind(this, buffer->As<CBuffer>());
 	ENSURE(buffer->IsDynamic());
 	UploadDynamicBufferRegionImpl(target, buffer->GetSize(), dataOffset, dataSize, uploadFunction);
+}
+
+void CDeviceCommandContext::InsertTimestampQuery(const uint32_t handle, const bool /*isScopeBegin*/)
+{
+	// GL can have the only one command context so we can call commands on
+	// the deivce side.
+	m_Device->InsertTimestampQuery(handle);
 }
 
 void CDeviceCommandContext::BeginScopedLabel(const char* name)
@@ -537,7 +564,7 @@ void CDeviceCommandContext::BindBuffer(const IBuffer::Type type, CBuffer* buffer
 	}
 	const GLenum target = BufferTypeToGLTarget(type);
 	const GLuint handle = buffer ? buffer->GetHandle() : 0;
-	glBindBufferARB(target, handle);
+	glBindBuffer(target, handle);
 	ogl_WarnIfError();
 	const size_t cacheIndex = static_cast<size_t>(type);
 	ENSURE(cacheIndex < m_BoundBuffers.size());
@@ -578,12 +605,8 @@ void CDeviceCommandContext::ResetStates()
 {
 	SetGraphicsPipelineStateImpl(MakeDefaultGraphicsPipelineStateDesc(), true);
 	SetScissors(0, nullptr);
-	m_Framebuffer = m_Device->GetCurrentBackbuffer(
-		Renderer::Backend::AttachmentLoadOp::DONT_CARE,
-		Renderer::Backend::AttachmentStoreOp::DONT_CARE,
-		Renderer::Backend::AttachmentLoadOp::DONT_CARE,
-		Renderer::Backend::AttachmentStoreOp::DONT_CARE)->As<CFramebuffer>();
-	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_Framebuffer->GetHandle());
+	m_Framebuffer = nullptr;
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 	ogl_WarnIfError();
 }
 
@@ -835,18 +858,13 @@ void CDeviceCommandContext::SetGraphicsPipelineStateImpl(
 
 void CDeviceCommandContext::BlitFramebuffer(
 	IFramebuffer* srcFramebuffer, IFramebuffer* dstFramebuffer,
-	const Rect& sourceRegion, const Rect& destinationRegion,
-	const Sampler::Filter filter)
+	[[maybe_unused]] const Rect& sourceRegion, [[maybe_unused]] const Rect& destinationRegion,
+	[[maybe_unused]] const Sampler::Filter filter)
 {
 	ENSURE(!m_InsideFramebufferPass);
-	CFramebuffer* destinationFramebuffer = dstFramebuffer->As<CFramebuffer>();
-	CFramebuffer* sourceFramebuffer = srcFramebuffer->As<CFramebuffer>();
+	[[maybe_unused]] CFramebuffer* destinationFramebuffer = dstFramebuffer->As<CFramebuffer>();
+	[[maybe_unused]] CFramebuffer* sourceFramebuffer = srcFramebuffer->As<CFramebuffer>();
 #if CONFIG2_GLES
-	UNUSED2(destinationFramebuffer);
-	UNUSED2(sourceFramebuffer);
-	UNUSED2(destinationRegion);
-	UNUSED2(sourceRegion);
-	UNUSED2(filter);
 	debug_warn("CDeviceCommandContext::BlitFramebuffer is not implemented for GLES");
 #else
 	// Source framebuffer should not be backbuffer.
@@ -873,8 +891,6 @@ void CDeviceCommandContext::ResolveFramebuffer(
 	ENSURE(destinationFramebuffer->GetWidth() == sourceFramebuffer->GetWidth());
 	ENSURE(destinationFramebuffer->GetHeight() == sourceFramebuffer->GetHeight());
 #if CONFIG2_GLES
-	UNUSED2(destinationFramebuffer);
-	UNUSED2(sourceFramebuffer);
 	debug_warn("CDeviceCommandContext::ResolveFramebuffer is not implemented for GLES");
 #else
 	// Source framebuffer should not be backbuffer.
@@ -969,26 +985,21 @@ void CDeviceCommandContext::EndFramebufferPass()
 	}
 	ENSURE(m_InsideFramebufferPass);
 	m_InsideFramebufferPass = false;
-	CFramebuffer* framebuffer = m_Device->GetCurrentBackbuffer(
-		Renderer::Backend::AttachmentLoadOp::DONT_CARE,
-		Renderer::Backend::AttachmentStoreOp::DONT_CARE,
-		Renderer::Backend::AttachmentLoadOp::DONT_CARE,
-		Renderer::Backend::AttachmentStoreOp::DONT_CARE)->As<CFramebuffer>();
-	if (framebuffer->GetHandle() != m_Framebuffer->GetHandle())
+	if (m_Framebuffer->GetHandle() != 0)
 	{
-		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, framebuffer->GetHandle());
+		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 		ogl_WarnIfError();
 	}
-	m_Framebuffer = framebuffer;
+	m_Framebuffer = nullptr;
 
 	SetGraphicsPipelineStateImpl(MakeDefaultGraphicsPipelineStateDesc(), false);
 }
 
 void CDeviceCommandContext::ReadbackFramebufferSync(
-	const uint32_t x, const uint32_t y, const uint32_t width, const uint32_t height,
+	ISwapChain&, const uint32_t x, const uint32_t y,
+	const uint32_t width, const uint32_t height,
 	void* data)
 {
-	ENSURE(m_Framebuffer);
 	glReadPixels(x, y, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
 	ogl_WarnIfError();
 }
@@ -1161,7 +1172,7 @@ void CDeviceCommandContext::DrawIndexed(
 }
 
 void CDeviceCommandContext::DrawInstanced(
-	const uint32_t firstVertex, const uint32_t vertexCount,
+	[[maybe_unused]] const uint32_t firstVertex, const uint32_t vertexCount,
 	const uint32_t firstInstance, const uint32_t instanceCount)
 {
 	ENSURE(m_Device->GetCapabilities().instancing);
@@ -1173,9 +1184,6 @@ void CDeviceCommandContext::DrawInstanced(
 	m_ShaderProgram->AssertPointersBound();
 #if CONFIG2_GLES
 	ENSURE(!m_Device->GetCapabilities().instancing);
-	UNUSED2(firstVertex);
-	UNUSED2(vertexCount);
-	UNUSED2(instanceCount);
 #else
 	glDrawArraysInstancedARB(GL_TRIANGLES, firstVertex, vertexCount, instanceCount);
 #endif
@@ -1184,7 +1192,7 @@ void CDeviceCommandContext::DrawInstanced(
 
 void CDeviceCommandContext::DrawIndexedInstanced(
 	const uint32_t firstIndex, const uint32_t indexCount,
-	const uint32_t firstInstance, const uint32_t instanceCount,
+	const uint32_t firstInstance, [[maybe_unused]] const uint32_t instanceCount,
 	const int32_t vertexOffset)
 {
 	ENSURE(m_Device->GetCapabilities().instancing);
@@ -1204,9 +1212,6 @@ void CDeviceCommandContext::DrawIndexedInstanced(
 	// in Mesa 7.10 swrast with index VBOs).
 #if CONFIG2_GLES
 	ENSURE(!m_Device->GetCapabilities().instancing);
-	UNUSED2(indexCount);
-	UNUSED2(firstIndex);
-	UNUSED2(instanceCount);
 #else
 	glDrawElementsInstancedARB(GL_TRIANGLES, indexCount, GL_UNSIGNED_SHORT,
 		static_cast<const void*>((static_cast<const uint8_t*>(m_IndexBufferData) + sizeof(uint16_t) * firstIndex)),
@@ -1217,7 +1222,7 @@ void CDeviceCommandContext::DrawIndexedInstanced(
 
 void CDeviceCommandContext::DrawIndexedInRange(
 	const uint32_t firstIndex, const uint32_t indexCount,
-	const uint32_t start, const uint32_t end)
+	[[maybe_unused]] const uint32_t start, [[maybe_unused]] const uint32_t end)
 {
 	ENSURE(m_ShaderProgram);
 	ENSURE(m_InsidePass);
@@ -1230,11 +1235,9 @@ void CDeviceCommandContext::DrawIndexedInRange(
 	// Draw with DrawRangeElements where available, since it might be more
 	// efficient for slow hardware.
 #if CONFIG2_GLES
-	UNUSED2(start);
-	UNUSED2(end);
 	glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_SHORT, indices);
 #else
-	glDrawRangeElementsEXT(GL_TRIANGLES, start, end, indexCount, GL_UNSIGNED_SHORT, indices);
+	glDrawRangeElements(GL_TRIANGLES, start, end, indexCount, GL_UNSIGNED_SHORT, indices);
 #endif
 	ogl_WarnIfError();
 }
@@ -1253,15 +1256,50 @@ void CDeviceCommandContext::EndComputePass()
 }
 
 void CDeviceCommandContext::Dispatch(
-	const uint32_t groupCountX,
-	const uint32_t groupCountY,
-	const uint32_t groupCountZ)
+	[[maybe_unused]] const uint32_t groupCountX,
+	[[maybe_unused]] const uint32_t groupCountY,
+	[[maybe_unused]] const uint32_t groupCountZ)
 {
+#if !CONFIG2_GLES
 	ENSURE(m_InsideComputePass);
 	glDispatchCompute(groupCountX, groupCountY, groupCountZ);
-	// TODO: we might want to do binding tracking to avoid redundant barriers.
-	glMemoryBarrier(
-		GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT);
+	// Storage buffers should be managed explicitly by InsertMemoryBarrier.
+	if (m_ShaderProgram->HasImageUniforms())
+	{
+		// TODO: we might want to do binding tracking to avoid redundant barriers.
+		glMemoryBarrier(
+			GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT );
+	}
+#endif
+}
+
+void CDeviceCommandContext::InsertMemoryBarrier(
+	const uint32_t /*srcStageMask*/, [[maybe_unused]] const uint32_t dstStageMask,
+	[[maybe_unused]] const uint32_t srcAccessMask, [[maybe_unused]] const uint32_t dstAccessMask)
+{
+#if !CONFIG2_GLES
+	ENSURE(!m_InsideFramebufferPass);
+	GLbitfield barriers{0};
+	if (srcAccessMask & Access::SHADER_WRITE)
+	{
+		if (dstStageMask & PipelineStage::VERTEX_INPUT)
+		{
+			if (dstAccessMask & Access::VERTEX_ATTRIBUTE_READ)
+				barriers |= GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT;
+			if (dstAccessMask & Access::INDEX_READ)
+				barriers |= GL_ELEMENT_ARRAY_BARRIER_BIT;
+		}
+		if (dstStageMask & (PipelineStage::VERTEX_SHADER | PipelineStage::FRAGMENT_SHADER | PipelineStage::COMPUTE_SHADER))
+		{
+			if (dstAccessMask & (Access::SHADER_READ | Access::SHADER_WRITE))
+				barriers |= GL_SHADER_STORAGE_BARRIER_BIT;
+			if (dstAccessMask & Access::UNIFORM_READ)
+				barriers |= GL_UNIFORM_BARRIER_BIT;
+		}
+	}
+	if (barriers)
+		glMemoryBarrier(barriers);
+#endif
 }
 
 void CDeviceCommandContext::SetTexture(const int32_t bindingSlot, ITexture* texture)
@@ -1306,8 +1344,10 @@ void CDeviceCommandContext::SetTexture(const int32_t bindingSlot, ITexture* text
 	BindTexture(unit, textureUnit.target, texture->As<CTexture>()->GetHandle());
 }
 
-void CDeviceCommandContext::SetStorageTexture(const int32_t bindingSlot, ITexture* texture)
+void CDeviceCommandContext::SetStorageTexture([[maybe_unused]] const int32_t bindingSlot,
+	[[maybe_unused]] ITexture* texture)
 {
+#if !CONFIG2_GLES
 	ENSURE(m_ShaderProgram);
 	ENSURE(texture);
 	ENSURE(texture->GetUsage() & Renderer::Backend::ITexture::Usage::STORAGE);
@@ -1319,6 +1359,20 @@ void CDeviceCommandContext::SetStorageTexture(const int32_t bindingSlot, ITextur
 	ENSURE(textureUnit.type == GL_IMAGE_2D);
 	ENSURE(texture->GetFormat() == Format::R8G8B8A8_UNORM);
 	glBindImageTexture(textureUnit.unit, texture->As<CTexture>()->GetHandle(), 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+#endif
+}
+
+void CDeviceCommandContext::SetStorageBuffer([[maybe_unused]] const int32_t bindingSlot,
+	[[maybe_unused]] IBuffer* buffer)
+{
+#if !CONFIG2_GLES
+	if (bindingSlot < 0)
+		return;
+	ENSURE(m_ShaderProgram);
+	ENSURE(buffer);
+	ENSURE(buffer->GetUsage() & Renderer::Backend::IBuffer::Usage::STORAGE);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, m_ShaderProgram->GetStorageBuffer(bindingSlot), buffer->As<CBuffer>()->GetHandle());
+#endif
 }
 
 void CDeviceCommandContext::SetUniform(
@@ -1356,7 +1410,7 @@ void CDeviceCommandContext::SetUniform(
 }
 
 void CDeviceCommandContext::SetUniform(
-	const int32_t bindingSlot, PS::span<const float> values)
+	const int32_t bindingSlot, std::span<const float> values)
 {
 	ENSURE(m_ShaderProgram);
 	m_ShaderProgram->SetUniform(bindingSlot, values);
@@ -1385,6 +1439,7 @@ CDeviceCommandContext::ScopedBufferBind::ScopedBufferBind(
 {
 	ENSURE(buffer);
 	m_CacheIndex = static_cast<size_t>(buffer->GetType());
+	ENSURE(m_CacheIndex < m_DeviceCommandContext->m_BoundBuffers.size());
 	const GLenum target = BufferTypeToGLTarget(buffer->GetType());
 	const GLuint handle = buffer->GetHandle();
 	if (m_DeviceCommandContext->m_BoundBuffers[m_CacheIndex].first == target &&
@@ -1396,7 +1451,7 @@ CDeviceCommandContext::ScopedBufferBind::ScopedBufferBind(
 	}
 	else
 	{
-		glBindBufferARB(target, handle);
+		glBindBuffer(target, handle);
 	}
 }
 
@@ -1404,7 +1459,7 @@ CDeviceCommandContext::ScopedBufferBind::~ScopedBufferBind()
 {
 	if (m_CacheIndex >= m_DeviceCommandContext->m_BoundBuffers.size())
 		return;
-	glBindBufferARB(
+	glBindBuffer(
 		m_DeviceCommandContext->m_BoundBuffers[m_CacheIndex].first,
 		m_DeviceCommandContext->m_BoundBuffers[m_CacheIndex].second);
 }

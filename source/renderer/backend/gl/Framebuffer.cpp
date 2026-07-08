@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,9 +19,11 @@
 
 #include "Framebuffer.h"
 
-#include "lib/code_annotation.h"
 #include "lib/config2.h"
+#include "lib/debug.h"
 #include "ps/CLogger.h"
+#include "renderer/backend/Format.h"
+#include "renderer/backend/ITexture.h"
 #include "renderer/backend/gl/Device.h"
 #include "renderer/backend/gl/Texture.h"
 
@@ -36,7 +38,7 @@ namespace GL
 
 // static
 std::unique_ptr<CFramebuffer> CFramebuffer::Create(
-	CDevice* device, const char* name, SColorAttachment* colorAttachment,
+	CDevice* device, [[maybe_unused]] const char* name, SColorAttachment* colorAttachment,
 	SDepthStencilAttachment* depthStencilAttachment)
 {
 	ENSURE(colorAttachment || depthStencilAttachment);
@@ -141,8 +143,6 @@ std::unique_ptr<CFramebuffer> CFramebuffer::Create(
 	{
 		glObjectLabel(GL_FRAMEBUFFER, framebuffer->m_Handle, -1, name);
 	}
-#else
-	UNUSED2(name);
 #endif
 
 	const GLenum status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);

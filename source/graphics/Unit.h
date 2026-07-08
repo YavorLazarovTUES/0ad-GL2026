@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,9 +18,11 @@
 #ifndef INCLUDED_UNIT
 #define INCLUDED_UNIT
 
+#include "lib/code_annotation.h"
 #include "ps/CStr.h"
-#include "simulation2/system/Entity.h"	// entity_id_t
+#include "simulation2/system/Entity.h"
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <set>

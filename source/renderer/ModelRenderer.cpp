@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,34 +17,90 @@
 
 #include "precompiled.h"
 
+#include "graphics/Camera.h"
 #include "graphics/Color.h"
 #include "graphics/LightEnv.h"
 #include "graphics/Material.h"
 #include "graphics/Model.h"
 #include "graphics/ModelDef.h"
+#include "graphics/SColor.h"
+#include "graphics/ShaderDefines.h"
 #include "graphics/ShaderManager.h"
+#include "graphics/ShaderTechnique.h"
+#include "graphics/ShaderTechniquePtr.h"
+#include "graphics/Texture.h"
 #include "graphics/TextureManager.h"
-#include "lib/allocators/DynamicArena.h"
+#include "lib/alignment.h"
 #include "lib/allocators/STLAllocators.h"
+#include "lib/debug.h"
 #include "lib/hash.h"
+#include "maths/Matrix3D.h"
+#include "maths/Vector2D.h"
 #include "maths/Vector3D.h"
-#include "maths/Vector4D.h"
 #include "ps/CLogger.h"
-#include "ps/containers/Span.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
+#include "ps/memory/LinearAllocator.h"
 #include "ps/Profile.h"
 #include "renderer/MikktspaceWrap.h"
 #include "renderer/ModelRenderer.h"
 #include "renderer/ModelVertexRenderer.h"
-#include "renderer/Renderer.h"
 #include "renderer/RenderModifiers.h"
+#include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
 #include "renderer/SkyManager.h"
 #include "renderer/TimeManager.h"
+#include "renderer/VertexArray.h"
 #include "renderer/WaterManager.h"
+#include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/IShaderProgram.h"
 
-///////////////////////////////////////////////////////////////////////////////////////////////
-// ModelRenderer implementation
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <span>
+#include <string>
+#include <unordered_map>
+#include <utility>
+
+
+namespace
+{
+
+CMaterial::Pass GetMaterialPassFromCullGroup(const int cullGroup, const ERenderMode renderMode)
+{
+	switch (renderMode)
+	{
+	case ERenderMode::WIREFRAME:
+		return CMaterial::Pass::WIREFRAME;
+	case ERenderMode::EDGED_FACES:
+		return CMaterial::Pass::WIREFRAME_SOLID;
+	case ERenderMode::SOLID:
+		break;
+	}
+
+	switch (cullGroup)
+	{
+	case CSceneRenderer::CULL_SHADOWS_CASCADE_0: [[fallthrough]];
+	case CSceneRenderer::CULL_SHADOWS_CASCADE_1: [[fallthrough]];
+	case CSceneRenderer::CULL_SHADOWS_CASCADE_2: [[fallthrough]];
+	case CSceneRenderer::CULL_SHADOWS_CASCADE_3:
+		return CMaterial::Pass::SHADOW_CASTER;
+	case CSceneRenderer::CULL_SILHOUETTE_OCCLUDER:
+		return CMaterial::Pass::SILHOUETTE_OCCLUDER;
+	case CSceneRenderer::CULL_SILHOUETTE_CASTER:
+		return CMaterial::Pass::SILHOUETTE_CASTER;
+	case CSceneRenderer::CULL_DEFAULT:
+		return CMaterial::Pass::MAIN;
+	default:
+		break;
+	}
+
+	return CMaterial::Pass::MAIN;
+}
+
+}
 
 void ModelRenderer::Init()
 {
@@ -219,6 +275,7 @@ void ShaderModelRenderer::Submit(int cullGroup, CModel* model)
 	const void* key = m->vertexRenderer.get();
 	if (!rdata || rdata->GetKey() != key)
 	{
+		model->InvalidatePosition();
 		rdata = m->vertexRenderer->CreateModelData(key, model);
 		model->SetRenderData(rdata);
 		model->SetDirty(~0u);
@@ -229,7 +286,8 @@ void ShaderModelRenderer::Submit(int cullGroup, CModel* model)
 
 
 // Call update for all submitted models and enter the rendering phase
-void ShaderModelRenderer::PrepareModels()
+void ShaderModelRenderer::PrepareModels(
+	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
 	for (int cullGroup = 0; cullGroup < CSceneRenderer::CULL_MAX; ++cullGroup)
 	{
@@ -239,8 +297,13 @@ void ShaderModelRenderer::PrepareModels()
 
 			CModelRData* rdata = static_cast<CModelRData*>(model->GetRenderData());
 			ENSURE(rdata->GetKey() == m->vertexRenderer.get());
+		}
 
-			m->vertexRenderer->UpdateModelData(model, rdata, rdata->m_UpdateFlags);
+		m->vertexRenderer->UpdateModelsData(deviceCommandContext, m->submissions[cullGroup]);
+
+		for (CModel* model : m->submissions[cullGroup])
+		{
+			CModelRData* rdata = static_cast<CModelRData*>(model->GetRenderData());
 			rdata->m_UpdateFlags = 0;
 		}
 	}
@@ -251,13 +314,7 @@ void ShaderModelRenderer::UploadModels(
 {
 	for (int cullGroup = 0; cullGroup < CSceneRenderer::CULL_MAX; ++cullGroup)
 	{
-		for (CModel* model : m->submissions[cullGroup])
-		{
-			CModelRData* rdata = static_cast<CModelRData*>(model->GetRenderData());
-			ENSURE(rdata->GetKey() == m->vertexRenderer.get());
-
-			m->vertexRenderer->UploadModelData(deviceCommandContext, model, rdata);
-		}
+		m->vertexRenderer->UploadModelsData(deviceCommandContext, m->submissions[cullGroup]);
 	}
 }
 
@@ -342,7 +399,7 @@ struct SMRMaterialBucketKeyHash
 struct SMRTechBucket
 {
 	CShaderTechniquePtr tech;
-	PS::span<CModel*> models;
+	std::span<CModel*> models;
 
 	// Model list is stored as pointers, not as a std::vector,
 	// so that sorting lists of this struct is fast
@@ -358,13 +415,16 @@ struct SMRCompareTechBucket
 
 void ShaderModelRenderer::Render(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-	const RenderModifierPtr& modifier, const CShaderDefines& context, int cullGroup, int flags)
+	const RenderModifierPtr& modifier, const CShaderDefines& context,
+	int cullGroup, int flags, const ERenderMode renderMode)
 {
 	if (m->submissions[cullGroup].empty())
 		return;
 
 	CMatrix3D worldToCam;
 	g_Renderer.GetSceneRenderer().GetViewCamera().GetOrientation().GetInverse(worldToCam);
+
+	const CMaterial::Pass materialPass{GetMaterialPassFromCullGroup(cullGroup, renderMode)};
 
 	/*
 	 * Rendering approach:
@@ -419,10 +479,9 @@ void ShaderModelRenderer::Render(
 	 * list in each, rebinding the GL state whenever it changes.
 	 */
 
-	using Arena = Allocators::DynamicArena<256 * KiB>;
+	PS::Memory::ScopedLinearAllocator scopedLinearAllocator{g_Renderer.GetLinearAllocator()};
 
-	Arena arena;
-	using ModelListAllocator = ProxyAllocator<CModel*, Arena>;
+	using ModelListAllocator = ProxyAllocator<CModel*, PS::Memory::ScopedLinearAllocator>;
 	using ModelList_t = std::vector<CModel*, ModelListAllocator>;
 	using MaterialBuckets_t = std::unordered_map<
 		SMRMaterialBucketKey,
@@ -431,9 +490,9 @@ void ShaderModelRenderer::Render(
 		std::equal_to<SMRMaterialBucketKey>,
 		ProxyAllocator<
 			std::pair<const SMRMaterialBucketKey, ModelList_t>,
-			Arena> >;
+			PS::Memory::ScopedLinearAllocator>>;
 
-	MaterialBuckets_t materialBuckets((MaterialBuckets_t::allocator_type(arena)));
+	MaterialBuckets_t materialBuckets((MaterialBuckets_t::allocator_type(scopedLinearAllocator)));
 
 	{
 		PROFILE3("bucketing by material");
@@ -441,14 +500,16 @@ void ShaderModelRenderer::Render(
 		for (size_t i = 0; i < m->submissions[cullGroup].size(); ++i)
 		{
 			CModel* model = m->submissions[cullGroup][i];
-			const CShaderDefines& defines = model->GetMaterial().GetShaderDefines();
-			SMRMaterialBucketKey key(model->GetMaterial().GetShaderEffect(), defines);
+			const CMaterial material{model->GetMaterial()};
+			const CShaderDefines& defines{material.GetShaderDefines()};
+			const CStrIntern shaderEffect{material.GetShaderEffect(materialPass)};
+			SMRMaterialBucketKey key(shaderEffect, defines);
 
 			MaterialBuckets_t::iterator it = materialBuckets.find(key);
 			if (it == materialBuckets.end())
 			{
 				std::pair<MaterialBuckets_t::iterator, bool> inserted = materialBuckets.insert(
-					std::make_pair(key, ModelList_t(ModelList_t::allocator_type(arena))));
+					std::make_pair(key, ModelList_t(ModelList_t::allocator_type(scopedLinearAllocator))));
 				inserted.first->second.reserve(32);
 				inserted.first->second.push_back(model);
 			}
@@ -459,19 +520,19 @@ void ShaderModelRenderer::Render(
 		}
 	}
 
-	using SortByDistItemsAllocator = ProxyAllocator<SMRSortByDistItem, Arena>;
-	std::vector<SMRSortByDistItem, SortByDistItemsAllocator> sortByDistItems((SortByDistItemsAllocator(arena)));
+	using SortByDistItemsAllocator = ProxyAllocator<SMRSortByDistItem, PS::Memory::ScopedLinearAllocator>;
+	std::vector<SMRSortByDistItem, SortByDistItemsAllocator> sortByDistItems((SortByDistItemsAllocator(scopedLinearAllocator)));
 
-	using SortByTechItemsAllocator = ProxyAllocator<CShaderTechniquePtr, Arena>;
-	std::vector<CShaderTechniquePtr, SortByTechItemsAllocator> sortByDistTechs((SortByTechItemsAllocator(arena)));
+	using SortByTechItemsAllocator = ProxyAllocator<CShaderTechniquePtr, PS::Memory::ScopedLinearAllocator>;
+	std::vector<CShaderTechniquePtr, SortByTechItemsAllocator> sortByDistTechs((SortByTechItemsAllocator(scopedLinearAllocator)));
 		// indexed by sortByDistItems[i].techIdx
 		// (which stores indexes instead of CShaderTechniquePtr directly
 		// to avoid the shared_ptr copy cost when sorting; maybe it'd be better
 		// if we just stored raw CShaderTechnique* and assumed the shader manager
 		// will keep it alive long enough)
 
-	using TechBucketsAllocator =  ProxyAllocator<SMRTechBucket, Arena>;
-	std::vector<SMRTechBucket, TechBucketsAllocator> techBuckets((TechBucketsAllocator(arena)));
+	using TechBucketsAllocator =  ProxyAllocator<SMRTechBucket, PS::Memory::ScopedLinearAllocator>;
+	std::vector<SMRTechBucket, TechBucketsAllocator> techBuckets((TechBucketsAllocator(scopedLinearAllocator)));
 
 	{
 		PROFILE3("processing material buckets");
@@ -533,7 +594,7 @@ void ShaderModelRenderer::Render(
 	// (This exists primarily because techBuckets wants a CModel**;
 	// we could avoid the cost of copying into this list by adding
 	// a stride length into techBuckets and not requiring contiguous CModel*s)
-	std::vector<CModel*, ModelListAllocator> sortByDistModels((ModelListAllocator(arena)));
+	std::vector<CModel*, ModelListAllocator> sortByDistModels((ModelListAllocator(scopedLinearAllocator)));
 
 	if (!sortByDistItems.empty())
 	{
@@ -586,19 +647,19 @@ void ShaderModelRenderer::Render(
 		// This vector keeps track of texture changes during rendering. It is kept outside the
 		// loops to avoid excessive reallocations. The token allocation of 64 elements
 		// should be plenty, though it is reallocated below (at a cost) if necessary.
-		using TextureListAllocator = ProxyAllocator<CTexture*, Arena>;
-		std::vector<CTexture*, TextureListAllocator> currentTexs((TextureListAllocator(arena)));
+		using TextureListAllocator = ProxyAllocator<CTexture*, PS::Memory::ScopedLinearAllocator>;
+		std::vector<CTexture*, TextureListAllocator> currentTexs((TextureListAllocator(scopedLinearAllocator)));
 		currentTexs.reserve(64);
 
 		// texBindings holds the identifier bindings in the shader, which can no longer be defined
 		// statically in the ShaderRenderModifier class. texBindingNames uses interned strings to
 		// keep track of when bindings need to be reevaluated.
-		using BindingListAllocator = ProxyAllocator<int32_t, Arena>;
-		std::vector<int32_t, BindingListAllocator> texBindings((BindingListAllocator(arena)));
+		using BindingListAllocator = ProxyAllocator<int32_t, PS::Memory::ScopedLinearAllocator>;
+		std::vector<int32_t, BindingListAllocator> texBindings((BindingListAllocator(scopedLinearAllocator)));
 		texBindings.reserve(64);
 
-		using BindingNamesListAllocator = ProxyAllocator<CStrIntern, Arena>;
-		std::vector<CStrIntern, BindingNamesListAllocator> texBindingNames((BindingNamesListAllocator(arena)));
+		using BindingNamesListAllocator = ProxyAllocator<CStrIntern, PS::Memory::ScopedLinearAllocator>;
+		std::vector<CStrIntern, BindingNamesListAllocator> texBindingNames((BindingNamesListAllocator(scopedLinearAllocator)));
 		texBindingNames.reserve(64);
 
 		while (idxTechStart < techBuckets.size())

@@ -3680,61 +3680,61 @@
 			<Orientation y="0.53251"/>
 		</Entity>
 		<Entity uid="677">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="610.35071" z="212.23336"/>
 			<Orientation y="2.94407"/>
 		</Entity>
 		<Entity uid="678">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="170.30076" z="480.3642"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="679">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="343.15372" z="582.0893"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="680">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="645.42463" z="78.53974"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="681">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="53.6178" z="634.57929"/>
 			<Orientation y="-1.49936"/>
 		</Entity>
 		<Entity uid="682">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="416.67521" z="184.20356"/>
 			<Orientation y="-2.46294"/>
 		</Entity>
 		<Entity uid="683">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="87.92277" z="259.82947"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="684">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="718.54908" z="472.12818"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="685">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="405.15165" z="366.78797"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="686">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="457.57868" z="289.27643"/>
 			<Orientation y="-1.1794"/>

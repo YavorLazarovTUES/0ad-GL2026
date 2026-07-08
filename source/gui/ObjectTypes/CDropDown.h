@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -28,12 +28,21 @@ GUI Object - Drop Down (list)
 #ifndef INCLUDED_CDROPDOWN
 #define INCLUDED_CDROPDOWN
 
+#include "gui/CGUISetting.h"
 #include "gui/CGUISprite.h"
 #include "gui/ObjectBases/IGUIObject.h"
 #include "gui/ObjectTypes/CList.h"
+#include "gui/SettingTypes/CGUIColor.h"
+#include "lib/types.h"
+#include "maths/Rect.h"
 #include "maths/Vector2D.h"
+#include "ps/CStr.h"
+#include "ps/Input.h"
 
 #include <string>
+
+class CGUI;
+union SDL_Event;
 
 /**
  * Drop Down
@@ -50,7 +59,6 @@ class CDropDown : public CList
 
 public:
 	CDropDown(CGUI& pGUI);
-	virtual ~CDropDown();
 
 	/**
 	 * @see IGUIObject#HandleMessage()
@@ -60,12 +68,14 @@ public:
 	/**
 	 * Handle events manually to catch keyboard inputting.
 	 */
-	virtual InReaction ManuallyHandleKeys(const SDL_Event_* ev);
+	virtual Input::Reaction ManuallyHandleKeys(const SDL_Event& ev);
 
 	/**
 	 * Draws the Button
 	 */
 	virtual void Draw(CCanvas2D& canvas);
+
+	virtual void CreateJSObject();
 
 	// This is one of the few classes we actually need to redefine this function
 	//  this is because the size of the control changes whether it is open
@@ -74,12 +84,17 @@ public:
 
 	virtual float GetBufferedZ() const;
 
+	/**
+	 * Calculate the preferred text size of the currently selected item displayed in the header.
+	 */
+	virtual CSize2D GetPreferredHeaderTextSize() const;
+
 protected:
 	/**
 	 * If the size changed, the texts have to be updated as
 	 * the word wrapping depends on the size.
 	 */
-	virtual void UpdateCachedSize();
+	virtual void HandleSizeChanged();
 
 	/**
 	 * Sets up text, should be called every time changes has been
@@ -103,7 +118,7 @@ protected:
 	bool m_Open;
 
 	// I didn't cache this at first, but it's just as easy as caching
-	//  m_CachedActualSize, so I thought, what the heck it's used a lot.
+	//  GetActualSize(), so I thought, what the heck it's used a lot.
 	CRect m_CachedListRect;
 
 	// Hide scrollbar when it's not needed

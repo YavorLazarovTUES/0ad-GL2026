@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,15 +19,19 @@
 #define INCLUDED_CMDLINEARGS
 
 #include "lib/os_path.h"
-#include "ps/containers/Span.h"
 #include "ps/CStr.h"
 
+#include <span>
 #include <utility>
 #include <vector>
+
+namespace PS { template <typename T> class span; }
 
 class CmdLineArgs
 {
 public:
+	using ArgsT = std::vector<std::pair<CStr, CStr>>;
+
 	CmdLineArgs() {}
 
 	/**
@@ -37,7 +41,7 @@ public:
 	 *
 	 * @param argv span of arguments; argv[0] should be the program's name
 	 */
-	CmdLineArgs(const PS::span<const char* const> argv);
+	CmdLineArgs(const std::span<const char* const> argv);
 
 	/**
 	 * Test whether the given name was specified, as either <tt>-name</tt> or
@@ -67,10 +71,14 @@ public:
 	/**
 	 * Returns all arguments that don't have a name (string started with '-').
 	 */
+	const ArgsT& GetArgs() const;
+
+	/**
+	 * Returns all arguments that don't have a name (string started with '-').
+	 */
 	std::vector<CStr> GetArgsWithoutName() const;
 
 private:
-	typedef std::vector<std::pair<CStr, CStr> > ArgsT;
 	ArgsT m_Args;
 	OsPath m_Arg0;
 	std::vector<CStr> m_ArgsWithoutName;

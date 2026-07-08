@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,17 +22,26 @@
 #include "graphics/Color.h"
 #include "graphics/Terrain.h"
 #include "lib/bits.h"
+#include "lib/debug.h"
 #include "ps/Profile.h"
+#include "renderer/backend/Format.h"
 #include "renderer/backend/IDevice.h"
 #include "renderer/backend/IDeviceCommandContext.h"
-#include "renderer/Renderer.h"
-#include "simulation2/Simulation2.h"
-#include "simulation2/helpers/Grid.h"
-#include "simulation2/helpers/Pathfinding.h"
+#include "renderer/backend/ITexture.h"
+#include "renderer/backend/Sampler.h"
 #include "simulation2/components/ICmpPlayer.h"
 #include "simulation2/components/ICmpPlayerManager.h"
 #include "simulation2/components/ICmpTerrain.h"
 #include "simulation2/components/ICmpTerritoryManager.h"
+#include "simulation2/helpers/Grid.h"
+#include "simulation2/helpers/Pathfinding.h"
+#include "simulation2/system/CmpPtr.h"
+#include "simulation2/system/Entity.h"
+
+#include <algorithm>
+#include <cstdint>
+#include <cstring>
+#include <vector>
 
 // TODO: There's a lot of duplication with CLOSTexture - might be nice to refactor a bit
 
@@ -147,7 +156,7 @@ void CTerritoryTexture::RecomputeTexture(Renderer::Backend::IDeviceCommandContex
 	PROFILE("recompute territory texture");
 
 	CmpPtr<ICmpTerritoryManager> cmpTerritoryManager(m_Simulation, SYSTEM_ENTITY);
-	if (!cmpTerritoryManager)
+	if (!cmpTerritoryManager || !cmpTerritoryManager->IsVisible())
 		return;
 
 	std::unique_ptr<u8[]> bitmap = std::make_unique<u8[]>(m_MapSize * m_MapSize * 4);

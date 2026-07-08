@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -78,26 +78,31 @@
 #ifndef INCLUDED_PROFILER2
 #define INCLUDED_PROFILER2
 
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
 #include "lib/timer.h"
+#include "lib/types.h"
 #include "ps/ThreadUtil.h"
 
+#include <cstdarg>
+#include <cstring>
+#include <iosfwd>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
 
-struct mg_context;
+class CProfiler2GPU;
+namespace Renderer::Backend { class IDeviceCommandContext; }
+namespace httplib { class Server; }
 
 // Note: Lots of functions are defined inline, to hypothetically
 // minimise performance overhead.
 
-class CProfiler2GPU;
-
 class CProfiler2
 {
-	friend class CProfiler2GPUARB;
-	friend class CProfile2SpikeRegion;
-	friend class CProfile2AggregatedRegion;
+	friend class CProfiler2GPUImpl;
 public:
 	// Items stored in the buffers:
 
@@ -141,8 +146,6 @@ private:
 		ThreadStorage(CProfiler2& profiler, const std::string& name);
 		~ThreadStorage();
 
-		enum { BUFFER_NORMAL, BUFFER_SPIKE, BUFFER_AGGREGATE };
-
 		void RecordSyncMarker(double t)
 		{
 			// Store the magic string followed by the absolute time
@@ -185,12 +188,6 @@ private:
 			va_end(argp);
 		}
 
-		size_t HoldLevel();
-		u8 HoldType();
-		void PutOnHold(u8 type);
-		void HoldToBuffer(bool condensed);
-		void ThrowawayHoldBuffer();
-
 		CProfiler2& GetProfiler()
 		{
 			return m_Profiler;
@@ -222,36 +219,6 @@ private:
 		double m_LastTime; // used for computing relative times
 
 		u8* m_Buffer;
-
-		struct HoldBuffer
-		{
-			friend class ThreadStorage;
-		public:
-			HoldBuffer()
-			{
-				buffer = new u8[HOLD_BUFFER_SIZE];
-				memset(buffer, ITEM_NOP, HOLD_BUFFER_SIZE);
-				pos = 0;
-			}
-			~HoldBuffer()
-			{
-				delete[] buffer;
-			}
-			void clear()
-			{
-				pos = 0;
-			}
-			void setType(u8 newType)
-			{
-				type = newType;
-			}
-			u8* buffer;
-			u32 pos;
-			u8 type;
-		};
-
-		HoldBuffer m_HoldBuffers[8];
-		size_t m_HeldDepth;
 
 		// To allow hopefully-safe reading of the buffer from a separate thread,
 		// without any expensive synchronisation in the recording thread,
@@ -367,36 +334,10 @@ public:
 		va_end(argp);
 	}
 
-	void RecordGPUFrameStart();
-	void RecordGPUFrameEnd();
-	void RecordGPURegionEnter(const char* id);
-	void RecordGPURegionLeave(const char* id);
-
-	/**
-	* Hold onto messages until a call to release or write the held messages.
-	*/
-	size_t HoldLevel()
-	{
-		return GetThreadStorage().HoldLevel();
-	}
-
-	u8 HoldType()
-	{
-		return GetThreadStorage().HoldType();
-	}
-
-	void HoldMessages(u8 type)
-	{
-		GetThreadStorage().PutOnHold(type);
-	}
-
-	void StopHoldingMessages(bool writeToBuffer, bool condensed = false)
-	{
-		if (writeToBuffer)
-			GetThreadStorage().HoldToBuffer(condensed);
-		else
-			GetThreadStorage().ThrowawayHoldBuffer();
-	}
+	void RecordGPUFrameStart(Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
+	void RecordGPUFrameEnd(Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
+	void RecordGPURegionEnter(Renderer::Backend::IDeviceCommandContext* deviceCommandContext, const char* id);
+	void RecordGPURegionLeave(Renderer::Backend::IDeviceCommandContext* deviceCommandContext, const char* id);
 
 	/**
 	 * Call in any thread to produce a JSON representation of the general
@@ -448,7 +389,8 @@ private:
 
 	int m_FrameNumber;
 
-	mg_context* m_MgContext;
+	std::unique_ptr<httplib::Server> m_HttpServer;
+	std::thread m_HttpServerThread;
 
 	CProfiler2GPU* m_GPU;
 
@@ -479,50 +421,22 @@ protected:
 };
 
 /**
-* Scope-based enter/leave helper.
-*/
-class CProfile2SpikeRegion
-{
-public:
-	CProfile2SpikeRegion(const char* name, double spikeLimit);
-	~CProfile2SpikeRegion();
-private:
-	const char* m_Name;
-	double m_Limit;
-	double m_StartTime;
-	bool m_PushedHold;
-};
-
-/**
-* Scope-based enter/leave helper.
-*/
-class CProfile2AggregatedRegion
-{
-public:
-	CProfile2AggregatedRegion(const char* name, double spikeLimit);
-	~CProfile2AggregatedRegion();
-private:
-	const char* m_Name;
-	double m_Limit;
-	double m_StartTime;
-	bool m_PushedHold;
-};
-
-/**
  * Scope-based GPU enter/leave helper.
  */
 class CProfile2GPURegion
 {
 public:
-	CProfile2GPURegion(const char* name) : m_Name(name)
+	CProfile2GPURegion(Renderer::Backend::IDeviceCommandContext* deviceCommandContext, const char* name)
+		: m_DeviceCommandContext(deviceCommandContext), m_Name(name)
 	{
-		g_Profiler2.RecordGPURegionEnter(m_Name);
+		g_Profiler2.RecordGPURegionEnter(m_DeviceCommandContext, m_Name);
 	}
 	~CProfile2GPURegion()
 	{
-		g_Profiler2.RecordGPURegionLeave(m_Name);
+		g_Profiler2.RecordGPURegionLeave(m_DeviceCommandContext, m_Name);
 	}
 private:
+	Renderer::Backend::IDeviceCommandContext* m_DeviceCommandContext;
 	const char* m_Name;
 };
 
@@ -535,11 +449,7 @@ private:
  */
 #define PROFILE2(region) CProfile2Region profile2__(region)
 
-#define PROFILE2_IFSPIKE(region, limit) CProfile2SpikeRegion profile2__(region, limit)
-
-#define PROFILE2_AGGREGATED(region, limit) CProfile2AggregatedRegion profile2__(region, limit)
-
-#define PROFILE2_GPU(region) CProfile2GPURegion profile2gpu__(region)
+#define PROFILE2_GPU(deviceCommandContext, region) CProfile2GPURegion profile2gpu__(deviceCommandContext, region)
 
 /**
  * Record the named event at the current time.

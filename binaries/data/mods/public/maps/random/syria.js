@@ -1,7 +1,7 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
 	const tMainDirt = ["desert_dirt_rocks_1", "desert_dirt_cracks"];
 	const tForestFloor1 = "forestfloor_dirty";
@@ -52,12 +52,18 @@ function* GenerateMap()
 	const clBaseResource = g_Map.createTileClass();
 	const clGrass = g_Map.createTileClass();
 
-	const [playerIDs, playerPosition] = playerPlacementCircle(fractionToTiles(0.35));
+	const { playerIDs, playerPosition } =
+		playerPlacementByPattern(
+			mapSettings.PlayerPlacement,
+			fractionToTiles(0.35),
+			fractionToTiles(0.1),
+			randomAngle(),
+			undefined);
 
 	g_Map.log("Creating big grass patches around the playerbases");
 	for (let i = 0; i < numPlayers; ++i)
 	{
-		if (!isNomad())
+		if (!mapSettings.Nomad)
 			createArea(
 				new ClumpPlacer(diskArea(defaultPlayerBaseRadius()), 0.9, 0.5, Infinity,
 					playerPosition[i]),
@@ -67,7 +73,7 @@ function* GenerateMap()
 			new ChainPlacer(
 				2,
 				Math.floor(scaleByMapSize(5, 12)),
-				Math.floor(scaleByMapSize(25, 60)) / (isNomad() ? 2 : 1),
+				Math.floor(scaleByMapSize(25, 60)) / (mapSettings.Nomad ? 2 : 1),
 				Infinity,
 				playerPosition[i],
 				0,
@@ -271,7 +277,7 @@ function* GenerateMap()
 			stayClasses(clGrass, 3)
 		],
 		clForest,
-		stragglerTrees * (isNomad() ? 3 : 1));
+		stragglerTrees * (mapSettings.Nomad ? 3 : 1));
 
 	placePlayersNomad(clPlayer, avoidClasses(clForest, 1, clMetal, 4, clRock, 4, clHill, 4, clFood, 2));
 

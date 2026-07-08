@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -33,13 +33,13 @@
 
 #include "lib/byte_order.h"	// movzx_le64
 #include "lib/module_init.h"
-#include "lib/sysdep/cpu.h"
 #include "lib/debug_stl.h"
 #include "lib/app_hooks.h"
 #include "lib/external_libraries/dbghelp.h"
 #include "lib/sysdep/os/win/wdbg.h"
 #include "lib/sysdep/os/win/wutil.h"
 
+#include <atomic>
 
 //----------------------------------------------------------------------------
 // dbghelp
@@ -95,7 +95,7 @@ static Status InitDbghelp()
 // symserv wants to access the internet.
 static void sym_init()
 {
-	static ModuleInitState initState;
+	static ModuleInitState initState{ 0 };
 	ModuleInit(&initState, InitDbghelp);
 }
 
@@ -1092,7 +1092,7 @@ static Status dump_sym_enum(DWORD type_id, const u8* p, DumpState& state)
 
 //-----------------------------------------------------------------------------
 
-static Status dump_sym_function(DWORD UNUSED(type_id), const u8* UNUSED(p), DumpState& UNUSED(state))
+static Status dump_sym_function(DWORD /*type_id*/, const u8* /*p*/, DumpState&)
 {
 	return INFO::SYM_SUPPRESS_OUTPUT;
 }
@@ -1100,7 +1100,7 @@ static Status dump_sym_function(DWORD UNUSED(type_id), const u8* UNUSED(p), Dump
 
 //-----------------------------------------------------------------------------
 
-static Status dump_sym_function_type(DWORD UNUSED(type_id), const u8* p, DumpState& state)
+static Status dump_sym_function_type(DWORD /*type_id*/, const u8* p, DumpState& state)
 {
 	// this symbol gives class parent, return type, and parameter count.
 	// unfortunately the one thing we care about, its name,
@@ -1337,7 +1337,7 @@ static bool udt_should_suppress(const wchar_t* type_name)
 	// removed obsolete defs: HEVENT, HFILE, HUMPD
 	if(type_name[0] != 'H')
 		goto not_handle;
-#define SUPPRESS_HANDLE(name) if(!wcscmp(type_name, L#name L"__")) return true;
+#define SUPPRESS_HANDLE(name) if(!wcscmp(type_name, L""#name L"__")) return true;
 	SUPPRESS_HANDLE(HACCEL);
 	SUPPRESS_HANDLE(HBITMAP);
 	SUPPRESS_HANDLE(HBRUSH);
@@ -1376,7 +1376,8 @@ not_handle:
 }
 
 
-static Status udt_dump_suppressed(const wchar_t* type_name, const u8* UNUSED(p), size_t UNUSED(size), DumpState state, ULONG UNUSED(numChildren), const DWORD* UNUSED(children))
+static Status udt_dump_suppressed(const wchar_t* type_name, const u8* /*p*/, size_t /*size*/,
+	DumpState state, ULONG /*numChildren*/, const DWORD* /*children*/)
 {
 	if(!udt_should_suppress(type_name))
 		return INFO::CANNOT_HANDLE;
@@ -1431,7 +1432,7 @@ static bool udt_fits_on_one_line(const wchar_t* type_name, size_t child_count, s
 static Status udt_dump_normal(const wchar_t* type_name, const u8* p, size_t size, DumpState state, ULONG numChildren, const DWORD* children)
 {
 	// special case: boost::unordered types are complex and may cause a stack overflow
-	// see http://trac.wildfiregames.com/ticket/1813
+	// see https://gitea.wildfiregames.com/0ad/0ad/issues/1813
 	// TODO: at least give some info about them
 	if(!wcsncmp(type_name, L"boost::unordered", 16))
 		return INFO::CANNOT_HANDLE;
@@ -1552,7 +1553,7 @@ done:
 //-----------------------------------------------------------------------------
 
 
-static Status dump_sym_vtable(DWORD UNUSED(type_id), const u8* UNUSED(p), DumpState& UNUSED(state))
+static Status dump_sym_vtable(DWORD /*type_id*/, const u8* /*p*/, DumpState&)
 {
 	// unsupported (vtable internals are undocumented; too much work).
 	return INFO::SYM_SUPPRESS_OUTPUT;
@@ -1562,7 +1563,7 @@ static Status dump_sym_vtable(DWORD UNUSED(type_id), const u8* UNUSED(p), DumpSt
 //-----------------------------------------------------------------------------
 
 
-static Status dump_sym_unknown(DWORD type_id, const u8* UNUSED(p), DumpState& state)
+static Status dump_sym_unknown(DWORD type_id, const u8* /*p*/, DumpState& state)
 {
 	// redundant (already done in dump_sym), but this is rare.
 	DWORD type_tag;
@@ -1640,7 +1641,7 @@ static bool ShouldSkipSymbol(const wchar_t* name)
 
 // output the symbol's name and value via dump_sym*.
 // called from dump_frame_cb for each local symbol; lock is held.
-static BOOL CALLBACK dump_sym_cb(SYMBOL_INFOW* sym, ULONG UNUSED(size), PVOID userContext)
+static BOOL CALLBACK dump_sym_cb(SYMBOL_INFOW* sym, ULONG /*size*/, PVOID userContext)
 {
 	if(ShouldSkipSymbol(sym->Name))
 		return TRUE;	// continue
@@ -1661,7 +1662,7 @@ static BOOL CALLBACK dump_sym_cb(SYMBOL_INFOW* sym, ULONG UNUSED(size), PVOID us
 }
 
 // called by wdbg_sym_WalkStack for each stack frame
-static Status dump_frame_cb(const STACKFRAME64* sf, uintptr_t UNUSED(userContext))
+static Status dump_frame_cb(const STACKFRAME64* sf, uintptr_t /*userContext*/)
 {
 	void* func = (void*)(uintptr_t)sf->AddrPC.Offset;
 
@@ -1717,8 +1718,9 @@ static Status dump_frame_cb(const STACKFRAME64* sf, uintptr_t UNUSED(userContext
 
 Status debug_DumpStack(wchar_t* buf, size_t maxChars, void* pcontext, const wchar_t* lastFuncToSkip)
 {
-	static intptr_t busy;
-	if(!cpu_CAS(&busy, 0, 1))
+	static std::atomic<bool> busy{ false };
+
+	if(busy.exchange(true))
 		return ERR::REENTERED;	// NOWARN
 
 	out_init(buf, maxChars);
@@ -1727,8 +1729,7 @@ Status debug_DumpStack(wchar_t* buf, size_t maxChars, void* pcontext, const wcha
 	wdbg_assert(pcontext != 0);
 	Status ret = wdbg_sym_WalkStack(dump_frame_cb, 0, *(CONTEXT*)pcontext, lastFuncToSkip);
 
-	COMPILER_FENCE;
-	busy = 0;
+	busy = false;
 
 	return ret;
 }

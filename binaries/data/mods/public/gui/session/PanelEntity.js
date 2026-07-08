@@ -29,13 +29,13 @@ class PanelEntity
 		this.panelEntButton.onDoublePress = this.onDoublePress.bind(this);
 		this.panelEntButton.hidden = false;
 
-		let entityState = GetEntityState(entityID);
-		let template = GetTemplateData(entityState.template);
+		const entityState = GetEntityState(entityID);
+		const template = GetTemplateData(entityState.template);
 		this.nameTooltip = setStringTags(g_SpecificNamesPrimary ? template.name.specific : template.name.generic, this.NameTags) + "\n";
 
 		Engine.GetGUIObjectByName("panelEntityHealthSection[" + buttonID + "]").hidden = !entityState.hitpoints;
 
-		let captureSection = Engine.GetGUIObjectByName("panelEntityCaptureSection[" + buttonID + "]");
+		const captureSection = Engine.GetGUIObjectByName("panelEntityCaptureSection[" + buttonID + "]");
 		captureSection.hidden = !entityState.capturePoints;
 		if (entityState.capturePoints)
 		{
@@ -60,7 +60,7 @@ class PanelEntity
 		if (reposition)
 			setPanelObjectPosition(this.panelEntButton, i, Infinity);
 
-		let entityState = GetEntityState(this.entityID);
+		const entityState = GetEntityState(this.entityID);
 		this.updateHitpointsBar(entityState);
 		this.updateCapturePointsBar(entityState);
 
@@ -75,11 +75,8 @@ class PanelEntity
 			return;
 
 		if (this.hitpoints != entityState.hitpoints)
-		{
-			let size = this.panelEntityHealthBar.size;
-			size.rright = 100 * entityState.hitpoints / entityState.maxHitpoints;
-			this.panelEntityHealthBar.size = size;
-		}
+			this.panelEntityHealthBar.size.rright = 100 * entityState.hitpoints / entityState.maxHitpoints;
+
 		if (entityState.hitpoints < this.hitpoints)
 			this.onAttacked();
 		this.hitpoints = entityState.hitpoints;
@@ -90,20 +87,19 @@ class PanelEntity
 		if (!entityState.capturePoints)
 			return;
 
-		let playerParts = this.panelEntityCaptureBar.children;
-		let setCaptureBarPart = function(player, startSize) {
-			let captureBar = playerParts[player];
-			let size = captureBar.size;
-			size.rleft = startSize;
-			size.rright = startSize + 100 * Math.max(0, Math.min(1, entityState.capturePoints[player] / entityState.maxCapturePoints));
-			captureBar.size = size;
+		const playerParts = this.panelEntityCaptureBar.children;
+		const setCaptureBarPart = function(player, startSize)
+		{
+			const captureBar = playerParts[player];
+			captureBar.size.rleft = startSize;
+			captureBar.size.rright = startSize + 100 * Math.max(0, Math.min(1, entityState.capturePoints[player] / entityState.maxCapturePoints));
 			captureBar.sprite = "color:" + g_DiplomacyColors.getPlayerColor(player, 128);
 			captureBar.hidden = false;
-			return size.rright;
+			return captureBar.size.rright;
 		};
 
 		let size = setCaptureBarPart(entityState.player, 0);
-		for (let i in entityState.capturePoints)
+		for (const i in entityState.capturePoints)
 			if (i != entityState.player)
 				size = setCaptureBarPart(i, size);
 

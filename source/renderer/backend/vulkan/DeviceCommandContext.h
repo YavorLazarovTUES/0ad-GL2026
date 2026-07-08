@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,12 +19,14 @@
 #define INCLUDED_RENDERER_VULKAN_DEVICECOMMANDCONTEXT
 
 #include "ps/containers/StaticVector.h"
-#include "renderer/backend/IBuffer.h"
 #include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/vulkan/DeviceObjectUID.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <glad/vulkan.h>
 #include <memory>
-#include <vector>
+#include <span>
 
 namespace Renderer
 {
@@ -36,11 +38,13 @@ namespace Vulkan
 {
 
 class CBuffer;
+class CComputePipelineState;
 class CDevice;
 class CFramebuffer;
 class CGraphicsPipelineState;
 class CRingCommandContext;
 class CShaderProgram;
+class CSwapChain;
 class CVertexInputLayout;
 
 class CDeviceCommandContext final : public IDeviceCommandContext
@@ -64,7 +68,8 @@ public:
 	void BeginFramebufferPass(IFramebuffer* framebuffer) override;
 	void EndFramebufferPass() override;
 	void ReadbackFramebufferSync(
-		const uint32_t x, const uint32_t y, const uint32_t width, const uint32_t height,
+		ISwapChain& swapChain, const uint32_t x, const uint32_t y,
+		const uint32_t width, const uint32_t height,
 		void* data) override;
 
 	void UploadTexture(ITexture* texture, const Format dataFormat,
@@ -123,9 +128,14 @@ public:
 		const uint32_t groupCountY,
 		const uint32_t groupCountZ) override;
 
+	void InsertMemoryBarrier(
+		const uint32_t srcStageMask, const uint32_t dstStageMask,
+		const uint32_t srcAccessMask, const uint32_t dstAccessMask) override;
+
 	void SetTexture(const int32_t bindingSlot, ITexture* texture) override;
 
 	void SetStorageTexture(const int32_t bindingSlot, ITexture* texture) override;
+	void SetStorageBuffer(const int32_t bindingSlot, IBuffer* buffer) override;
 
 	void SetUniform(
 		const int32_t bindingSlot,
@@ -142,7 +152,9 @@ public:
 		const float valueX, const float valueY,
 		const float valueZ, const float valueW) override;
 	void SetUniform(
-		const int32_t bindingSlot, PS::span<const float> values) override;
+		const int32_t bindingSlot, std::span<const float> values) override;
+
+	void InsertTimestampQuery(const uint32_t handle, const bool isScopeBegin) override;
 
 	void BeginScopedLabel(const char* name) override;
 	void EndScopedLabel() override;
@@ -162,6 +174,8 @@ private:
 	void BindVertexBuffer(const uint32_t bindingSlot, CBuffer* buffer, uint32_t offset);
 	void BindIndexBuffer(CBuffer* buffer, uint32_t offset);
 
+	VkDescriptorSet GetUniformDescriptorSet(CBuffer* buffer, const uint32_t dataSize);
+
 	CDevice* m_Device = nullptr;
 
 	bool m_DebugScopedLabels = false;
@@ -172,6 +186,7 @@ private:
 	CGraphicsPipelineState* m_GraphicsPipelineState = nullptr;
 	CVertexInputLayout* m_VertexInputLayout = nullptr;
 	CFramebuffer* m_Framebuffer = nullptr;
+	CComputePipelineState* m_ComputePipelineState = nullptr;
 	CShaderProgram* m_ShaderProgram = nullptr;
 	bool m_IsPipelineStateDirty = true;
 	VkPipeline m_LastBoundPipeline = VK_NULL_HANDLE;
@@ -187,8 +202,14 @@ private:
 	class CUploadRing;
 	std::unique_ptr<CUploadRing> m_VertexUploadRing, m_IndexUploadRing, m_UniformUploadRing;
 
+	DeviceObjectUID m_UniformBufferUID = INVALID_DEVICE_OBJECT_UID;
 	VkDescriptorPool m_UniformDescriptorPool = VK_NULL_HANDLE;
-	VkDescriptorSet m_UniformDescriptorSet = VK_NULL_HANDLE;
+	struct UniformDescriptorSet
+	{
+		VkDescriptorSet descriptorSet{VK_NULL_HANDLE};
+		uint32_t size{0};
+	};
+	PS::StaticVector<UniformDescriptorSet, 16> m_UniformDescriptorSets;
 
 	// Currently we support readbacks only from backbuffer.
 	struct QueuedReadback
@@ -199,6 +220,7 @@ private:
 		void* data = nullptr;
 	};
 	PS::StaticVector<QueuedReadback, 2> m_QueuedReadbacks;
+	CSwapChain* m_QueuedReadbackSwapChain{nullptr};
 
 	bool m_DebugBarrierAfterFramebufferPass = false;
 };

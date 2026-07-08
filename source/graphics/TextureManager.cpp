@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,30 +20,41 @@
 #include "TextureManager.h"
 
 #include "graphics/Color.h"
+#include "graphics/SColor.h"
 #include "graphics/TextureConverter.h"
-#include "lib/allocators/shared_ptr.h"
 #include "lib/bits.h"
-#include "lib/file/vfs/vfs_tree.h"
+#include "lib/debug.h"
 #include "lib/hash.h"
-#include "lib/timer.h"
-#include "maths/MathUtil.h"
+#include "lib/path.h"
+#include "lib/status.h"
+#include "lib/tex/tex.h"
 #include "maths/MD5.h"
-#include "ps/CacheLoader.h"
+#include "maths/MathUtil.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
+#include "ps/CacheLoader.h"
 #include "ps/ConfigDB.h"
 #include "ps/Filesystem.h"
-#include "ps/Profile.h"
+#include "ps/Profiler2.h"
 #include "ps/Util.h"
 #include "renderer/backend/IDevice.h"
-#include "renderer/Renderer.h"
+#include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/ITexture.h"
 
 #include <algorithm>
-#include <boost/filesystem.hpp>
-#include <iomanip>
+#include <array>
+#include <boost/iterator/iterator_facade.hpp>
+#include <chrono>
+#include <filesystem>
+#include <iterator>
 #include <set>
 #include <sstream>
+#include <string>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 namespace
 {
@@ -541,10 +552,10 @@ public:
 		defaultSamplerDesc.addressModeV = texture->m_Properties.m_AddressModeV;
 		if (texture->m_Properties.m_AnisotropicFilterEnabled && m_Device->GetCapabilities().anisotropicFiltering)
 		{
-			int maxAnisotropy = 1;
-			CFG_GET_VAL("textures.maxanisotropy", maxAnisotropy);
+			const int maxAnisotropy{g_ConfigDB.Get("textures.maxanisotropy", 1)};
 			const int allowedValues[] = {2, 4, 8, 16};
-			if (std::find(std::begin(allowedValues), std::end(allowedValues), maxAnisotropy) != std::end(allowedValues))
+			if (std::find(std::begin(allowedValues), std::end(allowedValues), maxAnisotropy) !=
+				std::end(allowedValues))
 			{
 				defaultSamplerDesc.anisotropyEnabled = true;
 				defaultSamplerDesc.maxAnisotropy = maxAnisotropy;
@@ -553,8 +564,7 @@ public:
 
 		if (!texture->m_Properties.m_IgnoreQuality)
 		{
-			int quality = 2;
-			CFG_GET_VAL("textures.quality", quality);
+			const int quality{g_ConfigDB.Get("textures.quality", 2)};
 			if (quality == 1)
 			{
 				if (MIPLevelCount > 1 && std::min(width, height) > 8)
@@ -714,59 +724,48 @@ public:
 			}
 		}
 
-		// We'll only push new conversion requests if it's not already busy
-		bool converterBusy = m_TextureConverter.IsBusy();
+		if (m_TextureCache.empty())
+			return false;
 
-		if (!converterBusy)
+		const auto getPriority = [busy = m_TextureConverter.IsBusy()](const CTexturePtr& tex)
 		{
+			// We'll only push new conversion requests if it's not already busy
+
 			// Look for all high-priority textures needing conversion.
-			// (Iterating over all textures isn't optimally efficient, but it
-			// doesn't seem to be a problem yet and it's simpler than maintaining
-			// multiple queues.)
-			for (TextureCache::iterator it = m_TextureCache.begin(); it != m_TextureCache.end(); ++it)
-			{
-				if ((*it)->m_State == CTexture::HIGH_NEEDS_CONVERTING)
-				{
-					// Start converting this texture
-					(*it)->m_State = CTexture::HIGH_IS_CONVERTING;
-					ConvertTexture(*it);
-					return true;
-				}
-			}
-		}
+			if (!busy && tex->m_State == CTexture::HIGH_NEEDS_CONVERTING)
+				return 3;
+			if (tex->m_State == CTexture::PREFETCH_NEEDS_LOADING)
+				return 2;
+			if (!busy && tex->m_State == CTexture::PREFETCH_NEEDS_CONVERTING)
+				return 1;
+			return 0;
+		};
 
-		// Try loading prefetched textures from their cache
-		for (TextureCache::iterator it = m_TextureCache.begin(); it != m_TextureCache.end(); ++it)
+		CTexturePtr highPrioritytexture = std::ranges::max(m_TextureCache, {}, getPriority);
+
+		switch (highPrioritytexture->m_State)
 		{
-			if ((*it)->m_State == CTexture::PREFETCH_NEEDS_LOADING)
-			{
-				if (TryLoadingCached(*it))
-				{
-					(*it)->m_State = CTexture::LOADED;
-				}
-				else
-				{
-					(*it)->m_State = CTexture::PREFETCH_NEEDS_CONVERTING;
-				}
-				return true;
-			}
-		}
+		case CTexture::HIGH_NEEDS_CONVERTING:
+			// Start converting this texture
+			highPrioritytexture->m_State = CTexture::HIGH_IS_CONVERTING;
+			ConvertTexture(highPrioritytexture);
+			return true;
 
-		// If we've got nothing better to do, then start converting prefetched textures.
-		if (!converterBusy)
-		{
-			for (TextureCache::iterator it = m_TextureCache.begin(); it != m_TextureCache.end(); ++it)
-			{
-				if ((*it)->m_State == CTexture::PREFETCH_NEEDS_CONVERTING)
-				{
-					(*it)->m_State = CTexture::PREFETCH_IS_CONVERTING;
-					ConvertTexture(*it);
-					return true;
-				}
-			}
-		}
+		case CTexture::PREFETCH_NEEDS_LOADING:
+			// Try loading prefetched textures from their cache
+			highPrioritytexture->m_State = TryLoadingCached(highPrioritytexture) ? CTexture::LOADED :
+				CTexture::PREFETCH_NEEDS_CONVERTING;
+			return true;
 
-		return false;
+		case CTexture::PREFETCH_NEEDS_CONVERTING:
+			// If we've got nothing better to do, then start converting prefetched textures.
+			highPrioritytexture->m_State = CTexture::PREFETCH_IS_CONVERTING;
+			ConvertTexture(highPrioritytexture);
+			return true;
+
+		default:
+			return false;
+		}
 	}
 
 	bool MakeUploadProgress(
@@ -793,20 +792,20 @@ public:
 	 */
 	CTextureConverter::Settings GetConverterSettings(const CTexturePtr& texture)
 	{
-		fs::wpath srcPath = texture->m_Properties.m_Path.string();
+		std::filesystem::path srcPath = texture->m_Properties.m_Path.string();
 
 		std::vector<CTextureConverter::SettingsFile*> files;
 		VfsPath p;
-		for (fs::wpath::iterator it = srcPath.begin(); it != srcPath.end(); ++it)
+		for (std::filesystem::path::iterator it = srcPath.begin(); it != srcPath.end(); ++it)
 		{
 			VfsPath settingsPath = p / "textures.xml";
 			m_HotloadFiles[settingsPath].insert(texture);
 			CTextureConverter::SettingsFile* f = GetSettingsFile(settingsPath);
 			if (f)
 				files.push_back(f);
-			p = p / GetWstringFromWpath(*it);
+			p = p / it->wstring();
 		}
-		return m_TextureConverter.ComputeSettings(GetWstringFromWpath(srcPath.filename()), files);
+		return m_TextureConverter.ComputeSettings(srcPath.filename().wstring(), files);
 	}
 
 	/**

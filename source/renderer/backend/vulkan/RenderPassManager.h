@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,12 +18,19 @@
 #ifndef INCLUDED_RENDERER_BACKEND_VULKAN_RENDERPASSMANAGER
 #define INCLUDED_RENDERER_BACKEND_VULKAN_RENDERPASSMANAGER
 
-#include "renderer/backend/IFramebuffer.h"
+#include "renderer/backend/IDevice.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <glad/vulkan.h>
 #include <optional>
 #include <unordered_map>
-#include <vector>
+
+namespace Renderer::Backend { enum class AttachmentLoadOp; }
+namespace Renderer::Backend { enum class AttachmentStoreOp; }
+namespace Renderer::Backend { struct SColorAttachment; }
+namespace Renderer::Backend { struct SDepthStencilAttachment; }
+namespace Renderer::Backend::Vulkan { class CDevice; }
 
 namespace Renderer
 {
@@ -33,8 +40,6 @@ namespace Backend
 
 namespace Vulkan
 {
-
-class CDevice;
 
 /**
  * A helper class to store unique render passes.
@@ -53,6 +58,8 @@ public:
 	VkRenderPass GetOrCreateRenderPass(
 		SColorAttachment* colorAttachment,
 		SDepthStencilAttachment* depthStencilAttachment);
+
+	void CollectStatistics(IDevice::StatisticsVector& statistics) const;
 
 private:
 	CDevice* m_Device = nullptr;

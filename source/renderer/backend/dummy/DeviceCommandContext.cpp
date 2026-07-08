@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,11 +19,7 @@
 
 #include "DeviceCommandContext.h"
 
-#include "renderer/backend/dummy/Buffer.h"
 #include "renderer/backend/dummy/Device.h"
-#include "renderer/backend/dummy/Framebuffer.h"
-#include "renderer/backend/dummy/ShaderProgram.h"
-#include "renderer/backend/dummy/Texture.h"
 
 namespace Renderer
 {
@@ -92,6 +88,10 @@ void CDeviceCommandContext::UploadBufferRegion(
 {
 }
 
+void CDeviceCommandContext::InsertTimestampQuery(const uint32_t, const bool)
+{
+}
+
 void CDeviceCommandContext::BeginScopedLabel(const char*)
 {
 }
@@ -126,7 +126,7 @@ void CDeviceCommandContext::EndFramebufferPass()
 }
 
 void CDeviceCommandContext::ReadbackFramebufferSync(
-	const uint32_t, const uint32_t, const uint32_t, const uint32_t, void*)
+	ISwapChain&, const uint32_t, const uint32_t, const uint32_t, const uint32_t, void*)
 {
 }
 
@@ -202,11 +202,20 @@ void CDeviceCommandContext::Dispatch(const uint32_t, const uint32_t, const uint3
 {
 }
 
+void CDeviceCommandContext::InsertMemoryBarrier(
+	const uint32_t, const uint32_t, const uint32_t, const uint32_t)
+{
+}
+
 void CDeviceCommandContext::SetTexture(const int32_t, ITexture*)
 {
 }
 
 void CDeviceCommandContext::SetStorageTexture(const int32_t, ITexture*)
+{
+}
+
+void CDeviceCommandContext::SetStorageBuffer(const int32_t, IBuffer*)
 {
 }
 
@@ -228,7 +237,7 @@ void CDeviceCommandContext::SetUniform(
 {
 }
 
-void CDeviceCommandContext::SetUniform(const int32_t, PS::span<const float>)
+void CDeviceCommandContext::SetUniform(const int32_t, std::span<const float>)
 {
 }
 

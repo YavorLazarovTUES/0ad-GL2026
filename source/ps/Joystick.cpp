@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,9 +19,14 @@
 
 #include "Joystick.h"
 
-#include "lib/external_libraries/libsdl.h"
 #include "ps/CLogger.h"
 #include "ps/ConfigDB.h"
+
+#include <SDL.h>
+#include <SDL_error.h>
+#include <SDL_events.h>
+#include <cstddef>
+#include <cstdint>
 
 CJoystick g_Joystick;
 
@@ -32,18 +37,14 @@ CJoystick::CJoystick() :
 
 void CJoystick::Initialise()
 {
-	bool joystickEnable = false;
-	if (!CConfigDB::IsInitialised())
-		return;
-	CFG_GET_VAL("joystick.enable", joystickEnable);
-	if (!joystickEnable)
+	if (!CConfigDB::GetIfInitialised("joystick.enable", false))
 		return;
 
-	CFG_GET_VAL("joystick.deadzone", m_Deadzone);
+	m_Deadzone = g_ConfigDB.Get("joystick.deadzone", 0);
 
 	if (SDL_InitSubSystem(SDL_INIT_JOYSTICK) < 0)
 	{
-		LOGERROR("CJoystick::Initialise failed to initialise joysticks (\"%s\")", SDL_GetError());
+		LOGERROR("CJoystick::Initialise failed to initialize joysticks (\"%s\")", SDL_GetError());
 		return;
 	}
 

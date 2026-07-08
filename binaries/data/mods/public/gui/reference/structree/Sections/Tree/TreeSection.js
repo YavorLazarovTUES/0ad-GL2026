@@ -11,11 +11,9 @@ class TreeSection
 
 		this.rightMargin = this.TreeSection.size.right;
 		this.vMargin = this.TreeSection.size.top + -this.TreeSection.size.bottom;
-		this.width = 0;
-		this.height = 0;
 
 		this.structureBoxes = [];
-		for (let boxIdx in this.Structures.children)
+		for (const boxIdx in this.Structures.children)
 			this.structureBoxes.push(new StructureBox(this.page, boxIdx));
 
 		page.TrainerSection.registerWidthChangedHandler(this.onTrainerSectionWidthChange.bind(this));
@@ -26,38 +24,35 @@ class TreeSection
 		if (structures.size > this.structureBoxes.length)
 			error("\"" + this.activeCiv + "\" has more structures than can be supported by the current GUI layout");
 
+		this.Structures.resetScrollPosition();
+
 		// Draw structures
-		let phaseList = this.page.TemplateParser.phaseList;
-		let count = Math.min(structures.size, this.structureBoxes.length);
-		let runningWidths = Array(phaseList.length).fill(0);
-		let structureIterator = structures.keys();
+		const phaseList = this.page.TemplateParser.phaseList;
+		const count = Math.min(structures.size, this.structureBoxes.length);
+		const runningWidths = Array(phaseList.length).fill(0);
+		const structureIterator = structures.keys();
 		for (let idx = 0; idx < count; ++idx)
 			this.structureBoxes[idx].draw(structureIterator.next().value, civCode, runningWidths);
 		hideRemaining(this.Structures.name, count);
 
 		// Position phase idents
-		this.PhaseIdents.draw(phaseList, civCode, runningWidths, this.Structures.size.left);
-
-		this.width = this.Structures.size.left + Math.max(...runningWidths) + EntityBox.prototype.HMargin;
-		this.height = this.constructor.getPositionOffset(phaseList.length, this.page.TemplateParser);
+		this.PhaseIdents.draw(phaseList, civCode);
 	}
 
 	drawPhaseIcon(phaseIcon, phaseIndex, civCode)
 	{
-		let phaseName = this.page.TemplateParser.phaseList[phaseIndex];
-		let prodPhaseTemplate = this.page.TemplateParser.getTechnology(phaseName + "_" + civCode, civCode) || this.page.TemplateParser.getTechnology(phaseName, civCode);
+		const phaseName = this.page.TemplateParser.phaseList[phaseIndex];
+		const prodPhaseTemplate = this.page.TemplateParser.getTechnology(phaseName + "_" + civCode, civCode) || this.page.TemplateParser.getTechnology(phaseName, civCode);
 
 		phaseIcon.sprite = "stretched:" + this.page.IconPath + prodPhaseTemplate.icon;
 		phaseIcon.tooltip = getEntityNamesFormatted(prodPhaseTemplate);
-	};
+	}
 
 	onTrainerSectionWidthChange(trainerSectionWidth, trainerSectionVisible)
 	{
-		let size = this.TreeSection.size;
-		size.right = this.rightMargin;
+		this.TreeSection.size.right = this.rightMargin;
 		if (trainerSectionVisible)
-			size.right -= trainerSectionWidth + this.page.SectionGap;
-		this.TreeSection.size = size;
+			this.TreeSection.size.right -= trainerSectionWidth + this.page.SectionGap;
 	}
 
 	/**
@@ -70,14 +65,14 @@ class TreeSection
 	 */
 	static getPositionOffset(idx, TemplateParser)
 	{
-		let phases = TemplateParser.phaseList.length;
-		let rowHeight = ProductionIcon.Size().rowHeight;
+		const phases = TemplateParser.phaseList.length;
+		const rowHeight = ProductionIcon.Size().rowHeight;
 
 		let size = EntityBox.IconAndCaptionHeight() * idx; // text, image and offset
 		size += EntityBox.prototype.VMargin * (idx + 1); // Margin above StructureBoxes
 		size += rowHeight * (phases * idx - (idx - 1) * idx / 2); // phase rows (phase-currphase+1 per row)
 
 		return size;
-	};
+	}
 
 }

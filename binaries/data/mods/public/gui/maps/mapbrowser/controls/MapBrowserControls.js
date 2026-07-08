@@ -2,20 +2,36 @@ class MapBrowserPageControls
 {
 	constructor(mapBrowserPage, gridBrowser)
 	{
-		for (let name in this)
+		for (const name in this)
 			this[name] = new this[name](mapBrowserPage, gridBrowser);
 
 		this.mapBrowserPage = mapBrowserPage;
 		this.gridBrowser = gridBrowser;
 
 		this.setupButtons();
+
+		const alignmentHelper = new AlignmentHelper("max");
+		const labelMargin = 5;
+
+		this.mapBrowserSearchBoxLabel = Engine.GetGUIObjectByName("mapBrowserSearchBoxLabel");
+		this.mapBrowserSearchBoxControl = Engine.GetGUIObjectByName("mapBrowserSearchBoxControl");
+		alignmentHelper.setObject(this.mapBrowserSearchBoxControl, "left", this.mapBrowserSearchBoxLabel.size.right + labelMargin);
+
+		this.mapBrowserMapTypeLabel = Engine.GetGUIObjectByName("mapBrowserMapTypeLabel");
+		this.mapBrowserMapTypeControl = Engine.GetGUIObjectByName("mapBrowserMapTypeControl");
+		alignmentHelper.setObject(this.mapBrowserMapTypeControl, "left", this.mapBrowserMapTypeLabel.size.right + labelMargin);
+
+		this.mapBrowserMapFilterLabel = Engine.GetGUIObjectByName("mapBrowserMapFilterLabel");
+		this.mapBrowserMapFilterControl = Engine.GetGUIObjectByName("mapBrowserMapFilterControl");
+		alignmentHelper.setObject(this.mapBrowserMapFilterControl, "left", this.mapBrowserMapFilterLabel.size.right + labelMargin);
 	}
 
 	setupButtons()
 	{
 		this.pickRandom = Engine.GetGUIObjectByName("mapBrowserPagePickRandom");
-		this.pickRandom.onPress = () => {
-			let index = randIntInclusive(0, this.gridBrowser.itemCount - 1);
+		this.pickRandom.onPress = () =>
+		{
+			const index = randIntInclusive(0, this.gridBrowser.itemCount - 1);
 			this.gridBrowser.setSelectedIndex(index);
 			this.gridBrowser.goToPageOfSelected();
 		};
@@ -53,16 +69,16 @@ class MapBrowserPageControls
 	}
 
 	static Captions =
-	{
-		"close":
+		{
+			"close":
 		{
 			"caption": translate("Close"),
 			"tooltip": translate("%(hotkey)s: Close map browser.")
 		},
-		"cancel":
+			"cancel":
 		{
 			"caption": translate("Cancel"),
 			"tooltip": translate("%(hotkey)s: Close map browser and discard the selection.")
 		}
-	};
+		};
 }

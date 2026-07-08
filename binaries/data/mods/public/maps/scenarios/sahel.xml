@@ -77,7 +77,7 @@
       "Team": 1
     },
     {
-      "Civ": "pers",
+      "Civ": "achae",
       "Color": {
         "b": 5,
         "g": 165,
@@ -129,7 +129,7 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="39">
-			<Template>structures/pers/civil_centre</Template>
+			<Template>structures/achae/civil_centre</Template>
 			<Player>3</Player>
 			<Position x="350.94834" z="907.67676"/>
 			<Orientation y="2.35621"/>
@@ -1468,79 +1468,79 @@
 			<Orientation y="-3.011"/>
 		</Entity>
 		<Entity uid="271">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="638.67322" z="605.90522"/>
 			<Orientation y="-0.00933"/>
 		</Entity>
 		<Entity uid="272">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="350.20432" z="276.16367"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="273">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="961.12708" z="298.1944"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="274">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="949.62702" z="861.37281"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="275">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="385.85639" z="857.38843"/>
 			<Orientation y="0.37066"/>
 		</Entity>
 		<Entity uid="276">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="1211.08606" z="643.84693"/>
 			<Orientation y="-0.63457"/>
 		</Entity>
 		<Entity uid="277">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="614.67176" z="1219.8672"/>
 			<Orientation y="0.13405"/>
 		</Entity>
 		<Entity uid="278">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="84.0806" z="617.76075"/>
 			<Orientation y="0.9895"/>
 		</Entity>
 		<Entity uid="279">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="658.54218" z="53.02921"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="280">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="634.39014" z="341.61768"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="281">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="955.85865" z="643.71546"/>
 			<Orientation y="1.04178"/>
 		</Entity>
 		<Entity uid="282">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="346.87275" z="605.78602"/>
 			<Orientation y="-2.82131"/>
 		</Entity>
 		<Entity uid="283">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="640.96656" z="890.70984"/>
 			<Orientation y="-2.29404"/>
@@ -5542,56 +5542,56 @@
 			<Actor seed="29002"/>
 		</Entity>
 		<Entity uid="879">
-			<Template>units/iber/support_female_citizen</Template>
+			<Template>units/iber/support_civilian</Template>
 			<Player>4</Player>
 			<Position x="965.89368" z="372.8943"/>
 			<Orientation y="0.80773"/>
 			<Actor seed="29484"/>
 		</Entity>
 		<Entity uid="880">
-			<Template>units/iber/support_female_citizen</Template>
+			<Template>units/iber/support_civilian</Template>
 			<Player>4</Player>
 			<Position x="961.03278" z="377.22223"/>
 			<Orientation y="0.72468"/>
 			<Actor seed="17630"/>
 		</Entity>
 		<Entity uid="881">
-			<Template>units/iber/support_female_citizen</Template>
+			<Template>units/iber/support_civilian</Template>
 			<Player>4</Player>
 			<Position x="955.33472" z="381.60029"/>
 			<Orientation y="0.8397"/>
 			<Actor seed="13018"/>
 		</Entity>
 		<Entity uid="882">
-			<Template>units/iber/support_female_citizen</Template>
+			<Template>units/iber/support_civilian</Template>
 			<Player>4</Player>
 			<Position x="948.88666" z="386.75178"/>
 			<Orientation y="0.445"/>
 			<Actor seed="39432"/>
 		</Entity>
 		<Entity uid="883">
-			<Template>units/rome/support_female_citizen</Template>
+			<Template>units/rome/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="951.95752" z="902.41126"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="57178"/>
 		</Entity>
 		<Entity uid="884">
-			<Template>units/rome/support_female_citizen</Template>
+			<Template>units/rome/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="955.75391" z="905.74244"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="16284"/>
 		</Entity>
 		<Entity uid="885">
-			<Template>units/rome/support_female_citizen</Template>
+			<Template>units/rome/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="958.6875" z="909.01154"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="3480"/>
 		</Entity>
 		<Entity uid="886">
-			<Template>units/rome/support_female_citizen</Template>
+			<Template>units/rome/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="962.44166" z="911.7818"/>
 			<Orientation y="2.35621"/>
@@ -5633,91 +5633,91 @@
 			<Actor seed="26044"/>
 		</Entity>
 		<Entity uid="892">
-			<Template>units/pers/support_female_citizen</Template>
+			<Template>units/achae/support_civilian</Template>
 			<Player>3</Player>
 			<Position x="339.63398" z="886.48865"/>
 			<Orientation y="-2.15603"/>
 			<Actor seed="49886"/>
 		</Entity>
 		<Entity uid="893">
-			<Template>units/pers/support_female_citizen</Template>
+			<Template>units/achae/support_civilian</Template>
 			<Player>3</Player>
 			<Position x="333.70777" z="891.25593"/>
 			<Orientation y="-2.63059"/>
 			<Actor seed="43544"/>
 		</Entity>
 		<Entity uid="894">
-			<Template>units/pers/support_female_citizen</Template>
+			<Template>units/achae/support_civilian</Template>
 			<Player>3</Player>
 			<Position x="329.62403" z="894.84449"/>
 			<Orientation y="-2.41187"/>
 			<Actor seed="31174"/>
 		</Entity>
 		<Entity uid="895">
-			<Template>units/pers/support_female_citizen</Template>
+			<Template>units/achae/support_civilian</Template>
 			<Player>3</Player>
 			<Position x="325.20997" z="899.15723"/>
 			<Orientation y="-2.60616"/>
 			<Actor seed="18834"/>
 		</Entity>
 		<Entity uid="896">
-			<Template>units/pers/infantry_javelineer_b</Template>
+			<Template>units/achae/infantry_javelineer_b</Template>
 			<Player>3</Player>
 			<Position x="363.38984" z="886.89228"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="54282"/>
 		</Entity>
 		<Entity uid="897">
-			<Template>units/pers/infantry_javelineer_b</Template>
+			<Template>units/achae/infantry_javelineer_b</Template>
 			<Player>3</Player>
 			<Position x="366.40378" z="889.88074"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="64324"/>
 		</Entity>
 		<Entity uid="898">
-			<Template>units/pers/infantry_spearman_b</Template>
+			<Template>units/achae/infantry_spearman_b</Template>
 			<Player>3</Player>
 			<Position x="371.88962" z="919.42573"/>
 			<Orientation y="0.85892"/>
 			<Actor seed="29392"/>
 		</Entity>
 		<Entity uid="899">
-			<Template>units/pers/infantry_spearman_b</Template>
+			<Template>units/achae/infantry_spearman_b</Template>
 			<Player>3</Player>
 			<Position x="366.11182" z="925.85914"/>
 			<Orientation y="1.20652"/>
 			<Actor seed="19786"/>
 		</Entity>
 		<Entity uid="900">
-			<Template>units/pers/cavalry_javelineer_b</Template>
+			<Template>units/achae/cavalry_javelineer_b</Template>
 			<Player>3</Player>
 			<Position x="327.32337" z="925.31977"/>
 			<Orientation y="-0.99422"/>
 			<Actor seed="28068"/>
 		</Entity>
 		<Entity uid="904">
-			<Template>units/cart/support_female_citizen</Template>
+			<Template>units/cart/support_civilian</Template>
 			<Player>2</Player>
 			<Position x="325.5128" z="351.87403"/>
 			<Orientation y="-0.8292"/>
 			<Actor seed="22236"/>
 		</Entity>
 		<Entity uid="905">
-			<Template>units/cart/support_female_citizen</Template>
+			<Template>units/cart/support_civilian</Template>
 			<Player>2</Player>
 			<Position x="328.32966" z="354.80005"/>
 			<Orientation y="-0.944"/>
 			<Actor seed="15924"/>
 		</Entity>
 		<Entity uid="906">
-			<Template>units/cart/support_female_citizen</Template>
+			<Template>units/cart/support_civilian</Template>
 			<Player>2</Player>
 			<Position x="330.63593" z="358.67887"/>
 			<Orientation y="-0.63198"/>
 			<Actor seed="63958"/>
 		</Entity>
 		<Entity uid="907">
-			<Template>units/cart/support_female_citizen</Template>
+			<Template>units/cart/support_civilian</Template>
 			<Player>2</Player>
 			<Position x="333.78824" z="361.62433"/>
 			<Orientation y="-0.79165"/>

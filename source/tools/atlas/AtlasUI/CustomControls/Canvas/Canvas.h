@@ -1,4 +1,4 @@
-/* Copyright (C) 2011 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -15,7 +15,11 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "wx/glcanvas.h"
+#include <wx/event.h>
+#include <wx/gdicmn.h>
+#include <wx/glcanvas.h>
+
+class wxWindow;
 
 class Canvas : public wxGLCanvas
 {

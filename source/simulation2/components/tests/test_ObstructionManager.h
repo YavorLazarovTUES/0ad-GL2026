@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -15,10 +15,27 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "simulation2/system/ComponentTest.h"
+#include "lib/self_test.h"
 
-#include "simulation2/components/ICmpObstructionManager.h"
+#include "maths/Fixed.h"
+#include "maths/FixedVector2D.h"
+#include "ps/XML/Xeromyces.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/components/ICmpObstruction.h"
+#include "simulation2/components/ICmpObstructionManager.h"
+#include "simulation2/helpers/Position.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/ComponentTest.h"
+#include "simulation2/system/Entity.h"
+
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <numbers>
+#include <optional>
+#include <string>
+#include <vector>
 
 class MockObstruction : public ICmpObstruction
 {
@@ -28,29 +45,29 @@ public:
 
 	ICmpObstructionManager::tag_t GetObstruction() const override { return ICmpObstructionManager::tag_t(); }
 	bool GetObstructionSquare(ICmpObstructionManager::ObstructionSquare& out) const override { out = obstruction; return true; }
-	bool GetPreviousObstructionSquare(ICmpObstructionManager::ObstructionSquare& UNUSED(out)) const override { return true; }
+	bool GetPreviousObstructionSquare(ICmpObstructionManager::ObstructionSquare& /*out*/) const override { return true; }
 	entity_pos_t GetSize() const override { return entity_pos_t::Zero(); }
 	CFixedVector2D GetStaticSize() const override { return CFixedVector2D(); }
 	EObstructionType GetObstructionType() const override { return ICmpObstruction::STATIC; }
-	void SetUnitClearance(const entity_pos_t& UNUSED(clearance)) override { }
+	void SetUnitClearance(const entity_pos_t& /*clearance*/) override { }
 	bool IsControlPersistent() const override { return true; }
 	bool CheckShorePlacement() const override { return true; }
-	EFoundationCheck CheckFoundation(const std::string& UNUSED(className)) const override { return EFoundationCheck(); }
-	EFoundationCheck CheckFoundation(const std::string& UNUSED(className), bool UNUSED(onlyCenterPoint)) const override { return EFoundationCheck(); }
-	std::string CheckFoundation_wrapper(const std::string& UNUSED(className), bool UNUSED(onlyCenterPoint)) const override { return std::string(); }
+	EFoundationCheck CheckFoundation(const std::string& /*className*/) const override { return EFoundationCheck(); }
+	EFoundationCheck CheckFoundation(const std::string& /*className*/, bool /*onlyCenterPoint*/) const override { return EFoundationCheck(); }
+	std::string CheckFoundation_wrapper(const std::string& /*className*/, bool /*onlyCenterPoint*/) const override { return std::string(); }
 	bool CheckDuplicateFoundation() const override { return true; }
-	std::vector<entity_id_t> GetEntitiesByFlags(ICmpObstructionManager::flags_t UNUSED(flags)) const override { return std::vector<entity_id_t>(); }
+	std::vector<entity_id_t> GetEntitiesByFlags(ICmpObstructionManager::flags_t) const override { return std::vector<entity_id_t>(); }
 	std::vector<entity_id_t> GetEntitiesBlockingMovement() const override { return std::vector<entity_id_t>(); }
 	std::vector<entity_id_t> GetEntitiesBlockingConstruction() const override { return std::vector<entity_id_t>(); }
 	std::vector<entity_id_t> GetEntitiesDeletedUponConstruction() const override { return std::vector<entity_id_t>(); }
 	void ResolveFoundationCollisions() const override { }
-	void SetActive(bool UNUSED(active)) override { }
-	void SetMovingFlag(bool UNUSED(enabled)) override { }
-	void SetDisableBlockMovementPathfinding(bool UNUSED(movementDisabled), bool UNUSED(pathfindingDisabled), int32_t UNUSED(shape)) override { }
+	void SetActive(bool /*active*/) override { }
+	void SetMovingFlag(bool /*enabled*/) override { }
+	void SetDisableBlockMovementPathfinding(bool /*movementDisabled*/, bool /*pathfindingDisabled*/, int32_t /*shape*/) override { }
 	bool GetBlockMovementFlag(bool) const override { return true; }
-	void SetControlGroup(entity_id_t UNUSED(group)) override { }
+	void SetControlGroup(entity_id_t /*group*/) override { }
 	entity_id_t GetControlGroup() const override { return INVALID_ENTITY; }
-	void SetControlGroup2(entity_id_t UNUSED(group2)) override { }
+	void SetControlGroup2(entity_id_t /*group2*/) override { }
 	entity_id_t GetControlGroup2() const override { return INVALID_ENTITY; }
 };
 
@@ -58,6 +75,8 @@ class TestCmpObstructionManager : public CxxTest::TestSuite
 {
 	typedef ICmpObstructionManager::tag_t tag_t;
 	typedef ICmpObstructionManager::ObstructionSquare ObstructionSquare;
+
+	std::optional<CXeromycesEngine> xeromycesEngine;
 
 	// some variables for setting up a scene with 3 shapes
 	entity_id_t ent1, ent2, ent3; // entity IDs
@@ -75,7 +94,7 @@ class TestCmpObstructionManager : public CxxTest::TestSuite
 public:
 	void setUp()
 	{
-		CXeromyces::Startup();
+		xeromycesEngine.emplace();
 		CxxTest::setAbortTestOnFail(true);
 
 		// set up a simple scene with some predefined obstruction shapes
@@ -126,7 +145,7 @@ public:
 		delete testHelper;
 		cmp = NULL; // not our responsibility to deallocate
 
-		CXeromyces::Terminate();
+		xeromycesEngine.reset();
 	}
 
 	/**
@@ -395,7 +414,7 @@ public:
 		             ent4z = fixed::Zero(),
 		             ent4w = fixed::FromInt(1),
 		             ent4h = fixed::FromInt(1);
-		entity_angle_t ent4a = fixed::FromDouble(M_PI/3);
+		entity_angle_t ent4a = fixed::FromDouble(std::numbers::pi / 3.);
 
 		cmp->AddStaticShape(ent4, ent4x, ent4z, ent4a, ent4w, ent4h, ICmpObstructionManager::FLAG_BLOCK_PATHFINDING, ent4g1, ent4g2);
 		cmp->SetStaticControlGroup(shape1, ent1g1, ent1g2_new);
@@ -452,7 +471,7 @@ public:
 		// Collision-test a shape that is perfectly adjacent to shape3. This should be counted as a hit according to
 		// the code at the time of writing.
 
-		entity_angle_t ent4a = fixed::FromDouble(M_PI); // rotated 180 degrees, should not affect collision test
+		entity_angle_t ent4a = fixed::FromDouble(std::numbers::pi); // rotated 180 degrees, should not affect collision test
 		entity_pos_t ent4w = fixed::FromInt(2),
 		             ent4h = fixed::FromInt(1),
 		             ent4x = ent3x + ent3c + ent4w/2, // make ent4 adjacent to ent3

@@ -1,13 +1,13 @@
 function SkirmishReplacer() {}
 
 SkirmishReplacer.prototype.Schema =
-		"<optional>" +
-			"<element name='general' a:help='The general element replaces {civ} with the civ code.'>" +
-				"<interleave>" +
-					"<text/>" +
-				"</interleave>" +
-			"</element>" +
-		"</optional>";
+	"<optional>" +
+		"<element name='general' a:help='The general element replaces {civ} with the civ code.'>" +
+			"<interleave>" +
+				"<text/>" +
+			"</interleave>" +
+		"</element>" +
+	"</optional>";
 
 SkirmishReplacer.prototype.Init = function()
 {
@@ -37,7 +37,7 @@ SkirmishReplacer.prototype.ReplaceEntities = function()
 	var cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
 	var templateName = cmpTemplateManager.GetCurrentTemplateName(this.entity);
 
-	let specialFilters = templateName.substr(0, templateName.lastIndexOf("|") + 1);
+	const specialFilters = templateName.substr(0, templateName.lastIndexOf("|") + 1);
 	templateName = removeFiltersFromTemplateName(templateName);
 
 	if (templateName in replacementEntities)
@@ -71,7 +71,7 @@ SkirmishReplacer.prototype.ReplaceEntities = function()
 	var cmpReplacementOwnership = Engine.QueryInterface(replacement, IID_Ownership);
 	cmpReplacementOwnership.SetOwner(cmpCurOwnership.GetOwner());
 
-	let msg = { "entity": this.entity, "newentity": replacement };
+	const msg = { "entity": this.entity, "newentity": replacement };
 	Engine.PostMessage(this.entity, MT_EntityRenamed, msg);
 	Engine.PostMessage(this.entity, MT_SkirmishReplacerReplaced, msg);
 	Engine.DestroyEntity(this.entity);

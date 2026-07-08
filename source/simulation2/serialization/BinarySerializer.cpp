@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,15 +19,35 @@
 
 #include "BinarySerializer.h"
 
-#include "lib/alignment.h"
 #include "lib/utf8.h"
 #include "ps/CLogger.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptExtraHeaders.h"
-#include "scriptinterface/ScriptRequest.h"
 #include "scriptinterface/JSON.h"
+#include "scriptinterface/Request.h"
+#include "simulation2/serialization/SerializedScriptTypes.h"
 
-#include "SerializedScriptTypes.h"
+#include <cmath>
+#include <js/Array.h>
+#include <js/ArrayBuffer.h>
+#include <js/Class.h>
+#include <js/ComparisonOperators.h>
+#include <js/Conversions.h>
+#include <js/ForOfIterator.h>
+#include <js/GCAPI.h>
+#include <js/MapAndSet.h>
+#include <js/Object.h>
+#include <js/PropertyAndElement.h>
+#include <js/PropertyDescriptor.h>
+#include <js/ScalarType.h>
+#include <js/String.h>
+#include <js/Value.h>
+#include <js/experimental/TypedData.h>
+#include <jsapi.h>
+#include <jspubtd.h>
+#include <mozilla/HashTable.h>
+#include <mozilla/Maybe.h>
+
+class JSObject;
 
 static u8 GetArrayType(js::Scalar::Type arrayType)
 {
@@ -57,33 +77,33 @@ static u8 GetArrayType(js::Scalar::Type arrayType)
 	}
 }
 
-CBinarySerializerScriptImpl::CBinarySerializerScriptImpl(const ScriptInterface& scriptInterface, ISerializer& serializer) :
+CBinarySerializerScriptImpl::CBinarySerializerScriptImpl(const Script::Interface& scriptInterface, ISerializer& serializer) :
 	m_ScriptInterface(scriptInterface), m_Serializer(serializer), m_ScriptBackrefsNext(0)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 	JS_AddExtraGCRootsTracer(rq.cx, Trace, this);
+	m_SerializePropId = JS::PropertyKey::fromPinnedString(JS_AtomizeAndPinString(rq.cx, "Serialize"));
+	m_DeserializePropId = JS::PropertyKey::fromPinnedString(JS_AtomizeAndPinString(rq.cx, "Deserialize"));
 }
 
 CBinarySerializerScriptImpl::~CBinarySerializerScriptImpl()
 {
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 	JS_RemoveExtraGCRootsTracer(rq.cx, Trace, this);
 }
 
-void CBinarySerializerScriptImpl::HandleScriptVal(JS::HandleValue val)
+void CBinarySerializerScriptImpl::PutScriptVal(JS::HandleValue val)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	HandleScriptVal(Script::Request(m_ScriptInterface), val);
+}
 
+void CBinarySerializerScriptImpl::HandleScriptVal(const Script::Request& rq, JS::HandleValue val)
+{
 	switch (JS_TypeOfValue(rq.cx, val))
 	{
 	case JSTYPE_UNDEFINED:
 	{
 		m_Serializer.NumberU8_Unbounded("type", SCRIPT_TYPE_VOID);
-		break;
-	}
-	case JSTYPE_NULL: // This type is never actually returned (it's a JS2 feature)
-	{
-		m_Serializer.NumberU8_Unbounded("type", SCRIPT_TYPE_NULL);
 		break;
 	}
 	case JSTYPE_OBJECT:
@@ -97,7 +117,7 @@ void CBinarySerializerScriptImpl::HandleScriptVal(JS::HandleValue val)
 		JS::RootedObject obj(rq.cx, &val.toObject());
 
 		// If we've already serialized this object, just output a reference to it
-		u32 tag = GetScriptBackrefTag(obj);
+		u32 tag = GetScriptBackrefTag(rq, obj);
 		if (tag != 0)
 		{
 			m_Serializer.NumberU8_Unbounded("type", SCRIPT_TYPE_BACKREF);
@@ -134,7 +154,7 @@ void CBinarySerializerScriptImpl::HandleScriptVal(JS::HandleValue val)
 			// Now handle its array buffer
 			// this may be a backref, since ArrayBuffers can be shared by multiple views
 			JS::RootedValue bufferVal(rq.cx, JS::ObjectValue(*JS_GetArrayBufferViewBuffer(rq.cx, obj, &sharedMemory)));
-			HandleScriptVal(bufferVal);
+			HandleScriptVal(rq, bufferVal);
 			break;
 		}
 		else if (JS::IsArrayBufferObject(obj))
@@ -182,8 +202,8 @@ void CBinarySerializerScriptImpl::HandleScriptVal(JS::HandleValue val)
 				ENSURE(JS_GetElement(rq.cx, keyValuePairObj, 0, &key));
 				ENSURE(JS_GetElement(rq.cx, keyValuePairObj, 1, &value));
 
-				HandleScriptVal(key);
-				HandleScriptVal(value);
+				HandleScriptVal(rq, key);
+				HandleScriptVal(rq, value);
 			}
 			break;
 		}
@@ -211,7 +231,7 @@ void CBinarySerializerScriptImpl::HandleScriptVal(JS::HandleValue val)
 				if (done)
 					break;
 
-				HandleScriptVal(value);
+				HandleScriptVal(rq, value);
 			}
 			break;
 		}
@@ -232,14 +252,14 @@ void CBinarySerializerScriptImpl::HandleScriptVal(JS::HandleValue val)
 				if (!JS_GetPrototype(rq.cx, obj, &proto))
 					throw PSERROR_Serialize_ScriptError("JS_GetPrototype failed");
 
-				SPrototypeSerialization protoInfo = GetPrototypeInfo(rq, proto);
+				SPrototypeSerialization protoInfo = GetPrototypeInfo(rq, proto, m_SerializePropId, m_DeserializePropId);
 
-				if (protoInfo.name == "Object")
+				if (protoInfo.name == L"Object")
 					m_Serializer.NumberU8_Unbounded("type", SCRIPT_TYPE_OBJECT);
 				else
 				{
 					m_Serializer.NumberU8_Unbounded("type", SCRIPT_TYPE_OBJECT_PROTOTYPE);
-					m_Serializer.String("proto", wstring_from_utf8(protoInfo.name), 0, 256);
+					m_Serializer.String("proto", protoInfo.name, 0, 256);
 
 					// Does it have custom Serialize function?
 					// if so, we serialize the data it returns, rather than the object's properties directly
@@ -249,7 +269,7 @@ void CBinarySerializerScriptImpl::HandleScriptVal(JS::HandleValue val)
 						if (!protoInfo.hasNullSerialize)
 						{
 							JS::RootedValue data(rq.cx);
-							if (!ScriptFunction::Call(rq, val, "Serialize", &data))
+							if (!Script::Function::Call(rq, val, "Serialize", &data))
 								throw PSERROR_Serialize_ScriptError("Prototype Serialize function failed");
 							m_Serializer.ScriptVal("data", &data);
 						}
@@ -286,7 +306,7 @@ void CBinarySerializerScriptImpl::HandleScriptVal(JS::HandleValue val)
 				JS::RootedString str(rq.cx, JS::ToString(rq.cx, val));
 				if (!str)
 					throw PSERROR_Serialize_ScriptError("JS_ValueToString failed");
-				ScriptString("value", str);
+				ScriptString(rq, "value", str);
 				break;
 			}
 			else if (protokey == JSProto_Boolean)
@@ -301,7 +321,7 @@ void CBinarySerializerScriptImpl::HandleScriptVal(JS::HandleValue val)
 			else
 			{
 				// Unrecognized class
-				LOGERROR("Cannot serialise JS objects with unrecognized class '%s'", jsclass->name);
+				LOGERROR("Cannot serialize JS objects with unrecognized class '%s'", jsclass->name);
 				throw PSERROR_Serialize_InvalidScriptValue();
 			}
 		}
@@ -335,12 +355,12 @@ void CBinarySerializerScriptImpl::HandleScriptVal(JS::HandleValue val)
 			if (!idstr)
 				throw PSERROR_Serialize_ScriptError("JS_ValueToString failed");
 
-			ScriptString("prop name", idstr);
+			ScriptString(rq, "prop name", idstr);
 
 			if (!JS_GetPropertyById(rq.cx, obj, id, &propval))
 				throw PSERROR_Serialize_ScriptError("JS_GetPropertyById failed");
 
-			HandleScriptVal(propval);
+			HandleScriptVal(rq, propval);
 		}
 
 		break;
@@ -352,7 +372,7 @@ void CBinarySerializerScriptImpl::HandleScriptVal(JS::HandleValue val)
 		JS::RootedFunction func(rq.cx, JS_ValueToFunction(rq.cx, val));
 		if (func)
 		{
-			JS::RootedString string(rq.cx, JS_GetFunctionId(func));
+			JS::RootedString string(rq.cx, JS_GetMaybePartialFunctionId(func));
 			if (string)
 			{
 				if (JS::StringHasLatin1Chars(string))
@@ -374,14 +394,14 @@ void CBinarySerializerScriptImpl::HandleScriptVal(JS::HandleValue val)
 			}
 		}
 
-		LOGERROR("Cannot serialise JS objects of type 'function': %s", utf8_from_wstring(funcname));
+		LOGERROR("Cannot serialize JS objects of type 'function': %s", utf8_from_wstring(funcname));
 		throw PSERROR_Serialize_InvalidScriptValue();
 	}
 	case JSTYPE_STRING:
 	{
 		m_Serializer.NumberU8_Unbounded("type", SCRIPT_TYPE_STRING);
 		JS::RootedString stringVal(rq.cx, val.toString());
-		ScriptString("string", stringVal);
+		ScriptString(rq, "string", stringVal);
 		break;
 	}
 	case JSTYPE_NUMBER:
@@ -430,10 +450,8 @@ void CBinarySerializerScriptImpl::HandleScriptVal(JS::HandleValue val)
 	}
 }
 
-void CBinarySerializerScriptImpl::ScriptString(const char* name, JS::HandleString string)
+void CBinarySerializerScriptImpl::ScriptString(const Script::Request& rq, const char* name, JS::HandleString string)
 {
-	ScriptRequest rq(m_ScriptInterface);
-
 #if BYTE_ORDER != LITTLE_ENDIAN
 #error TODO: probably need to convert JS strings to little-endian
 #endif
@@ -441,8 +459,8 @@ void CBinarySerializerScriptImpl::ScriptString(const char* name, JS::HandleStrin
 	size_t length;
 	JS::AutoCheckCannotGC nogc;
 	// Serialize strings directly as UTF-16 or Latin1, to avoid expensive encoding conversions
-	bool isLatin1 = JS::StringHasLatin1Chars(string);
-	m_Serializer.Bool("isLatin1", isLatin1);
+	u8 isLatin1 = JS::StringHasLatin1Chars(string);
+	m_Serializer.NumberU8_Unbounded("isLatin1", isLatin1);
 	if (isLatin1)
 	{
 		const JS::Latin1Char* chars = JS_GetLatin1StringCharsAndLength(rq.cx, nogc, string, &length);
@@ -468,14 +486,12 @@ void CBinarySerializerScriptImpl::Trace(JSTracer *trc, void *data)
 	serializer->m_ScriptBackrefTags.trace(trc);
 }
 
-u32 CBinarySerializerScriptImpl::GetScriptBackrefTag(JS::HandleObject obj)
+u32 CBinarySerializerScriptImpl::GetScriptBackrefTag(const Script::Request& rq, JS::HandleObject obj)
 {
 	// To support non-tree structures (e.g. "var x = []; var y = [x, x];"), we need a way
 	// to indicate multiple references to one object(/array). So every time we serialize a
 	// new object, we give it a new tag; when we serialize it a second time we just refer
 	// to that tag.
-
-	ScriptRequest rq(m_ScriptInterface);
 
 	ObjectTagMap::Ptr ptr = m_ScriptBackrefTags.lookup(JS::Heap<JSObject*>(obj.get()));
 	if (!ptr.found())

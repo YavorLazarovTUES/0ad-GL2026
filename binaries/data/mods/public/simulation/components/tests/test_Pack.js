@@ -17,12 +17,13 @@ Engine.LoadComponentScript("interfaces/StatusEffectsReceiver.js");
 Engine.LoadComponentScript("interfaces/TerritoryDecay.js");
 Engine.LoadComponentScript("interfaces/Timer.js");
 Engine.LoadComponentScript("interfaces/UnitAI.js");
+Engine.LoadComponentScript("interfaces/Turretable.js");
+Engine.LoadComponentScript("interfaces/TurretHolder.js");
 Engine.LoadComponentScript("Pack.js");
 Engine.RegisterGlobal("MT_EntityRenamed", "entityRenamed");
 
 const ent = 170;
 const newEnt = 171;
-const PACKING_INTERVAL = 250;
 let timerActivated = false;
 
 AddMock(ent, IID_Visual, {
@@ -43,12 +44,26 @@ AddMock(ent, IID_Sound, {
 
 AddMock(SYSTEM_ENTITY, IID_Timer, {
 	"CancelTimer": id => { timerActivated = false; return; },
-	"SetInterval": (ent, iid, funcname, time, repeattime, data) => { timerActivated = true; return 7; }
+	"SetInterval": (entity, iid, funcname, time, repeattime, data) => { timerActivated = true; return 7; }
 });
 
-Engine.AddEntity = function(template) {
+AddMock(ent, IID_Turretable, {
+	"IsTurreted": () => false,
+	"HolderID": () => 0,
+	"LeaveTurret": () => true
+});
+
+AddMock(newEnt, IID_Turretable, {
+	"IsTurreted": () => false,
+	"HolderID": () => 0,
+	"CanOccupy": (target) => true,
+	"LeaveTurret": () => true
+});
+
+Engine.AddEntity = function(template)
+{
 	TS_ASSERT_EQUALS(template, "finalTemplate");
-	return true;
+	return newEnt;
 };
 
 // Test Packing
@@ -110,8 +125,8 @@ cmpPack.elapsedTime = 400;
 cmpPack.PackProgress({}, 100);
 
 TS_ASSERT(cmpPack.IsPacking());
-TS_ASSERT_EQUALS(cmpPack.GetElapsedTime(), 400 + 100 + PACKING_INTERVAL);
-TS_ASSERT_EQUALS(cmpPack.GetProgress(), (400 + 100 + PACKING_INTERVAL) / 2000);
+TS_ASSERT_EQUALS(cmpPack.GetElapsedTime(), 400 + 100 + cmpPack.PACKING_INTERVAL);
+TS_ASSERT_EQUALS(cmpPack.GetProgress(), (400 + 100 + cmpPack.PACKING_INTERVAL) / 2000);
 
 // Try to Pack or Unpack while packing, nothing happen
 cmpPack.elapsedTime = 400;
@@ -143,7 +158,7 @@ cmpPack.elapsedTime = 1800;
 cmpPack.PackProgress({}, 100);
 
 TS_ASSERT(cmpPack.IsPacking());
-TS_ASSERT_EQUALS(cmpPack.GetElapsedTime(), 1800 + 100 + PACKING_INTERVAL);
+TS_ASSERT_EQUALS(cmpPack.GetElapsedTime(), 1800 + 100 + cmpPack.PACKING_INTERVAL);
 // Cap progress at 100%
 TS_ASSERT_EQUALS(cmpPack.GetProgress(), 1);
 TS_ASSERT_EQUALS(cmpPack.timer, 7);

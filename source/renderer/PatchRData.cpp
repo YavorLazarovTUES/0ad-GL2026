@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,38 +19,62 @@
 
 #include "renderer/PatchRData.h"
 
+#include "graphics/Camera.h"
+#include "graphics/Color.h"
 #include "graphics/GameView.h"
-#include "graphics/LightEnv.h"
-#include "graphics/LOSTexture.h"
+#include "graphics/Material.h"
+#include "graphics/MiniPatch.h"
 #include "graphics/Patch.h"
+#include "graphics/ShaderDefines.h"
 #include "graphics/ShaderManager.h"
+#include "graphics/ShaderTechnique.h"
+#include "graphics/ShaderTechniquePtr.h"
 #include "graphics/Terrain.h"
 #include "graphics/TerrainTextureEntry.h"
+#include "graphics/TerrainTextureManager.h"
 #include "graphics/TextRenderer.h"
 #include "graphics/TextureManager.h"
-#include "lib/allocators/DynamicArena.h"
+#include "lib/alignment.h"
 #include "lib/allocators/STLAllocators.h"
-#include "maths/MathUtil.h"
+#include "lib/code_generation.h"
+#include "lib/debug.h"
+#include "maths/Matrix3D.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
 #include "ps/Game.h"
-#include "ps/GameSetup/Config.h"
+#include "ps/memory/LinearAllocator.h"
 #include "ps/Profile.h"
-#include "ps/Pyrogenesis.h"
-#include "ps/VideoMode.h"
-#include "ps/World.h"
 #include "renderer/AlphaMapCalculator.h"
+#include "renderer/BlendShapes.h"
 #include "renderer/DebugRenderer.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
 #include "renderer/TerrainRenderer.h"
+#include "renderer/VertexBuffer.h"
 #include "renderer/WaterManager.h"
+#include "renderer/backend/Format.h"
+#include "renderer/backend/IBuffer.h"
+#include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/IShaderProgram.h"
 #include "simulation2/components/ICmpWaterManager.h"
-#include "simulation2/Simulation2.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
 
 #include <algorithm>
+#include <array>
+#include <cstdint>
+#include <cstring>
+#include <functional>
+#include <iterator>
+#include <map>
+#include <memory>
 #include <numeric>
-#include <set>
+#include <string>
+#include <utility>
+
+namespace Renderer::Backend { class ITexture; }
 
 const ssize_t BlendOffsets[9][2] = {
 	{  0, -1 },
@@ -817,16 +841,14 @@ void CPatchRData::Update(CSimulation2* simulation)
 // batches uses a arena allocator. (All allocations are short-lived so we can
 // just throw away the whole arena at the end of each frame.)
 
-using Arena = Allocators::DynamicArena<1 * MiB>;
-
 // std::map types with appropriate arena allocators and default comparison operator
 template<class Key, class Value>
-using PooledBatchMap = std::map<Key, Value, std::less<Key>, ProxyAllocator<std::pair<Key const, Value>, Arena>>;
+using PooledBatchMap = std::map<Key, Value, std::less<Key>, ProxyAllocator<std::pair<Key const, Value>, PS::Memory::ScopedLinearAllocator>>;
 
 // Equivalent to "m[k]", when it returns a arena-allocated std::map (since we can't
 // use the default constructor in that case)
 template<typename M>
-typename M::mapped_type& PooledMapGet(M& m, const typename M::key_type& k, Arena& arena)
+typename M::mapped_type& PooledMapGet(M& m, const typename M::key_type& k, PS::Memory::ScopedLinearAllocator& arena)
 {
 	return m.insert(std::make_pair(k,
 		typename M::mapped_type(typename M::mapped_type::key_compare(), typename M::mapped_type::allocator_type(arena))
@@ -835,7 +857,7 @@ typename M::mapped_type& PooledMapGet(M& m, const typename M::key_type& k, Arena
 
 // Equivalent to "m[k]", when it returns a std::pair of arena-allocated std::vectors
 template<typename M>
-typename M::mapped_type& PooledPairGet(M& m, const typename M::key_type& k, Arena& arena)
+typename M::mapped_type& PooledPairGet(M& m, const typename M::key_type& k, PS::Memory::ScopedLinearAllocator& arena)
 {
 	return m.insert(std::make_pair(k, std::make_pair(
 			typename M::mapped_type::first_type(typename M::mapped_type::first_type::allocator_type(arena)),
@@ -844,7 +866,7 @@ typename M::mapped_type& PooledPairGet(M& m, const typename M::key_type& k, Aren
 }
 
 // Each multidraw batch has a list of index counts, and a list of pointers-to-first-indexes
-using BatchElements = std::pair<std::vector<u32, ProxyAllocator<u32, Arena>>, std::vector<u32, ProxyAllocator<u32, Arena>>>;
+using BatchElements = std::pair<std::vector<u32, ProxyAllocator<u32, PS::Memory::ScopedLinearAllocator>>, std::vector<u32, ProxyAllocator<u32, PS::Memory::ScopedLinearAllocator>>>;
 
 // Group batches by index buffer
 using IndexBufferBatches = PooledBatchMap<CVertexBuffer*, BatchElements>;
@@ -861,14 +883,15 @@ using ShaderTechniqueBatches = PooledBatchMap<std::pair<CStrIntern, CShaderDefin
 void CPatchRData::RenderBases(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	Renderer::Backend::IVertexInputLayout* vertexInputLayout,
-	const std::vector<CPatchRData*>& patches, const CShaderDefines& context, ShadowMap* shadow)
+	const std::vector<CPatchRData*>& patches, const CShaderDefines& context,
+	ShadowMap* shadow, const CMaterial::Pass materialPass)
 {
 	PROFILE3("render terrain bases");
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render terrain bases");
 
-	Arena arena;
+	PS::Memory::ScopedLinearAllocator scopedLinearAllocator{g_Renderer.GetLinearAllocator()};
 
-	ShaderTechniqueBatches batches(ShaderTechniqueBatches::key_compare(), (ShaderTechniqueBatches::allocator_type(arena)));
+	ShaderTechniqueBatches batches(ShaderTechniqueBatches::key_compare(), (ShaderTechniqueBatches::allocator_type(scopedLinearAllocator)));
 
 	PROFILE_START("compute batches");
 
@@ -880,7 +903,7 @@ void CPatchRData::RenderBases(
 		{
 			SSplat& splat = patch->m_Splats[j];
 			const CMaterial& material = splat.m_Texture->GetMaterial();
-			if (material.GetShaderEffect().empty())
+			if (material.GetShaderEffect(materialPass).empty())
 			{
 				LOGERROR("Terrain renderer failed to load shader effect.\n");
 				continue;
@@ -889,12 +912,14 @@ void CPatchRData::RenderBases(
 			BatchElements& batch = PooledPairGet(
 				PooledMapGet(
 					PooledMapGet(
-						PooledMapGet(batches, std::make_pair(material.GetShaderEffect(), material.GetShaderDefines()), arena),
-						splat.m_Texture, arena
+						PooledMapGet(
+							batches, std::make_pair(material.GetShaderEffect(materialPass), material.GetShaderDefines()),
+							scopedLinearAllocator),
+						splat.m_Texture, scopedLinearAllocator
 					),
-					patch->m_VBBase->m_Owner, arena
+					patch->m_VBBase->m_Owner, scopedLinearAllocator
 				),
-				patch->m_VBBaseIndices->m_Owner, arena
+				patch->m_VBBaseIndices->m_Owner, scopedLinearAllocator
 			);
 
 			batch.first.push_back(splat.m_IndexCount);
@@ -991,8 +1016,8 @@ void CPatchRData::RenderBases(
  */
 struct SBlendBatch
 {
-	SBlendBatch(Arena& arena) :
-		m_Batches(VertexBufferBatches::key_compare(), VertexBufferBatches::allocator_type(arena))
+	SBlendBatch(PS::Memory::ScopedLinearAllocator& allocator) :
+		m_Batches(VertexBufferBatches::key_compare(), VertexBufferBatches::allocator_type(allocator))
 	{
 	}
 
@@ -1007,12 +1032,12 @@ struct SBlendBatch
 struct SBlendStackItem
 {
 	SBlendStackItem(CVertexBuffer::VBChunk* v, CVertexBuffer::VBChunk* i,
-			const std::vector<CPatchRData::SSplat>& s, Arena& arena) :
-		vertices(v), indices(i), splats(s.begin(), s.end(), SplatStack::allocator_type(arena))
+			const std::vector<CPatchRData::SSplat>& s, PS::Memory::ScopedLinearAllocator& allocator) :
+		vertices(v), indices(i), splats(s.begin(), s.end(), SplatStack::allocator_type(allocator))
 	{
 	}
 
-	using SplatStack = std::vector<CPatchRData::SSplat, ProxyAllocator<CPatchRData::SSplat, Arena>>;
+	using SplatStack = std::vector<CPatchRData::SSplat, ProxyAllocator<CPatchRData::SSplat, PS::Memory::ScopedLinearAllocator>>;
 	CVertexBuffer::VBChunk* vertices;
 	CVertexBuffer::VBChunk* indices;
 	SplatStack splats;
@@ -1021,15 +1046,16 @@ struct SBlendStackItem
 void CPatchRData::RenderBlends(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	Renderer::Backend::IVertexInputLayout* vertexInputLayout,
-	const std::vector<CPatchRData*>& patches, const CShaderDefines& context, ShadowMap* shadow)
+	const std::vector<CPatchRData*>& patches, const CShaderDefines& context,
+	ShadowMap* shadow, const CMaterial::Pass materialPass)
 {
 	PROFILE3("render terrain blends");
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render terrain blends");
 
-	Arena arena;
+	PS::Memory::ScopedLinearAllocator scopedLinearAllocator{g_Renderer.GetLinearAllocator()};
 
-	using BatchesStack = std::vector<SBlendBatch, ProxyAllocator<SBlendBatch, Arena>>;
-	BatchesStack batches((BatchesStack::allocator_type(arena)));
+	using BatchesStack = std::vector<SBlendBatch, ProxyAllocator<SBlendBatch, PS::Memory::ScopedLinearAllocator>>;
+	BatchesStack batches((BatchesStack::allocator_type(scopedLinearAllocator)));
 
 	CShaderDefines contextBlend = context;
 	contextBlend.Add(str_BLEND, str_1);
@@ -1040,8 +1066,8 @@ void CPatchRData::RenderBlends(
  	// to avoid heavy reallocations
  	batches.reserve(256);
 
-	using BlendStacks = std::vector<SBlendStackItem, ProxyAllocator<SBlendStackItem, Arena>>;
-	BlendStacks blendStacks((BlendStacks::allocator_type(arena)));
+	using BlendStacks = std::vector<SBlendStackItem, ProxyAllocator<SBlendStackItem, PS::Memory::ScopedLinearAllocator>>;
+	BlendStacks blendStacks((BlendStacks::allocator_type(scopedLinearAllocator)));
 	blendStacks.reserve(patches.size());
 
 	// Extract all the blend splats from each patch
@@ -1050,8 +1076,7 @@ void CPatchRData::RenderBlends(
  		CPatchRData* patch = patches[i];
  		if (!patch->m_BlendSplats.empty())
  		{
-
- 			blendStacks.push_back(SBlendStackItem(patch->m_VBBlends.Get(), patch->m_VBBlendIndices.Get(), patch->m_BlendSplats, arena));
+			blendStacks.push_back(SBlendStackItem(patch->m_VBBlends.Get(), patch->m_VBBlendIndices.Get(), patch->m_BlendSplats, scopedLinearAllocator));
  			// Reverse the splats so the first to be rendered is at the back of the list
  			std::reverse(blendStacks.back().splats.begin(), blendStacks.back().splats.end());
  		}
@@ -1076,7 +1101,7 @@ void CPatchRData::RenderBlends(
 					CVertexBuffer::VBChunk* vertices = blendStacks[k].vertices;
 					CVertexBuffer::VBChunk* indices = blendStacks[k].indices;
 
-					BatchElements& batch = PooledPairGet(PooledMapGet(batches.back().m_Batches, vertices->m_Owner, arena), indices->m_Owner, arena);
+					BatchElements& batch = PooledPairGet(PooledMapGet(batches.back().m_Batches, vertices->m_Owner, scopedLinearAllocator), indices->m_Owner, scopedLinearAllocator);
 					batch.first.push_back(splats.back().m_IndexCount);
 
 		 			batch.second.push_back(indices->m_Index + splats.back().m_IndexStart);
@@ -1102,18 +1127,26 @@ void CPatchRData::RenderBlends(
 		if (bestStackSize == 0)
 			break;
 
-		SBlendBatch layer(arena);
+		SBlendBatch layer(scopedLinearAllocator);
 		layer.m_Texture = bestTex;
 		if (!bestTex->GetMaterial().GetSamplers().empty())
 		{
 			CShaderDefines defines = contextBlend;
 			defines.SetMany(bestTex->GetMaterial().GetShaderDefines());
 			// TODO: move enabling blend to XML.
-			const CStrIntern shaderEffect = bestTex->GetMaterial().GetShaderEffect();
-			if (shaderEffect != str_terrain_base)
+			const CStrIntern shaderEffect = bestTex->GetMaterial().GetShaderEffect(materialPass);
+			if (shaderEffect != str_terrain_base && shaderEffect != str_terrain_base_reflections && shaderEffect != str_terrain_base_wireframe)
 				ONCE(LOGWARNING("Shader effect '%s' doesn't support semi-transparent terrain rendering.", shaderEffect.c_str()));
-			layer.m_ShaderTech = g_Renderer.GetShaderManager().LoadEffect(
-				shaderEffect == str_terrain_base ? str_terrain_blend : shaderEffect, defines);
+			layer.m_ShaderTech = g_Renderer.GetShaderManager().LoadEffect([](const CStrIntern shaderEffect)
+				{
+					if (shaderEffect == str_terrain_base)
+						return str_terrain_blend;
+					if (shaderEffect == str_terrain_base_reflections)
+						return str_terrain_blend_reflections;
+					if (shaderEffect == str_terrain_base_wireframe)
+						return str_terrain_blend_wireframe;
+					return shaderEffect;
+				}(shaderEffect), defines);
 		}
 		batches.push_back(layer);
 	}
@@ -1278,7 +1311,7 @@ void CPatchRData::RenderStreams(
 	}
 }
 
-void CPatchRData::RenderOutline()
+void CPatchRData::RenderOutline(Renderer::Backend::IDeviceCommandContext& deviceCommandContext)
 {
 	CTerrain* terrain = m_Patch->m_Parent;
 	ssize_t gx = m_Patch->m_X * PATCH_SIZE;
@@ -1307,7 +1340,7 @@ void CPatchRData::RenderOutline()
 		line.push_back(pos);
 	}
 
-	g_Renderer.GetDebugRenderer().DrawLine(line, CColor(0.0f, 0.0f, 1.0f, 1.0f), 0.1f);
+	g_Renderer.GetDebugRenderer().DrawLine(deviceCommandContext, line, CColor(0.0f, 0.0f, 1.0f, 1.0f), 0.1f);
 }
 
 void CPatchRData::RenderSides(
@@ -1347,7 +1380,7 @@ void CPatchRData::RenderSides(
 void CPatchRData::RenderPriorities(CTextRenderer& textRenderer)
 {
 	CTerrain* terrain = m_Patch->m_Parent;
-	const CCamera& camera = *(g_Game->GetView()->GetCamera());
+	const CCamera& camera{g_Game->GetView()->GetCamera()};
 
 	for (ssize_t j = 0; j < PATCH_SIZE; ++j)
 	{
@@ -1363,10 +1396,10 @@ void CPatchRData::RenderPriorities(CTextRenderer& textRenderer)
 			pos.X += TERRAIN_TILE_SIZE/4.f;
 			pos.Z += TERRAIN_TILE_SIZE/4.f;
 
-			float x, y;
-			camera.GetScreenCoordinates(pos, x, y);
+			const CVector2D screenPos{camera.GetScreenCoordinates(pos)};
 
-			textRenderer.PrintfAt(x, y, L"%d", m_Patch->m_MiniPatches[j][i].Priority);
+			textRenderer.PrintfAt(screenPos.X, screenPos.Y, L"%d",
+				m_Patch->m_MiniPatches[j][i].Priority);
 		}
 	}
 }

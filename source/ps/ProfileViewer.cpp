@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,23 +19,37 @@
 
 #include "ProfileViewer.h"
 
+#include "lib/code_annotation.h"
 #include "graphics/Canvas2D.h"
+#include "graphics/Color.h"
 #include "graphics/FontMetrics.h"
 #include "graphics/TextRenderer.h"
 #include "lib/external_libraries/libsdl.h"
+#include "lib/os_path.h"
+#include "lib/path.h"
+#include "maths/Rect.h"
 #include "maths/Size2D.h"
 #include "maths/Vector2D.h"
 #include "ps/CLogger.h"
-#include "ps/CStrInternStatic.h"
-#include "ps/Filesystem.h"
+#include "ps/CStrIntern.h"
 #include "ps/Hotkey.h"
 #include "ps/Profile.h"
 #include "ps/Pyrogenesis.h"
+#include "ps/VideoMode.h"
 #include "scriptinterface/Object.h"
+#include "scriptinterface/Request.h"
 
+#include <SDL_events.h>
+#include <SDL_keycode.h>
 #include <algorithm>
 #include <ctime>
 #include <fstream>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <string>
+
+namespace Script { class Interface; }
 
 struct CProfileViewerInternals
 {
@@ -56,8 +70,25 @@ public:
 	void TableIsDeleted(AbstractProfileTable* table);
 	void NavigateTree(int id);
 
+	void SaveToFile();
+
 	/// File for saved profile output (reset when the game is restarted)
 	std::ofstream outputStream;
+
+	/**
+	 * Input: Filter and handle any input events that the profile display is
+	 * interested in.
+	 *
+	 * In particular, this function handles enable/disable of the profile
+	 * display as well as navigating the information tree.
+	 */
+	struct InputHandler
+	{
+		CProfileViewerInternals& profileViewer;
+		Input::Reaction operator()(const SDL_Event& ev);
+	};
+	Input::Handler<InputHandler> inputHandler{g_VideoMode.m_InputManager, Input::Slot::PROFILE_VIEWER,
+		{*this}};
 };
 
 
@@ -154,7 +185,7 @@ void CProfileViewer::RenderProfile(CCanvas2D& canvas)
 		return;
 	}
 
-	PROFILE3_GPU("profile viewer");
+	PROFILE3("profile viewer");
 
 	AbstractProfileTable* table = m->path[m->path.size() - 1];
 	const std::vector<ProfileColumn>& columns = table->GetColumns();
@@ -162,7 +193,7 @@ void CProfileViewer::RenderProfile(CCanvas2D& canvas)
 
 	CStrIntern font_name("mono-stroke-10");
 	CFontMetrics font(font_name);
-	int lineSpacing = font.GetLineSpacing();
+	int height = font.GetHeight();
 
 	// Render background.
 	float estimateWidth = 50.0f;
@@ -172,7 +203,7 @@ void CProfileViewer::RenderProfile(CCanvas2D& canvas)
 	float estimateHeight = 3 + static_cast<float>(numrows);
 	if (m->path.size() > 1)
 		estimateHeight += 2;
-	estimateHeight *= lineSpacing;
+	estimateHeight *= height;
 
 	canvas.DrawRect(CRect(CSize2D(estimateWidth, estimateHeight)), CColor(0.0f, 0.0f, 0.0f, 0.5f));
 
@@ -180,22 +211,22 @@ void CProfileViewer::RenderProfile(CCanvas2D& canvas)
 	for (size_t row = 0; row < numrows; ++row)
 	{
 		canvas.DrawRect(
-			CRect(CVector2D(0.0f, lineSpacing * (2.0f + row) + 2.0f), CSize2D(estimateWidth, lineSpacing)),
+			CRect(CVector2D(0.0f, height * (2.0f + row) + 2.0f), CSize2D(estimateWidth, height)),
 			row % 2 ? CColor(1.0f, 1.0f, 1.0f, 0.1f): CColor(0.0f, 0.0f, 0.0f, 0.1f));
 	}
 
 	// Print table and column titles.
 	CTextRenderer textRenderer;
-	textRenderer.SetCurrentFont(font_name);
+	textRenderer.SetCurrentFont(font_name, CStrIntern{});
 	textRenderer.SetCurrentColor(CColor(1.0f, 1.0f, 1.0f, 1.0f));
-	textRenderer.PrintfAt(2.0f, lineSpacing, L"%hs", table->GetTitle().c_str());
-	textRenderer.Translate(22.0f, lineSpacing*2.0f);
+	textRenderer.PrintfAt(2.0f, height, L"%hs", table->GetTitle().c_str());
+	textRenderer.Translate(22.0f, height*2.0f);
 
 	float colX = 0.0f;
 	for (size_t col = 0; col < columns.size(); ++col)
 	{
 		CStrW text = columns[col].title.FromUTF8();
-		int w, h;
+		float w, h;
 		font.CalculateStringSize(text.c_str(), w, h);
 
 		float x = colX;
@@ -206,7 +237,7 @@ void CProfileViewer::RenderProfile(CCanvas2D& canvas)
 		colX += columns[col].width;
 	}
 
-	textRenderer.Translate(0.0f, lineSpacing);
+	textRenderer.Translate(0.0f, height);
 
 	// Print rows
 	int currentExpandId = 1;
@@ -227,26 +258,28 @@ void CProfileViewer::RenderProfile(CCanvas2D& canvas)
 		float rowColX = 0.0f;
 		for (size_t col = 0; col < columns.size(); ++col)
 		{
-			CStrW text = table->GetCellText(row, col).FromUTF8();
-			int w, h;
-			font.CalculateStringSize(text.c_str(), w, h);
+			const CStrW text{table->GetCellText(row, col).FromUTF8()};
+			if (!text.empty())
+			{
+				float w, h;
+				font.CalculateStringSize(text.c_str(), w, h);
 
-			float x = rowColX;
-			if (col > 0) // right-align all but the first column
-				x += columns[col].width - w;
-			textRenderer.Put(x, 0.0f, text.c_str());
-
+				float x = rowColX;
+				if (col > 0) // right-align all but the first column
+					x += columns[col].width - w;
+				textRenderer.Put(x, 0.0f, text.c_str());
+			}
 			rowColX += columns[col].width;
 		}
 
-		textRenderer.Translate(0.0f, lineSpacing);
+		textRenderer.Translate(0.0f, height);
 	}
 
 	textRenderer.SetCurrentColor(CColor(1.0f, 1.0f, 1.0f, 1.0f));
 
 	if (m->path.size() > 1)
 	{
-		textRenderer.Translate(0.0f, lineSpacing);
+		textRenderer.Translate(0.0f, height);
 		textRenderer.Put(-15.0f, 0.0f, L"0");
 		textRenderer.Put(0.0f, 0.0f, L"back to parent");
 	}
@@ -256,77 +289,68 @@ void CProfileViewer::RenderProfile(CCanvas2D& canvas)
 
 
 // Handle input
-InReaction CProfileViewer::Input(const SDL_Event_* ev)
+Input::Reaction CProfileViewerInternals::InputHandler::operator()(const SDL_Event& ev)
 {
-	switch(ev->ev.type)
+	switch(ev.type)
 	{
 	case SDL_KEYDOWN:
 	{
-		if (!m->profileVisible)
+		if (!profileViewer.profileVisible)
 			break;
 
-		int k = ev->ev.key.keysym.sym;
+		int k = ev.key.keysym.sym;
 		if (k >= SDLK_0 && k <= SDLK_9)
 		{
-			m->NavigateTree(k - SDLK_0);
-			return IN_HANDLED;
+			profileViewer.NavigateTree(k - SDLK_0);
+			return Input::Reaction::HANDLED;
 		}
 		break;
 	}
 	case SDL_HOTKEYPRESS:
-		std::string hotkey = static_cast<const char*>(ev->ev.user.data1);
+		std::string_view hotkey = static_cast<const char*>(ev.user.data1);
 
-		if( hotkey == "profile.toggle" )
+		if (hotkey == "profile.toggle")
 		{
-			if (!m->profileVisible)
+			if (!profileViewer.profileVisible)
 			{
-				if (m->rootTables.size())
+				if (profileViewer.rootTables.size())
 				{
-					m->profileVisible = true;
-					m->path.push_back(m->rootTables[0]);
+					profileViewer.profileVisible = true;
+					profileViewer.path.push_back(profileViewer.rootTables[0]);
 				}
 			}
 			else
 			{
 				size_t i;
 
-				for(i = 0; i < m->rootTables.size(); ++i)
+				for(i = 0; i < profileViewer.rootTables.size(); ++i)
 				{
-					if (m->rootTables[i] == m->path[0])
+					if (profileViewer.rootTables[i] == profileViewer.path[0])
 						break;
 				}
 				i++;
 
-				m->path.clear();
-				if (i < m->rootTables.size())
+				profileViewer.path.clear();
+				if (i < profileViewer.rootTables.size())
 				{
-					m->path.push_back(m->rootTables[i]);
+					profileViewer.path.push_back(profileViewer.rootTables[i]);
 				}
 				else
 				{
-					m->profileVisible = false;
+					profileViewer.profileVisible = false;
 				}
 			}
-			return( IN_HANDLED );
+			return Input::Reaction::HANDLED;
 		}
 		else if( hotkey == "profile.save" )
 		{
-			SaveToFile();
-			return( IN_HANDLED );
+			profileViewer.SaveToFile();
+			return Input::Reaction::HANDLED;
 		}
 		break;
 	}
-	return( IN_PASS );
+	return Input::Reaction::PASS;
 }
-
-InReaction CProfileViewer::InputThunk(const SDL_Event_* ev)
-{
-	if (CProfileViewer::IsInitialised())
-		return g_ProfileViewer.Input(ev);
-
-	return IN_PASS;
-}
-
 
 // Add a table to the list of roots
 void CProfileViewer::AddRootTable(AbstractProfileTable* table, bool front)
@@ -424,12 +448,12 @@ namespace
 
 	struct DumpTable
 	{
-		const ScriptInterface& m_ScriptInterface;
+		const Script::Interface& m_ScriptInterface;
 		JS::PersistentRooted<JS::Value> m_Root;
-		DumpTable(const ScriptInterface& scriptInterface, JS::HandleValue root) :
+		DumpTable(const Script::Interface& scriptInterface, JS::HandleValue root) :
 			m_ScriptInterface(scriptInterface)
 		{
-			ScriptRequest rq(scriptInterface);
+			Script::Request rq(scriptInterface);
 			m_Root.init(rq.cx, root);
 		}
 
@@ -438,13 +462,13 @@ namespace
 		DumpTable(DumpTable && original) :
 			m_ScriptInterface(original.m_ScriptInterface)
 		{
-			ScriptRequest rq(m_ScriptInterface);
+			Script::Request rq(m_ScriptInterface);
 			m_Root.init(rq.cx, original.m_Root.get());
 		}
 
 		void operator() (AbstractProfileTable* table)
 		{
-			ScriptRequest rq(m_ScriptInterface);
+			Script::Request rq(m_ScriptInterface);
 
 			JS::RootedValue t(rq.cx);
 			Script::CreateObject(
@@ -470,7 +494,7 @@ namespace
 
 		JS::Value DumpRows(AbstractProfileTable* table)
 		{
-			ScriptRequest rq(m_ScriptInterface);
+			Script::Request rq(m_ScriptInterface);
 
 			JS::RootedValue data(rq.cx);
 			Script::CreateObject(rq, &data);
@@ -479,19 +503,23 @@ namespace
 
 			for (size_t r = 0; r < table->GetNumberRows(); ++r)
 			{
-				JS::RootedValue row(rq.cx);
-				Script::CreateArray(rq, &row);
+				JS::RootedValueVector row{rq.cx};
+				if (!row.resize(columns.size() + 1))
+					throw std::runtime_error{"Resize failed"};
 
 				Script::SetProperty(rq, data, table->GetCellText(r, 0).c_str(), row);
 
 				if (table->GetChild(r))
 				{
 					JS::RootedValue childRows(rq.cx, DumpRows(table->GetChild(r)));
-					Script::SetPropertyInt(rq, row, 0, childRows);
+					row[0].set(childRows);
 				}
 
 				for (size_t c = 1; c < columns.size(); ++c)
-					Script::SetPropertyInt(rq, row, c, table->GetCellText(r, c));
+				{
+					row[c].set(JS::StringValue(
+						JS_NewStringCopyZ(rq.cx, table->GetCellText(r, c).c_str())));
+				}
 			}
 
 			return data;
@@ -509,38 +537,43 @@ namespace
 
 void CProfileViewer::SaveToFile()
 {
+	m->SaveToFile();
+}
+
+void CProfileViewerInternals::SaveToFile()
+{
 	// Open the file, if necessary. If this method is called several times,
 	// the profile results will be appended to the previous ones from the same
 	// run.
-	if (! m->outputStream.is_open())
+	if (!outputStream.is_open())
 	{
 		// Open the file. (It will be closed when the CProfileViewer
 		// destructor is called.)
-		OsPath path = psLogDir()/"profile.txt";
-		m->outputStream.open(OsString(path).c_str(), std::ofstream::out | std::ofstream::trunc);
+		const OsPath filePath{psLogDir()/"profile.txt"};
+		outputStream.open(OsString(filePath), std::ofstream::out | std::ofstream::trunc);
 
-		if (m->outputStream.fail())
+		if (outputStream.fail())
 		{
 			LOGERROR("Failed to open profile log file");
 			return;
 		}
 		else
 		{
-			LOGMESSAGERENDER("Profiler snapshot saved to '%s'", path.string8());
+			LOGMESSAGERENDER("Profiler snapshot saved to '%s'", filePath.string8());
 		}
 	}
 
 	time_t t;
 	time(&t);
-	m->outputStream << "================================================================\n\n";
-	m->outputStream << "PS profiler snapshot - " << asctime(localtime(&t));
+	outputStream << "================================================================\n\n";
+	outputStream << "PS profiler snapshot - " << asctime(localtime(&t));
 
-	std::vector<AbstractProfileTable*> tables = m->rootTables;
+	std::vector<AbstractProfileTable*> tables = rootTables;
 	sort(tables.begin(), tables.end(), SortByName);
-	for_each(tables.begin(), tables.end(), WriteTable(m->outputStream));
+	for_each(tables.begin(), tables.end(), WriteTable(outputStream));
 
-	m->outputStream << "\n\n================================================================\n";
-	m->outputStream.flush();
+	outputStream << "\n\n================================================================\n";
+	outputStream.flush();
 }
 
 void CProfileViewer::ShowTable(const CStr& table)

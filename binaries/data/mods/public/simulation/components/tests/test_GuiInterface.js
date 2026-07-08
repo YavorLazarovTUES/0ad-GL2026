@@ -22,6 +22,7 @@ Engine.LoadComponentScript("interfaces/Loot.js");
 Engine.LoadComponentScript("interfaces/Market.js");
 Engine.LoadComponentScript("interfaces/Pack.js");
 Engine.LoadComponentScript("interfaces/Population.js");
+Engine.LoadComponentScript("interfaces/PopulationCapManager.js");
 Engine.LoadComponentScript("interfaces/ProductionQueue.js");
 Engine.LoadComponentScript("interfaces/Promotion.js");
 Engine.LoadComponentScript("interfaces/Repairable.js");
@@ -66,7 +67,8 @@ var cmp = ConstructComponent(SYSTEM_ENTITY, "GuiInterface");
 
 
 AddMock(SYSTEM_ENTITY, IID_Barter, {
-	"GetPrices": function() {
+	"GetPrices": function()
+	{
 		return {
 			"buy": { "food": 150 },
 			"sell": { "food": 25 }
@@ -95,6 +97,11 @@ AddMock(SYSTEM_ENTITY, IID_TemplateManager, {
 	"GetTemplate": function(name) { return ""; }
 });
 
+AddMock(SYSTEM_ENTITY, IID_PopulationCapManager, {
+	"GetPopulationCapType": function() { return "player"; },
+	"GetPopulationCap": function() { return 200; }
+});
+
 AddMock(SYSTEM_ENTITY, IID_Timer, {
 	"GetTime": function() { return 0; },
 	"SetTimeout": function(ent, iid, funcname, time, data) { return 0; }
@@ -112,7 +119,6 @@ AddMock(100, IID_Player, {
 	"GetPanelEntities": function() { return []; },
 	"IsTrainingBlocked": function() { return false; },
 	"GetState": function() { return "active"; },
-	"GetCheatsEnabled": function() { return false; },
 	"GetDisabledTemplates": function() { return {}; },
 	"GetDisabledTechnologies": function() { return {}; },
 	"CanBarter": function() { return false; },
@@ -154,7 +160,8 @@ AddMock(100, IID_TechnologyManager, {
 });
 
 AddMock(100, IID_StatisticsTracker, {
-	"GetBasicStatistics": function() {
+	"GetBasicStatistics": function()
+	{
 		return {
 			"resourcesGathered": {
 				"food": 100,
@@ -166,7 +173,8 @@ AddMock(100, IID_StatisticsTracker, {
 			"percentMapExplored": 10
 		};
 	},
-	"GetSequences": function() {
+	"GetSequences": function()
+	{
 		return {
 			"unitsTrained": [0, 10],
 			"unitsLost": [0, 42],
@@ -208,7 +216,6 @@ AddMock(101, IID_Player, {
 	"GetPanelEntities": function() { return []; },
 	"IsTrainingBlocked": function() { return false; },
 	"GetState": function() { return "active"; },
-	"GetCheatsEnabled": function() { return false; },
 	"GetDisabledTemplates": function() { return {}; },
 	"GetDisabledTechnologies": function() { return {}; },
 	"CanBarter": function() { return false; },
@@ -250,7 +257,8 @@ AddMock(101, IID_TechnologyManager, {
 });
 
 AddMock(101, IID_StatisticsTracker, {
-	"GetBasicStatistics": function() {
+	"GetBasicStatistics": function()
+	{
 		return {
 			"resourcesGathered": {
 				"food": 100,
@@ -262,7 +270,8 @@ AddMock(101, IID_StatisticsTracker, {
 			"percentMapExplored": 10
 		};
 	},
-	"GetSequences": function() {
+	"GetSequences": function()
+	{
 		return {
 			"unitsTrained": [0, 10],
 			"unitsLost": [0, 9],
@@ -313,7 +322,6 @@ TS_ASSERT_UNEVAL_EQUALS(cmp.GetSimulationState(), {
 			"state": "active",
 			"team": -1,
 			"teamLocked": false,
-			"cheatsEnabled": false,
 			"disabledTemplates": {},
 			"disabledTechnologies": {},
 			"hasSharedDropsites": false,
@@ -364,7 +372,6 @@ TS_ASSERT_UNEVAL_EQUALS(cmp.GetSimulationState(), {
 			"state": "active",
 			"team": -1,
 			"teamLocked": false,
-			"cheatsEnabled": false,
 			"disabledTemplates": {},
 			"disabledTechnologies": {},
 			"hasSharedDropsites": false,
@@ -404,7 +411,8 @@ TS_ASSERT_UNEVAL_EQUALS(cmp.GetSimulationState(), {
 	"timeElapsed": 0,
 	"victoryConditions": ["conquest", "wonder"],
 	"alliedVictory": false,
-	"maxWorldPopulation": undefined
+	"populationCapType": "player",
+	"populationCap": 200
 });
 
 TS_ASSERT_UNEVAL_EQUALS(cmp.GetExtendedSimulationState(), {
@@ -425,7 +433,6 @@ TS_ASSERT_UNEVAL_EQUALS(cmp.GetExtendedSimulationState(), {
 			"state": "active",
 			"team": -1,
 			"teamLocked": false,
-			"cheatsEnabled": false,
 			"disabledTemplates": {},
 			"disabledTechnologies": {},
 			"hasSharedDropsites": false,
@@ -499,7 +506,6 @@ TS_ASSERT_UNEVAL_EQUALS(cmp.GetExtendedSimulationState(), {
 			"state": "active",
 			"team": -1,
 			"teamLocked": false,
-			"cheatsEnabled": false,
 			"disabledTemplates": {},
 			"disabledTechnologies": {},
 			"hasSharedDropsites": false,
@@ -562,12 +568,14 @@ TS_ASSERT_UNEVAL_EQUALS(cmp.GetExtendedSimulationState(), {
 	"timeElapsed": 0,
 	"victoryConditions": ["conquest", "wonder"],
 	"alliedVictory": false,
-	"maxWorldPopulation": undefined
+	"populationCapType": "player",
+	"populationCap": 200
 });
 
 
 AddMock(10, IID_Builder, {
-	"GetEntitiesList": function() {
+	"GetEntitiesList": function()
+	{
 		return ["test1", "test2"];
 	},
 });
@@ -591,10 +599,12 @@ AddMock(10, IID_Identity, {
 
 AddMock(10, IID_Position, {
 	"GetTurretParent": function() { return INVALID_ENTITY; },
-	"GetPosition": function() {
+	"GetPosition": function()
+	{
 		return { "x": 1, "y": 2, "z": 3 };
 	},
-	"IsInWorld": function() {
+	"IsInWorld": function()
+	{
 		return true;
 	}
 });

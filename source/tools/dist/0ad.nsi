@@ -1,6 +1,7 @@
 ; To generate the installer (on Linux):
-;  Do an 'svn export' into a directory called e.g. "export-win32"
-;  makensis -nocd -dcheckoutpath=export-win32 -drevision=1234 -dversion=0.1.2 -dprefix=0ad-0.1.2-alpha export-win32/source/tools/dist/0ad.nsi
+;  Export the nightly build into a directory called e.g. "nightly-build"
+;  Archivebuild the mod and public mods into e.g. "archives"
+;  makensis -nocd -dcheckoutpath=nightly-build -dversion=0.xxx.0 -dprefix=0ad-0.xxx.0 -dwinarch=win32 -darchive_path=archives nightly-build/source/tools/dist/0ad.nsi
 
   SetCompressor /SOLID LZMA
 
@@ -22,14 +23,11 @@
 
   ;Name and file
   Name "0 A.D."
-  OutFile "${PREFIX}-win32.exe"
+  OutFile "${PREFIX}-${WINARCH}.exe"
 
   ;Default installation folder
-  InstallDir "$LOCALAPPDATA\0 A.D. alpha"
-  ; NOTE: we can't use folder names ending in "." because they seemingly get stripped
-
-  ;Get installation folder from registry if available
-  InstallDirRegKey HKCU "Software\0 A.D." ""
+  InstallDir "$LOCALAPPDATA\0 A.D. Empires Ascendant"
+  ; NOTE: "0 A.D." doesn't work as a folder/start menu folder name, the final dot gets stripped.
 
   RequestExecutionLevel user
 
@@ -50,8 +48,8 @@
 ;Language Selection Dialog Settings
 
   ;Remember the installer language
-  !define MUI_LANGDLL_REGISTRY_ROOT "HKCU" 
-  !define MUI_LANGDLL_REGISTRY_KEY "Software\0 A.D." 
+  !define MUI_LANGDLL_REGISTRY_ROOT "SHCTX"
+  !define MUI_LANGDLL_REGISTRY_KEY "Software\0 A.D."
   !define MUI_LANGDLL_REGISTRY_VALUENAME "Installer Language"
 
 ;--------------------------------
@@ -64,11 +62,11 @@
   !insertmacro MUI_PAGE_DIRECTORY
 
   ;Start Menu Folder Page Configuration
-  !define MUI_STARTMENUPAGE_REGISTRY_ROOT "HKCU" 
+  !define MUI_STARTMENUPAGE_REGISTRY_ROOT "SHCTX"
   !define MUI_STARTMENUPAGE_REGISTRY_KEY "Software\0 A.D."
   !define MUI_STARTMENUPAGE_REGISTRY_VALUENAME "Start Menu Folder"
-  !define MUI_STARTMENUPAGE_DEFAULTFOLDER "0 A.D. alpha"
-  
+  !define MUI_STARTMENUPAGE_DEFAULTFOLDER "0 A.D. Empires Ascendant"
+
   !insertmacro MUI_PAGE_STARTMENU Application $StartMenuFolder
 
   !insertmacro MUI_PAGE_INSTFILES
@@ -79,13 +77,15 @@
   !define MUI_FINISHPAGE_SHOWREADME_FUNCTION CreateDesktopLink
   !define MUI_FINISHPAGE_RUN $INSTDIR\binaries\system\pyrogenesis.exe
   !insertmacro MUI_PAGE_FINISH
-  
+
   !insertmacro MUI_UNPAGE_CONFIRM
   !insertmacro MUI_UNPAGE_INSTFILES
 
 ;--------------------------------
 ;Languages
 ;Keep in sync with build-archives.sh.
+; For a list of available languages see:
+; https://sourceforge.net/p/nsis/code/HEAD/tree/NSIS/trunk/Contrib/Language%20files/
 
   !insertmacro MUI_LANGUAGE "English" ; The first language is the default language
   !insertmacro MUI_LANGUAGE "Asturian"
@@ -95,20 +95,26 @@
   !insertmacro MUI_LANGUAGE "Dutch"
   !insertmacro MUI_LANGUAGE "Finnish"
   !insertmacro MUI_LANGUAGE "French"
+  !insertmacro MUI_LANGUAGE "Galician"
   !insertmacro MUI_LANGUAGE "German"
   !insertmacro MUI_LANGUAGE "Greek"
   !insertmacro MUI_LANGUAGE "Hungarian"
   !insertmacro MUI_LANGUAGE "Indonesian"
   !insertmacro MUI_LANGUAGE "Italian"
+  !insertmacro MUI_LANGUAGE "Japanese"
+  !insertmacro MUI_LANGUAGE "Korean"
   !insertmacro MUI_LANGUAGE "Polish"
+  !insertmacro MUI_LANGUAGE "Portuguese"
   !insertmacro MUI_LANGUAGE "PortugueseBR"
   !insertmacro MUI_LANGUAGE "Russian"
-  !insertmacro MUI_LANGUAGE "ScotsGaelic"
+  !insertmacro MUI_LANGUAGE "SimpChinese"
   !insertmacro MUI_LANGUAGE "Slovak"
   !insertmacro MUI_LANGUAGE "Spanish"
   !insertmacro MUI_LANGUAGE "Swedish"
+  !insertmacro MUI_LANGUAGE "TradChinese"
   !insertmacro MUI_LANGUAGE "Turkish"
   !insertmacro MUI_LANGUAGE "Ukrainian"
+  !insertmacro MUI_LANGUAGE "Vietnamese"
 
 ;--------------------------------
 ;Installer Sections
@@ -164,7 +170,7 @@ Section "!Game and data files" GameSection
   WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\0 A.D." "DisplayName" "0 A.D."
   WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\0 A.D." "DisplayVersion" "${VERSION}"
   WriteRegDWORD SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\0 A.D." "VersionMajor" 0
-  WriteRegDWORD SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\0 A.D." "VersionMinor" ${REVISION}
+  WriteRegDWORD SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\0 A.D." "VersionMinor" "${VERSION}"
   WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\0 A.D." "Publisher" "Wildfire Games"
   WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\0 A.D." "DisplayIcon" "$\"$INSTDIR\binaries\system\pyrogenesis.exe$\""
   WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\0 A.D." "InstallLocation" "$\"$INSTDIR$\""
@@ -214,18 +220,22 @@ Function .onInit
 
   ReadRegStr $R0 SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\0 A.D." "UninstallString"
   StrCmp $R0 "" done
- 
+
   MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION \
   "0 A.D. is already installed.$\n$\nClick $\"OK$\" to remove the previous version, or $\"Cancel$\" to stop this installation." \
   IDOK uninst
   Abort
- 
+
 ;Run the uninstaller
 uninst:
   ClearErrors
-  ExecWait '$R0 _?=$INSTDIR' ;Do not copy the uninstaller to a temp file
- 
+  ExecWait '$R0'
+
 done:
+
+  ;In alpha versions, the uninstaller preserved the registry key containing user install preferences
+  DeleteRegKey HKCU "Software\0 A.D."
+  ClearErrors
 
 FunctionEnd
 
@@ -283,7 +293,7 @@ Section "Uninstall"
   RMDir "$SMPROGRAMS\$StartMenuFolder"
 
   DeleteRegKey SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\0 A.D."
-  DeleteRegKey /ifempty SHCTX "Software\0 A.D."
+  DeleteRegKey SHCTX "Software\0 A.D."
 
   ;Unregister .pyromod file association
   ${unregisterExtension} ".pyromod" "Pyrogenesis mod"

@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,24 +19,32 @@
 
 #include "CommonConvert.h"
 
+#include "DLL.h"
 #include "StdSkeletons.h"
 #include "XMLFix.h"
 
-#include "FCollada.h"
-#include "FCDocument/FCDSceneNode.h"
-#include "FCDocument/FCDSkinController.h"
-#include "FUtils/FUDaeSyntax.h"
-#include "FUtils/FUFileManager.h"
-
+#include <FCDocument/FCDAsset.h>
+#include <FCDocument/FCDControllerInstance.h>
+#include <FCDocument/FCDEntity.h>
+#include <FCDocument/FCDEntityInstance.h>
+#include <FCDocument/FCDSceneNode.h>
+#include <FCDocument/FCDSkinController.h>
+#include <FCollada.h>
+#include <FMath/FMVector3.h>
+#include <FUtils/FUString.h>
 #include <algorithm>
 #include <cassert>
+#include <cstdarg>
+#include <cstdio>
 #include <libxml/xmlerror.h>
+#include <libxml/xmlmemory.h>
+#include <utility>
 
 void require_(int line, bool value, const char* type, const char* message)
 {
 	if (value) return;
 	char linestr[16];
-	sprintf(linestr, "%d", line);
+	snprintf(linestr, sizeof(linestr), "%d", line);
 	throw ColladaException(std::string(type) + " (line " + linestr + "): " + message);
 }
 
@@ -73,7 +81,7 @@ FColladaErrorHandler::~FColladaErrorHandler()
 	FUError::RemoveErrorCallback(FUError::ERROR_LEVEL, this, &FColladaErrorHandler::OnError);
 }
 
-void FColladaErrorHandler::OnError(FUError::Level errorLevel, uint32 errorCode, uint32 UNUSED(lineNumber))
+void FColladaErrorHandler::OnError(FUError::Level errorLevel, uint32 errorCode, uint32 /*lineNumber*/)
 {
 	// Ignore warnings about missing materials, since we ignore materials entirely anyway
 	if (errorCode == FUError::WARNING_INVALID_POLYGON_MAT_SYMBOL)
@@ -111,7 +119,7 @@ void FColladaDocument::LoadFromText(const char *text)
 	REQUIRE_SUCCESS(status);
 }
 
-void FColladaDocument::ReadExtras(xmlNode* UNUSED(colladaNode))
+void FColladaDocument::ReadExtras(xmlNode* /*colladaNode*/)
 {
 	// TODO: This was needed to recognise and load XSI models.
 	// XSI support should be reintroduced some time, but this function
@@ -361,7 +369,7 @@ MERGED_WEIGHTS: ;
 }
 
 
-void FixSkeletonRoots(FCDControllerInstance& UNUSED(controllerInstance))
+void FixSkeletonRoots(FCDControllerInstance&)
 {
 	// TODO: Need to reintroduce XSI support at some point
 #if 0

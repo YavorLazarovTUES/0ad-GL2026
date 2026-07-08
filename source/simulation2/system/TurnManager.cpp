@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,15 +19,23 @@
 
 #include "TurnManager.h"
 
-#include "gui/GUIManager.h"
+#include "lib/debug.h"
 #include "maths/MathUtil.h"
-#include "ps/Pyrogenesis.h"
-#include "ps/Profile.h"
 #include "ps/CLogger.h"
+#include "ps/Profile.h"
+#include "ps/Profiler2.h"
 #include "ps/Replay.h"
-#include "ps/Util.h"
 #include "scriptinterface/Object.h"
+#include "scriptinterface/Request.h"
+#include "scriptinterface/StructuredClone.h"
 #include "simulation2/Simulation2.h"
+
+#include <algorithm>
+#include <iterator>
+#include <js/ValueArray.h>
+#include <limits>
+#include <sstream>
+#include <utility>
 
 #if 0
 #define NETTURN_LOG(...) debug_printf(__VA_ARGS__)
@@ -42,7 +50,7 @@ CTurnManager::CTurnManager(CSimulation2& simulation, u32 defaultTurnLength, u32 
 	m_PlayerId(-1), m_ClientId(clientId), m_DeltaSimTime(0), m_Replay(replay),
 	m_FinalTurn(std::numeric_limits<u32>::max()), m_TimeWarpNumTurns(0)
 {
-	ScriptRequest rq(m_Simulation2.GetScriptInterface());
+	Script::Request rq(m_Simulation2.GetScriptInterface());
 	m_QuickSaveMetadata.init(rq.cx);
 	m_QueuedCommands.resize(1);
 }
@@ -62,7 +70,7 @@ void CTurnManager::SetPlayerID(int playerId)
 	m_PlayerId = playerId;
 }
 
-bool CTurnManager::Update(float simFrameLength, size_t maxTurns)
+bool CTurnManager::Update(float simFrameLength, size_t maxTurns, const UpdateCallback& sendEventToAll)
 {
 	if (m_CurrentTurn > m_FinalTurn)
 		return false;
@@ -145,7 +153,7 @@ bool CTurnManager::Update(float simFrameLength, size_t maxTurns)
 
 		m_Simulation2.Update(m_TurnLength, commands);
 
-		NotifyFinishedUpdate(m_CurrentTurn);
+		NotifyFinishedUpdate(m_CurrentTurn, sendEventToAll);
 
 		// Set the time for the next turn update
 		m_DeltaSimTime -= m_TurnLength / 1000.f;
@@ -221,9 +229,9 @@ void CTurnManager::AddCommand(int client, int player, JS::HandleValue data, u32 
 		return;
 	}
 
-	ScriptRequest rq(m_Simulation2.GetScriptInterface());
+	Script::Request rq(m_Simulation2.GetScriptInterface());
 
-	Script::FreezeObject(rq, data, true);
+	Script::DeepFreezeObject(rq, data);
 
 	size_t command_in_turns = turn - (m_CurrentTurn+1);
 	if (m_QueuedCommands.size() <= command_in_turns)
@@ -280,7 +288,7 @@ void CTurnManager::RewindTimeWarp()
 
 void CTurnManager::QuickSave(JS::HandleValue GUIMetadata)
 {
-	TIMER(L"QuickSave");
+	PROFILE2("QuickSave");
 
 	std::stringstream stream;
 	if (!m_Simulation2.SerializeState(stream))
@@ -291,46 +299,34 @@ void CTurnManager::QuickSave(JS::HandleValue GUIMetadata)
 
 	m_QuickSaveState = stream.str();
 
-	ScriptRequest rq(m_Simulation2.GetScriptInterface());
+	Script::Request rq(m_Simulation2.GetScriptInterface());
 
 	m_QuickSaveMetadata.set(Script::DeepCopy(rq, GUIMetadata));
 	// Freeze state to ensure that consectuvie loads don't modify the state
-	Script::FreezeObject(rq, m_QuickSaveMetadata, true);
+	Script::DeepFreezeObject(rq, m_QuickSaveMetadata);
 
 	LOGMESSAGERENDER("Quicksaved game");
 }
 
-void CTurnManager::QuickLoad()
+std::optional<JS::Value> CTurnManager::TryQuickLoad()
 {
-	TIMER(L"QuickLoad");
+	PROFILE2("QuickLoad");
 
 	if (m_QuickSaveState.empty())
 	{
 		LOGERROR("Cannot quickload game - no game was quicksaved");
-		return;
+		return std::nullopt;
 	}
 
 	std::stringstream stream(m_QuickSaveState);
 	if (!m_Simulation2.DeserializeState(stream))
 	{
 		LOGERROR("Failed to quickload game");
-		return;
+		return std::nullopt;
 	}
 
 	// See RewindTimeWarp
 	ResetState(1, m_CommandDelay);
 
-	if (!g_GUI)
-		return;
-
-	ScriptRequest rq(m_Simulation2.GetScriptInterface());
-
-	// Provide a copy, so that GUI components don't have to clone to get mutable objects
-	JS::RootedValue quickSaveMetadataClone(rq.cx, Script::DeepCopy(rq, m_QuickSaveMetadata));
-
-	JS::RootedValueArray<1> paramData(rq.cx);
-	paramData[0].set(quickSaveMetadataClone);
-	g_GUI->SendEventToAll(EventNameSavegameLoaded, paramData);
-
-	LOGMESSAGERENDER("Quickloaded game");
+	return m_QuickSaveMetadata;
 }

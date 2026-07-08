@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -27,8 +27,8 @@
 #ifndef INCLUDED_OGL
 #define INCLUDED_OGL
 
+#include "lib/code_annotation.h"
 #include "lib/config2.h" // CONFIG2_GLES
-#include "lib/sysdep/os.h" // OS_WIN
 
 
 #if CONFIG2_GLES
@@ -43,18 +43,7 @@
  * fails if OpenGL not ready for use.
  * TODO: move loading functionality to GL backend.
  **/
-#if OS_WIN
-extern bool ogl_Init(void* (load)(const char*), void* hdc);
-#elif !OS_MACOSX && !OS_MAC && !CONFIG2_GLES
-extern bool ogl_Init(void* (load)(const char*), void* display, int subsystem);
-#else
 extern bool ogl_Init(void* (load)(const char*));
-#endif
-
-/**
- * Change vsync state.
- **/
-extern void ogl_SetVsyncEnabled(bool enabled);
 
 //-----------------------------------------------------------------------------
 // extensions
@@ -128,20 +117,5 @@ extern void ogl_WarnIfErrorLoc(const char *file, int line);
 * the error's name.
 **/
 extern const char* ogl_GetErrorName(GLenum err);
-
-/**
- * ignore and reset the specified OpenGL error.
- *
- * this is useful for suppressing annoying error messages, e.g.
- * "invalid enum" for GL_CLAMP_TO_EDGE even though we've already
- * warned the user that their OpenGL implementation is too old.
- *
- * call after the fact, i.e. the error has been raised. if another or
- * different error is pending, those are reported immediately.
- *
- * @param err_to_ignore: one of the glGetError enums.
- * @return true if the requested error was seen and ignored
- **/
-extern bool ogl_SquelchError(GLenum err_to_ignore);
 
 #endif	// INCLUDED_OGL

@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -32,32 +32,6 @@
 
 
 //
-// dirent.h
-//
-
-struct WDIR;
-
-struct wdirent
-{
-	// note: SUSv3 describes this as a "char array" but of unspecified size.
-	// we declare as a pointer to avoid having to copy the string.
-	wchar_t* d_name;
-};
-
-extern WDIR* wopendir(const OsPath& path);
-
-extern wdirent* wreaddir(WDIR*);
-
-// return status for the file returned by the last successful
-// wreaddir call from the given directory stream.
-// currently sets st_size, st_mode, and st_mtime; the rest are zeroed.
-// non-portable, but considerably faster than stat(). used by dir_ForEachSortedEntry.
-extern int wreaddir_stat_np(WDIR*, struct stat*);
-
-extern int wclosedir(WDIR*);
-
-
-//
 // fcntl.h
 //
 
@@ -80,37 +54,5 @@ extern int wclosedir(WDIR*);
 extern int wopen(const OsPath& pathname, int oflag);
 extern int wopen(const OsPath& pathname, int oflag, mode_t mode);
 extern int wclose(int fd);
-
-
-//
-// unistd.h
-//
-
-// waio requires offsets and sizes to be multiples of the sector size.
-// to allow arbitrarily sized files, we truncate them after I/O.
-// however, ftruncate cannot be used since it is also subject to the
-// sector-alignment requirement. instead, the file must be closed and
-// this function called.
-int wtruncate(const OsPath& pathname, off_t length);
-
-int wunlink(const OsPath& pathname);
-
-int wrmdir(const OsPath& path);
-
-
-//
-// stdlib.h
-//
-
-OsPath wrealpath(const OsPath& pathname);
-
-
-//
-// sys/stat.h
-//
-
-int wstat(const OsPath& pathname, struct stat* buf);
-
-int wmkdir(const OsPath& path, mode_t mode);
 
 #endif	// #ifndef INCLUDED_SYSDEP_FILESYSTEM

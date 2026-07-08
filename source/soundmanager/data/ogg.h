@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,8 +21,15 @@
 
 #if CONFIG2_AUDIO
 
-#include "lib/external_libraries/openal.h"
 #include "lib/file/vfs/vfs.h"
+#include "lib/file/vfs/vfs_path.h"
+#include "lib/status.h"
+#include "lib/types.h"
+
+#include <AL/al.h>
+#include <cstddef>
+#include <memory>
+#include <span>
 
 class OggStream
 {
@@ -30,19 +37,13 @@ public:
 	virtual ~OggStream() { }
 	virtual ALenum Format() = 0;
 	virtual ALsizei SamplingRate() = 0;
-	virtual bool atFileEOF() = 0;
+	virtual bool AtFileEOF() = 0;
 	virtual Status ResetFile() = 0;
-  virtual Status Close() = 0;
 
-	/**
-	 * @return bytes read (<= size) or a (negative) Status
-	 **/
-	virtual Status GetNextChunk(u8* buffer, size_t size) = 0;
+	virtual size_t GetNextChunk(std::span<u8> buffer) = 0;
 };
 
-typedef std::shared_ptr<OggStream> OggStreamPtr;
-
-extern Status OpenOggStream(const OsPath& pathname, OggStreamPtr& stream);
+using OggStreamPtr = std::shared_ptr<OggStream>;
 
 /**
  * A non-streaming OggStream (reading the whole file in advance)

@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,34 +21,36 @@
 
 #include "graphics/FontMetrics.h"
 #include "graphics/MapReader.h"
+#include "lib/code_generation.h"
+#include "lib/file/vfs/vfs_path.h"
+#include "lib/frequency_filter.h"
 #include "lib/sysdep/sysdep.h"
-#include "lib/utf8.h"
-#include "maths/Size2D.h"
+#include "lib/types.h"
 #include "maths/MD5.h"
+#include "maths/Size2D.h"
+#include "ps/CLogger.h"
+#include "ps/CStr.h"
 #include "ps/CStrIntern.h"
+#include "ps/Errors.h"
 #include "ps/GUID.h"
 #include "ps/GameSetup/Atlas.h"
 #include "ps/Globals.h"
-#include "ps/Hotkey.h"
 #include "ps/Util.h"
 #include "scriptinterface/FunctionWrapper.h"
+#include "scriptinterface/Request.h"
 #include "tools/atlas/GameInterface/GameLoop.h"
 
-extern void QuitEngine();
-extern void StartAtlas();
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <string>
+
+namespace Script { class Interface; }
+
+extern void QuitEngine(int exitStatus);
 
 namespace JSI_Main
 {
-void QuitEngine()
-{
-	::QuitEngine();
-}
-
-void StartAtlas()
-{
-	::StartAtlas();
-}
-
 bool AtlasIsAvailable()
 {
 	return ATLAS_IsAvailable();
@@ -74,9 +76,9 @@ std::wstring GetMatchID()
 	return ps_generate_guid().FromUTF8();
 }
 
-JS::Value LoadMapSettings(const ScriptInterface& scriptInterface, const VfsPath& pathname)
+JS::Value LoadMapSettings(const Script::Interface& scriptInterface, const VfsPath& pathname)
 {
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 
 	CMapSummaryReader reader;
 
@@ -98,19 +100,27 @@ int GetFps()
 	return g_frequencyFilter->StableFrequency();
 }
 
-CSize2D GetTextSize(const std::string& fontName, const std::wstring& text)
+CSize2D CalculateTextSize(const std::string& fontName, const std::wstring& text)
 {
-	int width = 0;
-	int height = 0;
+	float width = 0;
+	float height = 0;
 	CStrIntern _fontName(fontName);
 	CFontMetrics fontMetrics(_fontName);
 	fontMetrics.CalculateStringSize(text.c_str(), width, height);
 	return CSize2D(width, height);
 }
 
+
+CSize2D GetTextSize(const std::string& fontName, const std::wstring& text)
+{
+	ONCE(LOGWARNING("Engine.GetTextSize is deprecated and will be removed in a future version. Instead use guiObject.getPreferredTextSize and dropdown.getPreferredHeaderTextSize for more convenient text sizing or guiObject.getTextSize for sizing within an object."));
+	return CalculateTextSize(fontName, text);
+}
+
 int GetTextWidth(const std::string& fontName, const std::wstring& text)
 {
-	return GetTextSize(fontName, text).Width;
+	ONCE(LOGWARNING("Engine.GetTextWidth is deprecated and will be removed in a future version. Instead use guiObject.getPreferredTextSize and dropdown.getPreferredHeaderTextSize for more convenient text sizing or guiObject.getTextSize for sizing within an object."));
+	return CalculateTextSize(fontName, text).Width;
 }
 
 std::string CalculateMD5(const std::string& input)
@@ -124,19 +134,18 @@ std::string CalculateMD5(const std::string& input)
 	return Hexify(digest, MD5::DIGESTSIZE);
 }
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
-	ScriptFunction::Register<&QuitEngine>(rq, "Exit");
-	ScriptFunction::Register<&StartAtlas>(rq, "RestartInAtlas");
-	ScriptFunction::Register<&AtlasIsAvailable>(rq, "AtlasIsAvailable");
-	ScriptFunction::Register<&IsAtlasRunning>(rq, "IsAtlasRunning");
-	ScriptFunction::Register<&OpenURL>(rq, "OpenURL");
-	ScriptFunction::Register<&GetSystemUsername>(rq, "GetSystemUsername");
-	ScriptFunction::Register<&GetMatchID>(rq, "GetMatchID");
-	ScriptFunction::Register<&LoadMapSettings>(rq, "LoadMapSettings");
-	ScriptFunction::Register<&GetFps>(rq, "GetFPS");
-	ScriptFunction::Register<&GetTextSize>(rq, "GetTextSize");
-	ScriptFunction::Register<&GetTextWidth>(rq, "GetTextWidth");
-	ScriptFunction::Register<&CalculateMD5>(rq, "CalculateMD5");
+	Script::Function::Register<&QuitEngine>(rq, "Exit");
+	Script::Function::Register<&AtlasIsAvailable>(rq, "AtlasIsAvailable");
+	Script::Function::Register<&IsAtlasRunning>(rq, "IsAtlasRunning");
+	Script::Function::Register<&OpenURL>(rq, "OpenURL");
+	Script::Function::Register<&GetSystemUsername>(rq, "GetSystemUsername");
+	Script::Function::Register<&GetMatchID>(rq, "GetMatchID");
+	Script::Function::Register<&LoadMapSettings>(rq, "LoadMapSettings");
+	Script::Function::Register<&GetFps>(rq, "GetFPS");
+	Script::Function::Register<&GetTextSize>(rq, "GetTextSize");
+	Script::Function::Register<&GetTextWidth>(rq, "GetTextWidth");
+	Script::Function::Register<&CalculateMD5>(rq, "CalculateMD5");
 }
 }

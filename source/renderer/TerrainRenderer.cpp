@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,36 +22,51 @@
 #include "graphics/Camera.h"
 #include "graphics/Canvas2D.h"
 #include "graphics/Decal.h"
-#include "graphics/GameView.h"
-#include "graphics/LightEnv.h"
 #include "graphics/LOSTexture.h"
+#include "graphics/LightEnv.h"
 #include "graphics/Patch.h"
-#include "graphics/Model.h"
+#include "graphics/ShaderDefines.h"
 #include "graphics/ShaderManager.h"
-#include "graphics/TerritoryTexture.h"
+#include "graphics/ShaderTechnique.h"
+#include "graphics/ShaderTechniquePtr.h"
 #include "graphics/TextRenderer.h"
+#include "graphics/Texture.h"
 #include "graphics/TextureManager.h"
+#include "lib/debug.h"
+#include "maths/BoundingBoxAligned.h"
 #include "maths/MathUtil.h"
+#include "maths/Matrix3D.h"
 #include "maths/Vector2D.h"
+#include "maths/Vector3D.h"
 #include "ps/CLogger.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
-#include "ps/Filesystem.h"
-#include "ps/Game.h"
 #include "ps/Profile.h"
-#include "ps/World.h"
-#include "renderer/backend/IDevice.h"
-#include "renderer/backend/PipelineState.h"
 #include "renderer/DecalRData.h"
 #include "renderer/PatchRData.h"
+#include "renderer/PostprocManager.h"
 #include "renderer/Renderer.h"
-#include "renderer/RenderingOptions.h"
+#include "renderer/Scene.h"
 #include "renderer/SceneRenderer.h"
 #include "renderer/ShadowMap.h"
 #include "renderer/SkyManager.h"
-#include "renderer/VertexArray.h"
 #include "renderer/WaterManager.h"
+#include "renderer/backend/Format.h"
+#include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/IFramebuffer.h"
+#include "renderer/backend/IShaderProgram.h"
+#include "renderer/backend/PipelineState.h"
 
+#include <array>
+#include <cmath>
+#include <cstddef>
+#include <iterator>
 #include <memory>
+#include <string>
+#include <vector>
+
+namespace
+{
 
 /**
  * TerrainRenderer keeps track of which phase it is in, to detect
@@ -63,6 +78,17 @@ enum Phase
 	Phase_Render
 };
 
+CMaterial::Pass GetMaterialPassFromCullGroup(const int cullGroup, const bool wireframe)
+{
+	if (wireframe)
+		return CMaterial::Pass::WIREFRAME;
+
+	return cullGroup == CSceneRenderer::CULL_REFLECTIONS
+		? CMaterial::Pass::REFLECTIONS
+		: CMaterial::Pass::MAIN;
+}
+
+}
 
 /**
  * Struct TerrainRendererInternals: Internal variables used by the TerrainRenderer class.
@@ -80,6 +106,8 @@ struct TerrainRendererInternals
 
 	/// Fancy water shader
 	CShaderTechniquePtr fancyWaterTech;
+
+	CShaderTechniquePtr shadowCasterTech, silhouettteOccluderTech, wireframeTech;
 
 	CShaderTechniquePtr shaderTechniqueSolid, shaderTechniqueSolidDepthTest;
 
@@ -138,6 +166,11 @@ void TerrainRenderer::Initialize()
 	m->waterSurfaceVertexInputLayout = CPatchRData::GetWaterSurfaceVertexInputLayout(false);
 	m->waterSurfaceWithDataVertexInputLayout = CPatchRData::GetWaterSurfaceVertexInputLayout(true);
 	m->waterShoreVertexInputLayout = CPatchRData::GetWaterShoreVertexInputLayout();
+
+	CShaderManager& shaderManager{g_Renderer.GetShaderManager()};
+	m->shadowCasterTech = shaderManager.LoadEffect(str_terrain_shadow_caster);
+	m->silhouettteOccluderTech = shaderManager.LoadEffect(str_terrain_silhouette_occluder);
+	m->wireframeTech = shaderManager.LoadEffect(str_terrain_wireframe);
 }
 
 void TerrainRenderer::SetSimulation(CSimulation2* simulation)
@@ -293,27 +326,13 @@ void TerrainRenderer::PrepareShader(
 		shader->GetBindingSlot(str_losTransform),
 		los.GetTextureMatrix()[0], los.GetTextureMatrix()[12]);
 
-	deviceCommandContext->SetUniform(
-		shader->GetBindingSlot(str_ambient),
-		lightEnv.m_AmbientColor.AsFloatArray());
-	deviceCommandContext->SetUniform(
-		shader->GetBindingSlot(str_sunColor),
-		lightEnv.m_SunColor.AsFloatArray());
-	deviceCommandContext->SetUniform(
-		shader->GetBindingSlot(str_sunDir),
-		lightEnv.GetSunDir().AsFloatArray());
-
-	deviceCommandContext->SetUniform(
-		shader->GetBindingSlot(str_fogColor),
-		lightEnv.m_FogColor.AsFloatArray());
-	deviceCommandContext->SetUniform(
-		shader->GetBindingSlot(str_fogParams),
-		lightEnv.m_FogFactor, lightEnv.m_FogMax);
+	lightEnv.Bind(deviceCommandContext, shader);
 }
 
 void TerrainRenderer::RenderTerrainShader(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-	const CShaderDefines& context, int cullGroup, ShadowMap* shadow)
+	const CShaderDefines& context, int cullGroup, ShadowMap* shadow,
+	const bool wireframe)
 {
 	ENSURE(m->phase == Phase_Render);
 
@@ -350,22 +369,25 @@ void TerrainRenderer::RenderTerrainShader(
 
 	deviceCommandContext->EndPass();
 
+	const CMaterial::Pass materialPass{GetMaterialPassFromCullGroup(cullGroup, wireframe)};
+
 	CPatchRData::RenderBases(
-		deviceCommandContext, m->baseVertexInputLayout, visiblePatches, context, shadow);
+		deviceCommandContext, m->baseVertexInputLayout, visiblePatches, context, shadow, materialPass);
 
 	// render blend passes for each patch
 	CPatchRData::RenderBlends(
-		deviceCommandContext, m->blendVertexInputLayout, visiblePatches, context, shadow);
+		deviceCommandContext, m->blendVertexInputLayout, visiblePatches, context, shadow, materialPass);
 
 	CDecalRData::RenderDecals(
-		deviceCommandContext, m->decalsVertexInputLayout, visibleDecals, context, shadow);
+		deviceCommandContext, m->decalsVertexInputLayout, visibleDecals, context, shadow, materialPass);
 }
 
 ///////////////////////////////////////////////////////////////////
 // Render un-textured patches as polygons
 void TerrainRenderer::RenderPatches(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-	int cullGroup, const CShaderDefines& defines, const CColor& color)
+	int cullGroup, const CShaderDefines& defines, const CColor& color,
+	const bool wireframe)
 {
 	ENSURE(m->phase == Phase_Render);
 
@@ -375,7 +397,31 @@ void TerrainRenderer::RenderPatches(
 
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render terrain patches");
 
-	CShaderTechniquePtr solidTech = g_Renderer.GetShaderManager().LoadEffect(str_terrain_solid, defines);
+	CShaderTechniquePtr solidTech;
+	if (wireframe)
+	{
+		solidTech = m->wireframeTech;
+	}
+	else
+	{
+		switch (cullGroup)
+		{
+		case CSceneRenderer::CULL_SHADOWS_CASCADE_0: [[fallthrough]];
+		case CSceneRenderer::CULL_SHADOWS_CASCADE_1: [[fallthrough]];
+		case CSceneRenderer::CULL_SHADOWS_CASCADE_2: [[fallthrough]];
+		case CSceneRenderer::CULL_SHADOWS_CASCADE_3:
+			ENSURE(defines.GetMap().empty());
+			solidTech = m->shadowCasterTech;
+			break;
+		case CSceneRenderer::CULL_SILHOUETTE_OCCLUDER:
+			ENSURE(defines.GetMap().empty());
+			solidTech = m->silhouettteOccluderTech;
+			break;
+		default:
+			solidTech = g_Renderer.GetShaderManager().LoadEffect(str_terrain_solid, defines);
+			break;
+		}
+	}
 	deviceCommandContext->SetGraphicsPipelineState(
 		solidTech->GetGraphicsPipelineState());
 	deviceCommandContext->BeginPass();
@@ -410,7 +456,7 @@ void TerrainRenderer::RenderOutlines(
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render terrain outlines");
 
 	for (size_t i = 0; i < visiblePatches.size(); ++i)
-		visiblePatches[i]->RenderOutline();
+		visiblePatches[i]->RenderOutline(*deviceCommandContext);
 }
 
 
@@ -442,7 +488,7 @@ bool TerrainRenderer::RenderFancyWater(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	const CShaderDefines& context, int cullGroup, ShadowMap* shadow)
 {
-	PROFILE3_GPU("fancy water");
+	PROFILE3("fancy water");
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render fancy water");
 
 	CSceneRenderer& sceneRenderer = g_Renderer.GetSceneRenderer();
@@ -554,7 +600,7 @@ bool TerrainRenderer::RenderFancyWater(
 	// TODO: check that this rotates in the right direction.
 	CMatrix3D skyBoxRotation;
 	skyBoxRotation.SetIdentity();
-	skyBoxRotation.RotateY(M_PI + lightEnv.GetRotation());
+	skyBoxRotation.RotateY(std::numbers::pi_v<float> + lightEnv.GetRotation());
 	deviceCommandContext->SetUniform(
 		fancyWaterShader->GetBindingSlot(str_skyBoxRot),
 		skyBoxRotation.AsFloatArray());
@@ -572,12 +618,6 @@ bool TerrainRenderer::RenderFancyWater(
 			waterManager.m_ReflectionMatrix.AsFloatArray());
 	}
 
-	deviceCommandContext->SetUniform(
-		fancyWaterShader->GetBindingSlot(str_ambient), lightEnv.m_AmbientColor.AsFloatArray());
-	deviceCommandContext->SetUniform(
-		fancyWaterShader->GetBindingSlot(str_sunDir), lightEnv.GetSunDir().AsFloatArray());
-	deviceCommandContext->SetUniform(
-		fancyWaterShader->GetBindingSlot(str_sunColor), lightEnv.m_SunColor.AsFloatArray());
 	deviceCommandContext->SetUniform(
 		fancyWaterShader->GetBindingSlot(str_color), waterManager.m_WaterColor.AsFloatArray());
 	deviceCommandContext->SetUniform(
@@ -598,18 +638,15 @@ bool TerrainRenderer::RenderFancyWater(
 		fancyWaterShader->GetBindingSlot(str_cameraPos),
 		camera.GetOrientation().GetTranslation().AsFloatArray());
 
-	deviceCommandContext->SetUniform(
-		fancyWaterShader->GetBindingSlot(str_fogColor),
-		lightEnv.m_FogColor.AsFloatArray());
-	deviceCommandContext->SetUniform(
-		fancyWaterShader->GetBindingSlot(str_fogParams),
-		lightEnv.m_FogFactor, lightEnv.m_FogMax);
+	lightEnv.Bind(deviceCommandContext, fancyWaterShader);
+
 	deviceCommandContext->SetUniform(
 		fancyWaterShader->GetBindingSlot(str_time), static_cast<float>(time));
+	const float scale{g_Renderer.GetPostprocManager().IsEnabled()
+		? g_Renderer.GetPostprocManager().GetScale() : 1.0f};
 	deviceCommandContext->SetUniform(
 		fancyWaterShader->GetBindingSlot(str_screenSize),
-		static_cast<float>(g_Renderer.GetWidth()),
-		static_cast<float>(g_Renderer.GetHeight()));
+		g_Renderer.GetWidth() * scale, g_Renderer.GetHeight() * scale);
 
 	if (waterManager.m_WaterType == L"clap")
 	{
@@ -658,20 +695,20 @@ void TerrainRenderer::RenderSimpleWater(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	int cullGroup)
 {
-	PROFILE3_GPU("simple water");
+	PROFILE3("simple water");
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render Simple Water");
 
-	const WaterManager& waterManager = g_Renderer.GetSceneRenderer().GetWaterManager();
-	CLOSTexture& losTexture = g_Renderer.GetSceneRenderer().GetScene().GetLOSTexture();
+	CSceneRenderer& sceneRenderer{g_Renderer.GetSceneRenderer()};
+	const WaterManager& waterManager{sceneRenderer.GetWaterManager()};
+	CLOSTexture& losTexture{sceneRenderer.GetScene().GetLOSTexture()};
 
 	const double time = waterManager.m_WaterTexTimer;
 
-	CShaderDefines context;
-	if (g_Renderer.GetSceneRenderer().GetWaterRenderMode() == WIREFRAME)
-		context.Add(str_MODE_WIREFRAME, str_1);
-
-	CShaderTechniquePtr waterSimpleTech =
-		g_Renderer.GetShaderManager().LoadEffect(str_water_simple, context);
+	CShaderTechniquePtr waterSimpleTech{
+		g_Renderer.GetShaderManager().LoadEffect(
+			sceneRenderer.GetWaterRenderMode() == WIREFRAME
+				? str_water_simple_wireframe
+				: str_water_simple, {})};
 	deviceCommandContext->SetGraphicsPipelineState(
 		waterSimpleTech->GetGraphicsPipelineState());
 	deviceCommandContext->BeginPass();
@@ -779,7 +816,7 @@ void TerrainRenderer::RenderPriorities(CCanvas2D& canvas, int cullGroup)
 	ENSURE(m->phase == Phase_Render);
 
 	CTextRenderer textRenderer;
-	textRenderer.SetCurrentFont(CStrIntern("mono-stroke-10"));
+	textRenderer.SetCurrentFont(CStrIntern{"mono-stroke-10"}, CStrIntern{});
 	textRenderer.SetCurrentColor(CColor(1.0f, 1.0f, 0.0f, 1.0f));
 
 	std::vector<CPatchRData*>& visiblePatches = m->visiblePatches[cullGroup];

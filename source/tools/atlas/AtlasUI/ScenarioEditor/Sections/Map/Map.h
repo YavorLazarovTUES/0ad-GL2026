@@ -1,4 +1,4 @@
-/* Copyright (C) 2020 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -15,27 +15,29 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "../Common/Sidebar.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/Sections/Common/Sidebar.h"
 
-#include <wx/collpane.h>
+#include <wx/event.h>
 
 class MapSettingsControl;
+class ScenarioEditor;
+class wxWindow;
 
 class MapSidebar : public Sidebar
 {
 public:
 	MapSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContainer, wxWindow* bottomBarContainer);
 
-	virtual void OnMapReload();
+	void OnMapReload() override;
 
 protected:
-	virtual void OnFirstDisplay();
+	void OnFirstDisplay() override;
 
 private:
 	MapSettingsControl* m_MapSettingsCtrl;
 
-	void OnCollapse(wxCollapsiblePaneEvent& evt);
 	void OnOpenPlayerPanel(wxCommandEvent& evt);
+	void OnRandomScript(wxCommandEvent& evt);
 	void OnRandomReseed(wxCommandEvent& evt);
 	void OnRandomGenerate(wxCommandEvent& evt);
 	void OnResizeMap(wxCommandEvent& evt);

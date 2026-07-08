@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,9 +19,18 @@
 
 #include "Decal.h"
 
+#include "graphics/RenderableObject.h"
 #include "graphics/Terrain.h"
+#include "maths/BoundingBoxAligned.h"
 #include "maths/MathUtil.h"
+#include "maths/Matrix3D.h"
+#include "maths/Vector3D.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
+
+#include <algorithm>
+#include <cmath>
+#include <memory>
 
 std::unique_ptr<CModelAbstract> CModelDecal::Clone() const
 {
@@ -108,7 +117,7 @@ void CModelDecal::SetTransform(const CMatrix3D& transform)
 	InvalidatePosition();
 }
 
-void CModelDecal::RemoveShadows()
+void CModelDecal::RemoveShadowsReceive()
 {
 	m_Decal.m_Material.AddShaderDefine(str_DISABLE_RECEIVE_SHADOWS, str_1);
 }

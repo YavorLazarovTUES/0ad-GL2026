@@ -34,9 +34,9 @@ function placeTabButtons(categoriesData, horizontal, buttonSize, spacing, onPres
 	g_TabHorizontal = horizontal;
 	g_OnSelectTab = onSelect;
 
-	for (let category in categoriesData)
+	for (const category in categoriesData)
 	{
-		let button = Engine.GetGUIObjectByName("tabButton[" + category + "]");
+		const button = Engine.GetGUIObjectByName("tabButton[" + category + "]");
 		if (!button)
 		{
 			warn("Too few tab-buttons!");
@@ -46,26 +46,25 @@ function placeTabButtons(categoriesData, horizontal, buttonSize, spacing, onPres
 		button.style = "ModernTabButton" + (horizontal ? "Horizontal" : "Vertical");
 		button.hidden = false;
 
-		let size = button.size;
 		if (horizontal)
 		{
-			size.left = category * (buttonSize + spacing) + spacing / 2;
-			size.right = size.left + buttonSize;
-			size.rright = 0;
+			button.size.left = category * (buttonSize + spacing) + spacing / 2;
+			button.size.right = button.size.left + buttonSize;
+			button.size.rright = 0;
 		}
 		else
 		{
-			size.top = category * (buttonSize + spacing) + spacing / 2;
-			size.bottom = size.top + buttonSize;
-			size.rbottom = 0;
+			button.size.top = category * (buttonSize + spacing) + spacing / 2;
+			button.size.bottom = button.size.top + buttonSize;
+			button.size.rbottom = 0;
 		}
-		button.size = size;
+
 		button.tooltip = (categoriesData[category].tooltip ? categoriesData[category].tooltip + "\n" : "") +
 			(g_TabHorizontal ?
 				colorizeHotkey(translate("Scroll down or use %(hotkey)s to move a tab right."), "tab.next") + "\n" + colorizeHotkey(translate("Scroll up or use %(hotkey)s to move a tab left."), "tab.prev"):
 				colorizeHotkey(translate("Scroll down or use %(hotkey)s to move a tab down."), "tab.next") + "\n" + colorizeHotkey(translate("Scroll up or use %(hotkey)s to move a tab up."), "tab.prev"));
 
-		let categoryNum = +category;
+		const categoryNum = +category;
 		button.onPress = () => { onPress(categoryNum); };
 
 		Engine.GetGUIObjectByName("tabButtonText[" + category + "]").caption = categoriesData[category].label;
@@ -91,7 +90,8 @@ function selectNextTab(direction)
 function selectPanel(category)
 {
 	g_TabCategorySelected = category;
-	Engine.GetGUIObjectByName("tabButtons").children.forEach((button, j) => {
+	Engine.GetGUIObjectByName("tabButtons").children.forEach((button, j) =>
+	{
 		button.sprite = g_TabHorizontal ?
 			category == j ?
 				"ModernTabHorizontalForeground" :

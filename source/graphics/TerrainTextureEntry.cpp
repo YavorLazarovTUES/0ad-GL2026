@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,19 +20,28 @@
 #include "TerrainTextureEntry.h"
 
 #include "graphics/MaterialManager.h"
-#include "graphics/Terrain.h"
 #include "graphics/TerrainProperties.h"
 #include "graphics/TerrainTextureManager.h"
 #include "graphics/TextureManager.h"
+#include "lib/debug.h"
+#include "lib/path.h"
 #include "lib/utf8.h"
 #include "ps/CLogger.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
+#include "ps/Errors.h"
 #include "ps/Filesystem.h"
+#include "ps/XMB/XMBData.h"
+#include "ps/XMB/XMBStorage.h"
 #include "ps/XML/Xeromyces.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
+#include "renderer/backend/Sampler.h"
 
-#include <map>
+#include <cmath>
+#include <cstddef>
+#include <string>
+#include <utility>
 
 CTerrainTextureEntry::CTerrainTextureEntry(CTerrainPropertiesPtr properties, const VfsPath& path):
 	m_pProperties(properties),
@@ -66,7 +75,7 @@ CTerrainTextureEntry::CTerrainTextureEntry(CTerrainPropertiesPtr properties, con
 
 	if (root.GetNodeName() != el_terrain)
 	{
-		LOGERROR("Invalid terrain format (unrecognised root element '%s')", XeroFile.GetElementString(root.GetNodeName()));
+		LOGERROR("Invalid terrain format (unrecognized root element '%s')", XeroFile.GetElementString(root.GetNodeName()));
 		return;
 	}
 
@@ -137,8 +146,8 @@ CTerrainTextureEntry::CTerrainTextureEntry(CTerrainPropertiesPtr properties, con
 	if (CRenderer::IsInitialised())
 		m_TerrainAlpha = g_TexMan.LoadAlphaMap(alphamap);
 
-	float texAngle = 0.f;
-	float texSize = 1.f;
+	float texAngle{0.f};
+	float texSize{1.f};
 
 	if (m_pProperties)
 	{
@@ -146,17 +155,31 @@ CTerrainTextureEntry::CTerrainTextureEntry(CTerrainPropertiesPtr properties, con
 		texAngle = m_pProperties->GetTextureAngle();
 		texSize = m_pProperties->GetTextureSize();
 	}
-
-	m_TextureMatrix.SetZero();
-	m_TextureMatrix._11 = cosf(texAngle) / texSize;
-	m_TextureMatrix._13 = -sinf(texAngle) / texSize;
-	m_TextureMatrix._21 = -sinf(texAngle) / texSize;
-	m_TextureMatrix._23 = -cosf(texAngle) / texSize;
-	m_TextureMatrix._44 = 1.f;
+	GenerateTextureMatrix(texAngle, texSize);
 
 	GroupVector::iterator it=m_Groups.begin();
 	for (;it!=m_Groups.end();++it)
 		(*it)->AddTerrain(this);
+}
+
+CTerrainTextureEntry::CTerrainTextureEntry(const CStr tag):
+	m_pProperties(nullptr),
+	m_BaseColor(0),
+	m_BaseColorValid(false),
+	m_DiffuseTexturePath(""),
+	m_Tag(tag)
+{
+	if (!CRenderer::IsInitialised())
+		return;
+
+	const VfsPath alphamap{"standard"};
+	const VfsPath mat{VfsPath{"art/materials"} / "terrain_norm_spec.xml"};
+	m_Material = g_Renderer.GetSceneRenderer().GetMaterialManager().LoadMaterial(mat);
+	const CTexturePtr texptr{g_Renderer.GetTextureManager().GetErrorTexture()};
+	m_Material.AddSampler(CMaterial::TextureSampler{str_baseTex, texptr});
+	m_TerrainAlpha = g_TexMan.LoadAlphaMap(alphamap);
+
+	GenerateTextureMatrix(0.0f, 1.f);
 }
 
 CTerrainTextureEntry::~CTerrainTextureEntry()
@@ -183,4 +206,14 @@ void CTerrainTextureEntry::BuildBaseColor()
 		m_BaseColor = GetTexture()->GetBaseColor();
 		m_BaseColorValid = true;
 	}
+}
+
+void CTerrainTextureEntry::GenerateTextureMatrix(const float texAngle, const float texSize)
+{
+	m_TextureMatrix.SetZero();
+	m_TextureMatrix._11 = cosf(texAngle) / texSize;
+	m_TextureMatrix._13 = -sinf(texAngle) / texSize;
+	m_TextureMatrix._21 = -sinf(texAngle) / texSize;
+	m_TextureMatrix._23 = -cosf(texAngle) / texSize;
+	m_TextureMatrix._44 = 1.f;
 }

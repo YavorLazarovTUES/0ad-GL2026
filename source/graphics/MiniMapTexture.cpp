@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,44 +19,61 @@
 
 #include "MiniMapTexture.h"
 
-#include "graphics/GameView.h"
 #include "graphics/LOSTexture.h"
 #include "graphics/MiniPatch.h"
+#include "graphics/ShaderDefines.h"
 #include "graphics/ShaderManager.h"
-#include "graphics/ShaderProgramPtr.h"
+#include "graphics/ShaderTechnique.h"
 #include "graphics/Terrain.h"
 #include "graphics/TerrainTextureEntry.h"
-#include "graphics/TerrainTextureManager.h"
 #include "graphics/TerritoryTexture.h"
 #include "graphics/TextureManager.h"
 #include "lib/bits.h"
 #include "lib/code_generation.h"
+#include "lib/debug.h"
 #include "lib/hash.h"
+#include "lib/path.h"
 #include "lib/timer.h"
 #include "maths/MathUtil.h"
+#include "maths/Matrix3D.h"
 #include "maths/Vector2D.h"
-#include "ps/ConfigDB.h"
+#include "maths/Vector3D.h"
+#include "ps/CLogger.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
+#include "ps/ConfigDB.h"
 #include "ps/Filesystem.h"
 #include "ps/Game.h"
 #include "ps/Profile.h"
-#include "ps/VideoMode.h"
 #include "ps/World.h"
 #include "ps/XML/Xeromyces.h"
-#include "renderer/backend/IDevice.h"
 #include "renderer/Renderer.h"
-#include "renderer/RenderingOptions.h"
 #include "renderer/SceneRenderer.h"
 #include "renderer/WaterManager.h"
-#include "scriptinterface/Object.h"
+#include "renderer/backend/Backend.h"
+#include "renderer/backend/Format.h"
+#include "renderer/backend/IBuffer.h"
+#include "renderer/backend/IDevice.h"
+#include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/IFramebuffer.h"
+#include "renderer/backend/IShaderProgram.h"
+#include "renderer/backend/ITexture.h"
+#include "renderer/backend/PipelineState.h"
+#include "renderer/backend/Sampler.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpMinimap.h"
 #include "simulation2/components/ICmpRangeManager.h"
-#include "simulation2/system/ParamNode.h"
+#include "simulation2/helpers/Position.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
+#include <iterator>
+#include <numbers>
+#include <utility>
 
 namespace
 {
@@ -194,21 +211,15 @@ CMiniMapTexture::CMiniMapTexture(Renderer::Backend::IDevice* device, CSimulation
 	: m_Simulation(simulation), m_IndexArray(Renderer::Backend::IBuffer::Usage::TRANSFER_DST),
 	m_VertexArray(Renderer::Backend::IBuffer::Type::VERTEX,
 		Renderer::Backend::IBuffer::Usage::DYNAMIC | Renderer::Backend::IBuffer::Usage::TRANSFER_DST),
-	m_InstanceVertexArray(Renderer::Backend::IBuffer::Type::VERTEX, Renderer::Backend::IBuffer::Usage::TRANSFER_DST)
+	m_InstanceVertexArray(Renderer::Backend::IBuffer::Type::VERTEX,
+		Renderer::Backend::IBuffer::Usage::TRANSFER_DST),
+	m_PingDuration{CConfigDB::GetIfInitialised("gui.session.minimap.pingduration", 25.0)},
+	m_HalfBlinkDuration{CConfigDB::GetIfInitialised("gui.session.minimap.blinkduration", 1.0) / 2.0}
 {
 	// Register Relax NG validator.
-	CXeromyces::AddValidator(g_VFS, "pathfinder", "simulation/data/pathfinder.rng");
+	g_Xeromyces.AddValidator(g_VFS, "pathfinder", "simulation/data/pathfinder.rng");
 
 	m_ShallowPassageHeight = GetShallowPassageHeight();
-
-	double blinkDuration = 1.0;
-	// Tests won't have config initialised
-	if (CConfigDB::IsInitialised())
-	{
-		CFG_GET_VAL("gui.session.minimap.blinkduration", blinkDuration);
-		CFG_GET_VAL("gui.session.minimap.pingduration", m_PingDuration);
-	}
-	m_HalfBlinkDuration = blinkDuration / 2.0;
 
 	m_AttributePos.format = Renderer::Backend::Format::R32G32_SFLOAT;
 	m_VertexArray.AddAttribute(&m_AttributePos);
@@ -272,8 +283,8 @@ CMiniMapTexture::CMiniMapTexture(Renderer::Backend::IDevice* device, CSimulation
 			m_InstanceAttributePosition.GetIterator<float[2]>();
 		for (size_t segment = 0; segment < numberOfCircleSegments; ++segment)
 		{
-			const float currentAngle = static_cast<float>(segment) / numberOfCircleSegments * 2.0f * M_PI;
-			const float nextAngle = static_cast<float>(segment + 1) / numberOfCircleSegments * 2.0f * M_PI;
+			const float currentAngle = static_cast<float>(segment) / numberOfCircleSegments * 2.0f * std::numbers::pi_v<float>;
+			const float nextAngle = static_cast<float>(segment + 1) / numberOfCircleSegments * 2.0f * std::numbers::pi_v<float>;
 
 			(*attributePosition)[0] = 0.0f;
 			(*attributePosition)[1] = 0.0f;
@@ -344,7 +355,12 @@ CMiniMapTexture::~CMiniMapTexture()
 	DestroyTextures();
 }
 
-void CMiniMapTexture::Update(const float UNUSED(deltaRealTime))
+void CMiniMapTexture::RequestRendering()
+{
+	m_RenderingRequested = true;
+}
+
+void CMiniMapTexture::Update(const float /*deltaRealTime*/)
 {
 	if (m_WaterHeight != g_Renderer.GetSceneRenderer().GetWaterManager().m_WaterHeight)
 	{
@@ -357,6 +373,9 @@ void CMiniMapTexture::Render(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	CLOSTexture& losTexture, CTerritoryTexture& territoryTexture)
 {
+	if (!std::exchange(m_RenderingRequested, false))
+		return;
+
 	const CTerrain& terrain = g_Game->GetWorld()->GetTerrain();
 	if (!m_TerrainTexture)
 		CreateTextures(deviceCommandContext, terrain);
@@ -507,11 +526,17 @@ void CMiniMapTexture::RenderFinalTexture(
 	m_LastFinalTextureUpdate = currentTime;
 	m_FinalTextureDirty = false;
 
+	CmpPtr<ICmpRangeManager> cmpRangeManager(m_Simulation, SYSTEM_ENTITY);
+	ENSURE(cmpRangeManager);
+
 	// We might scale entities properly in the vertex shader but it requires
 	// additional space in the vertex buffer. So we assume that we don't need
 	// to change an entity size so often.
+	// Also compensate circular maps for being rendered closer than square maps.
+	const float mapGeometryScale{cmpRangeManager->GetLosCircular() ? std::sqrt(2.0f) : 1.0f};
+	const float entityRadiusScale{g_ConfigDB.Get("gui.session.minimap.entityradiusscale", 1.0f) / mapGeometryScale };
 	// Radius with instancing is lower because an entity has a more round shape.
-	const float entityRadius = static_cast<float>(m_MapSize) / 128.0f * (m_UseInstancing ? 5.0 : 6.0f);
+	const float entityRadius = static_cast<float>(m_MapSize) / 128.0f * (m_UseInstancing ? 5.0 : 6.0f) * entityRadiusScale;
 
 	UpdateAndUploadEntities(deviceCommandContext, entityRadius, currentTime);
 
@@ -646,12 +671,9 @@ void CMiniMapTexture::UpdateAndUploadEntities(
 		m_NextBlinkTime = currentTime + m_HalfBlinkDuration;
 	}
 
-	bool iconsEnabled = false;
-	CFG_GET_VAL("gui.session.minimap.icons.enabled", iconsEnabled);
-	float iconsOpacity = 1.0f;
-	CFG_GET_VAL("gui.session.minimap.icons.opacity", iconsOpacity);
-	float iconsSizeScale = 1.0f;
-	CFG_GET_VAL("gui.session.minimap.icons.sizescale", iconsSizeScale);
+	const bool iconsEnabled{g_ConfigDB.Get("gui.session.minimap.icons.enabled", false)};
+	const float iconsOpacity{g_ConfigDB.Get("gui.session.minimap.icons.opacity", 1.0f)};
+	const float iconsSizeScale{g_ConfigDB.Get("gui.session.minimap.icons.sizescale", 1.0f)};
 
 	bool iconsCountOverflow = false;
 

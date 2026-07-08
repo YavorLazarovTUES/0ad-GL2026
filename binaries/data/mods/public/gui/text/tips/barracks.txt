@@ -1,5 +1,0 @@
-BARRACKS
-Train all citizen soldiers. Some civilizations can unlock the training of champions as well.
-Units gain experience while garrisoned inside the building.
-Build one early to train citizen soldiers while you phase up your settlement.
-Build in a forward base to resupply your assault with fresh troops.

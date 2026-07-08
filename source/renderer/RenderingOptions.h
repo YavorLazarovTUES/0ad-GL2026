@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -28,28 +28,10 @@
 #define INCLUDED_RENDERINGOPTIONS
 
 #include "ps/CStr.h"
-#include "ps/CStrIntern.h"
 
-class CRenderer;
+#include <memory>
 
-enum RenderPath
-{
-	// If no rendering path is configured explicitly, the renderer
-	// will choose the path when Open() is called.
-	DEFAULT,
-
-	// Classic fixed function.
-	FIXED,
-
-	// Use new ARB/GLSL system
-	SHADER
-};
-
-struct RenderPathEnum
-{
-	static RenderPath FromString(const CStr8& name);
-	static CStr8 ToString(RenderPath);
-};
+class CStrIntern;
 
 enum class RenderDebugMode
 {
@@ -100,8 +82,6 @@ OPTION_CUSTOM_SETTER(NAME, TYPE); OPTION_GETTER(NAME, TYPE); OPTION_DEF(NAME, TY
 	OPTION_WITH_SIDE_EFFECT(ShadowPCF, bool);
 	OPTION_WITH_SIDE_EFFECT(Fog, bool);
 
-	OPTION_WITH_SIDE_EFFECT(RenderPath, RenderPath);
-
 	OPTION_WITH_SIDE_EFFECT(RenderDebugMode, RenderDebugMode);
 
 	OPTION(WaterEffects, bool);
@@ -118,6 +98,14 @@ OPTION_CUSTOM_SETTER(NAME, TYPE); OPTION_GETTER(NAME, TYPE); OPTION_DEF(NAME, TY
 	OPTION(PostProc, bool);
 	OPTION(DisplayFrustum, bool);
 	OPTION(DisplayShadowsFrustum, bool);
+
+	OPTION(PBRBrightness, float);
+
+	// Cutscene Mode: while active, (most) visual overlays aren't rendered in order to give the scene a more "pure"
+	// and real feel, like a movie.
+	// The idea is for it to be inactive during normal gameplay, but enabled while playing cinema paths and
+	// potentially during other scripted story events/cutscenes as well, like speech/dialogue.
+	OPTION(CutsceneMode, bool);
 
 	OPTION(RenderActors, bool);
 

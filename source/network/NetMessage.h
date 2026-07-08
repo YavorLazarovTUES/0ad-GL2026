@@ -1,4 +1,4 @@
-/* Copyright (C) 2017 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,12 +18,22 @@
 #ifndef NETMESSAGE_H
 #define NETMESSAGE_H
 
-#include "Serialization.h"
+#include "lib/code_annotation.h"
+#include "lib/types.h"
+#include "network/Serialization.h"
+#include "ps/CStr.h"
+
+#include <cstddef>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+
+namespace Script { class Interface; }
 
 // We need the enum from NetMessages.h, but we can't create any classes in
 // NetMessages.h, since they in turn require CNetMessage to be defined
 #define ALLNETMSGS_DONT_CREATE_NMTS
-#include "NetMessages.h"
+#include "network/NetMessages.h" // IWYU pragma: keep
 #undef ALLNETMSGS_DONT_CREATE_NMTS
 
 /**
@@ -103,7 +113,7 @@ public:
 	 * @param scriptInterface			Script instance to use when constructing scripted messages
 	 * @return							The new message created
 	 */
-	static CNetMessage* CreateMessage(const void* pData, size_t dataSize, const ScriptInterface& scriptInterface);
+	static CNetMessage* CreateMessage(const void* pData, size_t dataSize, const Script::Interface& scriptInterface);
 };
 
 /**
@@ -113,8 +123,8 @@ public:
 class CSimulationMessage : public CNetMessage
 {
 public:
-	CSimulationMessage(const ScriptInterface& scriptInterface);
-	CSimulationMessage(const ScriptInterface& scriptInterface, u32 client, i32 player, u32 turn, JS::HandleValue data);
+	CSimulationMessage(const Script::Interface& scriptInterface);
+	CSimulationMessage(const Script::Interface& scriptInterface, u32 client, i32 player, u32 turn, JS::HandleValue data);
 
 	/** The compiler can't create a copy constructor because of the PersistentRooted member,
 	 * so we have to write it manually.
@@ -132,7 +142,7 @@ public:
 	u32 m_Turn;
 	JS::PersistentRooted<JS::Value> m_Data;
 private:
-	const ScriptInterface& m_ScriptInterface;
+	const Script::Interface& m_ScriptInterface;
 };
 
 /**
@@ -142,8 +152,8 @@ class CGameSetupMessage : public CNetMessage
 {
 	NONCOPYABLE(CGameSetupMessage);
 public:
-	CGameSetupMessage(const ScriptInterface& scriptInterface);
-	CGameSetupMessage(const ScriptInterface& scriptInterface, JS::HandleValue data);
+	CGameSetupMessage(const Script::Interface& scriptInterface);
+	CGameSetupMessage(const Script::Interface& scriptInterface, JS::HandleValue data);
 	virtual u8* Serialize(u8* pBuffer) const;
 	virtual const u8* Deserialize(const u8* pStart, const u8* pEnd);
 	virtual size_t GetSerializedLength() const;
@@ -151,10 +161,10 @@ public:
 
 	JS::PersistentRootedValue m_Data;
 private:
-	const ScriptInterface& m_ScriptInterface;
+	const Script::Interface& m_ScriptInterface;
 };
 
 // This time, the classes are created
-#include "NetMessages.h"
+#include "network/NetMessages.h" // IWYU pragma: keep
 
 #endif // NETMESSAGE_H

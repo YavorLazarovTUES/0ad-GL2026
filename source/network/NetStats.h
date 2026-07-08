@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,8 +18,12 @@
 #ifndef INCLUDED_NETSTATS
 #define INCLUDED_NETSTATS
 
+#include "lib/code_annotation.h"
+#include "lib/external_libraries/enet.h"
+#include "ps/CStr.h"
 #include "ps/ProfileViewer.h"
 
+#include <cstddef>
 #include <mutex>
 #include <vector>
 
@@ -40,7 +44,7 @@ class CNetStatsTable : public AbstractProfileTable
 	NONCOPYABLE(CNetStatsTable);
 public:
 	CNetStatsTable();
-	CNetStatsTable(const ENetPeer* peer);
+	CNetStatsTable(const ENetPeer& peer);
 
 	CStr GetName() override;
 	CStr GetTitle() override;
@@ -49,7 +53,7 @@ public:
 	CStr GetCellText(size_t row, size_t col) override;
 	AbstractProfileTable* GetChild(size_t row) override;
 
-	void LatchHostState(const ENetHost* host);
+	void LatchHostState(const ENetHost& host);
 
 private:
 	const ENetPeer* m_Peer;

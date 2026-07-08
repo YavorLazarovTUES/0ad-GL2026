@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,15 +19,24 @@
 #define INCLUDED_MAPGENERATOR
 
 #include "lib/file/vfs/vfs_path.h"
-#include "scriptinterface/ScriptTypes.h"
+#include "lib/types.h"
 #include "scriptinterface/StructuredClone.h"
 
 #include <atomic>
+#include <js/PropertyDescriptor.h>
 #include <string>
+#include <string_view>
+
+class StopToken;
+namespace Script { class Interface; }
+
+constexpr std::wstring_view RANDOM_MAP_PREFIX{L"maps/random/"};
 
 /**
  * Generate the map. This does take a long time.
  *
+ * @param st request to fastly stop the function. The returned value is
+ *	unspecified.
  * @param progress Destination to write the function progress to. You must not
  *	write to it while `RunMapGenerationScript` is running.
  * @param script The VFS path for the script, e.g. "maps/random/latium.js".
@@ -36,10 +45,10 @@
  *	`g_MapSettings` also respects this flags.
  * @return If there is an error `nullptr` is returned. Otherwise random map
  *	data, according to this format:
- *	https://trac.wildfiregames.com/wiki/Random_Map_Generator_Internals#Dataformat
+ *	https://gitea.wildfiregames.com/0ad/0ad/wiki/Random_Map_Generator_Internals#Dataformat
  */
-Script::StructuredClone RunMapGenerationScript(std::atomic<int>& progress,
-	ScriptInterface& scriptInterface, const VfsPath& script, const std::string& settings,
+Script::StructuredClone RunMapGenerationScript(const StopToken stopToken, std::atomic<int>& progress,
+	Script::Interface& scriptInterface, const VfsPath& script, const std::string& settings,
 	const u16 flags = JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT);
 
 #endif	//INCLUDED_MAPGENERATOR

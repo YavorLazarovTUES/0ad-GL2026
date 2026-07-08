@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,22 +19,36 @@
 
 #include "LOSTexture.h"
 
+#include "graphics/Color.h"
 #include "graphics/ShaderManager.h"
+#include "graphics/ShaderTechnique.h"
 #include "lib/bits.h"
-#include "lib/config2.h"
+#include "lib/debug.h"
 #include "lib/timer.h"
 #include "maths/MathUtil.h"
 #include "ps/CLogger.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
-#include "ps/Game.h"
 #include "ps/Profile.h"
-#include "renderer/backend/IDevice.h"
 #include "renderer/Renderer.h"
 #include "renderer/RenderingOptions.h"
 #include "renderer/TimeManager.h"
+#include "renderer/backend/Backend.h"
+#include "renderer/backend/IDevice.h"
+#include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/IFramebuffer.h"
+#include "renderer/backend/IShaderProgram.h"
+#include "renderer/backend/ITexture.h"
+#include "renderer/backend/Sampler.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpRangeManager.h"
 #include "simulation2/helpers/Los.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+
+#include <array>
+#include <cstring>
+#include <iterator>
 
 /*
 

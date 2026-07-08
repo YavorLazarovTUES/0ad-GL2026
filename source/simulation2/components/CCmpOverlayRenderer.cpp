@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,24 +17,37 @@
 
 #include "precompiled.h"
 
-#include "simulation2/system/Component.h"
 #include "ICmpOverlayRenderer.h"
 
-#include "ICmpPosition.h"
-
-#include "simulation2/MessageTypes.h"
-
+#include "graphics/Color.h"
+#include "graphics/HeightMipmap.h"
 #include "graphics/Overlay.h"
 #include "graphics/TextureManager.h"
-#include "renderer/Renderer.h"
+#include "maths/FixedVector2D.h"
+#include "maths/Matrix3D.h"
+#include "maths/Vector3D.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
 #include "ps/Profile.h"
+#include "renderer/Renderer.h"
+#include "renderer/Scene.h"
+#include "simulation2/MessageTypes.h"
+#include "simulation2/components/ICmpPosition.h"
+#include "simulation2/components/ICmpRangeManager.h"
+#include "simulation2/helpers/Player.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Message.h"
+
+#include <cstddef>
+#include <string>
+#include <vector>
 
 class CCmpOverlayRenderer final : public ICmpOverlayRenderer
 {
 public:
-	static void ClassInit(CComponentManager& UNUSED(componentManager))
+	static void ClassInit(CComponentManager &componentManager)
 	{
+		componentManager.SubscribeToMessageType(MT_VisibilityChanged);
 	}
 
 	DEFAULT_COMPONENT_ALLOCATOR(OverlayRenderer)
@@ -49,12 +62,18 @@ public:
 	// Whether the sprites should be drawn (only valid between Interpolate and RenderSubmit)
 	bool m_Enabled;
 
+	// NOT SAFE TO SERIALIZE - used to hide status bars/auras of entities invisible to the player.
+	// We also can't just deserialize it because annoyingly the range manager computes LOS data on deserialize...
+	LosVisibility m_VisibilityToCurrentPlayer = LosVisibility::VISIBLE;
+	// So to work around that, just store which player we saved this for last.
+	player_id_t m_LastStoredPlayerVisibility = INVALID_PLAYER;
+
 	static std::string GetSchema()
 	{
 		return "<empty/>";
 	}
 
-	void Init(const CParamNode& UNUSED(paramNode)) override
+	void Init(const CParamNode&) override
 	{
 	}
 
@@ -62,34 +81,41 @@ public:
 	{
 	}
 
-	void Serialize(ISerializer& UNUSED(serialize)) override
+	void Serialize(ISerializer&) override
 	{
 		// TODO: should we do anything here?
 		// or should we expect other components to reinitialise us
 		// after deserialization?
 	}
 
-	void Deserialize(const CParamNode& paramNode, IDeserializer& UNUSED(deserialize)) override
+	void Deserialize(const CParamNode &paramNode, IDeserializer&) override
 	{
 		Init(paramNode);
 	}
 
-	void HandleMessage(const CMessage& msg, bool UNUSED(global)) override
+	void HandleMessage(const CMessage &msg, bool /*global*/) override
 	{
 		switch (msg.GetType())
 		{
 		case MT_Interpolate:
 		{
 			PROFILE("OverlayRenderer::Interpolate");
-			const CMessageInterpolate& msgData = static_cast<const CMessageInterpolate&> (msg);
+			const CMessageInterpolate &msgData = static_cast<const CMessageInterpolate &>(msg);
 			Interpolate(msgData.deltaSimTime, msgData.offset);
 			break;
 		}
 		case MT_RenderSubmit:
 		{
 			PROFILE("OverlayRenderer::RenderSubmit");
-			const CMessageRenderSubmit& msgData = static_cast<const CMessageRenderSubmit&> (msg);
+			const CMessageRenderSubmit &msgData = static_cast<const CMessageRenderSubmit &>(msg);
 			RenderSubmit(msgData.collector);
+			break;
+		}
+		case MT_VisibilityChanged:
+		{
+			const CMessageVisibilityChanged &msgData = static_cast<const CMessageVisibilityChanged &>(msg);
+			if (msgData.player == GetSimContext().GetCurrentDisplayedPlayer())
+				m_VisibilityToCurrentPlayer = static_cast<LosVisibility>(msgData.newVisibility);
 			break;
 		}
 		}
@@ -115,7 +141,7 @@ public:
 		UpdateMessageSubscriptions();
 	}
 
-	void AddSprite(const VfsPath& textureName, const CFixedVector2D& corner0, const CFixedVector2D& corner1, const CFixedVector3D& position, const std::string& color) override
+	void AddSprite(const VfsPath &textureName, const CFixedVector2D &corner0, const CFixedVector2D &corner1, const CFixedVector3D &position, const std::string &color) override
 	{
 		CColor colorObj(1.0f, 1.0f, 1.0f, 1.0f);
 		if (!colorObj.ParseString(color, 1))
@@ -137,10 +163,18 @@ public:
 		UpdateMessageSubscriptions();
 	}
 
-	void Interpolate(float UNUSED(frameTime), float frameOffset)
+	void Interpolate(float /*frameTime*/, float frameOffset)
 	{
+		// Recompute our visibility if needed.
+		if (m_LastStoredPlayerVisibility != GetSimContext().GetCurrentDisplayedPlayer())
+		{
+			CmpPtr<ICmpRangeManager> cmpRangeManager(GetSystemEntity());
+			m_VisibilityToCurrentPlayer = static_cast<LosVisibility>(cmpRangeManager->GetLosVisibility(GetEntityHandle(), GetSimContext().GetCurrentDisplayedPlayer()));
+			m_LastStoredPlayerVisibility = GetSimContext().GetCurrentDisplayedPlayer();
+		}
+
 		// Skip all the following computations if we have no sprites
-		if (m_Sprites.empty())
+		if (m_Sprites.empty() || m_VisibilityToCurrentPlayer == LosVisibility::HIDDEN)
 		{
 			m_Enabled = false;
 			return;
@@ -165,9 +199,9 @@ public:
 		m_Enabled = true;
 	}
 
-	void RenderSubmit(SceneCollector& collector)
+	void RenderSubmit(SceneCollector &collector)
 	{
-		if (!m_Enabled || !ICmpOverlayRenderer::m_OverrideVisible)
+		if (!m_Enabled)
 			return;
 
 		for (size_t i = 0; i < m_Sprites.size(); ++i)

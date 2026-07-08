@@ -1,26 +1,29 @@
-from .api import RLAPI
 import json
-import math
-from xml.etree import ElementTree
 from itertools import cycle
+from xml.etree import ElementTree as ET
 
-class ZeroAD():
-    def __init__(self, uri='http://localhost:6000'):
+from .api import RLAPI
+
+
+class ZeroAD:
+    def __init__(self, uri="http://localhost:6000"):
         self.api = RLAPI(uri)
         self.current_state = None
         self.cache = {}
         self.player_id = 1
 
-    def step(self, actions=[], player=None):
+    def step(self, actions=None, player=None):
+        if actions is None:
+            actions = []
         player_ids = cycle([self.player_id]) if player is None else cycle(player)
 
-        cmds = zip(player_ids, actions)
+        cmds = zip(player_ids, actions, strict=False)
         cmds = ((player, action) for (player, action) in cmds if action is not None)
         state_json = self.api.step(cmds)
         self.current_state = GameState(json.loads(state_json), self)
         return self.current_state
 
-    def reset(self, config='', save_replay=False, player_id=1):
+    def reset(self, config="", save_replay=False, player_id=1):
         state_json = self.api.reset(config, player_id, save_replay)
         self.current_state = GameState(json.loads(state_json), self)
         return self.current_state
@@ -33,62 +36,72 @@ class ZeroAD():
 
     def get_templates(self, names):
         templates = self.api.get_templates(names)
-        return [ (name, EntityTemplate(content)) for (name, content) in templates ]
+        return [(name, EntityTemplate(content)) for (name, content) in templates]
 
-    def update_templates(self, types=[]):
-        all_types = list(set([unit.type() for unit in self.current_state.units()]))
+    def update_templates(self, types=None):
+        if types is None:
+            types = []
+        all_types = list({unit.type() for unit in self.current_state.units()})
         all_types += types
         template_pairs = self.get_templates(all_types)
 
         self.cache = {}
-        for (name, tpl) in template_pairs:
+        for name, tpl in template_pairs:
             self.cache[name] = tpl
 
         return template_pairs
 
-class GameState():
+
+class GameState:
     def __init__(self, data, game):
         self.data = data
         self.game = game
-        self.mapSize = self.data['mapSize']
+        self.mapSize = self.data["mapSize"]
 
-    def units(self, owner=None, type=None):
-        filter_fn = lambda e: (owner is None or e['owner'] == owner) and \
-                (type is None or type in e['template'])
-        return [ Entity(e, self.game) for e in self.data['entities'].values() if filter_fn(e) ]
+    def units(self, owner=None, entity_type=None):
+        def filter_fn(e):
+            return (owner is None or e["owner"] == owner) and (
+                entity_type is None or entity_type in e["template"]
+            )
 
-    def unit(self, id):
-        id = str(id)
-        return Entity(self.data['entities'][id], self.game) if id in self.data['entities'] else None
+        return [Entity(e, self.game) for e in self.data["entities"].values() if filter_fn(e)]
 
-class Entity():
+    def unit(self, entity_id):
+        entity_id = str(entity_id)
+        return (
+            Entity(self.data["entities"][entity_id], self.game)
+            if entity_id in self.data["entities"]
+            else None
+        )
 
+
+class Entity:
     def __init__(self, data, game):
         self.data = data
         self.game = game
         self.template = self.game.cache.get(self.type(), None)
 
     def type(self):
-        return self.data['template']
+        return self.data["template"]
 
     def id(self):
-        return self.data['id']
+        return self.data["id"]
 
     def owner(self):
-        return self.data['owner']
+        return self.data["owner"]
 
     def max_health(self):
         template = self.get_template()
-        return float(template.get('Health/Max'))
+        return float(template.get("Health/Max"))
 
     def health(self, ratio=False):
         if ratio:
-            return self.data['hitpoints']/self.max_health()
+            return self.data["hitpoints"] / self.max_health()
 
-        return self.data['hitpoints']
+        return self.data["hitpoints"]
 
     def position(self):
-        return self.data['position']
+        return self.data["position"]
 
     def get_template(self):
         if self.template is None:
@@ -97,9 +110,10 @@ class Entity():
 
         return self.template
 
-class EntityTemplate():
+
+class EntityTemplate:
     def __init__(self, xml):
-        self.data = ElementTree.fromstring(f'<Entity>{xml}</Entity>')
+        self.data = ET.fromstring(f"<Entity>{xml}</Entity>")
 
     def get(self, path):
         node = self.data.find(path)
@@ -113,4 +127,4 @@ class EntityTemplate():
         return node is not None
 
     def __str__(self):
-        return ElementTree.tostring(self.data).decode('utf-8')
+        return ET.tostring(self.data).decode("utf-8")

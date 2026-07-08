@@ -2,11 +2,13 @@ function HotloadA() {}
 
 HotloadA.prototype.Schema = "<ref name='anything'/>";
 
-HotloadA.prototype.Init = function() {
+HotloadA.prototype.Init = function()
+{
 	this.x = +this.template.x;
 };
 
-HotloadA.prototype.GetX = function() {
+HotloadA.prototype.GetX = function()
+{
 	return this.x;
 };
 
@@ -15,11 +17,13 @@ Engine.RegisterComponentType(IID_Test1, "HotloadA", HotloadA);
 
 function HotloadB() {}
 
-HotloadB.prototype.Init = function() {
+HotloadB.prototype.Init = function()
+{
 	this.x = +this.template.x;
 };
 
-HotloadB.prototype.GetX = function() {
+HotloadB.prototype.GetX = function()
+{
 	return this.x * 2;
 };
 

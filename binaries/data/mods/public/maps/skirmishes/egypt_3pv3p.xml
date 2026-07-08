@@ -42,7 +42,7 @@
   "Keywords": [],
   "LockTeams": true,
   "Name": "Egypt (3v3)",
-  "Description": "Fight for the remains of ancient Egypt!\n\nPlayers start with full grown cities and small armies, each having distinct advantages and drawbacks. Take care, there are 7 mighty forts and marauding bandids!\n\nIt is the last century before 0 A.D. Egypt is internally divided between hellenistic (Alexandria, represented by Seleucids) and traditional influences (Memphis, represented by Ptolemies). Thebes in the southern clime of river Nile has already been taken over by the Kush. In the north western Al-Dschabal al-Achdar, where the mediterranean city of Cyrene is located the Romans are preparing their invasion. From the eastern desert at-Tih and mount Sinai enemies (represented by Persians) are pushing forward and the oasis Siwa. Charga (represented by Carthage) in the south western desert are trying to get a share of the pie as well.\nLocations:\n- Alexandria: library, harbor\n- Memphis: Necropolis, pyramids, Apis shrine\n- Thebes: temple district, Valley of the Kings \n- Cyrene: mediterranean Macchie, olive groves\n- Fayyum: crocodile shrine, nile dam\n- Eastern desert: mount Sinai, deep Wadi, Red Sea reefs\n- Western desert: Oasis Charga and Siwa, Qattara Depression\n",
+  "Description": "Fight for the remains of ancient Egypt!\n\nPlayers start with full grown cities and small armies, each having distinct advantages and drawbacks. Take care, there are 7 mighty forts and marauding bandids!\n\nIt is the last century before 0 A.D. Egypt is internally divided between hellenistic (Alexandria, represented by Seleucids) and traditional influences (Memphis, represented by Ptolemies). Thebes in the southern clime of river Nile has already been taken over by the Kush. In the north western Al-Dschabal al-Achdar, where the mediterranean city of Cyrene is located the Romans are preparing their invasion. From the eastern desert at-Tih and mount Sinai enemies (represented by achaemenids) are pushing forward and the oasis Siwa. Charga (represented by Carthage) in the south western desert are trying to get a share of the pie as well.\nLocations:\n- Alexandria: library, harbor\n- Memphis: Necropolis, pyramids, Apis shrine\n- Thebes: temple district, Valley of the Kings \n- Cyrene: mediterranean Macchie, olive groves\n- Fayyum: crocodile shrine, nile dam\n- Eastern desert: mount Sinai, deep Wadi, Red Sea reefs\n- Western desert: Oasis Charga and Siwa, Qattara Depression\n",
   "PlayerData": [
     {
       "Civ": "sele",
@@ -75,7 +75,7 @@
       "Team": 1
     },
     {
-      "Civ": "pers",
+      "Civ": "achae",
       "Color": {
         "b": 5,
         "g": 200,
@@ -203,7 +203,7 @@
 			<Orientation y="1.47606"/>
 		</Entity>
 		<Entity uid="175">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="569.81183" z="592.68531"/>
 			<Orientation y="1.02793"/>
@@ -520,7 +520,7 @@
 			<Orientation y="-1.7344"/>
 		</Entity>
 		<Entity uid="246">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1046.55921" z="298.50647"/>
 			<Orientation y="3.33368"/>
@@ -841,7 +841,7 @@
 			<Orientation y="-3.69648"/>
 		</Entity>
 		<Entity uid="313">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1717.02833" z="386.3736"/>
 			<Orientation y="-1.75239"/>
@@ -1201,7 +1201,7 @@
 			<Orientation y="1.67508"/>
 		</Entity>
 		<Entity uid="445">
-			<Template>units/pers/cavalry_javelineer_b</Template>
+			<Template>units/achae/cavalry_javelineer_b</Template>
 			<Player>3</Player>
 			<Position x="262.83542" z="586.54987"/>
 			<Orientation y="-0.78541"/>
@@ -1437,7 +1437,7 @@
 			<Orientation y="1.48775"/>
 		</Entity>
 		<Entity uid="514">
-			<Template>units/gaul/support_female_citizen</Template>
+			<Template>units/gaul/support_civilian</Template>
 			<Player>6</Player>
 			<Position x="113.11043" z="1279.27857"/>
 			<Orientation y="3.927"/>
@@ -1533,7 +1533,7 @@
 			<Orientation y="0.94874"/>
 		</Entity>
 		<Entity uid="535">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1234.85718" z="1834.23365"/>
 			<Orientation y="1.04355"/>
@@ -1849,7 +1849,7 @@
 			<Orientation y="0.6298"/>
 		</Entity>
 		<Entity uid="607">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1453.12525" z="962.72107"/>
 			<Orientation y="0.86869"/>
@@ -11935,127 +11935,127 @@
 			<Orientation y="0.38207"/>
 		</Entity>
 		<Entity uid="3052">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1284.44068" z="881.6131"/>
 			<Orientation y="0.12583"/>
 		</Entity>
 		<Entity uid="3054">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1416.83326" z="1296.8213"/>
 			<Orientation y="-2.58204"/>
 		</Entity>
 		<Entity uid="3055">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="545.91712" z="757.99134"/>
 			<Orientation y="-3.56101"/>
 		</Entity>
 		<Entity uid="3056">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1481.64881" z="860.3299"/>
 			<Orientation y="-5.44317"/>
 		</Entity>
 		<Entity uid="3057">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="260.59812" z="1468.50855"/>
 			<Orientation y="-3.1645"/>
 		</Entity>
 		<Entity uid="3058">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1416.34571" z="1282.91956"/>
 			<Orientation y="0.22907"/>
 		</Entity>
 		<Entity uid="3059">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1054.27051" z="290.16666"/>
 			<Orientation y="-7.4192"/>
 		</Entity>
 		<Entity uid="3061">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="693.06586" z="528.85425"/>
 			<Orientation y="0.33587"/>
 		</Entity>
 		<Entity uid="3062">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="743.0481" z="1353.37391"/>
 			<Orientation y="-1.69491"/>
 		</Entity>
 		<Entity uid="3063">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="626.38038" z="912.22315"/>
 			<Orientation y="0.5287"/>
 		</Entity>
 		<Entity uid="3064">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="60.42801" z="1167.03943"/>
 			<Orientation y="-3.4595"/>
 		</Entity>
 		<Entity uid="3066">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="971.0641" z="856.77594"/>
 			<Orientation y="-3.11924"/>
 		</Entity>
 		<Entity uid="3067">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1768.30274" z="1404.02442"/>
 			<Orientation y="0.60987"/>
 		</Entity>
 		<Entity uid="3068">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="64.53954" z="1069.4347"/>
 			<Orientation y="-0.55485"/>
 		</Entity>
 		<Entity uid="3069">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="683.8357" z="1406.54493"/>
 			<Orientation y="-3.59568"/>
 		</Entity>
 		<Entity uid="3070">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="163.84806" z="1032.89771"/>
 			<Orientation y="0.61925"/>
 		</Entity>
 		<Entity uid="3071">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="518.1507" z="729.38782"/>
 			<Orientation y="-3.68923"/>
 		</Entity>
 		<Entity uid="3072">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1048.65931" z="23.8737"/>
 			<Orientation y="-3.08323"/>
 		</Entity>
 		<Entity uid="3073">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1543.68372" z="1018.99378"/>
 			<Orientation y="-1.83005"/>
 		</Entity>
 		<Entity uid="3074">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1500.6012" z="929.97547"/>
 			<Orientation y="-2.92042"/>
 		</Entity>
 		<Entity uid="3075">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1525.94446" z="780.0625"/>
 			<Orientation y="-1.94721"/>
@@ -18651,19 +18651,19 @@
 			<Actor seed="9546"/>
 		</Entity>
 		<Entity uid="4460">
-			<Template>actor|props/special/eyecandy/treasure_persian_food_small.xml</Template>
+			<Template>actor|props/special/eyecandy/treasure_achaemenid_food_small.xml</Template>
 			<Position x="1370.51587" z="79.69487"/>
 			<Orientation y="4.03701"/>
 			<Actor seed="44108"/>
 		</Entity>
 		<Entity uid="4461">
-			<Template>actor|props/special/eyecandy/treasure_persian_food_big.xml</Template>
+			<Template>actor|props/special/eyecandy/treasure_achaemenid_food_big.xml</Template>
 			<Position x="1350.21192" z="79.6729"/>
 			<Orientation y="5.12046"/>
 			<Actor seed="45936"/>
 		</Entity>
 		<Entity uid="4462">
-			<Template>actor|props/special/eyecandy/treasure_persian_metal_big.xml</Template>
+			<Template>actor|props/special/eyecandy/treasure_achaemenid_metal_big.xml</Template>
 			<Position x="1356.35645" z="87.82554"/>
 			<Orientation y="2.3304"/>
 			<Actor seed="36048"/>
@@ -34616,14 +34616,14 @@
 			<Actor seed="59908"/>
 		</Entity>
 		<Entity uid="8101">
-			<Template>structures/pers/dock</Template>
+			<Template>structures/achae/dock</Template>
 			<Player>0</Player>
 			<Position x="1959.85767" z="1272.45496"/>
 			<Orientation y="2.30257"/>
 			<Actor seed="12936"/>
 		</Entity>
 		<Entity uid="8102">
-			<Template>structures/pers/civil_centre</Template>
+			<Template>structures/achae/civil_centre</Template>
 			<Player>4</Player>
 			<Position x="1968.94227" z="1301.14051"/>
 			<Orientation y="3.84986"/>
@@ -35020,14 +35020,14 @@
 			<Actor seed="51882"/>
 		</Entity>
 		<Entity uid="8174">
-			<Template>structures/pers/barracks</Template>
+			<Template>structures/achae/barracks</Template>
 			<Player>0</Player>
 			<Position x="1939.57264" z="1290.88135"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="58066"/>
 		</Entity>
 		<Entity uid="8175">
-			<Template>structures/pers/defense_tower</Template>
+			<Template>structures/achae/defense_tower</Template>
 			<Player>0</Player>
 			<Position x="1949.01014" z="1244.82007"/>
 			<Orientation y="1.69039"/>
@@ -36108,7 +36108,7 @@
 			<Actor seed="16624"/>
 		</Entity>
 		<Entity uid="8382">
-			<Template>units/pers/support_healer_e</Template>
+			<Template>units/achae/support_healer_e</Template>
 			<Player>1</Player>
 			<Position x="782.42615" z="1752.81617"/>
 			<Orientation y="1.81753"/>
@@ -38468,7 +38468,7 @@
 			<Actor seed="34098"/>
 		</Entity>
 		<Entity uid="8982">
-			<Template>structures/pers/civil_centre</Template>
+			<Template>structures/achae/civil_centre</Template>
 			<Player>4</Player>
 			<Position x="1663.72901" z="1712.18348"/>
 			<Orientation y="5.58075"/>
@@ -39873,21 +39873,21 @@
 			<Actor seed="32708"/>
 		</Entity>
 		<Entity uid="9398">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="912.93793" z="625.70588"/>
 			<Orientation y="-0.147"/>
 			<Actor seed="3061"/>
 		</Entity>
 		<Entity uid="9399">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="917.51368" z="618.6142"/>
 			<Orientation y="-1.79783"/>
 			<Actor seed="3061"/>
 		</Entity>
 		<Entity uid="9400">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1020.7602" z="619.61506"/>
 			<Orientation y="-1.4952"/>
@@ -39912,7 +39912,7 @@
 			<Actor seed="49270"/>
 		</Entity>
 		<Entity uid="9404">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1059.3346" z="296.38743"/>
 			<Orientation y="-2.7291"/>
@@ -51831,7 +51831,7 @@
 			<Actor seed="7632"/>
 		</Entity>
 		<Entity uid="11586">
-			<Template>structures/pers/dock</Template>
+			<Template>structures/achae/dock</Template>
 			<Player>4</Player>
 			<Position x="1614.31275" z="1782.88465"/>
 			<Orientation y="2.54531"/>
@@ -51999,98 +51999,98 @@
 			<Actor seed="387"/>
 		</Entity>
 		<Entity uid="11610">
-			<Template>structures/pers/stable</Template>
+			<Template>structures/achae/stable</Template>
 			<Player>4</Player>
 			<Position x="1746.03089" z="1665.09144"/>
 			<Orientation y="3.96238"/>
 			<Actor seed="60060"/>
 		</Entity>
 		<Entity uid="11611">
-			<Template>structures/pers/tachara</Template>
+			<Template>structures/achae/tachara</Template>
 			<Player>4</Player>
 			<Position x="1680.41724" z="1691.77625"/>
 			<Orientation y="8.72716"/>
 			<Actor seed="60360"/>
 		</Entity>
 		<Entity uid="11612">
-			<Template>structures/pers/tachara</Template>
+			<Template>structures/achae/tachara</Template>
 			<Player>4</Player>
 			<Position x="1728.0547" z="1634.66651"/>
 			<Orientation y="5.58768"/>
 			<Actor seed="46692"/>
 		</Entity>
 		<Entity uid="11613">
-			<Template>structures/pers/market</Template>
+			<Template>structures/achae/market</Template>
 			<Player>4</Player>
 			<Position x="1706.49549" z="1618.0464"/>
 			<Orientation y="2.45339"/>
 			<Actor seed="11982"/>
 		</Entity>
 		<Entity uid="11614">
-			<Template>units/pers/hero_xerxes_i_chariot</Template>
+			<Template>units/achae/hero_xerxes_i_chariot</Template>
 			<Player>4</Player>
 			<Position x="1704.25745" z="1662.71692"/>
 			<Orientation y="2.42843"/>
 			<Actor seed="53752"/>
 		</Entity>
 		<Entity uid="11617">
-			<Template>units/pers/champion_infantry</Template>
+			<Template>units/achae/champion_infantry</Template>
 			<Player>4</Player>
 			<Position x="1704.58167" z="1681.59534"/>
 			<Orientation y="2.39837"/>
 			<Actor seed="64092"/>
 		</Entity>
 		<Entity uid="11618">
-			<Template>units/pers/champion_infantry</Template>
+			<Template>units/achae/champion_infantry</Template>
 			<Player>4</Player>
 			<Position x="1701.4524" z="1680.03821"/>
 			<Orientation y="2.39837"/>
 			<Actor seed="17760"/>
 		</Entity>
 		<Entity uid="11619">
-			<Template>units/pers/champion_infantry</Template>
+			<Template>units/achae/champion_infantry</Template>
 			<Player>4</Player>
 			<Position x="1698.94385" z="1677.67481"/>
 			<Orientation y="2.39837"/>
 			<Actor seed="4818"/>
 		</Entity>
 		<Entity uid="11620">
-			<Template>units/pers/champion_infantry</Template>
+			<Template>units/achae/champion_infantry</Template>
 			<Player>4</Player>
 			<Position x="1696.37427" z="1675.19544"/>
 			<Orientation y="2.39837"/>
 			<Actor seed="27240"/>
 		</Entity>
 		<Entity uid="11621">
-			<Template>units/pers/champion_infantry</Template>
+			<Template>units/achae/champion_infantry</Template>
 			<Player>4</Player>
 			<Position x="1693.3971" z="1672.93738"/>
 			<Orientation y="2.39837"/>
 			<Actor seed="16826"/>
 		</Entity>
 		<Entity uid="11622">
-			<Template>units/pers/champion_infantry</Template>
+			<Template>units/achae/champion_infantry</Template>
 			<Player>4</Player>
 			<Position x="1690.94361" z="1670.89576"/>
 			<Orientation y="2.39837"/>
 			<Actor seed="18402"/>
 		</Entity>
 		<Entity uid="11623">
-			<Template>units/pers/champion_infantry</Template>
+			<Template>units/achae/champion_infantry</Template>
 			<Player>4</Player>
 			<Position x="1687.98536" z="1668.25232"/>
 			<Orientation y="2.39837"/>
 			<Actor seed="40436"/>
 		</Entity>
 		<Entity uid="11624">
-			<Template>units/pers/champion_infantry</Template>
+			<Template>units/achae/champion_infantry</Template>
 			<Player>4</Player>
 			<Position x="1685.59742" z="1665.76014"/>
 			<Orientation y="2.39837"/>
 			<Actor seed="48010"/>
 		</Entity>
 		<Entity uid="11626">
-			<Template>units/pers/ship_scout</Template>
+			<Template>units/achae/ship_scout</Template>
 			<Player>4</Player>
 			<Position x="1988.09461" z="1098.11231"/>
 			<Orientation y="-2.53667"/>
@@ -52779,28 +52779,28 @@
 			<Actor seed="17172"/>
 		</Entity>
 		<Entity uid="11785">
-			<Template>units/pers/ship_merchant</Template>
+			<Template>units/achae/ship_merchant</Template>
 			<Player>4</Player>
 			<Position x="1588.26502" z="1783.13257"/>
 			<Orientation y="-2.0174"/>
 			<Actor seed="17234"/>
 		</Entity>
 		<Entity uid="11786">
-			<Template>units/pers/ship_fishing</Template>
+			<Template>units/achae/ship_fishing</Template>
 			<Player>4</Player>
 			<Position x="1621.21045" z="1802.55152"/>
 			<Orientation y="-1.38511"/>
 			<Actor seed="48884"/>
 		</Entity>
 		<Entity uid="11787">
-			<Template>units/pers/ship_scout</Template>
+			<Template>units/achae/ship_scout</Template>
 			<Player>4</Player>
 			<Position x="1535.3169" z="1837.49646"/>
 			<Orientation y="-1.43871"/>
 			<Actor seed="1338"/>
 		</Entity>
 		<Entity uid="11788">
-			<Template>units/pers/ship_arrow</Template>
+			<Template>units/achae/ship_arrow</Template>
 			<Player>4</Player>
 			<Position x="1563.92591" z="1815.39014"/>
 			<Orientation y="-1.42492"/>
@@ -53584,161 +53584,161 @@
 			<Actor seed="55262"/>
 		</Entity>
 		<Entity uid="11937">
-			<Template>structures/pers/forge</Template>
+			<Template>structures/achae/forge</Template>
 			<Player>4</Player>
 			<Position x="1705.82483" z="1578.16688"/>
 			<Orientation y="4.57708"/>
 			<Actor seed="2870"/>
 		</Entity>
 		<Entity uid="11938">
-			<Template>structures/pers/house</Template>
+			<Template>structures/achae/house</Template>
 			<Player>4</Player>
 			<Position x="1662.67347" z="1623.19874"/>
 			<Orientation y="5.59629"/>
 			<Actor seed="18906"/>
 		</Entity>
 		<Entity uid="11939">
-			<Template>structures/pers/house</Template>
+			<Template>structures/achae/house</Template>
 			<Player>4</Player>
 			<Position x="1682.76771" z="1592.8855"/>
 			<Orientation y="7.12461"/>
 			<Actor seed="54980"/>
 		</Entity>
 		<Entity uid="11940">
-			<Template>structures/pers/house</Template>
+			<Template>structures/achae/house</Template>
 			<Player>4</Player>
 			<Position x="1649.92383" z="1670.12305"/>
 			<Orientation y="5.54896"/>
 			<Actor seed="51022"/>
 		</Entity>
 		<Entity uid="11941">
-			<Template>structures/pers/house</Template>
+			<Template>structures/achae/house</Template>
 			<Player>4</Player>
 			<Position x="1655.15931" z="1635.06959"/>
 			<Orientation y="0.84063"/>
 			<Actor seed="23096"/>
 		</Entity>
 		<Entity uid="11942">
-			<Template>structures/pers/house</Template>
+			<Template>structures/achae/house</Template>
 			<Player>4</Player>
 			<Position x="1660.05555" z="1658.48633"/>
 			<Orientation y="7.0978"/>
 			<Actor seed="2468"/>
 		</Entity>
 		<Entity uid="11943">
-			<Template>structures/pers/barracks</Template>
+			<Template>structures/achae/barracks</Template>
 			<Player>4</Player>
 			<Position x="1749.88526" z="1619.5204"/>
 			<Orientation y="4.0023"/>
 			<Actor seed="1710"/>
 		</Entity>
 		<Entity uid="11944">
-			<Template>structures/pers/house</Template>
+			<Template>structures/achae/house</Template>
 			<Player>4</Player>
 			<Position x="1671.8523" z="1607.64515"/>
 			<Orientation y="-0.57857"/>
 			<Actor seed="51022"/>
 		</Entity>
 		<Entity uid="11945">
-			<Template>structures/pers/corral</Template>
+			<Template>structures/achae/corral</Template>
 			<Player>4</Player>
 			<Position x="1759.5951" z="1581.94983"/>
 			<Orientation y="3.48844"/>
 			<Actor seed="57750"/>
 		</Entity>
 		<Entity uid="11946">
-			<Template>structures/pers/defense_tower</Template>
+			<Template>structures/achae/defense_tower</Template>
 			<Player>4</Player>
 			<Position x="1694.01648" z="1541.89527"/>
 			<Orientation y="14.11187"/>
 			<Actor seed="32492"/>
 		</Entity>
 		<Entity uid="11947">
-			<Template>structures/pers/defense_tower</Template>
+			<Template>structures/achae/defense_tower</Template>
 			<Player>4</Player>
 			<Position x="1732.07862" z="1497.24756"/>
 			<Orientation y="6.35755"/>
 			<Actor seed="15120"/>
 		</Entity>
 		<Entity uid="11948">
-			<Template>structures/pers/defense_tower</Template>
+			<Template>structures/achae/defense_tower</Template>
 			<Player>4</Player>
 			<Position x="1703.0907" z="1708.41297"/>
 			<Orientation y="3.99585"/>
 			<Actor seed="34236"/>
 		</Entity>
 		<Entity uid="11949">
-			<Template>structures/pers/farmstead</Template>
+			<Template>structures/achae/farmstead</Template>
 			<Player>4</Player>
 			<Position x="1706.74122" z="1558.63978"/>
 			<Orientation y="1.45937"/>
 			<Actor seed="41250"/>
 		</Entity>
 		<Entity uid="11950">
-			<Template>structures/pers/fortress</Template>
+			<Template>structures/achae/fortress</Template>
 			<Player>4</Player>
 			<Position x="1721.6371" z="1514.18763"/>
 			<Orientation y="4.0119"/>
 			<Actor seed="63468"/>
 		</Entity>
 		<Entity uid="11951">
-			<Template>structures/pers/hall</Template>
+			<Template>structures/achae/hall</Template>
 			<Player>4</Player>
 			<Position x="1728.98426" z="1688.91663"/>
 			<Orientation y="10.24317"/>
 			<Actor seed="19752"/>
 		</Entity>
 		<Entity uid="11952">
-			<Template>structures/pers/temple</Template>
+			<Template>structures/achae/temple</Template>
 			<Player>4</Player>
 			<Position x="1680.21473" z="1641.07544"/>
 			<Orientation y="7.1702"/>
 			<Actor seed="2800"/>
 		</Entity>
 		<Entity uid="11953">
-			<Template>structures/pers/defense_tower</Template>
+			<Template>structures/achae/defense_tower</Template>
 			<Player>4</Player>
 			<Position x="1801.10682" z="1612.62122"/>
 			<Orientation y="3.90813"/>
 			<Actor seed="34236"/>
 		</Entity>
 		<Entity uid="11955">
-			<Template>structures/pers/storehouse</Template>
+			<Template>structures/achae/storehouse</Template>
 			<Player>4</Player>
 			<Position x="1750.06653" z="1561.60792"/>
 			<Orientation y="0.35044"/>
 			<Actor seed="48494"/>
 		</Entity>
 		<Entity uid="11956">
-			<Template>structures/pers/field</Template>
+			<Template>structures/achae/field</Template>
 			<Player>4</Player>
 			<Position x="1738.32593" z="1599.79712"/>
 			<Orientation y="-2.68308"/>
 			<Actor seed="31094"/>
 		</Entity>
 		<Entity uid="11957">
-			<Template>structures/pers/field</Template>
+			<Template>structures/achae/field</Template>
 			<Player>4</Player>
 			<Position x="1729.50684" z="1568.75733"/>
 			<Orientation y="1.5093"/>
 			<Actor seed="58682"/>
 		</Entity>
 		<Entity uid="11958">
-			<Template>structures/pers/field</Template>
+			<Template>structures/achae/field</Template>
 			<Player>4</Player>
 			<Position x="1704.63257" z="1492.94166"/>
 			<Orientation y="5.44085"/>
 			<Actor seed="49066"/>
 		</Entity>
 		<Entity uid="11959">
-			<Template>structures/pers/field</Template>
+			<Template>structures/achae/field</Template>
 			<Player>4</Player>
 			<Position x="1664.96583" z="1492.2173"/>
 			<Orientation y="-3.94784"/>
 			<Actor seed="37634"/>
 		</Entity>
 		<Entity uid="11960">
-			<Template>structures/pers/field</Template>
+			<Template>structures/achae/field</Template>
 			<Player>4</Player>
 			<Position x="1685.25562" z="1514.90552"/>
 			<Orientation y="-4.04787"/>
@@ -55307,7 +55307,7 @@
 			<Actor seed="27328"/>
 		</Entity>
 		<Entity uid="12215">
-			<Template>structures/pers/field</Template>
+			<Template>structures/achae/field</Template>
 			<Player>4</Player>
 			<Position x="1680.00757" z="1470.8932"/>
 			<Orientation y="-0.95759"/>
@@ -59118,7 +59118,7 @@
 			<Actor seed="3906"/>
 		</Entity>
 		<Entity uid="13358">
-			<Template>gaia/ore/desert_small</Template>
+			<Template>gaia/ore/sahara_small_01</Template>
 			<Player>0</Player>
 			<Position x="476.53162" z="184.14573"/>
 			<Orientation y="0.89971"/>
@@ -62258,7 +62258,7 @@
 			<Actor seed="23596"/>
 		</Entity>
 		<Entity uid="13917">
-			<Template>actor|props/special/eyecandy/treasure_persian_metal_small.xml</Template>
+			<Template>actor|props/special/eyecandy/treasure_achaemenid_metal_small.xml</Template>
 			<Position x="1791.38721" z="458.10434"/>
 			<Orientation y="1.60644"/>
 			<Actor seed="62592"/>
@@ -63607,21 +63607,21 @@
 			<Actor seed="26668"/>
 		</Entity>
 		<Entity uid="14150">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1884.5448" z="637.12696"/>
 			<Orientation y="2.35894"/>
 			<Actor seed="14972"/>
 		</Entity>
 		<Entity uid="14151">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1528.66382" z="707.45545"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="7540"/>
 		</Entity>
 		<Entity uid="14152">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1626.8075" z="808.36164"/>
 			<Orientation y="2.35621"/>
@@ -63691,147 +63691,147 @@
 			<Actor seed="2930"/>
 		</Entity>
 		<Entity uid="14164">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1213.21277" z="688.34357"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="59284"/>
 		</Entity>
 		<Entity uid="14165">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1442.18763" z="728.91321"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="64594"/>
 		</Entity>
 		<Entity uid="14166">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1619.33301" z="927.90741"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="48522"/>
 		</Entity>
 		<Entity uid="14167">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1585.62134" z="1095.38477"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="39286"/>
 		</Entity>
 		<Entity uid="14168">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1443.90467" z="1191.91236"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="52562"/>
 		</Entity>
 		<Entity uid="14169">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1538.43555" z="1607.61841"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="59332"/>
 		</Entity>
 		<Entity uid="14170">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1564.32642" z="1548.68873"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="53178"/>
 		</Entity>
 		<Entity uid="14171">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1513.99195" z="1753.08631"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="58836"/>
 		</Entity>
 		<Entity uid="14172">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1489.02125" z="1556.78772"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="24044"/>
 		</Entity>
 		<Entity uid="14173">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="537.89454" z="775.35676"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="55630"/>
 		</Entity>
 		<Entity uid="14174">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="205.52497" z="904.97895"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="908"/>
 		</Entity>
 		<Entity uid="14175">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="38.50618" z="858.83454"/>
 			<Orientation y="-3.50474"/>
 			<Actor seed="22926"/>
 		</Entity>
 		<Entity uid="14176">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="597.35926" z="1119.30677"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="23470"/>
 		</Entity>
 		<Entity uid="14177">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="526.26178" z="1300.1709"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="16820"/>
 		</Entity>
 		<Entity uid="14178">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="651.84437" z="1123.495"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="24532"/>
 		</Entity>
 		<Entity uid="14179">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="563.46863" z="1381.12427"/>
 			<Orientation y="0.05794"/>
 			<Actor seed="21702"/>
 		</Entity>
 		<Entity uid="14180">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="536.24897" z="1501.9568"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="51282"/>
 		</Entity>
 		<Entity uid="14181">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="467.98646" z="1744.61231"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="13672"/>
 		</Entity>
 		<Entity uid="14184">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="902.07837" z="1476.85218"/>
 			<Orientation y="4.0187"/>
 			<Actor seed="24618"/>
 		</Entity>
 		<Entity uid="14185">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="915.75971" z="218.41767"/>
 			<Orientation y="3.84653"/>
 			<Actor seed="39698"/>
 		</Entity>
 		<Entity uid="14186">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="900.87037" z="572.72016"/>
 			<Orientation y="2.35621"/>
@@ -64477,7 +64477,7 @@
 			<Actor seed="60358"/>
 		</Entity>
 		<Entity uid="14332">
-			<Template>structures/pers/field</Template>
+			<Template>structures/achae/field</Template>
 			<Player>3</Player>
 			<Position x="264.22931" z="512.09559"/>
 			<Orientation y="1.53888"/>
@@ -67511,7 +67511,7 @@
 			<Actor seed="42866"/>
 		</Entity>
 		<Entity uid="14954">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1423.2754" z="1305.33985"/>
 			<Orientation y="-1.37719"/>
@@ -67637,7 +67637,7 @@
 			<Actor seed="42866"/>
 		</Entity>
 		<Entity uid="14972">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1516.32996" z="775.4372"/>
 			<Orientation y="-2.90499"/>
@@ -67743,7 +67743,7 @@
 			<Actor seed="31964"/>
 		</Entity>
 		<Entity uid="14987">
-			<Template>structures/pers/dock</Template>
+			<Template>structures/achae/dock</Template>
 			<Player>4</Player>
 			<Position x="1757.80091" z="1212.31946"/>
 			<Orientation y="-2.47918"/>
@@ -67990,7 +67990,7 @@
 		<Entity uid="15023">
 			<Template>units/mace/ship_fishing</Template>
 			<Player>0</Player>
-			<Position x="1947.2776" z="807.69501"/>
+			<Position x="1948.2776" z="808.69501"/>
 			<Orientation y="0.10067"/>
 			<Actor seed="38656"/>
 		</Entity>
@@ -72202,7 +72202,7 @@
 			<Actor seed="54868"/>
 		</Entity>
 		<Entity uid="15896">
-			<Template>structures/pers/corral</Template>
+			<Template>structures/achae/corral</Template>
 			<Player>0</Player>
 			<Position x="304.01069" z="873.72742"/>
 			<Orientation y="1.07081"/>
@@ -73193,7 +73193,7 @@
 			<Actor seed="23058"/>
 		</Entity>
 		<Entity uid="16064">
-			<Template>units/pers/support_healer_a</Template>
+			<Template>units/achae/support_healer_a</Template>
 			<Player>0</Player>
 			<Position x="734.27228" z="1129.80542"/>
 			<Orientation y="5.0183"/>
@@ -75005,7 +75005,7 @@
 			<Actor seed="1132"/>
 		</Entity>
 		<Entity uid="16380">
-			<Template>units/pers/support_healer_e</Template>
+			<Template>units/achae/support_healer_e</Template>
 			<Player>0</Player>
 			<Position x="1286.06482" z="264.69266"/>
 			<Orientation y="1.39495"/>
@@ -75792,7 +75792,7 @@
 			<Actor seed="61776"/>
 		</Entity>
 		<Entity uid="16547">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="1699.2162" z="848.96875"/>
 			<Orientation y="1.40662"/>
@@ -91118,7 +91118,7 @@
 			<Actor seed="26792"/>
 		</Entity>
 		<Entity uid="19257">
-			<Template>gaia/ore/savanna_large</Template>
+			<Template>gaia/ore/savanna_01</Template>
 			<Player>0</Player>
 			<Position x="1912.40564" z="1189.08582"/>
 			<Orientation y="1.24259"/>
@@ -91348,7 +91348,7 @@
 			<Actor seed="37750"/>
 		</Entity>
 		<Entity uid="19306">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="363.45496" z="568.82386"/>
 			<Orientation y="0.91858"/>
@@ -93992,59 +93992,59 @@
 			<Actor seed="21272"/>
 		</Entity>
 		<Entity uid="19718">
-			<Template>units/sele/support_female_citizen</Template>
+			<Template>units/sele/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="800.58173" z="1634.22706"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="37756"/>
 		</Entity>
 		<Entity uid="19719">
-			<Template>units/sele/support_female_citizen</Template>
+			<Template>units/sele/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="802.29914" z="1630.25342"/>
 			<Orientation y="-0.52659"/>
 			<Actor seed="9148"/>
 		</Entity>
 		<Entity uid="19720">
-			<Template>units/sele/support_female_citizen</Template>
+			<Template>units/sele/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="957.25312" z="1639.21375"/>
 			<Orientation y="0.0467"/>
 			<Actor seed="5892"/>
 		</Entity>
 		<Entity uid="19721">
-			<Template>units/sele/support_female_citizen</Template>
+			<Template>units/sele/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="959.10688" z="1643.72046"/>
 			<Orientation y="4.2801"/>
 			<Actor seed="43642"/>
 		</Entity>
 		<Entity uid="19722">
-			<Template>actor|props/special/eyecandy/treasure_persian_food_big.xml</Template>
+			<Template>actor|props/special/eyecandy/treasure_achaemenid_food_big.xml</Template>
 			<Position x="854.64631" z="1576.35926"/>
 			<Orientation y="0.06673"/>
 			<Actor seed="26538"/>
 		</Entity>
 		<Entity uid="19724">
-			<Template>actor|props/special/eyecandy/treasure_persian_food_small.xml</Template>
+			<Template>actor|props/special/eyecandy/treasure_achaemenid_food_small.xml</Template>
 			<Position x="811.92365" z="1619.68409"/>
 			<Orientation y="0.85857"/>
 			<Actor seed="62176"/>
 		</Entity>
 		<Entity uid="19725">
-			<Template>actor|props/special/eyecandy/treasure_persian_metal_big.xml</Template>
+			<Template>actor|props/special/eyecandy/treasure_achaemenid_metal_big.xml</Template>
 			<Position x="793.06605" z="1642.34791"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="41262"/>
 		</Entity>
 		<Entity uid="19726">
-			<Template>actor|props/special/eyecandy/treasure_persian_metal_small.xml</Template>
+			<Template>actor|props/special/eyecandy/treasure_achaemenid_metal_small.xml</Template>
 			<Position x="838.24634" z="1563.62171"/>
 			<Orientation y="3.5156"/>
 			<Actor seed="35016"/>
 		</Entity>
 		<Entity uid="19727">
-			<Template>actor|props/structures/persians/market_a_stall6.xml</Template>
+			<Template>actor|props/structures/achaemenids/market_a_stall6.xml</Template>
 			<Position x="860.41187" z="1538.91565"/>
 			<Orientation y="3.95704"/>
 			<Actor seed="32976"/>
@@ -94352,49 +94352,49 @@
 			<Actor seed="14792"/>
 		</Entity>
 		<Entity uid="19792">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="113.70849" z="602.7068"/>
 			<Orientation y="0.93546"/>
 			<Actor seed="3071"/>
 		</Entity>
 		<Entity uid="19793">
-			<Template>units/cart/support_female_citizen</Template>
+			<Template>units/cart/support_civilian</Template>
 			<Player>3</Player>
 			<Position x="128.39734" z="592.27338"/>
 			<Orientation y="1.28222"/>
 			<Actor seed="57980"/>
 		</Entity>
 		<Entity uid="19794">
-			<Template>units/cart/support_female_citizen</Template>
+			<Template>units/cart/support_civilian</Template>
 			<Player>3</Player>
 			<Position x="127.43647" z="597.45447"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="34936"/>
 		</Entity>
 		<Entity uid="19795">
-			<Template>units/cart/support_female_citizen</Template>
+			<Template>units/cart/support_civilian</Template>
 			<Player>3</Player>
 			<Position x="304.04737" z="681.95936"/>
 			<Orientation y="3.9325"/>
 			<Actor seed="42150"/>
 		</Entity>
 		<Entity uid="19796">
-			<Template>units/cart/support_female_citizen</Template>
+			<Template>units/cart/support_civilian</Template>
 			<Player>3</Player>
 			<Position x="299.79542" z="680.98578"/>
 			<Orientation y="1.85798"/>
 			<Actor seed="47886"/>
 		</Entity>
 		<Entity uid="19797">
-			<Template>units/cart/support_female_citizen</Template>
+			<Template>units/cart/support_civilian</Template>
 			<Player>3</Player>
 			<Position x="281.52356" z="533.75226"/>
 			<Orientation y="1.25002"/>
 			<Actor seed="63206"/>
 		</Entity>
 		<Entity uid="19798">
-			<Template>units/cart/support_female_citizen</Template>
+			<Template>units/cart/support_civilian</Template>
 			<Player>3</Player>
 			<Position x="282.4372" z="538.43769"/>
 			<Orientation y="2.35621"/>
@@ -94722,42 +94722,42 @@
 			<Actor seed="43006"/>
 		</Entity>
 		<Entity uid="19857">
-			<Template>units/rome/support_female_citizen</Template>
+			<Template>units/rome/support_civilian</Template>
 			<Player>6</Player>
 			<Position x="424.51313" z="1491.19605"/>
 			<Orientation y="4.61081"/>
 			<Actor seed="50678"/>
 		</Entity>
 		<Entity uid="19858">
-			<Template>units/rome/support_female_citizen</Template>
+			<Template>units/rome/support_civilian</Template>
 			<Player>6</Player>
 			<Position x="425.27598" z="1494.90503"/>
 			<Orientation y="4.61081"/>
 			<Actor seed="19822"/>
 		</Entity>
 		<Entity uid="19859">
-			<Template>units/rome/support_female_citizen</Template>
+			<Template>units/rome/support_civilian</Template>
 			<Player>6</Player>
 			<Position x="427.88501" z="1491.93262"/>
 			<Orientation y="4.61081"/>
 			<Actor seed="57586"/>
 		</Entity>
 		<Entity uid="19860">
-			<Template>units/rome/support_female_citizen</Template>
+			<Template>units/rome/support_civilian</Template>
 			<Player>6</Player>
 			<Position x="158.51114" z="1261.0918"/>
 			<Orientation y="4.19149"/>
 			<Actor seed="4860"/>
 		</Entity>
 		<Entity uid="19861">
-			<Template>units/rome/support_female_citizen</Template>
+			<Template>units/rome/support_civilian</Template>
 			<Player>6</Player>
 			<Position x="155.86741" z="1259.6974"/>
 			<Orientation y="4.19149"/>
 			<Actor seed="19962"/>
 		</Entity>
 		<Entity uid="19862">
-			<Template>units/rome/support_female_citizen</Template>
+			<Template>units/rome/support_civilian</Template>
 			<Player>6</Player>
 			<Position x="156.9993" z="1263.01978"/>
 			<Orientation y="4.19149"/>
@@ -94988,28 +94988,28 @@
 			<Actor seed="31378"/>
 		</Entity>
 		<Entity uid="19904">
-			<Template>units/ptol/support_female_citizen</Template>
+			<Template>units/ptol/support_civilian</Template>
 			<Player>5</Player>
 			<Position x="1358.74341" z="1058.28968"/>
 			<Orientation y="4.06539"/>
 			<Actor seed="49646"/>
 		</Entity>
 		<Entity uid="19905">
-			<Template>units/ptol/support_female_citizen</Template>
+			<Template>units/ptol/support_civilian</Template>
 			<Player>5</Player>
 			<Position x="1357.70496" z="1052.65284"/>
 			<Orientation y="5.35146"/>
 			<Actor seed="24588"/>
 		</Entity>
 		<Entity uid="19906">
-			<Template>units/ptol/support_female_citizen</Template>
+			<Template>units/ptol/support_civilian</Template>
 			<Player>5</Player>
 			<Position x="1361.33936" z="1055.34241"/>
 			<Orientation y="11.45607"/>
 			<Actor seed="51780"/>
 		</Entity>
 		<Entity uid="19907">
-			<Template>units/ptol/support_female_citizen</Template>
+			<Template>units/ptol/support_civilian</Template>
 			<Player>5</Player>
 			<Position x="1357.70057" z="1060.98963"/>
 			<Orientation y="2.94144"/>
@@ -95030,91 +95030,91 @@
 			<Actor seed="3678"/>
 		</Entity>
 		<Entity uid="19910">
-			<Template>units/pers/infantry_spearman_a</Template>
+			<Template>units/achae/infantry_spearman_a</Template>
 			<Player>4</Player>
 			<Position x="1701.44568" z="1530.11109"/>
 			<Orientation y="-8.0057"/>
 			<Actor seed="28634"/>
 		</Entity>
 		<Entity uid="19911">
-			<Template>units/pers/kardakes_skirmisher</Template>
+			<Template>units/achae/kardakes_skirmisher</Template>
 			<Player>4</Player>
 			<Position x="1683.24402" z="1668.77088"/>
 			<Orientation y="2.39946"/>
 			<Actor seed="31866"/>
 		</Entity>
 		<Entity uid="19912">
-			<Template>units/pers/kardakes_skirmisher</Template>
+			<Template>units/achae/kardakes_skirmisher</Template>
 			<Player>4</Player>
 			<Position x="1685.13953" z="1670.78138"/>
 			<Orientation y="2.39946"/>
 			<Actor seed="3330"/>
 		</Entity>
 		<Entity uid="19913">
-			<Template>units/pers/kardakes_skirmisher</Template>
+			<Template>units/achae/kardakes_skirmisher</Template>
 			<Player>4</Player>
 			<Position x="1688.7201" z="1672.8578"/>
 			<Orientation y="2.39946"/>
 			<Actor seed="61688"/>
 		</Entity>
 		<Entity uid="19914">
-			<Template>units/pers/kardakes_skirmisher</Template>
+			<Template>units/achae/kardakes_skirmisher</Template>
 			<Player>4</Player>
 			<Position x="1691.17188" z="1675.1377"/>
 			<Orientation y="2.39946"/>
 			<Actor seed="54226"/>
 		</Entity>
 		<Entity uid="19915">
-			<Template>units/pers/kardakes_skirmisher</Template>
+			<Template>units/achae/kardakes_skirmisher</Template>
 			<Player>4</Player>
 			<Position x="1694.17981" z="1677.35071"/>
 			<Orientation y="2.39946"/>
 			<Actor seed="4340"/>
 		</Entity>
 		<Entity uid="19916">
-			<Template>units/pers/kardakes_skirmisher</Template>
+			<Template>units/achae/kardakes_skirmisher</Template>
 			<Player>4</Player>
 			<Position x="1696.75098" z="1680.46277"/>
 			<Orientation y="2.39946"/>
 			<Actor seed="29408"/>
 		</Entity>
 		<Entity uid="19917">
-			<Template>units/pers/kardakes_skirmisher</Template>
+			<Template>units/achae/kardakes_skirmisher</Template>
 			<Player>4</Player>
 			<Position x="1699.17457" z="1682.28736"/>
 			<Orientation y="2.39946"/>
 			<Actor seed="8706"/>
 		</Entity>
 		<Entity uid="19918">
-			<Template>units/pers/kardakes_skirmisher</Template>
+			<Template>units/achae/kardakes_skirmisher</Template>
 			<Player>4</Player>
 			<Position x="1701.93165" z="1684.99756"/>
 			<Orientation y="2.39946"/>
 			<Actor seed="45892"/>
 		</Entity>
 		<Entity uid="19919">
-			<Template>units/pers/champion_cavalry_archer</Template>
+			<Template>units/achae/champion_cavalry_archer</Template>
 			<Player>4</Player>
 			<Position x="1700.26758" z="1672.47632"/>
 			<Orientation y="2.40578"/>
 			<Actor seed="35738"/>
 		</Entity>
 		<Entity uid="19920">
-			<Template>units/pers/champion_cavalry_archer</Template>
+			<Template>units/achae/champion_cavalry_archer</Template>
 			<Player>4</Player>
 			<Position x="1698.3313" z="1670.88843"/>
 			<Orientation y="2.40578"/>
 			<Actor seed="16568"/>
 		</Entity>
 		<Entity uid="19921">
-			<Template>units/pers/champion_cavalry_archer</Template>
+			<Template>units/achae/champion_cavalry_archer</Template>
 			<Player>4</Player>
 			<Position x="1696.71485" z="1669.43519"/>
 			<Orientation y="2.40578"/>
 			<Actor seed="40148"/>
 		</Entity>
 		<Entity uid="19922">
-			<Template>units/pers/champion_cavalry_archer</Template>
+			<Template>units/achae/champion_cavalry_archer</Template>
 			<Player>4</Player>
 			<Position x="1694.96998" z="1667.81739"/>
 			<Orientation y="2.40578"/>
@@ -95737,42 +95737,42 @@
 			<Actor seed="5502"/>
 		</Entity>
 		<Entity uid="20051">
-			<Template>units/maur/support_female_citizen</Template>
+			<Template>units/maur/support_civilian</Template>
 			<Player>0</Player>
 			<Position x="1905.6438" z="773.03785"/>
 			<Orientation y="1.67522"/>
 			<Actor seed="12768"/>
 		</Entity>
 		<Entity uid="20052">
-			<Template>units/maur/support_female_citizen</Template>
+			<Template>units/maur/support_civilian</Template>
 			<Player>0</Player>
 			<Position x="1906.77833" z="771.46595"/>
 			<Orientation y="0.76188"/>
 			<Actor seed="1064"/>
 		</Entity>
 		<Entity uid="20053">
-			<Template>units/maur/support_female_citizen</Template>
+			<Template>units/maur/support_civilian</Template>
 			<Player>0</Player>
 			<Position x="1909.04126" z="774.12067"/>
 			<Orientation y="-2.18238"/>
 			<Actor seed="60414"/>
 		</Entity>
 		<Entity uid="20054">
-			<Template>units/maur/support_female_citizen</Template>
+			<Template>units/maur/support_civilian</Template>
 			<Player>0</Player>
 			<Position x="1905.36878" z="775.24244"/>
 			<Orientation y="2.29355"/>
 			<Actor seed="52694"/>
 		</Entity>
 		<Entity uid="20055">
-			<Template>units/maur/support_female_citizen</Template>
+			<Template>units/maur/support_civilian</Template>
 			<Player>0</Player>
 			<Position x="1909.26343" z="771.83368"/>
 			<Orientation y="-1.23417"/>
 			<Actor seed="48168"/>
 		</Entity>
 		<Entity uid="20056">
-			<Template>units/maur/support_female_citizen</Template>
+			<Template>units/maur/support_civilian</Template>
 			<Player>0</Player>
 			<Position x="1908.50342" z="769.45795"/>
 			<Orientation y="-0.33758"/>
@@ -95975,21 +95975,21 @@
 			<Actor seed="53390"/>
 		</Entity>
 		<Entity uid="20085">
-			<Template>gaia/ore/tropical_large</Template>
+			<Template>gaia/ore/india_01</Template>
 			<Player>0</Player>
 			<Position x="1654.11451" z="1147.10169"/>
 			<Orientation y="0.13346"/>
 			<Actor seed="18670"/>
 		</Entity>
 		<Entity uid="20086">
-			<Template>gaia/ore/tropical_small</Template>
+			<Template>gaia/ore/india_small_01</Template>
 			<Player>0</Player>
 			<Position x="1654.6305" z="1135.29554"/>
 			<Orientation y="2.42905"/>
 			<Actor seed="53286"/>
 		</Entity>
 		<Entity uid="20087">
-			<Template>gaia/ore/tropical_small</Template>
+			<Template>gaia/ore/india_small_01</Template>
 			<Player>0</Player>
 			<Position x="1655.34827" z="1126.32996"/>
 			<Orientation y="2.35621"/>
@@ -98004,161 +98004,161 @@
 			<Actor seed="57046"/>
 		</Entity>
 		<Entity uid="20481">
-			<Template>gaia/ore/desert_small</Template>
+			<Template>gaia/ore/sahara_small_01</Template>
 			<Player>0</Player>
 			<Position x="472.76935" z="189.66056"/>
 			<Orientation y="-1.75547"/>
 			<Actor seed="27078"/>
 		</Entity>
 		<Entity uid="20482">
-			<Template>gaia/ore/desert_small</Template>
+			<Template>gaia/ore/sahara_small_01</Template>
 			<Player>0</Player>
 			<Position x="477.3054" z="193.31077"/>
 			<Orientation y="-0.95784"/>
 			<Actor seed="5400"/>
 		</Entity>
 		<Entity uid="20483">
-			<Template>gaia/ore/desert_small</Template>
+			<Template>gaia/ore/sahara_small_01</Template>
 			<Player>0</Player>
 			<Position x="514.8891" z="206.89438"/>
 			<Orientation y="0.25812"/>
 			<Actor seed="18426"/>
 		</Entity>
 		<Entity uid="20486">
-			<Template>gaia/ore/desert_small</Template>
+			<Template>gaia/ore/sahara_small_01</Template>
 			<Player>0</Player>
 			<Position x="516.79786" z="211.24103"/>
 			<Orientation y="1.45708"/>
 			<Actor seed="45698"/>
 		</Entity>
 		<Entity uid="20487">
-			<Template>gaia/ore/desert_small</Template>
+			<Template>gaia/ore/sahara_small_01</Template>
 			<Player>0</Player>
 			<Position x="520.21753" z="208.15186"/>
 			<Orientation y="0.664"/>
 			<Actor seed="4932"/>
 		</Entity>
 		<Entity uid="20488">
-			<Template>gaia/ore/desert_small</Template>
+			<Template>gaia/ore/sahara_small_01</Template>
 			<Player>0</Player>
 			<Position x="557.16187" z="222.73093"/>
 			<Orientation y="-5.95231"/>
 			<Actor seed="27078"/>
 		</Entity>
 		<Entity uid="20489">
-			<Template>gaia/ore/desert_small</Template>
+			<Template>gaia/ore/sahara_small_01</Template>
 			<Player>0</Player>
 			<Position x="620.6855" z="170.95118"/>
 			<Orientation y="-0.23227"/>
 			<Actor seed="27078"/>
 		</Entity>
 		<Entity uid="20490">
-			<Template>gaia/ore/desert_small</Template>
+			<Template>gaia/ore/sahara_small_01</Template>
 			<Player>0</Player>
 			<Position x="518.01325" z="203.28415"/>
 			<Orientation y="0.89971"/>
 			<Actor seed="33888"/>
 		</Entity>
 		<Entity uid="20491">
-			<Template>gaia/ore/desert_small</Template>
+			<Template>gaia/ore/sahara_small_01</Template>
 			<Player>0</Player>
 			<Position x="576.48548" z="162.52292"/>
 			<Orientation y="1.70449"/>
 			<Actor seed="33888"/>
 		</Entity>
 		<Entity uid="20492">
-			<Template>gaia/ore/desert_small</Template>
+			<Template>gaia/ore/sahara_small_01</Template>
 			<Player>0</Player>
 			<Position x="653.64545" z="174.96723"/>
 			<Orientation y="-0.02497"/>
 			<Actor seed="33888"/>
 		</Entity>
 		<Entity uid="20493">
-			<Template>gaia/ore/desert_small</Template>
+			<Template>gaia/ore/sahara_small_01</Template>
 			<Player>0</Player>
 			<Position x="559.21766" z="217.27353"/>
 			<Orientation y="-2.4048"/>
 			<Actor seed="5400"/>
 		</Entity>
 		<Entity uid="20494">
-			<Template>gaia/ore/desert_small</Template>
+			<Template>gaia/ore/sahara_small_01</Template>
 			<Player>0</Player>
 			<Position x="563.3913" z="212.66602"/>
 			<Orientation y="-4.84023"/>
 			<Actor seed="5400"/>
 		</Entity>
 		<Entity uid="20495">
-			<Template>gaia/ore/desert_small</Template>
+			<Template>gaia/ore/sahara_small_01</Template>
 			<Player>0</Player>
 			<Position x="625.14563" z="170.33268"/>
 			<Orientation y="-0.1352"/>
 			<Actor seed="5400"/>
 		</Entity>
 		<Entity uid="20496">
-			<Template>gaia/ore/desert_small</Template>
+			<Template>gaia/ore/sahara_small_01</Template>
 			<Player>0</Player>
 			<Position x="581.59137" z="162.1165"/>
 			<Orientation y="0.26252"/>
 			<Actor seed="5400"/>
 		</Entity>
 		<Entity uid="20497">
-			<Template>gaia/ore/desert_small</Template>
+			<Template>gaia/ore/sahara_small_01</Template>
 			<Player>0</Player>
 			<Position x="652.75312" z="170.5495"/>
 			<Orientation y="1.47362"/>
 			<Actor seed="45698"/>
 		</Entity>
 		<Entity uid="20498">
-			<Template>gaia/ore/desert_small</Template>
+			<Template>gaia/ore/sahara_small_01</Template>
 			<Player>0</Player>
 			<Position x="653.6756" z="167.17466"/>
 			<Orientation y="-2.0711"/>
 			<Actor seed="45698"/>
 		</Entity>
 		<Entity uid="20499">
-			<Template>gaia/ore/desert_small</Template>
+			<Template>gaia/ore/sahara_small_01</Template>
 			<Player>0</Player>
 			<Position x="577.00324" z="154.5683"/>
 			<Orientation y="-2.42983"/>
 			<Actor seed="45698"/>
 		</Entity>
 		<Entity uid="20500">
-			<Template>gaia/ore/desert_small</Template>
+			<Template>gaia/ore/sahara_small_01</Template>
 			<Player>0</Player>
 			<Position x="627.07062" z="161.09641"/>
 			<Orientation y="-0.25286"/>
 			<Actor seed="4932"/>
 		</Entity>
 		<Entity uid="20501">
-			<Template>gaia/ore/desert_small</Template>
+			<Template>gaia/ore/sahara_small_01</Template>
 			<Player>0</Player>
 			<Position x="621.82953" z="161.09754"/>
 			<Orientation y="0.25812"/>
 			<Actor seed="18426"/>
 		</Entity>
 		<Entity uid="20502">
-			<Template>gaia/ore/badlands_large</Template>
+			<Template>gaia/ore/badlands_01</Template>
 			<Player>0</Player>
 			<Position x="424.28608" z="944.79413"/>
 			<Orientation y="3.1118"/>
 			<Actor seed="37182"/>
 		</Entity>
 		<Entity uid="20503">
-			<Template>gaia/ore/badlands_large</Template>
+			<Template>gaia/ore/badlands_01</Template>
 			<Player>0</Player>
 			<Position x="399.92808" z="846.09394"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="24848"/>
 		</Entity>
 		<Entity uid="20504">
-			<Template>gaia/ore/badlands_large</Template>
+			<Template>gaia/ore/badlands_01</Template>
 			<Player>0</Player>
 			<Position x="342.5637" z="1079.2345"/>
 			<Orientation y="2.50454"/>
 			<Actor seed="23772"/>
 		</Entity>
 		<Entity uid="20505">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="525.3694" z="725.71747"/>
 			<Orientation y="-2.05361"/>
@@ -98847,14 +98847,14 @@
 			<Actor seed="21024"/>
 		</Entity>
 		<Entity uid="20672">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="991.5362" z="1364.03541"/>
 			<Orientation y="9.45467"/>
 			<Actor seed="24618"/>
 		</Entity>
 		<Entity uid="20673">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1246.02857" z="1592.61"/>
 			<Orientation y="9.45467"/>
@@ -98875,21 +98875,21 @@
 			<Actor seed="35424"/>
 		</Entity>
 		<Entity uid="20677">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="1437.99012" z="1197.30396"/>
 			<Orientation y="-0.28301"/>
 			<Actor seed="3058"/>
 		</Entity>
 		<Entity uid="20682">
-			<Template>units/pers/champion_cavalry_archer</Template>
+			<Template>units/achae/champion_cavalry_archer</Template>
 			<Player>4</Player>
 			<Position x="1702.44153" z="1674.46863"/>
 			<Orientation y="2.40578"/>
 			<Actor seed="40148"/>
 		</Entity>
 		<Entity uid="20683">
-			<Template>units/pers/champion_cavalry_archer</Template>
+			<Template>units/achae/champion_cavalry_archer</Template>
 			<Player>4</Player>
 			<Position x="1693.03724" z="1666.08375"/>
 			<Orientation y="2.40578"/>
@@ -98966,7 +98966,7 @@
 			<Actor seed="62612"/>
 		</Entity>
 		<Entity uid="20694">
-			<Template>units/cart/support_female_citizen</Template>
+			<Template>units/cart/support_civilian</Template>
 			<Player>3</Player>
 			<Position x="285.44651" z="529.38526"/>
 			<Orientation y="2.15294"/>
@@ -98987,7 +98987,7 @@
 			<Actor seed="28376"/>
 		</Entity>
 		<Entity uid="20697">
-			<Template>units/pers/ship_arrow</Template>
+			<Template>units/achae/ship_arrow</Template>
 			<Player>4</Player>
 			<Position x="1571.31751" z="1852.77906"/>
 			<Orientation y="-1.39922"/>
@@ -99155,14 +99155,14 @@
 			<Actor seed="18356"/>
 		</Entity>
 		<Entity uid="20721">
-			<Template>units/pers/support_healer_e</Template>
+			<Template>units/achae/support_healer_e</Template>
 			<Player>4</Player>
 			<Position x="1678.60645" z="1653.83277"/>
 			<Orientation y="1.70206"/>
 			<Actor seed="61940"/>
 		</Entity>
 		<Entity uid="20722">
-			<Template>units/pers/support_healer_e</Template>
+			<Template>units/achae/support_healer_e</Template>
 			<Player>4</Player>
 			<Position x="1691.70643" z="1637.94825"/>
 			<Orientation y="0.72757"/>
@@ -104000,28 +104000,28 @@
 			<Actor seed="4252"/>
 		</Entity>
 		<Entity uid="21768">
-			<Template>units/kush/support_female_citizen</Template>
+			<Template>units/kush/support_civilian</Template>
 			<Player>2</Player>
 			<Position x="1477.89563" z="520.69355"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="42410"/>
 		</Entity>
 		<Entity uid="21769">
-			<Template>units/kush/support_female_citizen</Template>
+			<Template>units/kush/support_civilian</Template>
 			<Player>2</Player>
 			<Position x="1479.22132" z="519.0475"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="33752"/>
 		</Entity>
 		<Entity uid="21770">
-			<Template>units/kush/support_female_citizen</Template>
+			<Template>units/kush/support_civilian</Template>
 			<Player>2</Player>
 			<Position x="1480.26661" z="516.59345"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="27114"/>
 		</Entity>
 		<Entity uid="21771">
-			<Template>units/kush/support_female_citizen</Template>
+			<Template>units/kush/support_civilian</Template>
 			<Player>2</Player>
 			<Position x="1480.55726" z="520.29535"/>
 			<Orientation y="2.35621"/>
@@ -104714,7 +104714,7 @@
 			<Actor seed="22958"/>
 		</Entity>
 		<Entity uid="21935">
-			<Template>gaia/treasure/metal_persian_big</Template>
+			<Template>gaia/treasure/metal_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="1386.59437" z="1237.38465"/>
 			<Orientation y="6.28827"/>
@@ -104756,42 +104756,42 @@
 			<Actor seed="17126"/>
 		</Entity>
 		<Entity uid="21941">
-			<Template>structures/pers/inn</Template>
+			<Template>structures/achae/inn</Template>
 			<Player>0</Player>
 			<Position x="1081.73584" z="1089.88892"/>
 			<Orientation y="1.56003"/>
 			<Actor seed="65172"/>
 		</Entity>
 		<Entity uid="21942">
-			<Template>structures/pers/house_b</Template>
+			<Template>structures/achae/house_b</Template>
 			<Player>0</Player>
 			<Position x="1091.87964" z="1133.99073"/>
 			<Orientation y="1.53624"/>
 			<Actor seed="51684"/>
 		</Entity>
 		<Entity uid="21943">
-			<Template>structures/pers/house_a</Template>
+			<Template>structures/achae/house_a</Template>
 			<Player>0</Player>
 			<Position x="1087.02527" z="1115.71924"/>
 			<Orientation y="-3.15867"/>
 			<Actor seed="52778"/>
 		</Entity>
 		<Entity uid="21944">
-			<Template>structures/pers/apartment_block</Template>
+			<Template>structures/achae/apartment_block</Template>
 			<Player>0</Player>
 			<Position x="1140.07496" z="1163.7234"/>
 			<Orientation y="3.12826"/>
 			<Actor seed="49726"/>
 		</Entity>
 		<Entity uid="21946">
-			<Template>structures/pers/inn</Template>
+			<Template>structures/achae/inn</Template>
 			<Player>0</Player>
 			<Position x="1917.19007" z="1437.46705"/>
 			<Orientation y="3.2318"/>
 			<Actor seed="56944"/>
 		</Entity>
 		<Entity uid="21947">
-			<Template>structures/pers/inn</Template>
+			<Template>structures/achae/inn</Template>
 			<Player>0</Player>
 			<Position x="1114.77002" z="1167.45826"/>
 			<Orientation y="3.09757"/>
@@ -104876,14 +104876,14 @@
 			<Actor seed="16426"/>
 		</Entity>
 		<Entity uid="21961">
-			<Template>structures/pers/warehouse</Template>
+			<Template>structures/achae/warehouse</Template>
 			<Player>0</Player>
 			<Position x="1138.14393" z="1132.37903"/>
 			<Orientation y="4.6855"/>
 			<Actor seed="26252"/>
 		</Entity>
 		<Entity uid="21962">
-			<Template>structures/pers/house_a</Template>
+			<Template>structures/achae/house_a</Template>
 			<Player>0</Player>
 			<Position x="1148.91712" z="1117.05481"/>
 			<Orientation y="-3.15287"/>
@@ -104896,7 +104896,7 @@
 			<Actor seed="44576"/>
 		</Entity>
 		<Entity uid="21964">
-			<Template>gaia/treasure/metal_persian_small</Template>
+			<Template>gaia/treasure/metal_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="721.94294" z="550.58631"/>
 			<Orientation y="-0.27436"/>
@@ -104924,21 +104924,21 @@
 			<Actor seed="7510"/>
 		</Entity>
 		<Entity uid="21968">
-			<Template>structures/pers/warehouse</Template>
+			<Template>structures/achae/warehouse</Template>
 			<Player>0</Player>
 			<Position x="1929.75953" z="1426.69764"/>
 			<Orientation y="-1.47664"/>
 			<Actor seed="31480"/>
 		</Entity>
 		<Entity uid="21969">
-			<Template>structures/pers/house_b</Template>
+			<Template>structures/achae/house_b</Template>
 			<Player>0</Player>
 			<Position x="1928.44227" z="1415.46814"/>
 			<Orientation y="-3.04915"/>
 			<Actor seed="55966"/>
 		</Entity>
 		<Entity uid="21970">
-			<Template>structures/pers/house_a</Template>
+			<Template>structures/achae/house_a</Template>
 			<Player>0</Player>
 			<Position x="1935.4026" z="1434.9231"/>
 			<Orientation y="1.69051"/>
@@ -105218,14 +105218,14 @@
 			<Actor seed="53928"/>
 		</Entity>
 		<Entity uid="22011">
-			<Template>gaia/treasure/food_persian_big</Template>
+			<Template>gaia/treasure/food_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="985.17121" z="166.27704"/>
 			<Orientation y="2.96267"/>
 			<Actor seed="26050"/>
 		</Entity>
 		<Entity uid="22012">
-			<Template>gaia/treasure/metal_persian_big</Template>
+			<Template>gaia/treasure/metal_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="972.86713" z="176.6489"/>
 			<Orientation y="3.20539"/>
@@ -105309,7 +105309,7 @@
 			<Actor seed="1236"/>
 		</Entity>
 		<Entity uid="22026">
-			<Template>actor|props/special/eyecandy/treasure_persian_metal_small.xml</Template>
+			<Template>actor|props/special/eyecandy/treasure_achaemenid_metal_small.xml</Template>
 			<Position x="1791.44617" z="473.8548"/>
 			<Orientation y="1.66167"/>
 			<Actor seed="62592"/>
@@ -105357,19 +105357,19 @@
 			<Actor seed="25446"/>
 		</Entity>
 		<Entity uid="22034">
-			<Template>actor|props/structures/persians/farmstead_cart_big.xml</Template>
+			<Template>actor|props/structures/achaemenids/farmstead_cart_big.xml</Template>
 			<Position x="1192.28711" z="1765.1371"/>
 			<Orientation y="4.22271"/>
 			<Actor seed="38808"/>
 		</Entity>
 		<Entity uid="22036">
-			<Template>actor|props/structures/persians/market_b_stall2.xml</Template>
+			<Template>actor|props/structures/achaemenids/market_b_stall2.xml</Template>
 			<Position x="1791.67627" z="474.33768"/>
 			<Orientation y="4.80781"/>
 			<Actor seed="36144"/>
 		</Entity>
 		<Entity uid="22039">
-			<Template>gaia/treasure/metal_persian_big</Template>
+			<Template>gaia/treasure/metal_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="1801.03211" z="464.83545"/>
 			<Orientation y="4.7462"/>
@@ -109931,28 +109931,28 @@
 			<Actor seed="1202"/>
 		</Entity>
 		<Entity uid="22815">
-			<Template>units/pers/champion_cavalry_archer</Template>
+			<Template>units/achae/champion_cavalry_archer</Template>
 			<Player>4</Player>
 			<Position x="1691.12183" z="1664.32007"/>
 			<Orientation y="2.40578"/>
 			<Actor seed="40148"/>
 		</Entity>
 		<Entity uid="22816">
-			<Template>units/pers/champion_cavalry_archer</Template>
+			<Template>units/achae/champion_cavalry_archer</Template>
 			<Player>4</Player>
 			<Position x="1688.94788" z="1662.32776"/>
 			<Orientation y="2.40578"/>
 			<Actor seed="35738"/>
 		</Entity>
 		<Entity uid="22817">
-			<Template>units/pers/champion_cavalry_archer</Template>
+			<Template>units/achae/champion_cavalry_archer</Template>
 			<Player>4</Player>
 			<Position x="1705.20118" z="1676.28772"/>
 			<Orientation y="2.40578"/>
 			<Actor seed="48256"/>
 		</Entity>
 		<Entity uid="22818">
-			<Template>units/pers/champion_cavalry_archer</Template>
+			<Template>units/achae/champion_cavalry_archer</Template>
 			<Player>4</Player>
 			<Position x="1706.94605" z="1677.90552"/>
 			<Orientation y="2.40578"/>
@@ -110092,112 +110092,112 @@
 			<Actor seed="47524"/>
 		</Entity>
 		<Entity uid="22838">
-			<Template>units/pers/kardakes_hoplite</Template>
+			<Template>units/achae/kardakes_hoplite</Template>
 			<Player>4</Player>
 			<Position x="1681.87354" z="1663.7024"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="52534"/>
 		</Entity>
 		<Entity uid="22839">
-			<Template>units/pers/kardakes_hoplite</Template>
+			<Template>units/achae/kardakes_hoplite</Template>
 			<Player>4</Player>
 			<Position x="1683.7837" z="1665.3252"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="52564"/>
 		</Entity>
 		<Entity uid="22840">
-			<Template>units/pers/kardakes_hoplite</Template>
+			<Template>units/achae/kardakes_hoplite</Template>
 			<Player>4</Player>
 			<Position x="1683.49244" z="1661.82422"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="37836"/>
 		</Entity>
 		<Entity uid="22841">
-			<Template>units/pers/kardakes_hoplite</Template>
+			<Template>units/achae/kardakes_hoplite</Template>
 			<Player>4</Player>
 			<Position x="1685.55018" z="1663.70386"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="52692"/>
 		</Entity>
 		<Entity uid="22842">
-			<Template>units/pers/kardakes_hoplite</Template>
+			<Template>units/achae/kardakes_hoplite</Template>
 			<Player>4</Player>
 			<Position x="1684.98792" z="1660.07911"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="20930"/>
 		</Entity>
 		<Entity uid="22843">
-			<Template>units/pers/kardakes_hoplite</Template>
+			<Template>units/achae/kardakes_hoplite</Template>
 			<Player>4</Player>
 			<Position x="1686.8429" z="1661.93372"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="8392"/>
 		</Entity>
 		<Entity uid="22844">
-			<Template>units/pers/kardakes_hoplite</Template>
+			<Template>units/achae/kardakes_hoplite</Template>
 			<Player>4</Player>
 			<Position x="1707.0973" z="1684.7013"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="20660"/>
 		</Entity>
 		<Entity uid="22845">
-			<Template>units/pers/kardakes_hoplite</Template>
+			<Template>units/achae/kardakes_hoplite</Template>
 			<Player>4</Player>
 			<Position x="1709.2013" z="1686.55848"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="25050"/>
 		</Entity>
 		<Entity uid="22846">
-			<Template>units/pers/kardakes_hoplite</Template>
+			<Template>units/achae/kardakes_hoplite</Template>
 			<Player>4</Player>
 			<Position x="1708.23267" z="1682.65528"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="25608"/>
 		</Entity>
 		<Entity uid="22847">
-			<Template>units/pers/kardakes_hoplite</Template>
+			<Template>units/achae/kardakes_hoplite</Template>
 			<Player>4</Player>
 			<Position x="1710.3235" z="1684.8943"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="62330"/>
 		</Entity>
 		<Entity uid="22848">
-			<Template>units/pers/kardakes_hoplite</Template>
+			<Template>units/achae/kardakes_hoplite</Template>
 			<Player>4</Player>
 			<Position x="1709.32776" z="1681.43177"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="24198"/>
 		</Entity>
 		<Entity uid="22849">
-			<Template>units/pers/kardakes_hoplite</Template>
+			<Template>units/achae/kardakes_hoplite</Template>
 			<Player>4</Player>
 			<Position x="1711.74292" z="1682.84156"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="48926"/>
 		</Entity>
 		<Entity uid="22850">
-			<Template>units/pers/kardakes_hoplite</Template>
+			<Template>units/achae/kardakes_hoplite</Template>
 			<Player>4</Player>
 			<Position x="1679.42933" z="1665.55213"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="26082"/>
 		</Entity>
 		<Entity uid="22851">
-			<Template>units/pers/kardakes_hoplite</Template>
+			<Template>units/achae/kardakes_hoplite</Template>
 			<Player>4</Player>
 			<Position x="1680.62855" z="1667.29627"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="19556"/>
 		</Entity>
 		<Entity uid="22852">
-			<Template>units/pers/kardakes_hoplite</Template>
+			<Template>units/achae/kardakes_hoplite</Template>
 			<Player>4</Player>
 			<Position x="1705.05494" z="1687.4502"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="39706"/>
 		</Entity>
 		<Entity uid="22853">
-			<Template>units/pers/kardakes_hoplite</Template>
+			<Template>units/achae/kardakes_hoplite</Template>
 			<Player>4</Player>
 			<Position x="1707.44642" z="1688.89307"/>
 			<Orientation y="2.35621"/>
@@ -114401,35 +114401,35 @@
 			<Actor seed="50594"/>
 		</Entity>
 		<Entity uid="23574">
-			<Template>units/pers/support_female_citizen</Template>
+			<Template>units/achae/support_civilian</Template>
 			<Player>4</Player>
 			<Position x="1724.11316" z="1547.20276"/>
 			<Orientation y="-1.9386"/>
 			<Actor seed="32892"/>
 		</Entity>
 		<Entity uid="23575">
-			<Template>units/pers/support_female_citizen</Template>
+			<Template>units/achae/support_civilian</Template>
 			<Player>4</Player>
 			<Position x="1718.32447" z="1548.32776"/>
 			<Orientation y="2.96312"/>
 			<Actor seed="32230"/>
 		</Entity>
 		<Entity uid="23576">
-			<Template>units/pers/support_female_citizen</Template>
+			<Template>units/achae/support_civilian</Template>
 			<Player>4</Player>
 			<Position x="1721.69007" z="1542.76014"/>
 			<Orientation y="-1.09551"/>
 			<Actor seed="43034"/>
 		</Entity>
 		<Entity uid="23577">
-			<Template>units/pers/support_female_citizen</Template>
+			<Template>units/achae/support_civilian</Template>
 			<Player>4</Player>
 			<Position x="1716.55884" z="1542.38648"/>
 			<Orientation y="0.78214"/>
 			<Actor seed="3970"/>
 		</Entity>
 		<Entity uid="23578">
-			<Template>units/pers/support_female_citizen</Template>
+			<Template>units/achae/support_civilian</Template>
 			<Player>4</Player>
 			<Position x="1715.31116" z="1545.3158"/>
 			<Orientation y="2.40142"/>

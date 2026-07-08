@@ -20,11 +20,12 @@ class PersistentMatchSettings
 
 		Engine.ProfileStart("loadPersistMatchSettingsFile");
 
-		let data =
+		const data =
 			Engine.FileExists(this.filename) &&
 			Engine.ReadJSONFile(this.filename);
 
-		let persistedSettings = data?.engine_info?.engine_version == this.engineInfo.engine_version &&
+		const persistedSettings = data?.engine_info?.engine_serialization_version &&
+			data.engine_info.engine_serialization_version == this.engineInfo.engine_serialization_version &&
 			hasSameMods(data?.engine_info?.mods, this.engineInfo.mods) &&
 			data.attributes || {};
 

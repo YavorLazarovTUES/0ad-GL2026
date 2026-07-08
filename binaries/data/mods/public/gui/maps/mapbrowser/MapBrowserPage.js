@@ -5,10 +5,14 @@ const g_MapTypes = prepareForDropdown(g_Settings && g_Settings.MapTypes);
 
 function init()
 {
-	let cache = new MapCache();
-	let filters = new MapFilters(cache);
-	let browser = new MapBrowser(cache, filters);
-	browser.registerClosePageHandler(() => Engine.PopGuiPage());
+	const cache = new MapCache();
+	const filters = new MapFilters(cache);
+	const browser = new MapBrowser(cache, filters);
 	browser.openPage(false);
 	browser.controls.MapFiltering.select("default", "skirmish");
+	Engine.SetGlobalHotkey("mapbrowser", "Press", () => browser.closePage());
+	return new Promise(closePageCallback =>
+	{
+		browser.registerClosePageHandler(closePageCallback);
+	});
 }

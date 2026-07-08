@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,21 +18,34 @@
 #ifndef NETCLIENT_H
 #define NETCLIENT_H
 
+#include "lib/code_annotation.h"
+#include "lib/external_libraries/enet.h"
+#include "lib/types.h"
 #include "network/FSM.h"
-#include "network/NetFileTransfer.h"
 #include "network/NetHost.h"
-#include "scriptinterface/Object.h"
-
+#include "network/NetMessage.h"
 #include "ps/CStr.h"
+#include "scriptinterface/Object.h"
+#include "scriptinterface/Request.h"
+#include "scriptinterface/StructuredClone.h"
 
 #include <ctime>
 #include <deque>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <optional>
+#include <string>
 #include <thread>
+#include <vector>
 
 class CGame;
 class CNetClientSession;
 class CNetClientTurnManager;
-class ScriptInterface;
+class JSTracer;
+class XmppClient;
+
+namespace Script { class Interface; }
 
 typedef struct _ENetHost ENetHost;
 
@@ -56,7 +69,7 @@ enum
  * It provides an interface between the GUI, the network (via CNetClientSession),
  * and the game (via CGame and CNetClientTurnManager).
  */
-class CNetClient : public CFsm<CNetClient>
+class CNetClient : public CFsm<CNetClient, CNetMessage*>
 {
 	NONCOPYABLE(CNetClient);
 
@@ -64,45 +77,23 @@ public:
 	/**
 	 * Construct a client associated with the given game object.
 	 * The game must exist for the lifetime of this object.
+	 * The user's name will be displayed to all players.
+	 * The JID of the host is needed for the secure lobby authentication.
 	 */
-	CNetClient(CGame* game);
+	CNetClient(CGame* game, std::string serverAddressOrHostname, std::uint16_t serverPont,
+		const CStrW& username = L"anonymous", const CStr& hostJID = {},
+		std::string hashedPassword = {}, std::string controllerSecret = {});
+
+	/**
+	 * This constructor additionally requests connection information over the
+	 * lobby.
+	 */
+	CNetClient(CGame* game, const CStrW& username, const CStr& hostJID,
+		std::string hashedPassword, XmppClient& xmppClient);
 
 	virtual ~CNetClient();
 
-	/**
-	 * We assume that adding a tracing function that's only called
-	 * during GC is better for performance than using a
-	 * PersistentRooted<T> where each value needs to be added to
-	 * the root set.
-	 */
-	static void Trace(JSTracer *trc, void *data)
-	{
-		reinterpret_cast<CNetClient*>(data)->TraceMember(trc);
-	}
-
-	void TraceMember(JSTracer *trc);
-
-	/**
-	 * Set the user's name that will be displayed to all players.
-	 * This must not be called after the connection setup.
-	 */
-	void SetUserName(const CStrW& username);
-
-	/**
-	 * Store the JID of the host.
-	 * This is needed for the secure lobby authentication.
-	 */
-	void SetHostJID(const CStr& jid);
-
-	void SetControllerSecret(const std::string& secret);
-
 	bool IsController() const { return m_IsController; }
-
-	/**
-	 * Set the game password.
-	 * Must be called after SetUserName, as that is used to hash further.
-	 */
-	void SetGamePassword(const CStr& hashedPassword);
 
 	/**
 	 * Returns the GUID of the local client.
@@ -111,30 +102,13 @@ public:
 	CStr GetGUID() const { return m_GUID; }
 
 	/**
-	 * Set connection data to the remote networked server.
-	 * @param address IP address or host name to connect to
-	 */
-	void SetupServerData(CStr address, u16 port, bool stun);
-
-	/**
-	 * Set up a connection to the remote networked server.
-	 * Must call SetupServerData first.
-	 * @return true on success, false on connection failure
-	 */
-	bool SetupConnection(ENetHost* enetClient);
-
-	/**
-	 * Request connection information over the lobby.
-	 */
-	void SetupConnectionViaLobby();
-
-	/**
 	 * Connect to the remote networked server using lobby.
 	 * Push netstatus messages on failure.
 	 * @param localNetwork - if true, assume we are trying to connect on the local network.
 	 * @return true on success, false on connection failure
 	 */
-	bool TryToConnect(const CStr& hostJID, bool localNetwork);
+	bool TryToConnectWithSTUN(std::string serverAddressOrHostname, std::uint16_t serverPort,
+		const CStr& hostJID, bool localNetwork);
 
 	/**
 	 * Destroy the connection to the server.
@@ -156,19 +130,25 @@ public:
 
 	/**
 	 * Retrieves the next queued GUI message, and removes it from the queue.
-	 * The returned value is in the GetScriptInterface() JS context.
+	 * The returned value is in the JS context of the provided
+	 * @c Script::Interface.
 	 *
 	 * This is the only mechanism for the networking code to send messages to
-	 * the GUI - it is pull-based (instead of push) so the engine code does not
-	 * need to know anything about the code structure of the GUI scripts.
+	 * the GUI.
 	 *
 	 * The structure of the messages is <code>{ "type": "...", ... }</code>.
 	 * The exact types and associated data are not specified anywhere - the
 	 * implementation and GUI scripts must make the same assumptions.
 	 *
-	 * @return next message, or the value 'undefined' if the queue is empty
+	 * @return a promise resolving to the next message.
 	 */
-	void GuiPoll(JS::MutableHandleValue);
+	JSObject* GetNextGUIMessage(const Script::Interface& guiInterface);
+
+	/**
+	 * Has to be called bevore the @c Script::Interface gets destroied so that
+	 * no future messages are sent to it.
+	 */
+	void Unregister(const Script::Interface* guiInterface);
 
 	/**
 	 * Add a message to the queue, to be read by GuiPoll.
@@ -177,11 +157,11 @@ public:
 	template<typename... Args>
 	void PushGuiMessage(Args const&... args)
 	{
-		ScriptRequest rq(GetScriptInterface());
+		Script::Request rq(GetScriptInterface());
 
 		JS::RootedValue message(rq.cx);
 		Script::CreateObject(rq, &message, args...);
-		m_GuiMessageQueue.push_back(JS::Heap<JS::Value>(message));
+		m_GuiMessageQueue.push_back(Script::WriteStructuredClone(rq, message));
 	}
 
 	/**
@@ -194,7 +174,7 @@ public:
 	 * Get the script interface associated with this network client,
 	 * which is equivalent to the one used by the CGame in the constructor.
 	 */
-	const ScriptInterface& GetScriptInterface();
+	const Script::Interface& GetScriptInterface();
 
 	/**
 	 * Send a message to the server.
@@ -224,17 +204,29 @@ public:
 	 */
 	void LoadFinished();
 
-	void SendGameSetupMessage(JS::MutableHandleValue attrs, const ScriptInterface& scriptInterface);
+	void SendGameSetupMessage(JS::MutableHandleValue attrs, const Script::Interface& scriptInterface);
 
 	void SendAssignPlayerMessage(const int playerID, const CStr& guid);
 
-	void SendChatMessage(const std::wstring& text);
+	/**
+	 * @param text The message to send.
+	 * @param receivers The GUID of the receiving clients. If empty send it to
+	 *	all clients.
+	 */
+	void SendChatMessage(const std::wstring& text, std::optional<std::vector<std::string>> receivers);
 
 	void SendReadyMessage(const int status);
 
 	void SendClearAllReadyMessage();
 
 	void SendStartGameMessage(const CStr& initAttribs);
+
+	void SendStartSavedGameMessage(const CStr& initAttribs, const CStr& savedState);
+
+	/**
+	 * Call when the client (player or observer) has sent a flare.
+	 */
+	void SendFlareMessage(const CStr& positionX, const CStr& positionY, const CStr& positionZ);
 
 	/**
 	 * Call when the client has rejoined a running match and finished
@@ -262,30 +254,42 @@ public:
 	 */
 	void HandleGetServerDataFailed(const CStr& error);
 private:
+	struct PrivateTag {};
+	CNetClient(PrivateTag, CGame* game, std::string serverAddressOrHostname,
+		std::uint16_t serverPont, const CStrW& username = L"anonymous", const CStr& hostJID = {},
+		std::string hashedPassword = {}, std::string controllerSecret = {});
 
 	void SendAuthenticateMessage();
 
 	// Net message / FSM transition handlers
-	static bool OnConnect(CNetClient* client, CFsmEvent* event);
-	static bool OnHandshake(CNetClient* client, CFsmEvent* event);
-	static bool OnHandshakeResponse(CNetClient* client, CFsmEvent* event);
-	static bool OnAuthenticateRequest(CNetClient* client, CFsmEvent* event);
-	static bool OnAuthenticate(CNetClient* client, CFsmEvent* event);
-	static bool OnChat(CNetClient* client, CFsmEvent* event);
-	static bool OnReady(CNetClient* client, CFsmEvent* event);
-	static bool OnGameSetup(CNetClient* client, CFsmEvent* event);
-	static bool OnPlayerAssignment(CNetClient* client, CFsmEvent* event);
-	static bool OnInGame(CNetClient* client, CFsmEvent* event);
-	static bool OnGameStart(CNetClient* client, CFsmEvent* event);
-	static bool OnJoinSyncStart(CNetClient* client, CFsmEvent* event);
-	static bool OnJoinSyncEndCommandBatch(CNetClient* client, CFsmEvent* event);
-	static bool OnRejoined(CNetClient* client, CFsmEvent* event);
-	static bool OnKicked(CNetClient* client, CFsmEvent* event);
-	static bool OnClientTimeout(CNetClient* client, CFsmEvent* event);
-	static bool OnClientPerformance(CNetClient* client, CFsmEvent* event);
-	static bool OnClientsLoading(CNetClient* client, CFsmEvent* event);
-	static bool OnClientPaused(CNetClient* client, CFsmEvent* event);
-	static bool OnLoadedGame(CNetClient* client, CFsmEvent* event);
+	static bool OnConnect(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnHandshake(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnHandshakeResponse(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnAuthenticateRequest(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnAuthenticate(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnChat(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnReady(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnGameSetup(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnPlayerAssignment(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnInGame(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnGameStart(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnSavedGameStart(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnJoinSyncStart(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnJoinSyncEndCommandBatch(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnFlare(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnRejoined(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnKicked(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnClientTimeout(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnClientPerformance(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnClientsLoading(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnClientPaused(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnLoadedGame(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+
+	/**
+	 * Set up a connection to the remote networked server.
+	 * @return true on success, false on connection failure
+	 */
+	void SetupConnection(ENetHost* enetClient);
 
 	/**
 	 * Take ownership of a session object, and use it for all network communication.
@@ -293,17 +297,24 @@ private:
 	void SetAndOwnSession(CNetClientSession* session);
 
 	/**
+	 * Starts a game with the specified init attributes and saved state. Called
+	 * by the start game and start saved game callbacks.
+	 */
+	void StartGame(const JS::MutableHandleValue initAttributes, const std::string& savedState);
+
+	/**
 	 * Push a message onto the GUI queue listing the current player assignments.
 	 */
 	void PostPlayerAssignmentsToScript();
+
+	void FetchMessage();
 
 	CGame *m_Game;
 	CStrW m_UserName;
 
 	CStr m_HostJID;
-	CStr m_ServerAddress;
-	u16 m_ServerPort;
-	bool m_UseSTUN;
+	CStr m_ServerAddressOrHostname;
+	u16 m_ServerPort{0};
 
 	/**
 	 * Password to join the game.
@@ -316,19 +327,19 @@ private:
 	/// Note that this is just a "gui hint" with no actual impact on being controller.
 	bool m_IsController = false;
 
-	/// Current network session (or NULL if not connected)
-	CNetClientSession* m_Session;
+	/// Current network session (or nullptr if not connected)
+	CNetClientSession* m_Session{nullptr};
 
 	std::thread m_PollingThread;
 
-	/// Turn manager associated with the current game (or NULL if we haven't started the game yet)
-	CNetClientTurnManager* m_ClientTurnManager;
+	/// Turn manager associated with the current game (or nullptr if we haven't started the game yet)
+	CNetClientTurnManager* m_ClientTurnManager{nullptr};
 
 	/// Unique-per-game identifier of this client, used to identify the sender of simulation commands
-	u32 m_HostID;
+	u32 m_HostID{static_cast<u32>(-1)};
 
 	/// True if the player is currently rejoining or has already rejoined the game.
-	bool m_Rejoin;
+	bool m_Rejoin{false};
 
 	/// Latest copy of player assignments heard from the server
 	PlayerAssignmentMap m_PlayerAssignments;
@@ -337,16 +348,34 @@ private:
 	CStr m_GUID;
 
 	/// Queue of messages for GuiPoll
-	std::deque<JS::Heap<JS::Value>> m_GuiMessageQueue;
+	std::deque<Script::StructuredClone> m_GuiMessageQueue;
+
+	struct GuiPollData
+	{
+		const Script::Interface& interface;
+		/**
+		 * In the context of interface.
+		 * When the promise is pending @see Poll should fill it with a message.
+		 * When there it's fulfilled JavaScript code can take it.
+		 */
+		JS::PersistentRootedObject promise;
+	};
+	std::optional<GuiPollData> m_GuiMessagePoll;
 
 	/// Serialized game state received when joining an in-progress game
 	std::string m_JoinSyncBuffer;
 
+	std::string m_SavedState;
+
 	/// Time when the server was last checked for timeouts and bad latency
-	std::time_t m_LastConnectionCheck;
+	std::time_t m_LastConnectionCheck{0};
+
+	/// Record of the server engine version and loaded mods
+	CSrvHandshakeMessage m_ServerHandshake;
 };
 
 /// Global network client for the standard game
 extern CNetClient *g_NetClient;
 
 #endif	// NETCLIENT_H
+

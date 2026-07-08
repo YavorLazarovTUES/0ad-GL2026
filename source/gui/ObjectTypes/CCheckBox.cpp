@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,6 +20,8 @@
 #include "CCheckBox.h"
 
 #include "gui/CGUI.h"
+#include "gui/SGUIMessage.h"
+#include "ps/CStr.h"
 
 CCheckBox::CCheckBox(CGUI& pGUI)
 	: IGUIObject(pGUI),
@@ -33,10 +35,6 @@ CCheckBox::CCheckBox(CGUI& pGUI)
 	  m_SpriteCheckedOver(this, "sprite2_over"),
 	  m_SpriteCheckedPressed(this, "sprite2_pressed"),
 	  m_SpriteCheckedDisabled(this, "sprite2_disabled")
-{
-}
-
-CCheckBox::~CCheckBox()
 {
 }
 
@@ -71,5 +69,6 @@ void CCheckBox::Draw(CCanvas2D& canvas)
 			GetButtonSprite(m_SpriteChecked, m_SpriteCheckedOver, m_SpriteCheckedPressed, m_SpriteCheckedDisabled) :
 			GetButtonSprite(m_SpriteUnchecked, m_SpriteUncheckedOver, m_SpriteUncheckedPressed, m_SpriteUncheckedDisabled),
 		canvas,
-		m_CachedActualSize);
+		GetActualSize(),
+		m_VisibleArea);
 }

@@ -1,4 +1,4 @@
-/* Copyright (C) 2010 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -39,24 +39,7 @@
 # include "lib/sysdep/os/win/wposix/wposix_types.h"
 #else
 
-// unix/linux/glibc/gcc says that this macro has to be defined when including
-// stdint.h from C++ for stdint.h to define SIZE_MAX and friends
-# ifndef __STDC_LIMIT_MACROS
-#  define __STDC_LIMIT_MACROS
-# endif
-
-# include <math.h>
-# include <wchar.h>
 # include <sys/types.h>
-# include <stddef.h>
-# include <limits.h>
-# include <stdint.h>
-
-// but sometimes it still doesn't get defined, so define it ourselves
-# ifndef SIZE_MAX
-#  define SIZE_MAX ((size_t)-1)
-# endif
-
 # include <unistd.h>
 
 #endif	// #if !OS_WIN

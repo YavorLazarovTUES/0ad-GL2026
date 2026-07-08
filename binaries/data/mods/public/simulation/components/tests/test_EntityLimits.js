@@ -5,7 +5,7 @@ Engine.LoadComponentScript("interfaces/TrainingRestrictions.js");
 Engine.LoadComponentScript("interfaces/Player.js");
 Engine.LoadComponentScript("EntityLimits.js");
 
-let template ={
+const template ={
 	"Limits": {
 		"Tower": 5,
 		"Wonder": 1,
@@ -28,7 +28,7 @@ AddMock(SYSTEM_ENTITY, IID_GuiInterface, {
 	"PushNotification": () => {}
 });
 
-let cmpEntityLimits = ConstructComponent(10, "EntityLimits", template);
+const cmpEntityLimits = ConstructComponent(10, "EntityLimits", template);
 
 // Test getters
 TS_ASSERT_UNEVAL_EQUALS(cmpEntityLimits.GetCounts(), { "Tower": 0, "Wonder": 0, "Hero": 0, "Champion": 0 });
@@ -149,7 +149,8 @@ TS_ASSERT_UNEVAL_EQUALS(cmpEntityLimits.GetCounts(), { "Tower": 0, "Wonder": 0, 
 
 // Test AllowedToReplace
 AddMock(SYSTEM_ENTITY, IID_TemplateManager, {
-	"GetTemplate": name => {
+	"GetTemplate": name =>
+	{
 		switch (name)
 		{
 		case "templateA":
@@ -164,7 +165,8 @@ AddMock(SYSTEM_ENTITY, IID_TemplateManager, {
 			return null;
 		}
 	},
-	"GetCurrentTemplateName": id => {
+	"GetCurrentTemplateName": id =>
+	{
 		switch (id)
 		{
 		case 100:

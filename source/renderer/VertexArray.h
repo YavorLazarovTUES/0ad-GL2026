@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,12 +18,19 @@
 #ifndef INCLUDED_VERTEXARRAY
 #define INCLUDED_VERTEXARRAY
 
+#include "lib/debug.h"
+#include "lib/posix/posix_types.h"
+#include "lib/types.h"
+#include "renderer/VertexBuffer.h"
+#include "renderer/VertexBufferManager.h"
 #include "renderer/backend/Format.h"
 #include "renderer/backend/IBuffer.h"
-#include "renderer/backend/IDeviceCommandContext.h"
-#include "renderer/VertexBufferManager.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <vector>
+
+namespace Renderer::Backend { class IDeviceCommandContext; }
 
 // Iterator
 template<typename T>
@@ -168,6 +175,10 @@ public:
 	// Add vertex attributes
 	void AddAttribute(Attribute* attr);
 
+	// Sets the minimum alignment for each attribute to have offsets multiples
+	// of `minimumAttributeAlignment`.
+	void SetMinimumAttributeAlignment(const uint32_t minimumAttributeAlignment);
+
 	size_t GetNumberOfVertices() const { return m_NumberOfVertices; }
 	uint32_t GetStride() const { return m_Stride; }
 
@@ -203,13 +214,14 @@ private:
 	}
 
 	Renderer::Backend::IBuffer::Type m_Type;
-	uint32_t m_Usage = 0;
-	size_t m_NumberOfVertices;
+	uint32_t m_Usage{0};
+	uint32_t m_MinimumAttributeAlignment{0};
+	size_t m_NumberOfVertices{0};
 	std::vector<Attribute*> m_Attributes;
 
 	CVertexBufferManager::Handle m_VB;
-	uint32_t m_Stride;
-	char* m_BackingStore; // 16-byte aligned, to allow fast SSE access
+	uint32_t m_Stride{0};
+	char* m_BackingStore{nullptr}; // 16-byte aligned, to allow fast SSE access
 };
 
 /**

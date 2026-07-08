@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,13 +19,16 @@
 
 #include "IGUITextOwner.h"
 
-#include "gui/CGUI.h"
-#include "gui/SGUIMessage.h"
+#include "gui/CGUIText.h"
 #include "gui/ObjectBases/IGUIObject.h"
-#include "gui/SettingTypes/CGUIString.h"
+#include "gui/SGUIMessage.h"
+#include "gui/SettingTypes/EAlign.h"
+#include "lib/debug.h"
+#include "maths/Size2D.h"
 #include "maths/Vector2D.h"
+#include "ps/CStr.h"
 
-#include <math.h>
+#include <string>
 
 IGUITextOwner::IGUITextOwner(IGUIObject& pObject)
 : m_pObject(pObject),
@@ -76,7 +79,7 @@ void IGUITextOwner::HandleMessage(SGUIMessage& Message)
 	}
 }
 
-void IGUITextOwner::UpdateCachedSize()
+void IGUITextOwner::HandleSizeChanged()
 {
 	// update our text positions
 	m_GeneratedTextsValid = false;
@@ -100,7 +103,7 @@ void IGUITextOwner::DrawText(CCanvas2D& canvas, size_t index, const CGUIColor& c
 	m_GeneratedTexts.at(index).Draw(m_pObject.GetGUI(), canvas, color, pos, clipping);
 }
 
-void IGUITextOwner::CalculateTextPosition(CRect& ObjSize, CVector2D& TextPos, CGUIText& Text)
+void IGUITextOwner::CalculateTextPosition(const CRect& ObjSize, CVector2D& TextPos, CGUIText& Text)
 {
 	// The horizontal Alignment is now computed in GenerateText in order to not have to
 	// loop through all of the TextCall objects again.
@@ -113,7 +116,7 @@ void IGUITextOwner::CalculateTextPosition(CRect& ObjSize, CVector2D& TextPos, CG
 		break;
 	case EVAlign::CENTER:
 		// Round to integer pixel values, else the fonts look awful
-		TextPos.Y = floorf(ObjSize.CenterPoint().Y - Text.GetSize().Height / 2.f);
+		TextPos.Y = ObjSize.CenterPoint().Y - Text.GetSize().Height / 2.f;
 		break;
 	case EVAlign::BOTTOM:
 		TextPos.Y = ObjSize.bottom - Text.GetSize().Height;

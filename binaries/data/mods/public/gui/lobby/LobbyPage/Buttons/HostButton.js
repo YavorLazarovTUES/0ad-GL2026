@@ -3,14 +3,13 @@
  */
 class HostButton
 {
-	constructor(dialog, xmppMessages)
+	constructor(closePageCallback, dialog, xmppMessages, button, loadSavedGame)
 	{
-		this.hostButton = Engine.GetGUIObjectByName("hostButton");
-		this.hostButton.onPress = this.onPress.bind(this);
-		this.hostButton.caption = translate("Host Game");
+		this.hostButton = button;
+		this.hostButton.onPress = this.onPress.bind(this, closePageCallback, loadSavedGame);
 		this.hostButton.hidden = dialog;
 
-		let onConnectionStatusChange = this.onConnectionStatusChange.bind(this);
+		const onConnectionStatusChange = this.onConnectionStatusChange.bind(this);
 		xmppMessages.registerXmppMessageHandler("system", "connected", onConnectionStatusChange);
 		xmppMessages.registerXmppMessageHandler("system", "disconnected", onConnectionStatusChange);
 		this.onConnectionStatusChange();
@@ -21,12 +20,16 @@ class HostButton
 		this.hostButton.enabled = Engine.IsXmppClientConnected();
 	}
 
-	onPress()
+	async onPress(closePageCallback, loadSavedGame)
 	{
-		Engine.PushGuiPage("page_gamesetup_mp.xml", {
+		const ret = await Engine.OpenChildPage("page_gamesetup_mp.xml", {
+			"loadSavedGame": loadSavedGame,
 			"multiplayerGameType": "host",
 			"name": g_Nickname,
 			"rating": Engine.LobbyGetPlayerRating(g_Nickname)
 		});
+
+		if (ret !== undefined)
+			closePageCallback({ [Engine.openRequest]: ret });
 	}
 }

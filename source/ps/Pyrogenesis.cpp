@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,14 +17,14 @@
 
 #include "precompiled.h"
 
-#include <cstdio>
-
 #include "Pyrogenesis.h"
 
+#include "lib/path.h"
 #include "lib/sysdep/sysdep.h"
-#include "lib/svn_revision.h"
 
-const char* engine_version = "0.0.27";
+#include <cstdio>
+#include <cwchar>
+
 const char* main_window_name = "0 A.D.";
 
 // convert contents of file <in_filename> from char to wchar_t and
@@ -56,8 +56,8 @@ static void AppendAsciiFile(FILE* out, const OsPath& pathname)
 // for user convenience, bundle all logs into this file:
 void psBundleLogs(FILE* f)
 {
-	fwprintf(f, L"SVN Revision: %ls\n\n", svn_revision);
-	fwprintf(f, L"Engine Version: %hs\n\n", engine_version);
+	fwprintf(f, L"Build Version: %ls\n\n", build_version);
+	fwprintf(f, L"Engine Version: %hs\n\n", PS_VERSION);
 
 	fwprintf(f, L"System info:\n\n");
 	OsPath path1 = psLogDir()/"system_info.txt";

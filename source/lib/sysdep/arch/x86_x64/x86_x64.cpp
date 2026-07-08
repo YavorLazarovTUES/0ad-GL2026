@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -25,20 +25,23 @@
  */
 
 #include "precompiled.h"
-#include "lib/sysdep/arch/x86_x64/x86_x64.h"
 
-#include <cstring>
-#include <cstdio>
-#include <vector>
-#include <set>
-#include <algorithm>
+#include "x86_x64.h"
 
-#include "lib/posix/posix_pthread.h"
 #include "lib/bits.h"
-#include "lib/timer.h"
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
+#include "lib/lib.h"
 #include "lib/module_init.h"
+#include "lib/posix/posix_pthread.h"
+#include "lib/secure_crt.h"
+#include "lib/status.h"
 #include "lib/sysdep/cpu.h"
-#include "lib/sysdep/os_cpu.h"
+#include "lib/timer.h"
+
+#include <algorithm>
+#include <cstring>
+#include <vector>
 
 #if MSC_VERSION
 # include <intrin.h>	// __rdtsc
@@ -97,7 +100,7 @@ static Status InitCpuid()
 
 bool cpuid(CpuidRegs* regs)
 {
-	static ModuleInitState initState;
+	static ModuleInitState initState{ 0 };
 	ModuleInit(&initState, InitCpuid);
 
 	const u32 function = regs->eax;
@@ -118,7 +121,7 @@ bool cpuid(CpuidRegs* regs)
 // keep in sync with enum Cap!
 static u32 caps[4];
 
-static ModuleInitState capsInitState;
+static ModuleInitState capsInitState{ 0 };
 
 static Status InitCaps()
 {
@@ -199,7 +202,7 @@ static Status InitVendor()
 
 Vendors Vendor()
 {
-	static ModuleInitState initState;
+	static ModuleInitState initState{ 0 };
 	ModuleInit(&initState, InitVendor);
 	return vendor;
 }
@@ -210,7 +213,7 @@ Vendors Vendor()
 
 static size_t m_Model;
 static size_t m_Family;
-static ModuleInitState signatureInitState;
+static ModuleInitState signatureInitState{ 0 };
 
 static Status InitSignature()
 {
@@ -360,7 +363,7 @@ static Status InitIdentifierString()
 
 static const char* IdentifierString()
 {
-	static ModuleInitState initState;
+	static ModuleInitState initState{ 0 };
 	ModuleInit(&initState, InitIdentifierString);
 	return identifierString;
 }

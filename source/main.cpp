@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -31,22 +31,41 @@ that of Atlas depending on commandline parameters.
 #define MINIMAL_PCH 2
 #include "lib/precompiled.h"
 
+#include "dapinterface/DapInterface.h"
+#include "graphics/GameView.h"
+#include "graphics/TextureManager.h"
+#include "gui/GUIManager.h"
+#include "lib/config2.h"
 #include "lib/debug.h"
-#include "lib/status.h"
-#include "lib/secure_crt.h"
-#include "lib/frequency_filter.h"
-#include "lib/input.h"
-#include "lib/timer.h"
 #include "lib/external_libraries/libsdl.h"
-
+#include "lib/file/file_system.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/frequency_filter.h"
+#include "lib/path.h"
+#include "lib/posix/posix_types.h"
+#include "lib/secure_crt.h"
+#include "lib/status.h"
+#include "lib/sysdep/compiler.h"
+#include "lib/sysdep/os.h"
+#include "lib/timer.h"
+#include "lib/types.h"
+#include "lobby/XmppClient.h"
+#include "network/NetClient.h"
 #include "ps/ArchiveBuilder.h"
 #include "ps/CConsole.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
 #include "ps/ConfigDB.h"
 #include "ps/Filesystem.h"
 #include "ps/Game.h"
+#include "ps/GameSetup/Atlas.h"
+#include "ps/GameSetup/CmdLineArgs.h"
+#include "ps/GameSetup/Config.h"
+#include "ps/GameSetup/GameSetup.h"
+#include "ps/GameSetup/Paths.h"
 #include "ps/Globals.h"
 #include "ps/Hotkey.h"
+#include "ps/Input.h"
 #include "ps/Loader.h"
 #include "ps/Mod.h"
 #include "ps/ModInstaller.h"
@@ -54,36 +73,41 @@ that of Atlas depending on commandline parameters.
 #include "ps/Profiler2.h"
 #include "ps/Pyrogenesis.h"
 #include "ps/Replay.h"
+#include "ps/TaskManager.h"
 #include "ps/TouchInput.h"
 #include "ps/UserReport.h"
-#include "ps/Util.h"
 #include "ps/VideoMode.h"
-#include "ps/TaskManager.h"
-#include "ps/World.h"
-#include "ps/GameSetup/GameSetup.h"
-#include "ps/GameSetup/Atlas.h"
-#include "ps/GameSetup/Config.h"
-#include "ps/GameSetup/CmdLineArgs.h"
-#include "ps/GameSetup/Paths.h"
 #include "ps/XML/Xeromyces.h"
-#include "network/NetClient.h"
-#include "network/NetServer.h"
-#include "network/NetSession.h"
-#include "lobby/IXmppClient.h"
-#include "graphics/Camera.h"
-#include "graphics/GameView.h"
-#include "graphics/TextureManager.h"
-#include "gui/GUIManager.h"
-#include "renderer/backend/IDevice.h"
 #include "renderer/Renderer.h"
 #include "rlinterface/RLInterface.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptEngine.h"
-#include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/JSON.h"
-#include "simulation2/Simulation2.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Engine.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/system/TurnManager.h"
 #include "soundmanager/ISoundManager.h"
+
+#include <SDL_events.h>
+#include <SDL_stdinc.h>
+#include <SDL_timer.h>
+#include <SDL_video.h>
+#include <algorithm>
+#include <chrono>
+#include <cstdlib>
+#include <ctime>
+#include <exception>
+#include <filesystem>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <memory>
+#include <optional>
+#include <span>
+#include <string>
+#include <utility>
+#include <vector>
 
 #if OS_UNIX
 #include <iostream>
@@ -124,8 +148,6 @@ extern "C"
 }
 #endif
 
-#include <chrono>
-
 extern CStrW g_UniqueLogPostfix;
 
 // Determines the lifetime of the mainloop
@@ -145,14 +167,7 @@ enum ShutdownType
 };
 
 static ShutdownType g_Shutdown = ShutdownType::None;
-
-// to avoid redundant and/or recursive resizing, we save the new
-// size after VIDEORESIZE messages and only update the video mode
-// once per frame.
-// these values are the latest resize message, and reset to 0 once we've
-// updated the video mode
-static int g_ResizedW;
-static int g_ResizedH;
+static int g_ExitStatus{EXIT_SUCCESS};
 
 static std::chrono::high_resolution_clock::time_point lastFrameTime;
 
@@ -161,9 +176,10 @@ bool IsQuitRequested()
 	return g_Shutdown == ShutdownType::Quit;
 }
 
-void QuitEngine()
+void QuitEngine(int exitStatus)
 {
 	g_Shutdown = ShutdownType::Quit;
+	g_ExitStatus = exitStatus;
 }
 
 void RestartEngine()
@@ -171,35 +187,18 @@ void RestartEngine()
 	g_Shutdown = ShutdownType::Restart;
 }
 
-void StartAtlas()
-{
-	g_Shutdown = ShutdownType::RestartAsAtlas;
-}
-
 // main app message handler
-static InReaction MainInputHandler(const SDL_Event_* ev)
+static Input::Reaction MainInputHandler(const SDL_Event& ev)
 {
-	switch(ev->ev.type)
+	switch(ev.type)
 	{
-	case SDL_WINDOWEVENT:
-		switch(ev->ev.window.event)
-		{
-		case SDL_WINDOWEVENT_RESIZED:
-			g_ResizedW = ev->ev.window.data1;
-			g_ResizedH = ev->ev.window.data2;
-			break;
-		case SDL_WINDOWEVENT_MOVED:
-			g_VideoMode.UpdatePosition(ev->ev.window.data1, ev->ev.window.data2);
-		}
-		break;
-
 	case SDL_QUIT:
-		QuitEngine();
+		QuitEngine(EXIT_SUCCESS);
 		break;
 
 	case SDL_DROPFILE:
 	{
-		char* dropped_filedir = ev->ev.drop.file;
+		char* dropped_filedir = ev.drop.file;
 		const Paths paths(g_CmdLineArgs);
 		CModInstaller installer(paths.UserData() / "mods", paths.Cache());
 		installer.Install(std::string(dropped_filedir), g_ScriptContext, true);
@@ -209,7 +208,7 @@ static InReaction MainInputHandler(const SDL_Event_* ev)
 		else
 		{
 			LOGMESSAGE("Installed mod %s", installer.GetInstalledMods().front());
-			ScriptInterface modInterface("Engine", "Mod", g_ScriptContext);
+			Script::Interface modInterface("Engine", "Mod", g_ScriptContext);
 			g_Mods.UpdateAvailableMods(modInterface);
 			RestartEngine();
 		}
@@ -217,48 +216,37 @@ static InReaction MainInputHandler(const SDL_Event_* ev)
 	}
 
 	case SDL_HOTKEYPRESS:
-		std::string hotkey = static_cast<const char*>(ev->ev.user.data1);
+		std::string hotkey = static_cast<const char*>(ev.user.data1);
 		if (hotkey == "exit")
 		{
-			QuitEngine();
-			return IN_HANDLED;
-		}
-		else if (hotkey == "screenshot")
-		{
-			g_Renderer.MakeScreenShotOnNextFrame(CRenderer::ScreenShotType::DEFAULT);
-			return IN_HANDLED;
-		}
-		else if (hotkey == "bigscreenshot")
-		{
-			g_Renderer.MakeScreenShotOnNextFrame(CRenderer::ScreenShotType::BIG);
-			return IN_HANDLED;
+			QuitEngine(EXIT_SUCCESS);
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "togglefullscreen")
 		{
 			g_VideoMode.ToggleFullscreen();
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "profile2.toggle")
 		{
 			g_Profiler2.Toggle();
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		break;
 	}
 
-	return IN_PASS;
+	return Input::Reaction::PASS;
 }
 
 
 // dispatch all pending events to the various receivers.
 static void PumpEvents()
 {
-	ScriptRequest rq(g_GUI->GetScriptInterface());
+	Script::Request rq(g_GUI->GetScriptInterface());
 
 	PROFILE3("dispatch events");
 
-	SDL_Event_ ev;
-	while (in_poll_event(&ev))
+	for (const SDL_Event& ev : g_VideoMode.m_InputManager.PollEvents())
 	{
 		PROFILE2("event");
 		if (g_GUI)
@@ -268,7 +256,7 @@ static void PumpEvents()
 			std::string data = Script::StringifyJSON(rq, &tmpVal);
 			PROFILE2_ATTR("%s", data.c_str());
 		}
-		in_dispatch_event(&ev);
+		g_VideoMode.m_InputManager.DispatchEvent(ev);
 	}
 
 	g_TouchInput.Frame();
@@ -283,8 +271,8 @@ inline static void LimitFPS()
 	if (g_VideoMode.IsVSyncEnabled())
 		return;
 
-	double fpsLimit = 0.0;
-	CFG_GET_VAL(g_Game && g_Game->IsGameStarted() ? "adaptivefps.session" : "adaptivefps.menu", fpsLimit);
+	const double fpsLimit{
+		g_ConfigDB.Get(g_Game && g_Game->IsGameStarted() ? "adaptivefps.session" : "adaptivefps.menu", 0.0)};
 
 	// Keep in sync with options.json
 	if (fpsLimit < 20.0 || fpsLimit >= 360.0)
@@ -304,12 +292,20 @@ static int ProgressiveLoad()
 {
 	PROFILE3("progressive load");
 
-	wchar_t description[100];
-	int progress_percent;
+	const double budget = 1.0 / std::clamp(
+		g_VideoMode.IsVSyncEnabled() ?
+			static_cast<double>(g_VideoMode.GetDesktopFreq()) :
+			g_ConfigDB.Get("adaptivefps.menu", 60.0),
+		10.0, 360.0);
+
+	std::wstring description;
+	int progressPercent{0};
 	try
 	{
-		Status ret = LDR_ProgressiveLoad(10e-3, description, ARRAY_SIZE(description), &progress_percent);
-		switch(ret)
+		const PS::Loader::ProgressiveLoadResult result{PS::Loader::ProgressiveLoad(budget)};
+		description = result.nextDescription;
+		progressPercent = result.progressPercent;
+		switch(result.status)
 		{
 			// no load active => no-op (skip code below)
 		case INFO::OK:
@@ -321,18 +317,18 @@ static int ProgressiveLoad()
 			// just finished loading
 		case INFO::ALL_COMPLETE:
 			g_Game->ReallyStartGame();
-			wcscpy_s(description, ARRAY_SIZE(description), L"Game is starting..");
-			// LDR_ProgressiveLoad returns L""; set to valid text to
+			description = L"Game is starting..";
+			// PS::Loader::ProgressiveLoad returns L""; set to valid text to
 			// avoid problems in converting to JSString
 			break;
 			// error!
 		default:
-			WARN_RETURN_STATUS_IF_ERR(ret);
+			WARN_RETURN_STATUS_IF_ERR(result.status);
 			// can't do this above due to legit ERR::TIMED_OUT
 			break;
 		}
 	}
-	catch (PSERROR_Game_World_MapLoadFailed& e)
+	catch (std::exception& e)
 	{
 		// Map loading failed
 
@@ -341,7 +337,7 @@ static int ProgressiveLoad()
 		CancelLoad(CStr(e.what()).FromUTF8());
 	}
 
-	g_GUI->DisplayLoadProgress(progress_percent, description);
+	g_GUI->DisplayLoadProgress(progressPercent, description.c_str());
 	return 0;
 }
 
@@ -360,7 +356,11 @@ static void RendererIncrementalLoad()
 	while (more && timer_Time() - startTime < maxTime);
 }
 
-static void Frame(RL::Interface* rlInterface)
+#if CONFIG2_DAP_INTERFACE
+static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency, DAP::Interface* dapInterface)
+#else
+static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency)
+#endif // CONFIG2_DAP_INTERFACE
 {
 	g_Profiler2.RecordFrameStart();
 	PROFILE2("frame");
@@ -380,7 +380,8 @@ static void Frame(RL::Interface* rlInterface)
 
 	// .. new method - filtered and more smooth, but errors may accumulate
 #else
-	const float realTimeSinceLastFrame = 1.0 / g_frequencyFilter->SmoothedFrequency();
+	const float realTimeSinceLastFrame{static_cast<float>(
+		1.0 / (fixedFrameFrequency > 0 ? fixedFrameFrequency : g_frequencyFilter->SmoothedFrequency()))};
 #endif
 	ENSURE(realTimeSinceLastFrame > 0.0f);
 
@@ -413,17 +414,19 @@ static void Frame(RL::Interface* rlInterface)
 	if (g_Shutdown != ShutdownType::None)
 		return;
 
-	// respond to pumped resize events
-	if (g_ResizedW || g_ResizedH)
-	{
-		g_VideoMode.ResizeWindow(g_ResizedW, g_ResizedH);
-		g_ResizedW = g_ResizedH = 0;
-	}
+	g_VideoMode.OnceAFrameWork();
 
 	if (g_NetClient)
 		g_NetClient->Poll();
 
-	g_GUI->TickObjects();
+#if CONFIG2_DAP_INTERFACE
+	if (dapInterface)
+		dapInterface->TryHandleMessage();
+#endif // CONFIG2_DAP_INTERFACE
+
+	std::optional<bool> completionCommand{g_GUI->TickObjects()};
+	if (completionCommand.has_value())
+		g_Shutdown = completionCommand.value() ? ShutdownType::RestartAsAtlas : ShutdownType::Quit;
 
 	if (rlInterface)
 		rlInterface->TryApplyMessage();
@@ -466,26 +469,18 @@ static void NonVisualFrame()
 
 	static u32 turn = 0;
 	if (g_Game && g_Game->IsGameStarted() && g_Game->GetTurnManager())
-		if (g_Game->GetTurnManager()->Update(DEFAULT_TURN_LENGTH, 1))
+	{
+		if (g_Game->GetTurnManager()->Update(DEFAULT_TURN_LENGTH, 1,
+			std::bind_front(&CGUIManager::SendEventToAll, g_GUI)))
+		{
 			debug_printf("Turn %u (%u)...\n", turn++, DEFAULT_TURN_LENGTH);
+		}
+	}
 
 	g_Profiler.Frame();
 
 	if (g_Game->IsGameFinished())
-		QuitEngine();
-}
-
-static void MainControllerInit()
-{
-	// add additional input handlers only needed by this controller:
-
-	// must be registered after gui_handler. Should mayhap even be last.
-	in_add_handler(MainInputHandler);
-}
-
-static void MainControllerShutdown()
-{
-	in_reset_handlers();
+		QuitEngine(EXIT_SUCCESS);
 }
 
 static std::optional<RL::Interface> CreateRLInterface(const CmdLineArgs& args)
@@ -493,19 +488,33 @@ static std::optional<RL::Interface> CreateRLInterface(const CmdLineArgs& args)
 	if (!args.Has("rl-interface"))
 		return std::nullopt;
 
-	std::string server_address;
-	CFG_GET_VAL("rlinterface.address", server_address);
-
-	if (!args.Get("rl-interface").empty())
-		server_address = args.Get("rl-interface");
+	const std::string server_address{args.Get("rl-interface").empty() ?
+		g_ConfigDB.Get("rlinterface.address", std::string{}) : args.Get("rl-interface")};
 
 	debug_printf("RL interface listening on %s\n", server_address.c_str());
-	return std::make_optional<RL::Interface>(server_address.c_str());
+	return std::make_optional<RL::Interface>(server_address);
 }
+
+#if CONFIG2_DAP_INTERFACE
+static std::optional<DAP::Interface> CreateDAPInterface(const CmdLineArgs& args)
+{
+	if (!args.Has("dap-interface"))
+		return std::nullopt;
+
+	const std::string server_address{args.Get("dapinterface.address").empty() ?
+		g_ConfigDB.Get("dapinterface.address", std::string{}) : args.Get("dapinterface.address")};
+
+	const int port{args.Get("dapinterface.port").empty() ?
+		g_ConfigDB.Get("dapinterface.port", int{}) : args.Get("dapinterface.port").ToInt()};
+
+	debug_printf("DAP interface listening on %s:%d\n", server_address.c_str(), port);
+	return std::make_optional<DAP::Interface>(server_address, port, *g_ScriptContext);
+}
+#endif // CONFIG2_DAP_INTERFACE
 
 // moved into a helper function to ensure args is destroyed before
 // exit(), which may result in a memory leak.
-static void RunGameOrAtlas(const PS::span<const char* const> argv)
+static void RunGameOrAtlas(const std::span<const char* const> argv)
 {
 	const CmdLineArgs args(argv);
 
@@ -513,13 +522,15 @@ static void RunGameOrAtlas(const PS::span<const char* const> argv)
 
 	if (args.Has("version"))
 	{
-		debug_printf("Pyrogenesis %s\n", engine_version);
+		debug_printf("Pyrogenesis %s\n", PS_VERSION);
+		if (std::strcmp(PS_VERSION, PS_SERIALIZATION_VERSION) != 0)
+			debug_printf("Compatible down to patch %s\n", PS_SERIALIZATION_VERSION);
 		return;
 	}
 
 	if (args.Has("autostart-nonvisual") && args.Get("autostart").empty() && !args.Has("rl-interface") && !args.Has("autostart-client"))
 	{
-		LOGERROR("-autostart-nonvisual cant be used alone. A map with -autostart=\"TYPEDIR/MAPNAME\" is needed.");
+		LOGERROR("-autostart-nonvisual can't be used alone. A map with -autostart=\"TYPEDIR/MAPNAME\" is needed.");
 		return;
 	}
 
@@ -530,13 +541,16 @@ static void RunGameOrAtlas(const PS::span<const char* const> argv)
 	const bool isNonVisualReplay = args.Has("replay");
 	const bool isVisual = !args.Has("autostart-nonvisual");
 
+	const int fixedFrameFrequency{args.Has("fixed-frame-frequency")
+		? args.Get("fixed-frame-frequency").ToInt() : 0};
+
 	const OsPath replayFile(
 		isVisualReplay ? args.Get("replay-visual") :
 		isNonVisualReplay ? args.Get("replay") : "");
 
 	if (isVisualReplay || isNonVisualReplay)
 	{
-		if (!FileExists(replayFile))
+		if (!std::filesystem::is_regular_file(replayFile.string()))
 		{
 			debug_printf("ERROR: The requested replay file '%s' does not exist!\n", replayFile.string8().c_str());
 			return;
@@ -557,7 +571,7 @@ static void RunGameOrAtlas(const PS::span<const char* const> argv)
 			debug_printf("Skipping file '%s' which does not have a mod file extension.\n", modPath.string8().c_str());
 			continue;
 		}
-		if (!FileExists(modPath))
+		if (!std::filesystem::is_regular_file(modPath.string()))
 		{
 			debug_printf("ERROR: The mod file '%s' does not exist!\n", modPath.string8().c_str());
 			continue;
@@ -572,17 +586,14 @@ static void RunGameOrAtlas(const PS::span<const char* const> argv)
 
 	// We need to initialize SpiderMonkey and libxml2 in the main thread before
 	// any thread uses them. So initialize them here before we might run Atlas.
-	ScriptEngine scriptEngine;
-	CXeromyces::Startup();
+	Script::Engine scriptEngine;
+	CXeromycesEngine xeromycesEngine;
 
 	// Initialise the global task manager at this point (JS & Profiler2 are set up).
-	Threading::TaskManager::Initialise();
+	Threading::TaskManager taskManager;
 
 	if (ATLAS_RunIfOnCmdLine(args, false))
-	{
-		CXeromyces::Terminate();
 		return;
-	}
 
 	if (isNonVisualReplay)
 	{
@@ -594,8 +605,15 @@ static void RunGameOrAtlas(const PS::span<const char* const> argv)
 		{
 			CReplayPlayer replay;
 			replay.Load(replayFile);
+			const int serializationTestTurn{[&] {
+				if (!args.Has("serializationtest"))
+					return -1;
+
+				const CStr str{args.Get("serializationtest")};
+				return str.empty() ? 0 : str.ToInt();
+			}()};
 			replay.Replay(
-				args.Has("serializationtest"),
+				serializationTestTurn,
 				args.Has("rejointest") ? args.Get("rejointest").ToInt() : -1,
 				args.Has("ooslog"),
 				!args.Has("hashtest-full") || args.Get("hashtest-full") == "true",
@@ -603,8 +621,6 @@ static void RunGameOrAtlas(const PS::span<const char* const> argv)
 		}
 
 		g_VFS.reset();
-
-		CXeromyces::Terminate();
 		return;
 	}
 
@@ -629,8 +645,6 @@ static void RunGameOrAtlas(const PS::span<const char* const> argv)
 			builder.AddBaseMod(paths.RData()/"mods"/mods[i]);
 
 		builder.Build(zip, args.Has("archivebuild-compress"));
-
-		CXeromyces::Terminate();
 		return;
 	}
 
@@ -638,7 +652,8 @@ static void RunGameOrAtlas(const PS::span<const char* const> argv)
 	g_frequencyFilter = CreateFrequencyFilter(res, 30.0);
 
 	// run the game
-	int flags = INIT_MODS;
+	bool rlInterfaceError{false};
+	bool firstIteration{true};
 	do
 	{
 		g_Shutdown = ShutdownType::None;
@@ -651,9 +666,8 @@ static void RunGameOrAtlas(const PS::span<const char* const> argv)
 		// output log files).
 		FileLogger logger;
 
-		if (!Init(args, flags))
+		if (!Init(args, std::exchange(firstIteration, false) ? INIT_MODS : 0))
 		{
-			flags &= ~INIT_MODS;
 			ShutdownConfigAndSubsequent();
 			continue;
 		}
@@ -665,7 +679,8 @@ static void RunGameOrAtlas(const PS::span<const char* const> argv)
 			CModInstaller installer(paths.UserData() / "mods", paths.Cache());
 
 			// Install the mods without deleting the pyromod files
-			for (const OsPath& modPath : modsToInstall)
+			// `modsToInstall` is cleared so we don't intstall the mods again on restart.
+			for (const OsPath& modPath : std::exchange(modsToInstall, {}))
 			{
 				CModInstaller::ModInstallationResult result = installer.Install(modPath, g_ScriptContext, true);
 				if (result != CModInstaller::ModInstallationResult::SUCCESS)
@@ -674,50 +689,94 @@ static void RunGameOrAtlas(const PS::span<const char* const> argv)
 
 			installedMods = installer.GetInstalledMods();
 
-			ScriptInterface modInterface("Engine", "Mod", g_ScriptContext);
+			Script::Interface modInterface("Engine", "Mod", g_ScriptContext);
 			g_Mods.UpdateAvailableMods(modInterface);
 		}
 
-		std::optional<ScriptInterface> guiScriptInterface;
+#if CONFIG2_DAP_INTERFACE
+		std::optional<DAP::Interface> dapInterface{CreateDAPInterface(args)};
+#endif // CONFIG2_DAP_INTERFACE
 
-		if (isVisual)
 		{
-			guiScriptInterface.emplace("Engine", "gui", *g_ScriptContext);
-			InitGraphics(args, 0, installedMods, *g_ScriptContext, *guiScriptInterface);
-			MainControllerInit();
-		}
-		else if (!InitNonVisual(args))
-			g_Shutdown = ShutdownType::Quit;
-
-		// MSVC doesn't support copy elision in ternary expressions. So we use a lambda instead.
-		std::optional<RL::Interface> rlInterface{[&]() -> std::optional<RL::Interface>
+			class VisualData
 			{
-				if (g_Shutdown == ShutdownType::None)
-					return CreateRLInterface(args);
-				else
-					return std::nullopt;
-			}()};
+			public:
+				VisualData(const CmdLineArgs& args, std::vector<CStr>& installedMods)
+				{
+					inputHandlers = InitGraphics(args, 0, installedMods, *g_ScriptContext,
+						scriptInterface);
+				}
 
-		while (g_Shutdown == ShutdownType::None)
-		{
-			if (isVisual)
-				Frame(rlInterface ? &*rlInterface : nullptr);
-			else if(rlInterface)
-				rlInterface->TryApplyMessage();
-			else
-				NonVisualFrame();
+				VisualData(const VisualData&) = delete;
+				VisualData& operator=(const VisualData&) = delete;
+				VisualData(VisualData&&) = delete;
+				VisualData& operator=(VisualData&) = delete;
+				~VisualData() = default;
+
+			private:
+				Script::Interface scriptInterface{"Engine", "gui", *g_ScriptContext};
+				std::unique_ptr<InputHandlers> inputHandlers;
+				Input::Handler<Input::Reaction(&)(const SDL_Event&)> mainInputHandler{
+					g_VideoMode.m_InputManager, Input::Slot::PRIMARY, MainInputHandler};
+			};
+
+			// MSVC doesn't support copy elision in ternary expressions. So we use a lambda instead.
+			const std::optional<VisualData> visualData{[&]() -> std::optional<VisualData>
+				{
+					if (isVisual)
+						return std::make_optional<VisualData>(args, installedMods);
+					else
+						return std::nullopt;
+				}()};
+			if (!isVisual && !InitNonVisual(args))
+				g_Shutdown = ShutdownType::Quit;
+
+			try
+			{
+				// MSVC doesn't support copy elision in ternary expressions. So we use a lambda instead.
+				std::optional<RL::Interface> rlInterface{[&]() -> std::optional<RL::Interface>
+					{
+						if (g_Shutdown == ShutdownType::None)
+							return CreateRLInterface(args);
+						else
+							return std::nullopt;
+					}()};
+
+				while (g_Shutdown == ShutdownType::None)
+				{
+					if (isVisual)
+					{
+#if CONFIG2_DAP_INTERFACE
+						Frame(rlInterface ? &*rlInterface : nullptr, fixedFrameFrequency,
+							dapInterface ? &*dapInterface : nullptr);
+#else
+						Frame(rlInterface ? &*rlInterface : nullptr, fixedFrameFrequency);
+#endif
+					}
+					else if(rlInterface)
+						rlInterface->TryApplyMessage();
+					else
+						NonVisualFrame();
+				}
+
+			}
+			catch (const RL::SetupError&)
+			{
+				rlInterfaceError = true;
+			}
+
+			ShutdownNetworkAndUI();
 		}
 
-		// Do not install mods again in case of restart (typically from the mod selector)
-		modsToInstall.clear();
+#if CONFIG2_DAP_INTERFACE
+		dapInterface.reset();
+#endif // CONFIG2_DAP_INTERFACE
 
-		ShutdownNetworkAndUI();
-		guiScriptInterface.reset();
 		ShutdownConfigAndSubsequent();
-		MainControllerShutdown();
-		flags &= ~INIT_MODS;
-
 	} while (g_Shutdown == ShutdownType::Restart);
+
+	if (rlInterfaceError)
+	      throw RL::SetupError{};
 
 #if OS_MACOSX
 	if (g_Shutdown == ShutdownType::RestartAsAtlas)
@@ -726,20 +785,15 @@ static void RunGameOrAtlas(const PS::span<const char* const> argv)
 	if (g_Shutdown == ShutdownType::RestartAsAtlas)
 		ATLAS_RunIfOnCmdLine(args, true);
 #endif
-
-	Threading::TaskManager::Instance().ClearQueue();
-	CXeromyces::Terminate();
 }
 
 #if OS_ANDROID
 // In Android we compile the engine as a shared library, not an executable,
 // so rename main() to a different symbol that the wrapper library can load
-#undef main
-#define main pyrogenesis_main
-extern "C" __attribute__((visibility ("default"))) int main(int argc, char* argv[]);
+extern "C" __attribute__((visibility ("default"))) int pyrogenesis_main(int argc, char* argv[])
+#else
+int main(int argc, char* argv[])
 #endif
-
-extern "C" int main(int argc, char* argv[])
 {
 #if OS_UNIX
 	// Don't allow people to run the game with root permissions,
@@ -764,8 +818,15 @@ extern "C" int main(int argc, char* argv[])
 
 	EarlyInit();	// must come at beginning of main
 
-	// static_cast is ok, argc is never negative.
-	RunGameOrAtlas({argv, static_cast<std::size_t>(argc)});
+	try
+	{
+		// static_cast is ok, argc is never negative.
+		RunGameOrAtlas({argv, static_cast<std::size_t>(argc)});
+	}
+	catch (const RL::SetupError&)
+	{
+		g_ExitStatus = EXIT_FAILURE;
+	}
 
 	// Shut down profiler initialised by EarlyInit
 	g_Profiler2.Shutdown();
@@ -778,5 +839,5 @@ extern "C" int main(int argc, char* argv[])
 	wutil_Shutdown();
 #endif
 
-	return EXIT_SUCCESS;
+	return g_ExitStatus;
 }

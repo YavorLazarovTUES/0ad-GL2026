@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,9 +20,17 @@
 #include "ModelDef.h"
 
 #include "graphics/SkeletonAnimDef.h"
+#include "lib/debug.h"
 #include "lib/sysdep/arch/x86_x64/simd.h"
-#include "maths/Vector4D.h"
+#include "lib/sysdep/compiler.h"
+#include "maths/Vector2D.h"
 #include "ps/FileIo.h"
+#include "renderer/VertexArray.h"
+
+#include <algorithm>
+#include <memory>
+#include <string>
+#include <utility>
 
 #if COMPILER_HAS_SSE
 # include <xmmintrin.h>
@@ -266,7 +274,7 @@ void CModelDef::BlendBoneMatrices(
 		//	which we indicate by setting the bone ID to the total number of bones.
 		//	It should be blended with the world space transform and we have already
 		//	set up this matrix in boneMatrices.
-		//	(see http://trac.wildfiregames.com/ticket/1012)
+		//	(see https://gitea.wildfiregames.com/0ad/0ad/issues/1012)
 
 		boneMatrix.Blend(boneMatrices[blend.m_Bone[0]], blend.m_Weight[0]);
 		for (size_t j = 1; j < SVertexBlend::SIZE && blend.m_Bone[j] != 0xFF; ++j)

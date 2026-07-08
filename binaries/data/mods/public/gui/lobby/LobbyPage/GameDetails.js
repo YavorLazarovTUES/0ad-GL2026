@@ -18,7 +18,6 @@ class GameDetails
 		this.sgMapName = Engine.GetGUIObjectByName("sgMapName");
 		this.sgGame = Engine.GetGUIObjectByName("sgGame");
 		this.sgPlayersAndMods = Engine.GetGUIObjectByName("sgPlayersAndMods");
-		this.sgMapSize = Engine.GetGUIObjectByName("sgMapSize");
 		this.sgMapPreview = Engine.GetGUIObjectByName("sgMapPreview");
 		this.sgMapDescription = Engine.GetGUIObjectByName("sgMapDescription");
 
@@ -29,10 +28,8 @@ class GameDetails
 
 	resize(dialog)
 	{
-		let bottom = Engine.GetGUIObjectByName(dialog ? "leaveButton" : "joinButton").size.top - 5;
-		let size = this.gameDetails.size;
-		size.bottom = bottom;
-		this.gameDetails.size = size;
+		const bottom = Engine.GetGUIObjectByName(dialog ? "leaveButton" : "joinButton").size.top - 5;
+		this.gameDetails.size.bottom = bottom;
 	}
 
 	/**
@@ -46,8 +43,8 @@ class GameDetails
 
 		Engine.ProfileStart("GameDetails");
 
-		let stanza = game.stanza;
-		let displayData = game.displayData;
+		const stanza = game.stanza;
+		const displayData = game.displayData;
 
 		if (stanza.mapType != this.lastGame.mapType || stanza.mapName != this.lastGame.mapName)
 		{
@@ -87,10 +84,7 @@ class GameDetails
 			this.sgGame.caption = txt;
 
 			const textHeight = this.sgGame.getTextSize().height;
-
-			const sgGameSize = this.sgGame.size;
-			sgGameSize.bottom = textHeight;
-			this.sgGame.size = sgGameSize;
+			this.sgGame.size.bottom = textHeight;
 		}
 
 		{
@@ -128,10 +122,7 @@ class GameDetails
 			this.sgPlayersAndMods.caption = txt;
 
 			// Resize the box
-			const textHeight = this.sgPlayersAndMods.getTextSize().height;
-			const size = this.sgPlayersAndMods.size;
-			size.top = this.sgGame.size.bottom + 5;
-			this.sgPlayersAndMods.size = size;
+			this.sgPlayersAndMods.size.top = this.sgGame.size.bottom + 5;
 		}
 
 		this.lastGame = game;

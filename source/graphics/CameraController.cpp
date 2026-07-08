@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,21 +19,20 @@
 
 #include "CameraController.h"
 
-#include "graphics/HFTracer.h"
+#include "graphics/Camera.h"
 #include "graphics/Terrain.h"
-#include "i18n/L10n.h"
-#include "lib/input.h"
-#include "lib/timer.h"
+#include "lib/external_libraries/libsdl.h"
 #include "maths/MathUtil.h"
 #include "maths/Matrix3D.h"
 #include "maths/Quaternion.h"
+#include "maths/Vector3D.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
 #include "ps/ConfigDB.h"
 #include "ps/Game.h"
 #include "ps/Globals.h"
 #include "ps/Hotkey.h"
-#include "ps/Pyrogenesis.h"
-#include "ps/TouchInput.h"
+#include "ps/VideoMode.h"
 #include "ps/World.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
@@ -41,9 +40,13 @@
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpPosition.h"
 #include "simulation2/components/ICmpRangeManager.h"
-#include "simulation2/helpers/Los.h"
+#include "simulation2/system/Component.h"
 
-extern int g_xres, g_yres;
+#include <SDL_events.h>
+#include <algorithm>
+#include <numbers>
+#include <functional>
+#include <string>
 
 // Maximum distance outside the edge of the map that the camera's
 // focus point can be moved
@@ -54,6 +57,7 @@ CCameraController::CCameraController(CCamera& camera)
 	  m_ConstrainCamera(true),
 	  m_FollowEntity(INVALID_ENTITY),
 	  m_FollowFirstPerson(false),
+	  m_BirdsEyeView(false),
 
 	  // Dummy values (these will be filled in by the config file)
 	  m_ViewScrollSpeed(0),
@@ -68,6 +72,7 @@ CCameraController::CCameraController(CCamera& camera)
 	  m_ViewRotateYDefault(0),
 	  m_ViewRotateSpeedModifier(1),
 	  m_ViewDragSpeed(0),
+	  m_ViewDragInverted(false),
 	  m_ViewZoomSpeed(0),
 	  m_ViewZoomSpeedWheel(0),
 	  m_ViewZoomMin(0),
@@ -87,11 +92,20 @@ CCameraController::CCameraController(CCamera& camera)
 	  m_RotateX(0, 0, 0.001f),
 	  m_RotateY(0, 0, 0.001f)
 {
+	m_ViewDragInvertedConfigHook =
+		std::make_unique<CConfigDBHook>(g_ConfigDB.RegisterHookAndCall("view.drag.inverted", [this]() {
+			m_ViewDragInverted = g_ConfigDB.Get("view.drag.inverted", m_ViewDragInverted);
+		}));
+	m_ViewDragSpeedConfigHook =
+		std::make_unique<CConfigDBHook>(g_ConfigDB.RegisterHookAndCall("view.drag.speed", [this]() {
+			m_ViewDragSpeed = g_ConfigDB.Get("view.drag.speed", m_ViewDragSpeed);
+		}));
+
 	SViewPort vp;
 	vp.m_X = 0;
 	vp.m_Y = 0;
-	vp.m_Width = g_xres;
-	vp.m_Height = g_yres;
+	vp.m_Width = g_VideoMode.GetWindowWidth();
+	vp.m_Height = g_VideoMode.GetWindowHeight();
 	m_Camera.SetViewPort(vp);
 
 	SetCameraProjection();
@@ -110,34 +124,33 @@ void CCameraController::StartCameraShake(float duration)
 
 void CCameraController::LoadConfig()
 {
-	CFG_GET_VAL("view.scroll.speed", m_ViewScrollSpeed);
-	CFG_GET_VAL("view.scroll.speed.modifier", m_ViewScrollSpeedModifier);
-	CFG_GET_VAL("view.scroll.mouse.detectdistance", m_ViewScrollMouseDetectDistance);
-	CFG_GET_VAL("view.rotate.x.speed", m_ViewRotateXSpeed);
-	CFG_GET_VAL("view.rotate.x.min", m_ViewRotateXMin);
-	CFG_GET_VAL("view.rotate.x.max", m_ViewRotateXMax);
-	CFG_GET_VAL("view.rotate.x.default", m_ViewRotateXDefault);
-	CFG_GET_VAL("view.rotate.y.speed", m_ViewRotateYSpeed);
-	CFG_GET_VAL("view.rotate.y.speed.wheel", m_ViewRotateYSpeedWheel);
-	CFG_GET_VAL("view.rotate.y.default", m_ViewRotateYDefault);
-	CFG_GET_VAL("view.rotate.speed.modifier", m_ViewRotateSpeedModifier);
-	CFG_GET_VAL("view.drag.speed", m_ViewDragSpeed);
-	CFG_GET_VAL("view.zoom.speed", m_ViewZoomSpeed);
-	CFG_GET_VAL("view.zoom.speed.wheel", m_ViewZoomSpeedWheel);
-	CFG_GET_VAL("view.zoom.min", m_ViewZoomMin);
-	CFG_GET_VAL("view.zoom.max", m_ViewZoomMax);
-	CFG_GET_VAL("view.zoom.default", m_ViewZoomDefault);
-	CFG_GET_VAL("view.zoom.speed.modifier", m_ViewZoomSpeedModifier);
+	m_ViewScrollSpeed = g_ConfigDB.Get("view.scroll.speed", m_ViewScrollSpeed);
+	m_ViewScrollSpeedModifier = g_ConfigDB.Get("view.scroll.speed.modifier", m_ViewScrollSpeedModifier);
+	m_ViewScrollMouseDetectDistance = g_ConfigDB.Get("view.scroll.mouse.detectdistance",
+		m_ViewScrollMouseDetectDistance);
+	m_ViewRotateXSpeed = g_ConfigDB.Get("view.rotate.x.speed", m_ViewRotateXSpeed);
+	m_ViewRotateXMin = g_ConfigDB.Get("view.rotate.x.min", m_ViewRotateXMin);
+	m_ViewRotateXMax = g_ConfigDB.Get("view.rotate.x.max", m_ViewRotateXMax);
+	m_ViewRotateXDefault = g_ConfigDB.Get("view.rotate.x.default", m_ViewRotateXDefault);
+	m_ViewRotateYSpeed = g_ConfigDB.Get("view.rotate.y.speed", m_ViewRotateYSpeed);
+	m_ViewRotateYSpeedWheel = g_ConfigDB.Get("view.rotate.y.speed.wheel", m_ViewRotateYSpeedWheel);
+	m_ViewRotateYDefault = g_ConfigDB.Get("view.rotate.y.default", m_ViewRotateYDefault);
+	m_ViewRotateSpeedModifier = g_ConfigDB.Get("view.rotate.speed.modifier", m_ViewRotateSpeedModifier);
+	m_ViewDragSpeed = g_ConfigDB.Get("view.drag.speed", m_ViewDragSpeed);
+	m_ViewDragInverted = g_ConfigDB.Get("view.drag.inverted", m_ViewDragInverted);
+	m_ViewZoomSpeed = g_ConfigDB.Get("view.zoom.speed", m_ViewZoomSpeed);
+	m_ViewZoomSpeedWheel = g_ConfigDB.Get("view.zoom.speed.wheel", m_ViewZoomSpeedWheel);
+	m_ViewZoomMin = g_ConfigDB.Get("view.zoom.min", m_ViewZoomMin);
+	m_ViewZoomMax = g_ConfigDB.Get("view.zoom.max", m_ViewZoomMax);
+	m_ViewZoomDefault = g_ConfigDB.Get("view.zoom.default", m_ViewZoomDefault);
+	m_ViewZoomSpeedModifier = g_ConfigDB.Get("view.zoom.speed.modifier", m_ViewZoomSpeedModifier);
 
-	CFG_GET_VAL("view.height.smoothness", m_HeightSmoothness);
-	CFG_GET_VAL("view.height.min", m_HeightMin);
+	m_HeightSmoothness = g_ConfigDB.Get("view.height.smoothness", m_HeightSmoothness);
+	m_HeightMin = g_ConfigDB.Get("view.height.min", m_HeightMin);
 
 #define SETUP_SMOOTHNESS(CFG_PREFIX, SMOOTHED_VALUE) \
-	{ \
-		float smoothness = SMOOTHED_VALUE.GetSmoothness(); \
-		CFG_GET_VAL(CFG_PREFIX ".smoothness", smoothness); \
-		SMOOTHED_VALUE.SetSmoothness(smoothness); \
-	}
+	SMOOTHED_VALUE.SetSmoothness( \
+		g_ConfigDB.Get(CFG_PREFIX ".smoothness", SMOOTHED_VALUE.GetSmoothness()));
 
 	SETUP_SMOOTHNESS("view.pos", m_PosX);
 	SETUP_SMOOTHNESS("view.pos", m_PosY);
@@ -147,9 +160,9 @@ void CCameraController::LoadConfig()
 	SETUP_SMOOTHNESS("view.rotate.y", m_RotateY);
 #undef SETUP_SMOOTHNESS
 
-	CFG_GET_VAL("view.near", m_ViewNear);
-	CFG_GET_VAL("view.far", m_ViewFar);
-	CFG_GET_VAL("view.fov", m_ViewFOV);
+	m_ViewNear = g_ConfigDB.Get("view.near", m_ViewNear);
+	m_ViewFar = g_ConfigDB.Get("view.far", m_ViewFar);
+	m_ViewFOV = g_ConfigDB.Get("view.fov", m_ViewFOV);
 
 	// Convert to radians
 	m_RotateX.SetValue(DEGTORAD(m_ViewRotateXDefault));
@@ -177,9 +190,9 @@ void CCameraController::Update(const float deltaRealTime)
 		m_RotateY.AddSmoothly(m_ViewRotateYSpeed * deltaRealTime);
 	if (HotkeyIsPressed("camera.rotate.ccw"))
 		m_RotateY.AddSmoothly(-m_ViewRotateYSpeed * deltaRealTime);
-	if (HotkeyIsPressed("camera.rotate.up"))
+	if (HotkeyIsPressed("camera.rotate.up") && !m_BirdsEyeView)
 		m_RotateX.AddSmoothly(-m_ViewRotateXSpeed * deltaRealTime);
-	if (HotkeyIsPressed("camera.rotate.down"))
+	if (HotkeyIsPressed("camera.rotate.down") && !m_BirdsEyeView)
 		m_RotateX.AddSmoothly(m_ViewRotateXSpeed * deltaRealTime);
 
 	float moveRightward = 0.f;
@@ -187,18 +200,24 @@ void CCameraController::Update(const float deltaRealTime)
 
 	if (HotkeyIsPressed("camera.pan"))
 	{
-		moveRightward += m_ViewDragSpeed * mouse_dx;
-		moveForward += m_ViewDragSpeed * -mouse_dy;
+		if (m_ViewDragInverted) {
+			moveRightward += m_ViewDragSpeed * -mouse_dx;
+			moveForward += m_ViewDragSpeed * mouse_dy;
+		}
+		else {
+			moveRightward += m_ViewDragSpeed * mouse_dx;
+			moveForward += m_ViewDragSpeed * -mouse_dy;
+		}
 	}
 
 	if (g_mouse_active && m_ViewScrollMouseDetectDistance > 0)
 	{
-		if (g_mouse_x >= g_xres - m_ViewScrollMouseDetectDistance && g_mouse_x < g_xres)
+		if (g_mouse_x >= g_VideoMode.GetWindowWidth() - m_ViewScrollMouseDetectDistance && g_mouse_x < g_VideoMode.GetWindowWidth())
 			moveRightward += m_ViewScrollSpeed * deltaRealTime;
 		else if (g_mouse_x < m_ViewScrollMouseDetectDistance && g_mouse_x >= 0)
 			moveRightward -= m_ViewScrollSpeed * deltaRealTime;
 
-		if (g_mouse_y >= g_yres - m_ViewScrollMouseDetectDistance && g_mouse_y < g_yres)
+		if (g_mouse_y >= g_VideoMode.GetWindowHeight() - m_ViewScrollMouseDetectDistance && g_mouse_y < g_VideoMode.GetWindowHeight())
 			moveForward -= m_ViewScrollSpeed * deltaRealTime;
 		else if (g_mouse_y < m_ViewScrollMouseDetectDistance && g_mouse_y >= 0)
 			moveForward += m_ViewScrollSpeed * deltaRealTime;
@@ -244,7 +263,7 @@ void CCameraController::Update(const float deltaRealTime)
 				cmpPosition->GetInterpolatedPosition2D(frameOffset, x, z, angle);
 				float height = 4.f;
 				m_Camera.m_Orientation.SetIdentity();
-				m_Camera.m_Orientation.RotateX(static_cast<float>(M_PI) / 24.f);
+				m_Camera.m_Orientation.RotateX(std::numbers::pi_v<float> / 24.f);
 				m_Camera.m_Orientation.RotateY(angle);
 				m_Camera.m_Orientation.Translate(pos.X, pos.Y + height, pos.Z);
 
@@ -289,7 +308,12 @@ void CCameraController::Update(const float deltaRealTime)
 	}
 
 	if (m_ConstrainCamera)
-		m_RotateX.ClampSmoothly(DEGTORAD(m_ViewRotateXMin), DEGTORAD(m_ViewRotateXMax));
+	{
+		if (m_BirdsEyeView)
+			m_RotateX.ClampSmoothly(std::numbers::pi_v<float> / 2.f, std::numbers::pi_v<float> / 2.f);
+		else
+			m_RotateX.ClampSmoothly(DEGTORAD(m_ViewRotateXMin), DEGTORAD(m_ViewRotateXMax));
+	}
 
 	FocusHeight(true);
 
@@ -404,7 +428,7 @@ void CCameraController::Update(const float deltaRealTime)
 	}
 	*/
 
-	m_RotateY.Wrap(-static_cast<float>(M_PI), static_cast<float>(M_PI));
+	m_RotateY.Wrap(-std::numbers::pi_v<float>, std::numbers::pi_v<float>);
 
 	// Update the camera matrix
 	SetCameraProjection();
@@ -473,6 +497,9 @@ void CCameraController::SetCamera(const CVector3D& pos, float rotX, float rotY, 
 
 	// Break out of following mode so the camera really moves to the target
 	m_FollowEntity = INVALID_ENTITY;
+
+	// Leave bird's eye view
+	m_BirdsEyeView = false;
 }
 
 void CCameraController::MoveCameraTarget(const CVector3D& target)
@@ -519,6 +546,9 @@ void CCameraController::ResetCameraTarget(const CVector3D& target)
 
 	// Break out of following mode so the camera really moves to the target
 	m_FollowEntity = INVALID_ENTITY;
+
+	// Leave bird's eye view
+	m_BirdsEyeView = false;
 }
 
 void CCameraController::FollowEntity(entity_id_t entity, bool firstPerson)
@@ -553,6 +583,16 @@ void CCameraController::ResetCameraAngleZoom()
 	// Reset orientations to default
 	m_RotateX.SetValueSmoothly(DEGTORAD(m_ViewRotateXDefault));
 	m_RotateY.SetValueSmoothly(DEGTORAD(m_ViewRotateYDefault));
+
+	// Leave bird's eye view
+	m_BirdsEyeView = false;
+}
+
+void CCameraController::ToggleBirdsEyeView()
+{
+	m_BirdsEyeView = !m_BirdsEyeView;
+	float angle = m_BirdsEyeView ? std::numbers::pi_v<float> / 2.f : DEGTORAD(m_ViewRotateXDefault);
+	m_RotateX.SetValueSmoothly(angle);
 }
 
 void CCameraController::SetupCameraMatrixSmooth(CMatrix3D* orientation)
@@ -639,24 +679,29 @@ void CCameraController::FocusHeight(bool smooth)
 		m_PosY.Add(diff);
 }
 
-InReaction CCameraController::HandleEvent(const SDL_Event_* ev)
+Input::Reaction CCameraController::HandleEvent(const SDL_Event& ev)
 {
-	switch (ev->ev.type)
+	switch (ev.type)
 	{
 	case SDL_HOTKEYPRESS:
 	{
-		std::string hotkey = static_cast<const char*>(ev->ev.user.data1);
+		std::string hotkey = static_cast<const char*>(ev.user.data1);
 		if (hotkey == "camera.reset")
 		{
 			ResetCameraAngleZoom();
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
-		return IN_PASS;
+		else if (hotkey == "camera.togglebirdseyeview")
+		{
+			ToggleBirdsEyeView();
+			return Input::Reaction::HANDLED;
+		}
+		return Input::Reaction::PASS;
 	}
 
 	case SDL_HOTKEYDOWN:
 	{
-		std::string hotkey = static_cast<const char*>(ev->ev.user.data1);
+		std::string hotkey = static_cast<const char*>(ev.user.data1);
 
 		// Mouse wheel must be treated using events instead of polling,
 		// because SDL auto-generates a sequence of mousedown/mouseup events
@@ -664,64 +709,64 @@ InReaction CCameraController::HandleEvent(const SDL_Event_* ev)
 		if (hotkey == "camera.zoom.wheel.in")
 		{
 			m_Zoom.AddSmoothly(-m_ViewZoomSpeedWheel);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "camera.zoom.wheel.out")
 		{
 			m_Zoom.AddSmoothly(m_ViewZoomSpeedWheel);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "camera.rotate.wheel.cw")
 		{
 			m_RotateY.AddSmoothly(m_ViewRotateYSpeedWheel);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "camera.rotate.wheel.ccw")
 		{
 			m_RotateY.AddSmoothly(-m_ViewRotateYSpeedWheel);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "camera.scroll.speed.increase")
 		{
 			m_ViewScrollSpeed *= m_ViewScrollSpeedModifier;
 			LOGMESSAGERENDER("Scroll speed increased to %.1f", m_ViewScrollSpeed);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "camera.scroll.speed.decrease")
 		{
 			m_ViewScrollSpeed /= m_ViewScrollSpeedModifier;
 			LOGMESSAGERENDER("Scroll speed decreased to %.1f", m_ViewScrollSpeed);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "camera.rotate.speed.increase")
 		{
 			m_ViewRotateXSpeed *= m_ViewRotateSpeedModifier;
 			m_ViewRotateYSpeed *= m_ViewRotateSpeedModifier;
 			LOGMESSAGERENDER("Rotate speed increased to X=%.3f, Y=%.3f", m_ViewRotateXSpeed, m_ViewRotateYSpeed);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "camera.rotate.speed.decrease")
 		{
 			m_ViewRotateXSpeed /= m_ViewRotateSpeedModifier;
 			m_ViewRotateYSpeed /= m_ViewRotateSpeedModifier;
 			LOGMESSAGERENDER("Rotate speed decreased to X=%.3f, Y=%.3f", m_ViewRotateXSpeed, m_ViewRotateYSpeed);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "camera.zoom.speed.increase")
 		{
 			m_ViewZoomSpeed *= m_ViewZoomSpeedModifier;
 			LOGMESSAGERENDER("Zoom speed increased to %.1f", m_ViewZoomSpeed);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
 		else if (hotkey == "camera.zoom.speed.decrease")
 		{
 			m_ViewZoomSpeed /= m_ViewZoomSpeedModifier;
 			LOGMESSAGERENDER("Zoom speed decreased to %.1f", m_ViewZoomSpeed);
-			return IN_HANDLED;
+			return Input::Reaction::HANDLED;
 		}
-		return IN_PASS;
+		return Input::Reaction::PASS;
 	}
 	}
 
-	return IN_PASS;
+	return Input::Reaction::PASS;
 }

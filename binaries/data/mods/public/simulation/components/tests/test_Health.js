@@ -26,7 +26,7 @@ var corpse_entity;
 
 function setEntityUp()
 {
-	let cmpHealth = ConstructComponent(entity_id, "Health", health_template);
+	const cmpHealth = ConstructComponent(entity_id, "Health", health_template);
 
 	AddMock(entity_id, IID_DeathDamage, {
 		"CauseDeathDamage": () => {}
@@ -79,7 +79,8 @@ TS_ASSERT_EQUALS(cmpHealth.IsInjured(), false);
 TS_ASSERT_EQUALS(cmpHealth.IsUnhealable(), true);
 
 // Check death.
-Engine.AddLocalEntity = function(template) {
+Engine.AddLocalEntity = function(template)
+{
 	corpse_entity = template;
 
 	AddMock(corpse_id, IID_Position, {
@@ -136,7 +137,7 @@ TS_ASSERT_EQUALS(cmpHealth.IsInjured(), false);
 cmpHealth = setEntityUp();
 
 // Check that increasing by more than required puts us at the max HP
-change = cmpHealth.Reduce(30);
+TS_ASSERT_UNEVAL_EQUALS(cmpHealth.Reduce(30), { "healthChange": -30 });
 change = cmpHealth.Increase(30);
 TS_ASSERT_EQUALS(injured_flag, false);
 TS_ASSERT_EQUALS(change.new, 50);

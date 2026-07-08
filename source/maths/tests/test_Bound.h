@@ -1,4 +1,4 @@
-/* Copyright (C) 2019 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,10 +17,13 @@
 
 #include "lib/self_test.h"
 
-#include "lib/posix/posix.h"
 #include "maths/BoundingBoxAligned.h"
 #include "maths/BoundingBoxOriented.h"
 #include "maths/Matrix3D.h"
+#include "maths/Vector3D.h"
+
+#include <cmath>
+#include <numbers>
 
 #define TS_ASSERT_VEC_DELTA(v, x, y, z, delta) \
 	TS_ASSERT_DELTA(v.X, x, delta); \
@@ -105,7 +108,7 @@ public:
 		CBoundingBoxAligned aabb(CVector3D(3, -1.5f, -1.5f), CVector3D(7, 1.5f, 1.5f));
 
 		CMatrix3D rotation;
-		rotation.SetZRotation(float(M_PI)/2.f);
+		rotation.SetZRotation(std::numbers::pi_v<float> / 2.f);
 
 		CBoundingBoxOriented result;
 		aabb.Transform(rotation, result);
@@ -126,7 +129,7 @@ public:
 		CMatrix3D rotate;
 		CMatrix3D translateBack;
 		translate.SetTranslation(-2.f, 0, 0);
-		rotate.SetZRotation(-float(M_PI)/4.f);
+		rotate.SetZRotation(-std::numbers::pi_v<float> / 4.f);
 		translateBack.SetTranslation(2.f, 0, 0);
 
 		CMatrix3D transform;
@@ -189,7 +192,7 @@ public:
 	}
 
 	// Verify that transforming a flat AABB to an OBB does not produce NaN basis vectors in the
-	// resulting OBB (see http://trac.wildfiregames.com/ticket/1121)
+	// resulting OBB (see https://gitea.wildfiregames.com/0ad/0ad/issues/1121)
 	void test_degenerate_aabb_to_obb_transform()
 	{
 		// create a flat AABB, transform it with some matrix (can even be the identity matrix),
@@ -203,9 +206,9 @@ public:
 		CBoundingBoxOriented result;
 		flatAabb.Transform(transform, result);
 
-		TS_ASSERT(!isnan(result.m_Basis[0].X) && !isnan(result.m_Basis[0].Y) && !isnan(result.m_Basis[0].Z));
-		TS_ASSERT(!isnan(result.m_Basis[1].X) && !isnan(result.m_Basis[1].Y) && !isnan(result.m_Basis[1].Z));
-		TS_ASSERT(!isnan(result.m_Basis[2].X) && !isnan(result.m_Basis[2].Y) && !isnan(result.m_Basis[2].Z));
+		TS_ASSERT(!std::isnan(result.m_Basis[0].X) && !std::isnan(result.m_Basis[0].Y) && !std::isnan(result.m_Basis[0].Z));
+		TS_ASSERT(!std::isnan(result.m_Basis[1].X) && !std::isnan(result.m_Basis[1].Y) && !std::isnan(result.m_Basis[1].Z));
+		TS_ASSERT(!std::isnan(result.m_Basis[2].X) && !std::isnan(result.m_Basis[2].Y) && !std::isnan(result.m_Basis[2].Z));
 	}
 
 	void test_point_visibility()

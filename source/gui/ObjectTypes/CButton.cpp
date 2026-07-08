@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,6 +22,12 @@
 #include "gui/CGUI.h"
 #include "gui/CGUIText.h"
 #include "gui/SettingTypes/CGUIColor.h"
+#include "lib/debug.h"
+#include "maths/Rect.h"
+#include "maths/Size2D.h"
+
+#include <limits>
+#include <vector>
 
 CButton::CButton(CGUI& pGUI)
 	: IGUIObject(pGUI),
@@ -43,16 +49,12 @@ CButton::CButton(CGUI& pGUI)
 	AddText();
 }
 
-CButton::~CButton()
-{
-}
-
 void CButton::SetupText()
 {
 	ENSURE(m_GeneratedTexts.size() == 1);
 
-	m_GeneratedTexts[0] = CGUIText(m_pGUI, m_Caption, m_Font, m_CachedActualSize.GetWidth(), m_BufferZone, m_TextAlign, this);
-	CalculateTextPosition(m_CachedActualSize, m_TextPos, m_GeneratedTexts[0]);
+	m_GeneratedTexts[0] = CGUIText(m_pGUI, m_Caption, m_Font, GetActualSize().GetWidth(), m_BufferZone, m_TextAlign, this);
+	CalculateTextPosition(GetActualSize(), m_TextPos, m_GeneratedTexts[0]);
 }
 
 void CButton::ResetStates()
@@ -61,16 +63,21 @@ void CButton::ResetStates()
 	IGUIButtonBehavior::ResetStates();
 }
 
-void CButton::UpdateCachedSize()
+void CButton::HandleSizeChanged()
 {
-	IGUIObject::UpdateCachedSize();
-	IGUITextOwner::UpdateCachedSize();
+	IGUIObject::HandleSizeChanged();
+	IGUITextOwner::HandleSizeChanged();
 }
 
 CSize2D CButton::GetTextSize()
 {
 	UpdateText();
 	return m_GeneratedTexts[0].GetSize();
+}
+
+CSize2D CButton::GetPreferredTextSize()
+{
+	return CGUIText{m_pGUI, m_Caption, m_Font, std::numeric_limits<float>::max(), m_BufferZone, m_TextAlign, this}.GetSize();
 }
 
 void CButton::HandleMessage(SGUIMessage& Message)
@@ -85,9 +92,10 @@ void CButton::Draw(CCanvas2D& canvas)
 	m_pGUI.DrawSprite(
 		GetButtonSprite(m_Sprite, m_SpriteOver, m_SpritePressed, m_SpriteDisabled),
 		canvas,
-		m_CachedActualSize);
+		GetActualSize(),
+		m_VisibleArea);
 
-	DrawText(canvas, 0, ChooseColor(), m_TextPos);
+	DrawText(canvas, 0, ChooseColor(), m_TextPos, m_VisibleArea);
 }
 
 bool CButton::IsMouseOver() const
@@ -96,7 +104,7 @@ bool CButton::IsMouseOver() const
 		return false;
 	if (!m_MouseEventMask)
 		return true;
-	return m_MouseEventMask.IsMouseOver(m_pGUI.GetMousePos(), m_CachedActualSize);
+	return m_MouseEventMask.IsMouseOver(m_pGUI.GetMousePos(), GetActualSize());
 }
 
 const CGUIColor& CButton::ChooseColor()

@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -23,7 +23,8 @@
 #ifndef INCLUDED_VECTOR3D
 #define INCLUDED_VECTOR3D
 
-#include "ps/containers/Span.h"
+#include <cstddef>
+#include <span>
 
 class CFixedVector3D;
 
@@ -123,7 +124,7 @@ class CVector3D
 		CVector3D Normalized() const;
 
 		// Returns 3 element array of floats, e.g. for vec3 uniforms.
-		PS::span<const float> AsFloatArray() const
+		std::span<const float, 3> AsFloatArray() const
 		{
 			// Additional check to prevent a weird compiler has a different
 			// alignement for an array and a class members.
@@ -133,7 +134,7 @@ class CVector3D
 				offsetof(CVector3D, Y) == sizeof(float) &&
 				offsetof(CVector3D, Z) == sizeof(float) * 2u,
 				"Vector3D should be properly layouted to use AsFloatArray");
-			return PS::span<const float>(&X, 3);
+			return std::span<const float, 3>(&X, 3);
 		}
 };
 

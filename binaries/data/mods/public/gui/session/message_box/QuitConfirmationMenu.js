@@ -1,3 +1,24 @@
+class ReturnQuestion extends SessionMessageBox
+{
+}
+ReturnQuestion.prototype.Title = translate("Confirmation");
+ReturnQuestion.prototype.Caption = translate("Do you want to resign or will you return soon?");
+ReturnQuestion.prototype.Buttons = [
+	{
+		"caption": translate("I will return"),
+		"onPress": () => endGame(false)
+	},
+	{
+		"caption": translate("I resign"),
+		"onPress": () =>
+		{
+			Engine.PostNetworkCommand({
+				"type": "resign"
+			});
+		}
+	}
+];
+
 /**
  * The class that is enabled() will be triggered when the user clicks on the Exit menu button.
  */
@@ -47,35 +68,15 @@ QuitConfirmationMenu.prototype.MultiplayerClient.prototype.Caption =
 	translate("Are you sure you want to quit?");
 
 QuitConfirmationMenu.prototype.MultiplayerClient.prototype.Buttons =
-[
-	{
-		"caption": translate("No")
-	},
-	{
-		"caption": translate("Yes"),
-		"onPress": 	() => {
-			(new ReturnQuestion()).display();
+	[
+		{
+			"caption": translate("No")
+		},
+		{
+			"caption": translate("Yes"),
+			"onPress": closePageCallback =>
+			{
+				(new ReturnQuestion()).display(closePageCallback);
+			}
 		}
-	}
-];
-
-class ReturnQuestion extends SessionMessageBox
-{
-}
-
-ReturnQuestion.prototype.Title = translate("Confirmation");
-ReturnQuestion.prototype.Caption = translate("Do you want to resign or will you return soon?");
-ReturnQuestion.prototype.Buttons = [
-	{
-		"caption": translate("I will return"),
-		"onPress": () => { endGame(false); }
-	},
-	{
-		"caption": translate("I resign"),
-		"onPress": () => {
-			Engine.PostNetworkCommand({
-				"type": "resign"
-			});
-		}
-	}
-];
+	];

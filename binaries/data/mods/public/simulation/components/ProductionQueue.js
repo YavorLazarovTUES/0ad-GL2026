@@ -202,7 +202,7 @@ ProductionQueue.prototype.Item.prototype.Serialize = function()
 {
 	const result = {};
 	for (const att of this.SerializableAttributes)
-		if (this.hasOwnProperty(att))
+		if (Object.hasOwn(this, att))
 			result[att] = this[att];
 	return result;
 };
@@ -236,7 +236,7 @@ ProductionQueue.prototype.Serialize = function()
 		result.queue.push(item.Serialize());
 
 	for (const att of this.SerializableAttributes)
-		if (this.hasOwnProperty(att))
+		if (Object.hasOwn(this, att))
 			result[att] = this[att];
 
 	return result;
@@ -306,7 +306,7 @@ ProductionQueue.prototype.AddItem = function(templateName, type, count, metadata
 		const cmpUpgrade = Engine.QueryInterface(this.entity, IID_Upgrade);
 		if (cmpUpgrade && cmpUpgrade.IsUpgrading())
 		{
-			let cmpGUIInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface);
+			const cmpGUIInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface);
 			cmpGUIInterface.PushNotification({
 				"players": [player],
 				"message": markForTranslation("Entity is being upgraded. Cannot start production."),
@@ -323,9 +323,9 @@ ProductionQueue.prototype.AddItem = function(templateName, type, count, metadata
 		const player = cmpPlayer.GetPlayerID();
 		const cmpGUIInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface);
 		cmpGUIInterface.PushNotification({
-		    "players": [player],
-		    "message": markForTranslation("The production queue is full."),
-		    "translateMessage": true,
+			"players": [player],
+			"message": markForTranslation("The production queue is full."),
+			"translateMessage": true,
 		});
 		return false;
 	}
@@ -355,7 +355,7 @@ ProductionQueue.prototype.AddItem = function(templateName, type, count, metadata
  */
 ProductionQueue.prototype.RemoveItem = function(id)
 {
-	let itemIndex = this.queue.findIndex(item => item.id == id);
+	const itemIndex = this.queue.findIndex(item => item.id == id);
 	if (itemIndex == -1)
 		return;
 
@@ -369,7 +369,12 @@ ProductionQueue.prototype.RemoveItem = function(id)
 
 ProductionQueue.prototype.SetAnimation = function(name)
 {
-	let cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
+	// In case the entity has a UnitAI discard the attempted change of
+	// animation as it would interfere with animation logic in UnitAI.
+	if (Engine.QueryInterface(this.entity, IID_UnitAI))
+		return;
+
+	const cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
 	if (cmpVisual)
 		cmpVisual.SelectAnimation(name, false, 1);
 };
@@ -410,7 +415,7 @@ ProductionQueue.prototype.ProgressTimeout = function(data, lateness)
 
 	while (this.queue.length)
 	{
-		let item = this.queue[0];
+		const item = this.queue[0];
 		if (!item.IsStarted())
 		{
 			if (item.entity)

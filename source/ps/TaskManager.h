@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,10 +18,13 @@
 #ifndef INCLUDED_THREADING_TASKMANAGER
 #define INCLUDED_THREADING_TASKMANAGER
 
-#include "ps/Future.h"
+#include "ps/Singleton.h"
 
+#include <cstddef>
+#include <functional>
 #include <memory>
-#include <vector>
+#include <type_traits>
+#include <utility>
 
 namespace Threading
 {
@@ -36,7 +39,7 @@ enum class TaskPriority
  * and manages the task queues.
  * See implementation for additional comments.
  */
-class TaskManager
+class TaskManager : public Singleton<TaskManager>
 {
 	friend class WorkerThread;
 public:
@@ -47,14 +50,6 @@ public:
 	TaskManager& operator=(const TaskManager&) = delete;
 	TaskManager& operator=(TaskManager&&) = delete;
 
-	static void Initialise();
-	static TaskManager& Instance();
-
-	/**
-	 * Clears all tasks from the queue. This blocks on started tasks.
-	 */
-	void ClearQueue();
-
 	/**
 	 * @return the number of threaded workers.
 	 */
@@ -63,22 +58,16 @@ public:
 	/**
 	 * Push a task to be executed.
 	 */
-	template<typename T>
-	Future<std::invoke_result_t<T>> PushTask(T&& func, TaskPriority priority = TaskPriority::NORMAL)
-	{
-		Future<std::invoke_result_t<T>> ret;
-		DoPushTask(ret.Wrap(std::move(func)), priority);
-		return ret;
-	}
+	void PushTask(std::function<void()> func, TaskPriority priority = TaskPriority::NORMAL);
 
 private:
 	TaskManager(size_t numberOfWorkers);
-
-	void DoPushTask(std::function<void()>&& task, TaskPriority priority);
 
 	class Impl;
 	const std::unique_ptr<Impl> m;
 };
 } // namespace Threading
+
+#define g_TaskManager Threading::TaskManager::GetSingleton()
 
 #endif // INCLUDED_THREADING_TASKMANAGER

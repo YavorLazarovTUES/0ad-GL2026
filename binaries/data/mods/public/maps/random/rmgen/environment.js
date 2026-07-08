@@ -42,9 +42,9 @@ var g_Camera = {
 	"Declination": 0.523599
 };
 
-////////////////////////////////////////////////////////////////////////////
+//
 // Sun, Sky and Terrain
-////////////////////////////////////////////////////////////////////////////
+//
 
 function setSkySet(set)
 {
@@ -53,7 +53,7 @@ function setSkySet(set)
 
 function setSunColor(r, g, b)
 {
-	g_Environment.SunColor = { "r" : r, "g" : g, "b" : b, "a" : 0 };
+	g_Environment.SunColor = { "r": r, "g": g, "b": b, "a": 0 };
 }
 
 function setSunElevation(e)
@@ -68,21 +68,21 @@ function setSunRotation(r)
 
 function setAmbientColor(r, g, b)
 {
-	g_Environment.AmbientColor = { "r" : r, "g" : g, "b" : b, "a" : 0 };
+	g_Environment.AmbientColor = { "r": r, "g": g, "b": b, "a": 0 };
 }
 
-////////////////////////////////////////////////////////////////////////////
+//
 // Water
-////////////////////////////////////////////////////////////////////////////
+//
 
 function setWaterColor(r, g, b)
 {
-	g_Environment.Water.WaterBody.Color = { "r" : r, "g" : g, "b" : b, "a" : 0 };
+	g_Environment.Water.WaterBody.Color = { "r": r, "g": g, "b": b, "a": 0 };
 }
 
 function setWaterTint(r, g, b)
 {
-	g_Environment.Water.WaterBody.Tint = { "r" : r, "g" : g, "b" : b, "a" : 0 };
+	g_Environment.Water.WaterBody.Tint = { "r": r, "g": g, "b": b, "a": 0 };
 }
 
 function setWaterHeight(h)
@@ -110,9 +110,9 @@ function setWindAngle(m)
 	g_Environment.Water.WaterBody.WindAngle = m;
 }
 
-////////////////////////////////////////////////////////////////////////////
+//
 // Fog (numerical arguments between 0 and 1)
-////////////////////////////////////////////////////////////////////////////
+//
 
 function setFogFactor(s)
 {
@@ -126,12 +126,12 @@ function setFogThickness(thickness)
 
 function setFogColor(r, g, b)
 {
-	g_Environment.Fog.FogColor = { "r" : r, "g" : g, "b" : b, "a" : 0 };
+	g_Environment.Fog.FogColor = { "r": r, "g": g, "b": b, "a": 0 };
 }
 
-////////////////////////////////////////////////////////////////////////////
+//
 // Post Processing (numerical arguments between 0 and 1)
-////////////////////////////////////////////////////////////////////////////
+//
 
 function setPPBrightness(s)
 {

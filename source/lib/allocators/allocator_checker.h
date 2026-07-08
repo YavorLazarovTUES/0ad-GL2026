@@ -1,4 +1,4 @@
-/* Copyright (C) 2011 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -23,7 +23,12 @@
 #ifndef INCLUDED_ALLOCATORS_ALLOCATOR_CHECKER
 #define INCLUDED_ALLOCATORS_ALLOCATOR_CHECKER
 
+#include "lib/debug.h"
+#include "lib/status.h"
+
+#include <cstddef>
 #include <map>
+#include <utility>
 
 /**
  * allocator test rig.

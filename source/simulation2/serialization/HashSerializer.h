@@ -1,4 +1,4 @@
-/* Copyright (C) 2017 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,9 +18,13 @@
 #ifndef INCLUDED_HASHSERIALIZER
 #define INCLUDED_HASHSERIALIZER
 
-#include "BinarySerializer.h"
-
+#include "lib/types.h"
 #include "maths/MD5.h"
+#include "simulation2/serialization/BinarySerializer.h"
+
+#include <cstddef>
+
+namespace Script { class Interface; }
 
 class CHashSerializerImpl
 {
@@ -32,7 +36,7 @@ public:
 	size_t GetHashLength();
 	const u8* ComputeHash();
 
-	void Put(const char* UNUSED(name), const u8* data, size_t len)
+	void Put(const char* /*name*/, const u8* data, size_t len)
 	{
 		m_Hash.Update(data, len);
 	}
@@ -45,7 +49,7 @@ private:
 class CHashSerializer : public CBinarySerializer<CHashSerializerImpl>
 {
 public:
-	CHashSerializer(const ScriptInterface& scriptInterface);
+	CHashSerializer(const Script::Interface& scriptInterface);
 
 	size_t GetHashLength();
 	const u8* ComputeHash();

@@ -1,4 +1,4 @@
-/* Copyright (C) 2019 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,14 +17,18 @@
 
 #include "precompiled.h"
 
-#include <cstdio>
-
 #include "MessagePasserImpl.h"
-#include "Messages.h"
-#include "Handlers/MessageHandler.h"
 
+#include "lib/debug.h"
 #include "lib/timer.h"
 #include "ps/CLogger.h"
+#include "tools/atlas/GameInterface/Handlers/MessageHandler.h"
+#include "tools/atlas/GameInterface/Messages.h"
+#include "tools/atlas/GameInterface/SharedMemory.h"
+
+#include <map>
+#include <string>
+#include <utility>
 
 using namespace AtlasMessage;
 
@@ -45,16 +49,16 @@ void MessagePasserImpl::Add(IMessage* msg)
 	}
 	else
 	{
-		debug_warn(L"Unrecognised message");
+		debug_warn(L"Unrecognized message");
 		// CLogger might not be initialised, but this error will be sent
 		// to the debug output window anyway so people can still see it
-		LOGERROR("Unrecognised message (%s)", msg->GetName());
+		LOGERROR("Unrecognized message (%s)", msg->GetName());
 	}
 	// Delete the object - we took ownership of it.
 	AtlasMessage::ShareableDelete(msg);
 }
 
-void MessagePasserImpl::Query(QueryMessage* msg, void(* UNUSED(timeoutCallback) )())
+void MessagePasserImpl::Query(QueryMessage* msg, void(* /*timeoutCallback*/ )())
 {
 	ENSURE(msg);
 	ENSURE(msg->GetType() == IMessage::Query);
@@ -69,10 +73,10 @@ void MessagePasserImpl::Query(QueryMessage* msg, void(* UNUSED(timeoutCallback) 
 	}
 	else
 	{
-		debug_warn(L"Unrecognised message");
+		debug_warn(L"Unrecognized message");
 		// CLogger might not be initialised, but this error will be sent
 		// to the debug output window anyway so people can still see it
-		LOGERROR("Unrecognised message (%s)", msg->GetName());
+		LOGERROR("Unrecognized message (%s)", msg->GetName());
 	}
 }
 

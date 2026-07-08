@@ -1,4 +1,4 @@
-/* Copyright (C) 2019 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -23,10 +23,14 @@
 #ifndef INCLUDED_SELF_TEST
 #define INCLUDED_SELF_TEST
 
-// for convenience, to avoid having to include all of these manually
-#include "lib/status.h"
+#include "lib/lib.h"
 #include "lib/os_path.h"
-#include "lib/posix/posix.h"
+#include "lib/self_test.h"
+
+#include <cstddef>
+#include <sstream>
+#include <string>
+#include <vector>
 
 #define CXXTEST_HAVE_EH
 #define CXXTEST_HAVE_STD
@@ -34,6 +38,7 @@
 // If HAVE_STD wasn't defined at the point the ValueTraits header was included
 // this header won't have been included and the default traits will be used for
 // all variables... So fix that now ;-)
+#include <cxxtest/GlobalFixture.h>
 #include <cxxtest/StdValueTraits.h>
 #include <cxxtest/TestSuite.h>
 
@@ -147,9 +152,17 @@ std::vector<T> ts_make_vector(T* start, size_t size_bytes)
 #define TS_ASSERT_VECTOR_EQUALS_ARRAY(vec1, array) TS_ASSERT_EQUALS(vec1, ts_make_vector((array), sizeof(array)))
 #define TS_ASSERT_VECTOR_CONTAINS(vec1, element) TS_ASSERT(std::find((vec1).begin(), (vec1).end(), element) != (vec1).end());
 
-class ScriptInterface;
+#define TS_ASSERT_MATRIX_EQUALS_DELTA(m1, m2, size, epsilon)  \
+		for (int j = 0; j < size; ++j)						  \
+			TS_ASSERT_DELTA(m1._data[j], m2._data[j], epsilon);
+
+#define TS_ASSERT_MATRIX_DIFFERS_DELTA(m1, m2, size, epsilon)  \
+		for (int j = 0; j < size; ++j)						   \
+			TS_ASSERT(!feq(m1._data[j], m2._data[j], epsilon));
+
+namespace Script { class Interface; }
 // Script-based testing setup (defined in test_setup.cpp). Defines TS_* functions.
-void ScriptTestSetup(const ScriptInterface&);
+void ScriptTestSetup(const Script::Interface&);
 
 // Default game data directory
 // (TODO: game-specific functions like this probably shouldn't be inside lib/, but it's useful

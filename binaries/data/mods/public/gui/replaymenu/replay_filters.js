@@ -16,7 +16,6 @@ var g_DurationFilterIntervals = [
  * Allow to filter by population capacity.
  */
 const g_PopulationCapacities = prepareForDropdown(g_Settings && g_Settings.PopulationCapacities);
-const g_WorldPopulationCapacities = prepareForDropdown(g_Settings && g_Settings.WorldPopulationCapacities);
 
 /**
  * Reloads the selectable values in the filters. The filters depend on g_Settings and g_Replays
@@ -96,11 +95,14 @@ function initMapNameFilter(filters)
  */
 function initPopCapFilter(filters)
 {
-	var populationFilter = Engine.GetGUIObjectByName("populationFilter");
-	populationFilter.list = [translateWithContext("population capacity", "Any")].concat(g_PopulationCapacities.Title);
-	populationFilter.list_data = [""].concat(g_PopulationCapacities.Population);
+	const populationFilter = Engine.GetGUIObjectByName("populationFilter");
+	const popCapSet = new Set(g_Replays.map(replay => replay.attribs.settings.PopulationCap));
+	const popCapOptions = [...popCapSet.values()].sort((a, b) => b - a);
 
-	if (filters && filters.popCap)
+	populationFilter.list = [translateWithContext("population capacity", "Any")].concat(popCapOptions.map(cap => cap === Infinity ? "Unlimited" : cap));
+	populationFilter.list_data = [""].concat(popCapOptions);
+
+	if (filters?.popCap)
 		populationFilter.selected = populationFilter.list_data.indexOf(filters.popCap);
 
 	if (populationFilter.selected == -1 || populationFilter.selected >= populationFilter.list.length)
@@ -113,7 +115,8 @@ function initPopCapFilter(filters)
 function initDurationFilter(filters)
 {
 	var durationFilter = Engine.GetGUIObjectByName("durationFilter");
-	durationFilter.list = g_DurationFilterIntervals.map((interval, index) => {
+	durationFilter.list = g_DurationFilterIntervals.map((interval, index) =>
+	{
 
 		if (index == 0)
 			return translateWithContext("duration", "Any");
@@ -140,7 +143,7 @@ function initDurationFilter(filters)
 
 function initSingleplayerFilter(filters)
 {
-	let singleplayerFilter = Engine.GetGUIObjectByName("singleplayerFilter");
+	const singleplayerFilter = Engine.GetGUIObjectByName("singleplayerFilter");
 	singleplayerFilter.list = [
 		translateWithContext("replay filter", "Any"),
 		translateWithContext("replay filter", "Single-player"),
@@ -158,7 +161,7 @@ function initSingleplayerFilter(filters)
 
 function initVictoryConditionFilter(filters)
 {
-	let victoryConditionFilter = Engine.GetGUIObjectByName("victoryConditionFilter");
+	const victoryConditionFilter = Engine.GetGUIObjectByName("victoryConditionFilter");
 	victoryConditionFilter.list = [translate("Any victory condition")].concat(g_VictoryConditions.map(victoryCondition => translateVictoryCondition(victoryCondition.Name)));
 	victoryConditionFilter.list_data = [""].concat(g_VictoryConditions.map(victoryCondition => victoryCondition.Name));
 
@@ -171,7 +174,7 @@ function initVictoryConditionFilter(filters)
 
 function initRatedGamesFilter(filters)
 {
-	let ratedGamesFilter = Engine.GetGUIObjectByName("ratedGamesFilter");
+	const ratedGamesFilter = Engine.GetGUIObjectByName("ratedGamesFilter");
 	ratedGamesFilter.list = [translate("Rated and unrated games"), translate("Rated games"), translate("Unrated games")];
 	ratedGamesFilter.list_data = ["", "rated", "not rated"];
 
@@ -187,11 +190,12 @@ function initRatedGamesFilter(filters)
  */
 function filterReplays()
 {
-	let sortKey = Engine.GetGUIObjectByName("replaySelection").selected_column;
-	let sortOrder = Engine.GetGUIObjectByName("replaySelection").selected_column_order;
+	const sortKey = Engine.GetGUIObjectByName("replaySelection").selected_column;
+	const sortOrder = Engine.GetGUIObjectByName("replaySelection").selected_column_order;
 
-	g_ReplaysFiltered = g_Replays.filter(replay => filterReplay(replay)).sort((a, b) => {
-		let cmpA, cmpB;
+	g_ReplaysFiltered = g_Replays.filter(replay => filterReplay(replay)).sort((a, b) =>
+	{
+		let cmpA, cmpB, cmpA_secondary, cmpB_secondary;
 		switch (sortKey)
 		{
 		case 'months':
@@ -217,13 +221,23 @@ function filterReplays()
 		case 'popCapacity':
 			cmpA = +a.attribs.settings.PopulationCap;
 			cmpB = +b.attribs.settings.PopulationCap;
+			cmpA_secondary = g_PopulationCapacities.Name.indexOf(a.attribs.settings.PopulationCapType);
+			cmpB_secondary = g_PopulationCapacities.Name.indexOf(b.attribs.settings.PopulationCapType);
 			break;
+		default:
+			error("Unknown sortKey in filterReplays: " + sortKey);
 		}
 
 		if (cmpA < cmpB)
 			return -sortOrder;
 		else if (cmpA > cmpB)
 			return +sortOrder;
+
+		else if (cmpA_secondary && cmpB_secondary)
+			if (cmpA_secondary < cmpB_secondary)
+				return -sortOrder;
+			else if (cmpA_secondary > cmpB_secondary)
+				return +sortOrder;
 
 		return 0;
 	});
@@ -237,67 +251,67 @@ function filterReplays()
 function filterReplay(replay)
 {
 	// Check for compatibility first (most likely to filter)
-	let compatibilityFilter = Engine.GetGUIObjectByName("compatibilityFilter");
+	const compatibilityFilter = Engine.GetGUIObjectByName("compatibilityFilter");
 	if (compatibilityFilter.checked && !isReplayCompatible(replay))
 		return false;
 
 	// Filter by single-player or multiplayer.
-	let singleplayerFilter = Engine.GetGUIObjectByName("singleplayerFilter");
-	let selectedSingleplayerFilter = singleplayerFilter.list_data[singleplayerFilter.selected] || "";
+	const singleplayerFilter = Engine.GetGUIObjectByName("singleplayerFilter");
+	const selectedSingleplayerFilter = singleplayerFilter.list_data[singleplayerFilter.selected] || "";
 	if (selectedSingleplayerFilter == "Campaigns" && !replay.isCampaign ||
 	    selectedSingleplayerFilter == "Single-player" && (replay.isMultiplayer || replay.isCampaign) ||
 	    selectedSingleplayerFilter == "Multiplayer" && (!replay.isMultiplayer || replay.isCampaign))
 		return false;
 
 	// Filter by victory condition
-	let victoryConditionFilter = Engine.GetGUIObjectByName("victoryConditionFilter");
+	const victoryConditionFilter = Engine.GetGUIObjectByName("victoryConditionFilter");
 	if (victoryConditionFilter.selected > 0 &&
 	    replay.attribs.settings.VictoryConditions.indexOf(victoryConditionFilter.list_data[victoryConditionFilter.selected]) == -1)
 		return false;
 
 	// Filter by rating
-	let ratedGamesFilter = Engine.GetGUIObjectByName("ratedGamesFilter");
-	let selectedRatedGamesFilter = ratedGamesFilter.list_data[ratedGamesFilter.selected] || "";
+	const ratedGamesFilter = Engine.GetGUIObjectByName("ratedGamesFilter");
+	const selectedRatedGamesFilter = ratedGamesFilter.list_data[ratedGamesFilter.selected] || "";
 	if (selectedRatedGamesFilter == "rated" && !replay.isRated ||
 	    selectedRatedGamesFilter == "not rated" && replay.isRated)
 		return false;
 
 	// Filter date/time (select a month)
-	let dateTimeFilter = Engine.GetGUIObjectByName("dateTimeFilter");
+	const dateTimeFilter = Engine.GetGUIObjectByName("dateTimeFilter");
 	if (dateTimeFilter.selected > 0 && getReplayMonth(replay) != dateTimeFilter.list_data[dateTimeFilter.selected])
 		return false;
 
 	// Filter by playernames
-	let playersFilter = Engine.GetGUIObjectByName("playersFilter");
-	let keywords = playersFilter.caption.toLowerCase().split(" ");
+	const playersFilter = Engine.GetGUIObjectByName("playersFilter");
+	const keywords = playersFilter.caption.toLowerCase().split(" ");
 	if (keywords.length)
 	{
 		// We just check if all typed words are somewhere in the playerlist of that replay
-		let playerList = replay.attribs.settings.PlayerData.map(player => player ? player.Name : "").join(" ").toLowerCase();
+		const playerList = replay.attribs.settings.PlayerData.map(player => player ? player.Name : "").join(" ").toLowerCase();
 		if (!keywords.every(keyword => playerList.indexOf(keyword) != -1))
 			return false;
 	}
 
 	// Filter by map name
-	let mapNameFilter = Engine.GetGUIObjectByName("mapNameFilter");
+	const mapNameFilter = Engine.GetGUIObjectByName("mapNameFilter");
 	if (mapNameFilter.selected > 0 && replay.attribs.settings.mapName != mapNameFilter.list_data[mapNameFilter.selected])
 		return false;
 
 	// Filter by map size
-	let mapSizeFilter = Engine.GetGUIObjectByName("mapSizeFilter");
+	const mapSizeFilter = Engine.GetGUIObjectByName("mapSizeFilter");
 	if (mapSizeFilter.selected > 0 && replay.attribs.settings.Size != mapSizeFilter.list_data[mapSizeFilter.selected])
 		return false;
 
 	// Filter by population capacity
-	let populationFilter = Engine.GetGUIObjectByName("populationFilter");
+	const populationFilter = Engine.GetGUIObjectByName("populationFilter");
 	if (populationFilter.selected > 0 && replay.attribs.settings.PopulationCap != populationFilter.list_data[populationFilter.selected])
 		return false;
 
 	// Filter by game duration
-	let durationFilter = Engine.GetGUIObjectByName("durationFilter");
+	const durationFilter = Engine.GetGUIObjectByName("durationFilter");
 	if (durationFilter.selected > 0)
 	{
-		let interval = g_DurationFilterIntervals[durationFilter.selected];
+		const interval = g_DurationFilterIntervals[durationFilter.selected];
 
 		if ((interval.min > -1 && replay.duration < interval.min * 60) ||
 			(interval.max > -1 && replay.duration > interval.max * 60))

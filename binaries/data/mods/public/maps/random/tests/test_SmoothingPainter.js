@@ -1,4 +1,5 @@
-Engine.GetTemplate = (path) => {
+Engine.GetTemplate = (path) =>
+{
 	return {
 		"Identity": {
 			"GenericName": null,
@@ -10,22 +11,24 @@ Engine.GetTemplate = (path) => {
 
 Engine.LoadLibrary("rmgen");
 
-var g_MapSettings = { "Size": 512 };
-var g_Map;
-
+export function* generateMap()
 {
-	let min = new Vector2D(5, 5);
-	let center = new Vector2D(6, 6);
-	let max = new Vector2D(7, 7);
+	g_MapSettings = { "Size": 512 };
 
-	let minHeight = 20;
-	let maxHeight = 25;
+	const min = new Vector2D(5, 5);
+	const center = new Vector2D(6, 6);
+	const max = new Vector2D(7, 7);
+
+	const minHeight = 20;
+	const maxHeight = 25;
+
+	yield 50;
 
 	// Test SmoothingPainter
 	{
-		g_Map = new RandomMap(0, "blackness");
+		globalThis.g_Map = new RandomMap(0, "blackness");
 
-		let centerHeight = g_Map.getHeight(center);
+		const centerHeight = g_Map.getHeight(center);
 
 		createArea(
 			new RectPlacer(min, max),

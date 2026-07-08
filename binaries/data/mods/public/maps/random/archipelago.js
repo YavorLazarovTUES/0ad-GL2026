@@ -2,11 +2,11 @@ Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
 	TILE_CENTERED_HEIGHT_MAP = true;
 
-	setSelectedBiome();
+	setBiome(mapSettings.Biome);
 
 	const biomeTweaks = Engine.ReadJSONFile("maps/random/archipelago_biome_tweaks.json");
 
@@ -76,7 +76,13 @@ function* GenerateMap()
 
 	const islandRadius = scaleByMapSize(22, 31);
 
-	const [playerIDs, playerPosition] = playerPlacementCircle(fractionToTiles(0.35));
+	const { playerIDs, playerPosition } =
+		playerPlacementByPattern(
+			mapSettings.PlayerPlacement,
+			fractionToTiles(0.35),
+			fractionToTiles(0.1),
+			randomAngle(),
+			undefined);
 
 	g_Map.log("Creating player islands");
 	for (let i = 0; i < numPlayers; ++i)
@@ -280,9 +286,9 @@ function* GenerateMap()
 			[new SimpleObject(oFish, 2, 3, 0, 2)]
 		],
 		[
-			25 * numPlayers
+			35 * numPlayers
 		],
-		avoidClasses(clLand, 3, clPlayer, 2, clFood, 20),
+		avoidClasses(clLand, 3, clPlayer, 2, clFood, 15),
 		clFood);
 
 	yield 85;

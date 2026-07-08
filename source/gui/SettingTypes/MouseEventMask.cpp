@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,19 +20,28 @@
 #include "MouseEventMask.h"
 
 #include "gui/CGUISetting.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/file/vfs/vfs_path.h"
+#include "lib/path.h"
+#include "lib/status.h"
 #include "lib/tex/tex.h"
+#include "lib/types.h"
 #include "maths/Rect.h"
 #include "maths/Vector2D.h"
-#include "ps/Filesystem.h"
-#include "ps/CacheLoader.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "ps/CacheLoader.h"
+#include "ps/Filesystem.h"
+#include "scriptinterface/Conversions.h"
 
+#include <cmath>
+#include <cstddef>
+#include <js/RootingAPI.h>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 class IGUIObject;
-class IGUISetting;
 
 namespace
 {
@@ -54,12 +63,12 @@ CGUIMouseEventMask::~CGUIMouseEventMask()
 {
 }
 
-void CGUIMouseEventMask::ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue Value)
+void CGUIMouseEventMask::ToJSVal(const Script::Request& rq, JS::MutableHandleValue Value)
 {
 	Script::ToJSVal(rq, Value, m_Spec);
 }
 
-bool CGUIMouseEventMask::DoFromJSVal(const ScriptRequest& rq, JS::HandleValue value)
+bool CGUIMouseEventMask::DoFromJSVal(const Script::Request& rq, JS::HandleValue value)
 {
 	CStrW spec;
 	if (!Script::FromJSVal(rq, value, spec))
@@ -132,7 +141,7 @@ public:
 		return mask;
 	}
 
-	virtual bool IsMouseOver(const CVector2D& mousePos, const CRect& objectSize) const override
+	bool IsMouseOver(const CVector2D& mousePos, const CRect& objectSize) const override
 	{
 		if (m_Data.empty())
 			return false;

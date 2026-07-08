@@ -2,9 +2,9 @@ Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
-	setSelectedBiome();
+	setBiome(mapSettings.Biome);
 
 	const tMainTerrain = g_Terrains.mainTerrain;
 	const tForestFloor1 = g_Terrains.forestFloor1;
@@ -73,7 +73,7 @@ function* GenerateMap()
 
 	const playerCanyonRadius = scaleByMapSize(18, 32);
 
-	const [playerIDs, playerPosition] = playerPlacementCircle(fractionToTiles(0.35));
+	const { playerIDs, playerPosition } = playerPlacementCircle(fractionToTiles(0.35));
 
 	g_Map.log("Reserving space for the players, their initial forests and some less space therein " +
 		"without trees");
@@ -85,7 +85,7 @@ function* GenerateMap()
 				[
 					new TerrainPainter(tMainTerrain),
 					new SmoothElevationPainter(ELEVATION_SET, heightLand, 2),
-					new TileClassPainter(j == 1 || isNomad() ? clLand : clPlayer)
+					new TileClassPainter(j == 1 || mapSettings.Nomad ? clLand : clPlayer)
 				]);
 
 	g_Map.log("Creating center area");

@@ -1,4 +1,4 @@
-/* Copyright (C) 2009 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -14,6 +14,14 @@
  * You should have received a copy of the GNU General Public License
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
+
+#include <wx/button.h>
+#include <wx/event.h>
+#include <wx/toolbar.h>
+
+class wxSize;
+class wxString;
+class wxWindow;
 
 class ActionButton : public wxButton
 {

@@ -1,64 +1,89 @@
-newoption { trigger = "android", description = "Use non-working Android cross-compiling mode" }
-newoption { trigger = "atlas", description = "Include Atlas scenario editor projects" }
-newoption { trigger = "coverage", description = "Enable code coverage data collection (GCC only)" }
-newoption { trigger = "gles", description = "Use non-working OpenGL ES 2.0 mode" }
-newoption { trigger = "icc", description = "Use Intel C++ Compiler (Linux only; should use either \"--cc icc\" or --without-pch too, and then set CXX=icpc before calling make)" }
-newoption { trigger = "jenkins-tests", description = "Configure CxxTest to use the XmlPrinter runner which produces Jenkins-compatible output" }
-newoption { trigger = "minimal-flags", description = "Only set compiler/linker flags that are really needed. Has no effect on Windows builds" }
-newoption { trigger = "outpath", description = "Location for generated project files" }
-newoption { trigger = "with-system-mozjs", description = "Search standard paths for libmozjs91, instead of using bundled copy" }
-newoption { trigger = "with-system-nvtt", description = "Search standard paths for nvidia-texture-tools library, instead of using bundled copy" }
-newoption { trigger = "with-valgrind", description = "Enable Valgrind support (non-Windows only)" }
-newoption { trigger = "without-audio", description = "Disable use of OpenAL/Ogg/Vorbis APIs" }
-newoption { trigger = "without-lobby", description = "Disable the use of gloox and the multiplayer lobby" }
-newoption { trigger = "without-miniupnpc", description = "Disable use of miniupnpc for port forwarding" }
-newoption { trigger = "without-nvtt", description = "Disable use of NVTT" }
-newoption { trigger = "without-pch", description = "Disable generation and usage of precompiled headers" }
-newoption { trigger = "without-tests", description = "Disable generation of test projects" }
+local semver = require("semver")
 
--- Linux/BSD specific options
-newoption { trigger = "prefer-local-libs", description = "Prefer locally built libs. Any local libraries used must also be listed within a file within /etc/ld.so.conf.d so the dynamic linker can find them at runtime." }
+print("Premake version: " .. _PREMAKE_VERSION)
+if (semver(_PREMAKE_VERSION) < semver("5.0.0-beta5")) then
+	print("Requires Premake 5.0.0-beta5 or later")
+	print("Aborting")
+	os.exit(1)
+end
+
+local function print_options()
+	local options = ""
+	local tkeys = {}
+	for key,_  in pairs(_OPTIONS) do table.insert(tkeys, key) end
+	table.sort(tkeys)
+	for _,key in pairs(tkeys) do
+		local value = _OPTIONS[key]
+		options = options .. " --" .. key
+		if (value and value ~= "") then
+			options = options .. "=" .. value
+		end
+	end
+	print("Premake options:" .. options)
+end
+print_options()
+print("")
+
+print("--------------------------------------------------------------------------------")
+print("Environment")
+print("")
+print("AR         : " .. (os.getenv("AR") or "unset"))
+print("CC         : " .. (os.getenv("CC") or "unset"))
+print("CXX        : " .. (os.getenv("CXX") or "unset"))
+print("HOSTTYPE   : " .. (os.getenv("HOSTTYPE") or "unset"))
+print("PKG_CONFIG : " .. (os.getenv("PKG_CONFIG") or "unset"))
+print("")
+print("CFLAGS     : " .. (os.getenv("CFLAGS") or "unset"))
+print("CXXFLAGS   : " .. (os.getenv("CXXFLAGS") or "unset"))
+print("LDFLAGS    : " .. (os.getenv("LDFLAGS") or "unset"))
+print("--------------------------------------------------------------------------------")
+print("")
+
+newoption { category = "Pyrogenesis", trigger = "android", description = "Use non-working Android cross-compiling mode" }
+newoption { category = "Pyrogenesis", trigger = "coverage", description = "Enable code coverage data collection (GCC only)" }
+newoption { category = "Pyrogenesis", trigger = "gles", description = "Use non-working OpenGL ES 2.0 mode" }
+newoption { category = "Pyrogenesis", trigger = "minimal-flags", description = "Only set compiler/linker flags that are really needed. Has no effect on Windows builds" }
+newoption { category = "Pyrogenesis", trigger = "outpath", description = "Location for generated project files", default="../workspaces/default" }
+newoption { category = "Pyrogenesis", trigger = "sanitize-address", description = "Enable ASAN if available" }
+newoption { category = "Pyrogenesis", trigger = "sanitize-thread", description = "Enable TSAN if available" }
+newoption { category = "Pyrogenesis", trigger = "sanitize-undefined-behaviour", description = "Enable UBSAN if available" }
+newoption { category = "Pyrogenesis", trigger = "strip-binaries", description = "Strip created binaries" }
+newoption { category = "Pyrogenesis", trigger = "with-system-cpp-httplib", description = "Search standard paths for cpp-httplib, instead of using bundled copy" }
+newoption { category = "Pyrogenesis", trigger = "with-system-cxxtest", description = "Search standard paths for cxxtest, instead of using bundled copy" }
+newoption { category = "Pyrogenesis", trigger = "with-lto", description = "Enable Link Time Optimization (LTO)" }
+newoption { category = "Pyrogenesis", trigger = "with-system-mozjs", description = "Search standard paths for libmozjs128, instead of using bundled copy" }
+newoption { category = "Pyrogenesis", trigger = "with-system-nvtt", description = "Search standard paths for nvidia-texture-tools library, instead of using bundled copy" }
+newoption { category = "Pyrogenesis", trigger = "with-valgrind", description = "Enable Valgrind support (non-Windows only)" }
+newoption { category = "Pyrogenesis", trigger = "without-audio", description = "Disable use of OpenAL/Ogg/Vorbis APIs" }
+newoption { category = "Pyrogenesis", trigger = "without-atlas", description = "Disable Atlas scenario/map editor and ActorEditor" }
+newoption { category = "Pyrogenesis", trigger = "without-dap-interface", description = "Disable Dap interface project" }
+newoption { category = "Pyrogenesis", trigger = "without-lobby", description = "Disable the use of gloox and the multiplayer lobby" }
+newoption { category = "Pyrogenesis", trigger = "without-miniupnpc", description = "Disable use of miniupnpc for port forwarding" }
+newoption { category = "Pyrogenesis", trigger = "without-nvtt", description = "Disable use of NVTT" }
+newoption { category = "Pyrogenesis", trigger = "without-pch", description = "Disable generation and usage of precompiled headers" }
+newoption { category = "Pyrogenesis", trigger = "without-tests", description = "Disable generation of test projects" }
 
 -- OS X specific options
-newoption { trigger = "macosx-version-min", description = "Set minimum required version of the OS X API, the build will possibly fail if an older SDK is used, while newer API functions will be weakly linked (i.e. resolved at runtime)" }
-newoption { trigger = "sysroot", description = "Set compiler system root path, used for building against a non-system SDK. For example /usr/local becomes SYSROOT/user/local" }
-
--- Windows specific options
-newoption { trigger = "build-shared-glooxwrapper", description = "Rebuild glooxwrapper DLL for Windows. Requires the same compiler version that gloox was built with" }
-newoption { trigger = "use-shared-glooxwrapper", description = "Use prebuilt glooxwrapper DLL for Windows" }
-newoption { trigger = "large-address-aware", description = "Make the executable large address aware. Do not use for development, in order to spot memory issues easily" }
+newoption { category = "Pyrogenesis", trigger = "macosx-version-min", description = "Set minimum required version of the OS X API, the build will possibly fail if an older SDK is used, while newer API functions will be weakly linked (i.e. resolved at runtime)" }
+newoption { category = "Pyrogenesis", trigger = "sysroot", description = "Set compiler system root path, used for building against a non-system SDK. For example /usr/local becomes SYSROOT/user/local" }
 
 -- Install options
-newoption { trigger = "bindir", description = "Directory for executables (typically '/usr/games'); default is to be relocatable" }
-newoption { trigger = "datadir", description = "Directory for data files (typically '/usr/share/games/0ad'); default is ../data/ relative to executable" }
-newoption { trigger = "libdir", description = "Directory for libraries (typically '/usr/lib/games/0ad'); default is ./ relative to executable" }
+newoption { category = "Pyrogenesis", trigger = "bindir", description = "Directory for executables (typically '/usr/games'); default is to be relocatable" }
+newoption { category = "Pyrogenesis", trigger = "datadir", description = "Directory for data files (typically '/usr/share/games/0ad'); default is ../data/ relative to executable" }
+newoption { category = "Pyrogenesis", trigger = "libdir", description = "Directory for libraries (typically '/usr/lib/games/0ad'); default is ./ relative to executable" }
 
 -- Root directory of project checkout relative to this .lua file
 rootdir = "../.."
 
-dofile("extern_libs5.lua")
-
--- detect compiler for non-Windows
-if os.istarget("macosx") then
-	cc = "clang"
-elseif os.istarget("linux") and _OPTIONS["icc"] then
-	cc = "icc"
-elseif os.istarget("bsd") and os.getversion().description == "FreeBSD" then
-	cc = "clang"
-elseif not os.istarget("windows") then
+-- Determine C compiler
+local cc = nil
+if os.getenv("CC") then
 	cc = os.getenv("CC")
-	if cc == nil or cc == "" then
-		local hasgcc = os.execute("which gcc > .gccpath")
-		local f = io.open(".gccpath", "r")
-		local gccpath = f:read("*line")
-		f:close()
-		os.execute("rm .gccpath")
-		if gccpath == nil then
-			cc = "clang"
-		else
-			cc = "gcc"
-		end
-	end
+elseif _OPTIONS["cc"] then
+	cc = _OPTIONS["cc"]
+else
+	-- assumes cc name is toolset name
+	cc = premake.action.current().toolset
 end
 
 -- detect CPU architecture (simplistic)
@@ -85,6 +110,7 @@ else
 		f:close()
 	end
 	-- Special handling on mac os where xcode needs special flags.
+	-- TODO: We should look into "universal" macOS compilation.
 	if os.istarget("macosx") then
 		if string.find(machine, "arm64") then
 			arch = "aarch64"
@@ -103,12 +129,29 @@ else
 		arch = "aarch64"
 	elseif string.find(machine, "e2k") == 1 then
 		arch = "e2k"
+	elseif string.find(machine, "loongarch64") == 1 then
+		arch = "loong64"
 	elseif string.find(machine, "ppc64") == 1 or string.find(machine, "powerpc64") == 1 then
 		arch = "ppc64"
+	elseif string.find(machine, "riscv64") == 1 then
+		arch = "riscv64"
 	else
 		print("WARNING: Cannot determine architecture from GCC, assuming x86")
 	end
 end
+
+-- On Windows check if wxWidgets is available, if not disable atlas and emit warning.
+-- This is because there are currently not prebuilt binaries provided.
+if not _OPTIONS["without-atlas"] and os.istarget("windows") then
+	local win_libs_dir = rootdir .. "/libraries/" .. ( arch == "amd64" and "win64" or "win32" )
+	if not os.isfile( win_libs_dir .. "/wxwidgets/include/wx/wx.h") then
+		print("wxWidgets not found, disabling atlas")
+		_OPTIONS["without-atlas"] = ""
+	end
+end
+
+-- External libraries should know about arch.
+dofile("extern_libs5.lua")
 
 -- Test whether we need to link libexecinfo.
 -- This is mostly the case on musl systems, as well as on BSD systems : only glibc provides the
@@ -123,15 +166,23 @@ elseif os.istarget("linux") then
 	end
 end
 
+-- Test whether system mozjs is built with --enable-debug
+-- The pc file doesn't specify the required -DDEBUG needed in that case
+local mozjs_is_debug_build = false
+if _OPTIONS["with-system-mozjs"] then
+	local _, errorCode = os.outputof(cc .. " $(pkg-config mozjs-128 --cflags) ./tests/mozdebug.c -o /dev/null")
+	if errorCode ~= 0 then
+		mozjs_is_debug_build = true
+	end
+end
+
 -- Set up the Workspace
 workspace "pyrogenesis"
 targetdir(rootdir.."/binaries/system")
 libdirs(rootdir.."/binaries/system")
-if not _OPTIONS["outpath"] then
-	error("You must specify the 'outpath' parameter")
-end
 location(_OPTIONS["outpath"])
 configurations { "Release", "Debug" }
+startproject "pyrogenesis"
 
 source_root = rootdir.."/source/" -- default for most projects - overridden by local in others
 
@@ -169,14 +220,24 @@ function project_set_build_flags()
 
 	editandcontinue "Off"
 
-	if not _OPTIONS["minimal-flags"] then
+	if _OPTIONS['strip-binaries'] then
+		symbols "Off"
+	else
 		symbols "On"
 	end
 
-	if cc ~= "icc" and (os.istarget("windows") or not _OPTIONS["minimal-flags"]) then
-		-- adds the -Wall compiler flag
-		warnings "Extra" -- this causes far too many warnings/remarks on ICC
+	-- ASAN, TSAN, UBSAN
+	local sanitizers = {}
+	if _OPTIONS['sanitize-address'] then
+		table.insert(sanitizers, 'Address')
 	end
+	if _OPTIONS['sanitize-thread'] then
+		table.insert(sanitizers, 'Thread')
+	end
+	if _OPTIONS['sanitize-undefined-behaviour'] then
+		table.insert(sanitizers, 'UndefinedBehavior')
+	end
+	sanitize(sanitizers)
 
 	-- disable Windows debug heap, since it makes malloc/free hugely slower when
 	-- running inside a debugger
@@ -184,16 +245,28 @@ function project_set_build_flags()
 		debugenvs { "_NO_DEBUG_HEAP=1" }
 	end
 
-	filter "Debug"
+	if os.istarget("windows") then
+		-- mozilla 115 linked list destructor in debug build
+		defines { "__PRETTY_FUNCTION__=__FUNCSIG__" }
+	end
+
+	filter { "Debug", "action:vs*" }
 		defines { "DEBUG" }
 
 	filter "Release"
 		if os.istarget("windows") or not _OPTIONS["minimal-flags"] then
 			optimize "Speed"
 		end
+		if _OPTIONS["with-lto"] then
+			linktimeoptimization("On")
+		end
 		defines { "NDEBUG", "CONFIG_FINAL=1" }
 
 	filter { }
+
+	if mozjs_is_debug_build then
+		defines "DEBUG"
+	end
 
 	if _OPTIONS["gles"] then
 		defines { "CONFIG2_GLES=1" }
@@ -215,12 +288,12 @@ function project_set_build_flags()
 		defines { "CONFIG2_MINIUPNPC=0" }
 	end
 
-	-- Enable C++17 standard.
-	filter "action:vs*"
-		buildoptions { "/std:c++17" }
-	filter "action:not vs*"
-		buildoptions { "-std=c++17" }
-	filter {}
+	if _OPTIONS["without-dap-interface"] then
+		defines { "CONFIG2_DAP_INTERFACE=0" }
+	end
+
+	-- hide warnings caused by library includes
+	externalwarnings "Off"
 
 	-- various platform-specific build flags
 	if os.istarget("windows") then
@@ -232,134 +305,144 @@ function project_set_build_flags()
 		-- Finally since VS2012 it's enabled implicitely when not set.
 		vectorextensions "SSE2"
 
+		-- SpiderMonkey only supports building with MSVC on a best-effort basis,
+		-- and the traditional MSVC preprocessor is incompatible with some headers.
+		-- Use the modern, standard-compliant MSVC preprocessor instead.
+		usestandardpreprocessor "On"
+
 		-- use native wchar_t type (not typedef to unsigned short)
 		nativewchar "on"
 
+		-- enable most of the standard warnings
+		warnings "Extra"
+
+		-- FIXME: conversion warnings, should add -Wconversion to gcc and clang flags as well
+		disablewarnings { "4267" }
+
 	else	-- *nix
 
-		-- TODO, FIXME: This check is incorrect because it means that some additional flags will be added inside the "else" branch if the
-		-- compiler is ICC and minimal-flags is specified (ticket: #2994)
-		if cc == "icc" and not _OPTIONS["minimal-flags"] then
+		-- exclude most non-essential build options for minimal-flags
+		if not _OPTIONS["minimal-flags"] then
 			buildoptions {
-				"-w1",
-				-- "-Wabi",
-				-- "-Wp64", -- complains about OBJECT_TO_JSVAL which is annoying
-				"-Wpointer-arith",
-				"-Wreturn-type",
-				-- "-Wshadow",
-				"-Wuninitialized",
-				"-Wunknown-pragmas",
-				"-Wunused-function",
-				"-wd1292" -- avoid lots of 'attribute "__nonnull__" ignored'
+				-- enable most of the standard warnings
+				"-Wall",
+				"-Wextra",
+				-- "-Wconversion", FIXME: should seriously consider fixing so this warning can be enabled.
+
+				-- add some other useful warnings that need to be enabled explicitly
+				"-Wunused-parameter",
+				"-Wredundant-decls",	-- (useful for finding some multiply-included header files)
+				-- "-Wformat=2",		-- (useful sometimes, but a bit noisy, so skip it by default)
+				-- "-Wcast-qual",		-- (useful for checking const-correctness, but a bit noisy, so skip it by default)
+				"-Wnon-virtual-dtor",	-- (sometimes noisy but finds real bugs)
+				"-Wundef",				-- (useful for finding macro name typos)
+
+				-- disable some warnings that currently trigger
+				"-Wno-missing-field-initializers",	-- (this is common in external headers we can't fix)
+				"-Wno-reorder",		-- order of initialization list in constructors (lots of noise)
+
+				-- enable security features (stack checking etc) that shouldn't have
+				-- a significant effect on performance and can catch bugs
+				"-fstack-protector-strong",
+
+				-- always enable strict aliasing (useful in debug builds because of the warnings)
+				"-fstrict-aliasing",
+
+				-- don't omit frame pointers (for now), because performance will be impacted
+				-- negatively by the way this breaks profilers more than it will be impacted
+				-- positively by the optimisation
+				"-fno-omit-frame-pointer"
 			}
-			filter "Debug"
-				buildoptions { "-O0" } -- ICC defaults to -O2
-			filter { }
-			if os.istarget("macosx") then
-				linkoptions { "-multiply_defined","suppress" }
-			end
-		else
-			-- exclude most non-essential build options for minimal-flags
-			if not _OPTIONS["minimal-flags"] then
+
+			filter { "Release" }
 				buildoptions {
-					-- enable most of the standard warnings
-					"-Wno-switch",		-- enumeration value not handled in switch (this is sometimes useful, but results in lots of noise)
-					"-Wno-reorder",		-- order of initialization list in constructors (lots of noise)
-					"-Wno-invalid-offsetof",	-- offsetof on non-POD types (see comment in renderer/PatchRData.cpp)
-
-					"-Wextra",
-					"-Wno-missing-field-initializers",	-- (this is common in external headers we can't fix)
-
-					-- add some other useful warnings that need to be enabled explicitly
-					"-Wunused-parameter",
-					"-Wredundant-decls",	-- (useful for finding some multiply-included header files)
-					-- "-Wformat=2",		-- (useful sometimes, but a bit noisy, so skip it by default)
-					-- "-Wcast-qual",		-- (useful for checking const-correctness, but a bit noisy, so skip it by default)
-					"-Wnon-virtual-dtor",	-- (sometimes noisy but finds real bugs)
-					"-Wundef",				-- (useful for finding macro name typos)
-
-					-- enable security features (stack checking etc) that shouldn't have
-					-- a significant effect on performance and can catch bugs
-					"-fstack-protector-all",
-					"-U_FORTIFY_SOURCE",	-- (avoid redefinition warning if already defined)
+					-- FORTIFY_SOURCE needs optimizations to be enabled
+					"-U_FORTIFY_SOURCE",    -- (avoid redefinition warning if already defined)
 					"-D_FORTIFY_SOURCE=2",
-
-					-- always enable strict aliasing (useful in debug builds because of the warnings)
-					"-fstrict-aliasing",
-
-					-- don't omit frame pointers (for now), because performance will be impacted
-					-- negatively by the way this breaks profilers more than it will be impacted
-					-- positively by the optimisation
-					"-fno-omit-frame-pointer"
 				}
+			filter {}
 
-				if not _OPTIONS["without-pch"] then
-					buildoptions {
-						-- do something (?) so that ccache can handle compilation with PCH enabled
-						-- (ccache 3.1+ also requires CCACHE_SLOPPINESS=time_macros for this to work)
-						"-fpch-preprocess"
-					}
-				end
+			-- issues with gcc 12 to 14 with pch enabled, workaround for CI which sets CC=gcc-12
+			if cc == "gcc-12" then
+				buildoptions {
+					-- mozilla
+					"-Wno-dangling-pointer",
+					-- fortify source
+					"-Wno-stringop-overflow",
+					"-Wno-attribute-warning",
+					"-Wno-array-bounds",
+					"-Wno-restrict",
+				}
+			end
 
-				if os.istarget("linux") or os.istarget("bsd") then
-					buildoptions { "-fPIC" }
+			if not _OPTIONS["without-pch"] then
+				buildoptions {
+					-- do something (?) so that ccache can handle compilation with PCH enabled
+					-- (ccache 3.1+ also requires CCACHE_SLOPPINESS=time_macros for this to work)
+					"-fpch-preprocess"
+				}
+			end
+
+			if os.istarget("linux") or os.istarget("bsd") then
+				buildoptions { "-fPIC" }
+				if next(sanitizers) == nil then
 					linkoptions { "-Wl,--no-undefined", "-Wl,--as-needed", "-Wl,-z,relro" }
 				end
-
-				if arch == "x86" then
-					buildoptions {
-						-- To support intrinsics like __sync_bool_compare_and_swap on x86
-						-- we need to set -march to something that supports them (i686).
-						-- We use pentium3 to also enable other features like mmx and sse,
-						-- while tuning for generic to have good performance on every
-						-- supported CPU.
-						-- Note that all these features are already supported on amd64.
-						"-march=pentium3 -mtune=generic",
-						-- This allows x86 operating systems to handle the 2GB+ public mod.
-						"-D_FILE_OFFSET_BITS=64"
-					}
-				end
 			end
 
-			if arch == "arm" then
-				-- disable warnings about va_list ABI change and use
-				-- compile-time flags for futher configuration.
-				buildoptions { "-Wno-psabi" }
-				if _OPTIONS["android"] then
-					-- Android uses softfp, so we should too.
-					buildoptions { "-mfloat-abi=softfp" }
-				end
+			if arch == "x86" then
+				buildoptions {
+					-- To support intrinsics like __sync_bool_compare_and_swap on x86
+					-- we need to set -march to something that supports them (i686).
+					-- We use pentium3 to also enable other features like mmx and sse,
+					-- while tuning for generic to have good performance on every
+					-- supported CPU.
+					-- Note that all these features are already supported on amd64.
+					"-march=pentium3 -mtune=generic",
+					-- This allows x86 operating systems to handle the 2GB+ public mod.
+					"-D_FILE_OFFSET_BITS=64"
+				}
 			end
+		end
 
-			if _OPTIONS["coverage"] then
-				buildoptions { "-fprofile-arcs", "-ftest-coverage" }
-				links { "gcov" }
+		if arch == "arm" then
+			-- disable warnings about va_list ABI change and use
+			-- compile-time flags for futher configuration.
+			buildoptions { "-Wno-psabi" }
+			if _OPTIONS["android"] then
+				-- Android uses softfp, so we should too.
+				buildoptions { "-mfloat-abi=softfp" }
 			end
+		end
 
-			-- MacOS 10.12 only supports intel processors with SSE 4.1, so enable that.
-			if os.istarget("macosx") and arch == "amd64" then
-				buildoptions { "-msse4.1" }
-			end
+		if _OPTIONS["coverage"] then
+			buildoptions { "-fprofile-arcs", "-ftest-coverage" }
+			links { "gcov" }
+		end
 
-			-- Check if SDK path should be used
-			if _OPTIONS["sysroot"] then
-				buildoptions { "-isysroot " .. _OPTIONS["sysroot"] }
-				linkoptions { "-Wl,-syslibroot," .. _OPTIONS["sysroot"] }
-			end
+		-- MacOS 10.12 only supports intel processors with SSE 4.1, so enable that.
+		if os.istarget("macosx") and arch == "amd64" then
+			buildoptions { "-msse4.1" }
+		end
 
-			-- On OS X, sometimes we need to specify the minimum API version to use
-			if _OPTIONS["macosx-version-min"] then
-				buildoptions { "-mmacosx-version-min=" .. _OPTIONS["macosx-version-min"] }
-				-- clang and llvm-gcc look at mmacosx-version-min to determine link target
-				-- and CRT version, and use it to set the macosx_version_min linker flag
-				linkoptions { "-mmacosx-version-min=" .. _OPTIONS["macosx-version-min"] }
-			end
+		-- Check if SDK path should be used
+		if _OPTIONS["sysroot"] then
+			buildoptions { "-isysroot " .. _OPTIONS["sysroot"] }
+			linkoptions { "-Wl,-syslibroot," .. _OPTIONS["sysroot"] }
+		end
 
-			-- Only libc++ is supported on MacOS
-			if os.istarget("macosx") then
-				buildoptions { "-stdlib=libc++" }
-				linkoptions { "-stdlib=libc++" }
-			end
+		-- On OS X, sometimes we need to specify the minimum API version to use
+		if _OPTIONS["macosx-version-min"] then
+			buildoptions { "-mmacosx-version-min=" .. _OPTIONS["macosx-version-min"] }
+			-- clang and llvm-gcc look at mmacosx-version-min to determine link target
+			-- and CRT version, and use it to set the macosx_version_min linker flag
+			linkoptions { "-mmacosx-version-min=" .. _OPTIONS["macosx-version-min"] }
+		end
+
+		-- Only libc++ is supported on MacOS
+		if os.istarget("macosx") then
+			buildoptions { "-stdlib=libc++" }
+			linkoptions { "-stdlib=libc++" }
 		end
 
 		buildoptions {
@@ -379,10 +462,6 @@ function project_set_build_flags()
 		end
 
 		if os.istarget("linux") or os.istarget("bsd") then
-			if _OPTIONS["prefer-local-libs"] then
-				libdirs { "/usr/local/lib" }
-			end
-
 			-- To use our local shared libraries, they need to be found in the
 			-- runtime dynamic linker path. Add their path to -rpath.
 			if _OPTIONS["libdir"] then
@@ -410,14 +489,17 @@ function project_create(project_name, target_type)
 
 	project(project_name)
 	language "C++"
+	cppdialect "C++20"
 	kind(target_type)
 
-	filter "action:vs2017"
-		toolset "v141_xp"
+	filter "action:vs2022"
+		toolset "v143"
 	filter {}
 
 	filter "action:vs*"
 		buildoptions "/utf-8"
+		-- disable LNK4221 warning, to avoid spending energy ordering projects in linker invocations
+		linkoptions "/ignore:4221"
 	filter {}
 
 	project_set_target(project_name)
@@ -520,9 +602,15 @@ end
 
 
 -- Add command-line options to set up the manifest dependencies for Windows
--- (See lib/sysdep/os/win/manifest.cpp)
 function project_add_manifest()
-	linkoptions { "\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='X86' publicKeyToken='6595b64144ccf1df'\"" }
+	-- To use XP-style themed controls, we need to use the manifest to specify the
+	-- desired version. (This must be set in the game's .exe in order to affect Atlas.)
+	-- We can remove it once we remove wxWidgets
+	if arch == "amd64" then
+		linkoptions { "\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='amd64' publicKeyToken='6595b64144ccf1df'\"" }
+	else
+		linkoptions { "\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='X86' publicKeyToken='6595b64144ccf1df'\"" }
+	end
 end
 
 --------------------------------------------------------------------------------
@@ -561,7 +649,11 @@ function setup_static_lib_project (project_name, rel_source_dirs, extern_libs, e
 	-- The exception to this principle is Atlas UI, which is not a static library.
 	rtti "off"
 
-	if os.istarget("macosx") then
+	if os.istarget("windows") then
+		if arch == "amd64" then
+			architecture("x86_64")
+		end
+	elseif os.istarget("macosx") then
 		architecture(macos_arch)
 		buildoptions { "-arch " .. macos_arch }
 		linkoptions { "-arch " .. macos_arch }
@@ -591,6 +683,9 @@ function setup_shared_lib_project (project_name, rel_source_dirs, extern_libs, e
 
 	if os.istarget("windows") then
 		links { "delayimp" }
+		if arch == "amd64" then
+			architecture("x86_64")
+		end
 	elseif os.istarget("macosx") then
 		architecture(macos_arch)
 		buildoptions { "-arch " .. macos_arch }
@@ -619,11 +714,14 @@ function setup_all_libs ()
 		"network",
 	}
 	extern_libs = {
+		"cpp_httplib",
 		"spidermonkey",
 		"enet",
 		"sdl",
 		"boost",	-- dragged in via server->simulation.h->random and NetSession.h->lockfree
 		"fmt",
+		"libxml2",
+		"iconv",
 	}
 	if not _OPTIONS["without-miniupnpc"] then
 		table.insert(extern_libs, "miniupnpc")
@@ -637,8 +735,22 @@ function setup_all_libs ()
 		"boost", -- dragged in via simulation.h and scriptinterface.h
 		"fmt",
 		"spidermonkey",
+		"cpp_httplib",
 	}
 	setup_static_lib_project("rlinterface", source_dirs, extern_libs, { no_pch = 1 })
+
+	if not _OPTIONS["without-dap-interface"] then
+		source_dirs = {
+			"dapinterface",
+		}
+		extern_libs = {
+			"boost", -- dragged in via simulation.h and scriptinterface.h
+			"fmt",
+			"spidermonkey",
+			"sockets"
+		}
+		setup_static_lib_project("dapinterface", source_dirs, extern_libs, { no_pch = 1 })
+	end
 
 	source_dirs = {
 		"third_party/tinygettext/src",
@@ -684,25 +796,6 @@ function setup_all_libs ()
 			"fmt",
 		}
 		setup_static_lib_project("lobby", source_dirs, extern_libs, {})
-
-		if _OPTIONS["use-shared-glooxwrapper"] and not _OPTIONS["build-shared-glooxwrapper"] then
-			table.insert(static_lib_names_debug, "glooxwrapper_dbg")
-			table.insert(static_lib_names_release, "glooxwrapper")
-		else
-			source_dirs = {
-				"lobby/glooxwrapper",
-			}
-			extern_libs = {
-				"boost",
-				"gloox",
-				"fmt",
-			}
-			if _OPTIONS["build-shared-glooxwrapper"] then
-				setup_shared_lib_project("glooxwrapper", source_dirs, extern_libs, {})
-			else
-				setup_static_lib_project("glooxwrapper", source_dirs, extern_libs, {})
-			end
-		end
 	else
 		source_dirs = {
 			"lobby/scripting",
@@ -732,6 +825,9 @@ function setup_all_libs ()
 		"boost",
 		"spidermonkey",
 		"fmt",
+		"libxml2",
+		"iconv",
+		"cxxtest",
 	}
 	setup_static_lib_project("simulation2", source_dirs, extern_libs, {})
 
@@ -778,9 +874,19 @@ function setup_all_libs ()
 		"icu",
 		"iconv",
 		"libsodium",
+		"libpng",
 		"fmt",
 		"freetype",
+		"cpp_httplib",
 	}
+
+	if not _OPTIONS["without-lobby"] then
+		table.insert(extern_libs, "gloox")
+	end
+
+	if not _OPTIONS["without-miniupnpc"] then
+		table.insert(extern_libs, "miniupnpc")
+	end
 
 	if not _OPTIONS["without-nvtt"] then
 		table.insert(extern_libs, "nvtt")
@@ -813,6 +919,8 @@ function setup_all_libs ()
 		"fmt",
 		"freetype",
 		"icu",
+		"libxml2",
+		"iconv",
 	}
 	if not _OPTIONS["without-nvtt"] then
 		table.insert(extern_libs, "nvtt")
@@ -829,6 +937,8 @@ function setup_all_libs ()
 		"sdl",	-- key definitions
 		"spidermonkey",
 		"fmt",
+		"libxml2",
+		"iconv",
 	}
 	setup_static_lib_project("atlas", source_dirs, extern_libs, {})
 
@@ -850,6 +960,7 @@ function setup_all_libs ()
 		"icu",
 		"iconv",
 		"fmt",
+		"libxml2",
 	}
 	if not _OPTIONS["without-audio"] then
 		table.insert(extern_libs, "openal")
@@ -898,8 +1009,12 @@ function setup_all_libs ()
 		table.insert(source_dirs, "lib/sysdep/arch/aarch64");
 	elseif arch == "e2k" then
 		table.insert(source_dirs, "lib/sysdep/arch/e2k");
+	elseif arch == "loong64" then
+		table.insert(source_dirs, "lib/sysdep/arch/loong64");
 	elseif arch == "ppc64" then
 		table.insert(source_dirs, "lib/sysdep/arch/ppc64");
+	elseif arch == "riscv64" then
+		table.insert(source_dirs, "lib/sysdep/arch/riscv64");
 	end
 
 	-- OS-specific
@@ -932,7 +1047,7 @@ function setup_all_libs ()
 	end
 
 	-- runtime-library-specific
-	if _ACTION == "vs2017" then
+	if _ACTION == "vs2022" then
 		table.insert(source_dirs, "lib/sysdep/rtl/msc");
 	else
 		table.insert(source_dirs, "lib/sysdep/rtl/gcc");
@@ -942,54 +1057,19 @@ function setup_all_libs ()
 
 
 	extern_libs = { "glad" }
-	if not os.istarget("windows") and not _OPTIONS["android"] and not os.istarget("macosx") then
-		-- X11 should only be linked on *nix
-		table.insert(used_extern_libs, "x11")
-	end
-	setup_static_lib_project("gladwrapper", {}, used_extern_libs, { no_pch = 1 })
-	glad_path = libraries_source_dir.."glad/"
-	if externalincludedirs then
-		externalincludedirs { glad_path.."include" }
-	else
-		sysincludedirs { glad_path.."include" }
-	end
+	setup_static_lib_project("gladwrapper", {}, extern_libs, { no_pch = 1 })
+	-- select files to build for the current platform
+	glad_path = third_party_source_dir.."glad/"
 	files { glad_path.."src/vulkan.cpp" }
 	if _OPTIONS["gles"] then
 		files { glad_path.."src/gles2.cpp" }
 	else
 		files { glad_path.."src/gl.cpp" }
-		if os.istarget("windows") then
-			files { glad_path.."src/wgl.cpp" }
-		elseif os.istarget("linux") or os.istarget("bsd") then
-			files { glad_path.."src/egl.cpp", glad_path.."src/glx.cpp" }
-		end
 	end
-
-
-	-- Third-party libraries that are built as part of the main project,
-	-- not built externally and then linked
-	source_dirs = {
-		"third_party/mongoose",
-	}
-	extern_libs = {
-	}
-	setup_static_lib_project("mongoose", source_dirs, extern_libs, { no_pch = 1 })
-
-
-	-- CxxTest mock function support
-	extern_libs = {
-		"boost",
-		"cxxtest",
-	}
-
-	-- 'real' implementations, to be linked against the main executable
-	-- (files are added manually and not with setup_static_lib_project
-	-- because not all files in the directory are included)
-	setup_static_lib_project("mocks_real", {}, extern_libs, { no_default_link = 1, no_pch = 1 })
-	files { "mocks/*.h", source_root.."mocks/*_real.cpp" }
-	-- 'test' implementations, to be linked against the test executable
-	setup_static_lib_project("mocks_test", {}, extern_libs, { no_default_link = 1, no_pch = 1 })
-	files { source_root.."mocks/*.h", source_root.."mocks/*_test.cpp" }
+	-- on Windows, silence a build warning in vulkan.cpp
+	filter "action:vs*"
+		buildoptions { "/wd4551" }
+	filter {}
 end
 
 --------------------------------------------------------------------------------
@@ -1007,6 +1087,7 @@ used_extern_libs = {
 	"libxml2",
 
 	"boost",
+	"cpp_httplib",
 	"cxxtest",
 	"comsuppw",
 	"enet",
@@ -1019,12 +1100,9 @@ used_extern_libs = {
 	"freetype",
 
 	"valgrind",
-}
 
-if not os.istarget("windows") and not _OPTIONS["android"] and not os.istarget("macosx") then
-	-- X11 should only be linked on *nix
-	table.insert(used_extern_libs, "x11")
-end
+	"oleaut32",
+}
 
 if not _OPTIONS["without-audio"] then
 	table.insert(used_extern_libs, "openal")
@@ -1053,8 +1131,6 @@ function setup_main_exe ()
 		linkgroups 'On'
 	filter {}
 
-	links { "mocks_real" }
-
 	local extra_params = {
 		extra_files = { "main.cpp" },
 		no_pch = 1
@@ -1070,6 +1146,7 @@ function setup_main_exe ()
 	if os.istarget("windows") then
 
 		files { source_root.."lib/sysdep/os/win/icon.rc" }
+		files { source_root.."lib/sysdep/os/win/pyrogenesis.rc" }
 		-- from "lowlevel" static lib; must be added here to be linked in
 		files { source_root.."lib/sysdep/os/win/error_dialog.rc" }
 
@@ -1080,14 +1157,17 @@ function setup_main_exe ()
 
 		links { "delayimp" }
 
-		-- allow the executable to use more than 2GB of RAM.
-		-- this should not be enabled during development, so that memory issues are easily spotted.
-		if _OPTIONS["large-address-aware"] then
+		if arch == "x86" then
+			-- allow the executable to use more than 2GB of RAM.
 			linkoptions { "/LARGEADDRESSAWARE" }
 		end
 
 		-- see manifest.cpp
-		project_add_manifest()
+		project_add_manifest(arch)
+
+		if arch == "amd64" then
+			architecture("x86_64")
+		end
 
 	elseif os.istarget("linux") or os.istarget("bsd") then
 
@@ -1113,6 +1193,11 @@ function setup_main_exe ()
 				-- Dynamic libraries (needed for linking for gold)
 				"dl",
 			}
+
+			if arch == "riscv64" then
+				-- Needed to resolve __atomic_load_16 et al.
+				links { "atomic" }
+			end
 		end
 
 		-- Threading support
@@ -1165,6 +1250,9 @@ function setup_atlas_project(project_name, target_type, rel_source_dirs, rel_inc
 	if os.istarget("windows") then
 		-- Link to required libraries
 		links { "winmm", "delayimp" }
+		if arch == "amd64" then
+			architecture("x86_64")
+		end
 
 	elseif os.istarget("macosx") then
 		architecture(macos_arch)
@@ -1179,7 +1267,7 @@ function setup_atlas_project(project_name, target_type, rel_source_dirs, rel_inc
 			buildoptions { "-fPIC" }
 			linkoptions { "-fPIC" }
 		else
-			buildoptions { "-rdynamic", "-fPIC" }
+			buildoptions { "-fPIC" }
 			linkoptions { "-fPIC", "-rdynamic" }
 		end
 
@@ -1196,14 +1284,15 @@ function setup_atlas_projects()
 	setup_atlas_project("AtlasObject", "StaticLib",
 	{	-- src
 		".",
-		"../../../third_party/jsonspirit"
-
 	},{	-- include
-		"../../../third_party/jsonspirit"
+		"../../../",
 	},{	-- extern_libs
 		"boost",
 		"iconv",
-		"libxml2"
+		"libxml2",
+		"sdl",
+		"spidermonkey",
+		"cxxtest",
 	},{	-- extra_params
 		no_pch = 1
 	})
@@ -1249,17 +1338,10 @@ function setup_atlas_projects()
 		"wxwidgets",
 		"zlib",
 	}
-	if not os.istarget("windows") and not os.istarget("macosx") then
-		-- X11 should only be linked on *nix
-		table.insert(atlas_extern_libs, "x11")
-	end
 
 	setup_atlas_project("AtlasUI", "SharedLib", atlas_src,
 	{	-- include
-		"..",
-		"CustomControls",
-		"Misc",
-		"../../../third_party/jsonspirit"
+		"../../..",
 	},
 	atlas_extern_libs,
 	{	-- extra_params
@@ -1289,7 +1371,10 @@ function setup_atlas_frontend_project (project_name)
 	-- Platform Specifics
 	if os.istarget("windows") then
 		-- see manifest.cpp
-		project_add_manifest()
+		project_add_manifest(arch)
+		if arch == "amd64" then
+			architecture("x86_64")
+		end
 
 	else -- Non-Windows, = Unix
 		links { "AtlasObject" }
@@ -1325,6 +1410,9 @@ function setup_collada_project(project_name, target_type, rel_source_dirs, rel_i
 	-- Platform Specifics
 	if os.istarget("windows") then
 		characterset "MBCS"
+		if arch == "amd64" then
+			architecture("x86_64")
+		end
 	elseif os.istarget("linux") then
 		defines { "LINUX" }
 
@@ -1336,7 +1424,6 @@ function setup_collada_project(project_name, target_type, rel_source_dirs, rel_i
 		-- (TODO: It'd be nice to fix FCollada, but that looks hard)
 		buildoptions { "-fno-strict-aliasing" }
 		if os.getversion().description ~= "FreeBSD" then
-			buildoptions { "-rdynamic" }
 			linkoptions { "-rdynamic" }
 		end
 
@@ -1353,7 +1440,6 @@ function setup_collada_project(project_name, target_type, rel_source_dirs, rel_i
 
 		buildoptions { "-fno-strict-aliasing" }
 
-		buildoptions { "-rdynamic" }
 		linkoptions { "-rdynamic" }
 
 	elseif os.istarget("macosx") then
@@ -1399,12 +1485,14 @@ function setup_tests()
 	if os.istarget("windows") then
 		cxxtest.setpath(rootdir.."/build/bin/cxxtestgen.exe")
 	else
-		cxxtest.setpath(rootdir.."/libraries/source/cxxtest-4.4/bin/cxxtestgen")
-	end
-
-	local runner = "ErrorPrinter"
-	if _OPTIONS["jenkins-tests"] then
-		runner = "XmlPrinter"
+		if _OPTIONS["with-system-cxxtest"] then
+			local handle = io.popen("command -v cxxtestgen")
+			local cxxtestgen = handle:read("*a"):gsub("\n", " ")
+			handle:close()
+			cxxtest.setpath(cxxtestgen)
+		else
+			cxxtest.setpath(rootdir.."/libraries/source/cxxtest-4.4/bin/cxxtestgen")
+		end
 	end
 
 	local include_files = {
@@ -1422,7 +1510,7 @@ function setup_tests()
 		table.insert(test_root_include_files, "lib/external_libraries/libsdl.h")
 	end
 
-	cxxtest.init(source_root, true, runner, include_files, test_root_include_files)
+	cxxtest.init(true, true, nil, include_files, test_root_include_files)
 
 	local target_type = get_main_project_target_type()
 	project_create("test", target_type)
@@ -1434,7 +1522,7 @@ function setup_tests()
 		-- Don't include sysdep tests on the wrong sys
 		-- Don't include Atlas tests unless Atlas is being built
 		if not (string.find(v, "/sysdep/os/win/") and not os.istarget("windows")) and
-		   not (string.find(v, "/tools/atlas/") and not _OPTIONS["atlas"]) and
+		   not (string.find(v, "/tools/atlas/") and _OPTIONS["without-atlas"]) and
 		   not (string.find(v, "/sysdep/arch/x86_x64/") and ((arch ~= "amd64") or (arch ~= "x86")))
 		then
 			table.insert(test_files, v)
@@ -1454,8 +1542,7 @@ function setup_tests()
 		links { static_lib_names_release }
 	filter { }
 
-	links { "mocks_test" }
-	if _OPTIONS["atlas"] then
+	if not _OPTIONS["without-atlas"] then
 		links { "AtlasObject" }
 	end
 	extra_params = {
@@ -1481,7 +1568,10 @@ function setup_tests()
 
 		links { "delayimp" }
 
-		project_add_manifest()
+		project_add_manifest(arch)
+		if arch == "amd64" then
+			architecture("x86_64")
+		end
 
 	elseif os.istarget("linux") or os.istarget("bsd") then
 
@@ -1504,6 +1594,11 @@ function setup_tests()
 				-- Dynamic libraries (needed for linking for gold)
 				"dl",
 			}
+
+			if arch == "riscv64" then
+				-- Needed to resolve __atomic_load_16 et al.
+				links { "atomic" }
+			end
 		end
 
 		-- Threading support
@@ -1549,7 +1644,7 @@ project("pyrogenesis") -- Set the main project active
 		links { static_lib_names_release }
 	filter { }
 
-if _OPTIONS["atlas"] then
+if not _OPTIONS["without-atlas"] then
 	setup_atlas_projects()
 	setup_atlas_frontends()
 end

@@ -1,4 +1,4 @@
-/* Copyright (C) 2020 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -21,15 +21,19 @@
  */
 
 #include "precompiled.h"
-#include "lib/sysdep/arch/x86_x64/apic.h"
+
+#include "apic.h"
 
 #include "lib/bits.h"
+#include "lib/debug.h"
 #include "lib/module_init.h"
+#include "lib/status.h"
+#include "lib/sysdep/arch/x86_x64/x86_x64.h"
 #include "lib/sysdep/cpu.h"	// ERR::CPU_FEATURE_MISSING
 #include "lib/sysdep/os_cpu.h"
-#include "lib/sysdep/arch/x86_x64/x86_x64.h"
 
 #include <algorithm>
+#include <cstdint>
 
 ApicId GetApicId()
 {
@@ -37,8 +41,8 @@ ApicId GetApicId()
 	regs.eax = 1;
 	// note: CPUID function 1 is always supported, but only processors with
 	// an xAPIC (e.g. P4/Athlon XP) will return a nonzero ID.
-	bool ok = x86_x64::cpuid(&regs);
-	ASSERT(ok); UNUSED2(ok);
+	[[maybe_unused]] bool ok = x86_x64::cpuid(&regs);
+	ASSERT(ok);
 	const u8 apicId = (u8)bits(regs.ebx, 24, 31);
 	return apicId;
 }
@@ -53,7 +57,7 @@ static Status GetAndValidateApicIds()
 	numIds = os_cpu_NumProcessors();
 	struct StoreEachProcessorsApicId
 	{
-		static void Callback(size_t processor, uintptr_t UNUSED(data))
+		static void Callback(size_t processor, uintptr_t /*data*/)
 		{
 			processorApicIds[processor] = GetApicId();
 		}
@@ -100,7 +104,7 @@ static Status InitApicIds()
 	return status;
 }
 
-static ModuleInitState apicInitState;
+static ModuleInitState apicInitState{ 0 };
 
 
 bool AreApicIdsReliable()

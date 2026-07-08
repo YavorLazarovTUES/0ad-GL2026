@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,15 +17,30 @@
 
 #include "precompiled.h"
 
-#include "ps/Util.h"
+#include "Util.h"
 
+#include "lib/allocators/dynarray.h"
 #include "lib/allocators/shared_ptr.h"
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
+#include "lib/file/file_system.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/path.h"
+#include "lib/posix/posix_types.h"
+#include "lib/secure_crt.h"
 #include "lib/tex/tex.h"
-#include "ps/CLogger.h"
+#include "lib/utf8.h"
 #include "ps/Filesystem.h"
 #include "ps/Pyrogenesis.h"
 
+#include <ctime>
+#include <filesystem>
 #include <iomanip>
+#include <memory>
+#include <sstream>
+#include <tuple>
+
+struct tm;
 
 // not thread-safe!
 static const wchar_t* HardcodedErrorString(int err)
@@ -68,7 +83,7 @@ Status tex_write(Tex* t, const VfsPath& filename)
 			ret = (Status)bytes_written;
 	}
 
-	ignore_result(da_free(&da));
+	std::ignore = da_free(&da);
 	return ret;
 }
 
@@ -90,10 +105,10 @@ OsPath createDateIndexSubdirectory(const OsPath& parentDir)
 
 	do
 	{
-		sprintf(directory, "%04d-%02d-%02d_%04d", now->tm_year+1900, now->tm_mon+1, now->tm_mday, ++i);
+		sprintf_s(directory, ARRAY_SIZE(directory), "%04d-%02d-%02d_%04d", now->tm_year+1900, now->tm_mon+1, now->tm_mday, ++i);
 		path = parentDir / CStr(directory);
 
-		if (DirectoryExists(path) || FileExists(path))
+		if (DirectoryExists(path) || std::filesystem::is_regular_file(path.string()))
 			continue;
 
 		if (CreateDirectories(path, 0700, ++tries > maxTries) == INFO::OK)

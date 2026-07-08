@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,15 +18,21 @@
 #ifndef INCLUDED_CCMPUNITMOTIONMANAGER
 #define INCLUDED_CCMPUNITMOTIONMANAGER
 
-#include "simulation2/system/Component.h"
-#include "ICmpUnitMotionManager.h"
-
-#include "simulation2/MessageTypes.h"
-#include "simulation2/components/ICmpTerrain.h"
+#include "maths/Fixed.h"
+#include "maths/FixedVector2D.h"
+#include "simulation2/components/ICmpUnitMotionManager.h"
 #include "simulation2/helpers/Grid.h"
+#include "simulation2/helpers/Position.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
 #include "simulation2/system/EntityMap.h"
 
+#include <cstdint>
+#include <string>
+#include <vector>
+
 class CCmpUnitMotion;
+class ICmpPosition;
 
 class CCmpUnitMotionManager final : public ICmpUnitMotionManager
 {
@@ -125,7 +131,7 @@ public:
 		return "<a:component type='system'/><empty/>";
 	}
 
-	void Init(const CParamNode& UNUSED(paramNode)) override;
+	void Init(const CParamNode&) override;
 
 	void Deinit() override
 	{

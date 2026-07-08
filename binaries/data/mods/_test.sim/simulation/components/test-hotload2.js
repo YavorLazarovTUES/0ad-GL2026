@@ -2,11 +2,13 @@ function HotloadA() {}
 
 HotloadA.prototype.Schema = "<ref name='anything'/>";
 
-HotloadA.prototype.Init = function() {
+HotloadA.prototype.Init = function()
+{
 	this.x = +this.template.x;
 };
 
-HotloadA.prototype.GetX = function() {
+HotloadA.prototype.GetX = function()
+{
 	return this.x*10;
 };
 

@@ -4,11 +4,13 @@
  */
 class SavegameWriter
 {
-	constructor(savedGameData)
+	constructor(closePageCallback, savedGameData)
 	{
+		this.closePageCallback = closePageCallback;
 		this.savedGameData = savedGameData;
 
-		let saveNew = () => {
+		const saveNew = () =>
+		{
 			this.saveGame();
 		};
 
@@ -20,7 +22,8 @@ class SavegameWriter
 		this.saveGameDesc.hidden = false;
 		this.saveGameDesc.onPress = saveNew;
 		this.descriptionChanged = false;
-		this.saveGameDesc.onTextEdit = () => {
+		this.saveGameDesc.onTextEdit = () =>
+		{
 			this.descriptionChanged = true;
 		};
 	}
@@ -29,15 +32,16 @@ class SavegameWriter
 	{
 		if (!this.descriptionChanged && metadata && typeof metadata.description === "string")
 			this.saveGameDesc.caption = metadata.description;
-		this.confirmButton.onPress = () => {
+		this.confirmButton.onPress = () =>
+		{
 			this.saveGame(gameID, label);
 		};
 	}
 
 	async saveGame(gameID, label)
 	{
-		let desc = this.saveGameDesc.caption;
-		let name = gameID || "savegame";
+		const desc = this.saveGameDesc.caption;
+		const name = gameID || "savegame";
 
 		if (gameID)
 		{
@@ -52,12 +56,12 @@ class SavegameWriter
 				return;
 		}
 
-		let simulationState = Engine.GuiInterfaceCall("GetSimulationState");
+		const simulationState = Engine.GuiInterfaceCall("GetSimulationState");
 		this.savedGameData.timeElapsed = simulationState.timeElapsed;
 		this.savedGameData.states = simulationState.players.map(pState => pState.state);
 
 		Engine[gameID ? "SaveGame" : "SaveGamePrefix"](name, desc, this.savedGameData);
 
-		Engine.PopGuiPage();
+		this.closePageCallback();
 	}
 }

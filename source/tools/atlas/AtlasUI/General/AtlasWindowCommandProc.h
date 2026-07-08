@@ -1,4 +1,4 @@
-/* Copyright (C) 2009 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,7 +18,9 @@
 #ifndef INCLUDED_ATLASWINDOWCOMMANDPROC
 #define INCLUDED_ATLASWINDOWCOMMANDPROC
 
-#include "wx/cmdproc.h"
+#include <wx/cmdproc.h>
+
+class wxWindow;
 
 class AtlasWindowCommandProc : public wxCommandProcessor
 {

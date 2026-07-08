@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,11 +18,16 @@
 #ifndef INCLUDED_RENDERER_BACKEND_DUMMY_DEVICECOMMANDCONTEXT
 #define INCLUDED_RENDERER_BACKEND_DUMMY_DEVICECOMMANDCONTEXT
 
-#include "renderer/backend/Format.h"
+#include "lib/types.h"
 #include "renderer/backend/IDeviceCommandContext.h"
-#include "renderer/backend/PipelineState.h"
 
+#include <cstddef>
+#include <cstdint>
+#include <functional>
 #include <memory>
+#include <span>
+
+namespace Renderer::Backend::Dummy { class CDevice; }
 
 namespace Renderer
 {
@@ -32,12 +37,6 @@ namespace Backend
 
 namespace Dummy
 {
-
-class CDevice;
-class CBuffer;
-class CFramebuffer;
-class CShaderProgram;
-class CTexture;
 
 class CDeviceCommandContext : public IDeviceCommandContext
 {
@@ -60,7 +59,8 @@ public:
 	void BeginFramebufferPass(IFramebuffer* framebuffer) override;
 	void EndFramebufferPass() override;
 	void ReadbackFramebufferSync(
-		const uint32_t x, const uint32_t y, const uint32_t width, const uint32_t height,
+		ISwapChain& swapChain, const uint32_t x, const uint32_t y,
+		const uint32_t width, const uint32_t height,
 		void* data) override;
 
 	void UploadTexture(ITexture* texture, const Format dataFormat,
@@ -120,9 +120,14 @@ public:
 		const uint32_t groupCountY,
 		const uint32_t groupCountZ) override;
 
+	void InsertMemoryBarrier(
+		const uint32_t srcStageMask, const uint32_t dstStageMask,
+		const uint32_t srcAccessMask, const uint32_t dstAccessMask) override;
+
 	void SetTexture(const int32_t bindingSlot, ITexture* texture) override;
 
 	void SetStorageTexture(const int32_t bindingSlot, ITexture* texture) override;
+	void SetStorageBuffer(const int32_t bindingSlot, IBuffer* buffer) override;
 
 	void SetUniform(
 		const int32_t bindingSlot,
@@ -139,7 +144,9 @@ public:
 		const float valueX, const float valueY,
 		const float valueZ, const float valueW) override;
 	void SetUniform(
-		const int32_t bindingSlot, PS::span<const float> values) override;
+		const int32_t bindingSlot, std::span<const float> values) override;
+
+	void InsertTimestampQuery(const uint32_t handle, const bool isScopeBegin) override;
 
 	void BeginScopedLabel(const char* name) override;
 	void EndScopedLabel() override;

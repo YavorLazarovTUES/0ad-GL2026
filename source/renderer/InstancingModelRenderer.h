@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,6 +25,8 @@
 
 #include "renderer/ModelVertexRenderer.h"
 
+#include <span>
+
 struct InstancingModelRendererInternals;
 
 /**
@@ -35,16 +37,19 @@ struct InstancingModelRendererInternals;
 class InstancingModelRenderer : public ModelVertexRenderer
 {
 public:
-	InstancingModelRenderer(bool gpuSkinning, bool calculateTangents);
+	InstancingModelRenderer();
 	~InstancingModelRenderer();
 
 	// Implementations
 	CModelRData* CreateModelData(const void* key, CModel* model) override;
-	void UpdateModelData(CModel* model, CModelRData* data, int updateflags) override;
-
-	void UploadModelData(
+	void UpdateModelsData(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-		CModel* model, CModelRData* data) override;
+		std::span<CModel*> models) override;
+
+	void UploadModelsData(
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
+		std::span<CModel*> models) override;
+
 	void PrepareModelDef(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		const CModelDef& def) override;

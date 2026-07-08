@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,13 +17,15 @@
 
 #include "precompiled.h"
 
-#include "simulation2/system/Component.h"
 #include "ICmpVision.h"
 
 #include "simulation2/MessageTypes.h"
-#include "simulation2/components/ICmpPlayerManager.h"
-#include "simulation2/components/ICmpRangeManager.h"
 #include "simulation2/components/ICmpValueModificationManager.h"
+#include "simulation2/helpers/Position.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Message.h"
+
+#include <string>
 
 class CCmpVision final : public ICmpVision
 {
@@ -72,17 +74,17 @@ public:
 	{
 	}
 
-	void Serialize(ISerializer& UNUSED(serialize)) override
+	void Serialize(ISerializer&) override
 	{
 		// No dynamic state to serialize
 	}
 
-	void Deserialize(const CParamNode& paramNode, IDeserializer& UNUSED(deserialize)) override
+	void Deserialize(const CParamNode& paramNode, IDeserializer&) override
 	{
 		Init(paramNode);
 	}
 
-	void HandleMessage(const CMessage& msg, bool UNUSED(global)) override
+	void HandleMessage(const CMessage& msg, bool /*global*/) override
 	{
 		switch (msg.GetType())
 		{
@@ -113,7 +115,7 @@ public:
 		}
 	}
 
-	virtual void ReloadRange()
+	void ReloadRange()
 	{
 		CmpPtr<ICmpValueModificationManager> cmpValueModificationManager(GetSystemEntity());
 		if (!cmpValueModificationManager)

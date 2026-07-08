@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,11 +19,11 @@
 
 #include "MessageHandler.h"
 
-#include "../CommandProc.h"
-
+#include "graphics/Color.h"
 #include "graphics/LightEnv.h"
 #include "graphics/Terrain.h"
-#include "maths/MathUtil.h"
+#include "lib/debug.h"
+#include "maths/Vector3D.h"
 #include "ps/CStr.h"
 #include "ps/Game.h"
 #include "ps/World.h"
@@ -32,8 +32,18 @@
 #include "renderer/SceneRenderer.h"
 #include "renderer/SkyManager.h"
 #include "renderer/WaterManager.h"
-#include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpWaterManager.h"
+#include "simulation2/helpers/Position.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+#include "tools/atlas/GameInterface/CommandProc.h"
+#include "tools/atlas/GameInterface/Messages.h"
+#include "tools/atlas/GameInterface/Shareable.h"
+#include "tools/atlas/GameInterface/SharedTypes.h"
+
+#include <numbers>
+#include <string>
+#include <vector>
 
 namespace AtlasMessage {
 
@@ -59,8 +69,8 @@ sEnvironmentSettings GetSettings()
 #undef COLOR
 
 	float sunrotation = g_LightEnv.GetRotation();
-	if (sunrotation > (float)M_PI)
-		sunrotation -= (float)M_PI*2;
+	if (sunrotation > std::numbers::pi_v<float>)
+		sunrotation -= 2.f * std::numbers::pi_v<float>;
 	s.sunrotation = sunrotation;
 	s.sunelevation = g_LightEnv.GetElevation();
 

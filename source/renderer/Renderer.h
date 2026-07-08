@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,17 +18,12 @@
 #ifndef INCLUDED_RENDERER
 #define INCLUDED_RENDERER
 
-#include "graphics/Camera.h"
-#include "graphics/ShaderDefines.h"
-#include "graphics/ShaderProgramPtr.h"
-#include "ps/containers/Span.h"
 #include "ps/Singleton.h"
-#include "renderer/backend/IDeviceCommandContext.h"
-#include "renderer/backend/IShaderProgram.h"
 #include "renderer/RenderingOptions.h"
-#include "renderer/Scene.h"
 
+#include <cstring>
 #include <memory>
+#include <span>
 
 class CDebugRenderer;
 class CFontManager;
@@ -38,8 +33,12 @@ class CShaderManager;
 class CTextureManager;
 class CTimeManager;
 class CVertexBufferManager;
-
-#define g_Renderer CRenderer::GetSingleton()
+namespace PS::Memory { class LinearAllocator; }
+namespace Renderer::Backend { class IDevice; }
+namespace Renderer::Backend { class IDeviceCommandContext; }
+namespace Renderer::Backend { class ISwapChain; }
+namespace Renderer::Backend { class IVertexInputLayout; }
+namespace Renderer::Backend { struct SVertexAttributeFormat; }
 
 /**
  * Higher level interface on top of the whole frame rendering. It does know
@@ -145,27 +144,30 @@ public:
 	 * TODO: we need to make VertexArray less error prone by passing layout.
 	 */
 	Renderer::Backend::IVertexInputLayout* GetVertexInputLayout(
-		const PS::span<const Renderer::Backend::SVertexAttributeFormat> attributes);
+		const std::span<const Renderer::Backend::SVertexAttributeFormat> attributes);
+
+	/**
+	 * Currently using the linear allocated is allowed in small scopes to avoid
+	 * high memory overhead. To validate that use PS::Memory::ScopedLinearAllocator.
+	 */
+	PS::Memory::LinearAllocator& GetLinearAllocator();
 
 protected:
-	friend class CPatchRData;
 	friend class CDecalRData;
-	friend class HWLightingModelRenderer;
-	friend class ShaderModelVertexRenderer;
-	friend class InstancingModelRenderer;
+	friend class CPatchRData;
+	friend class CPUSkinnedModelVertexRenderer;
 	friend class CRenderingOptions;
+	friend class GPUSkinnedModelModelRenderer;
+	friend class InstancingModelRenderer;
 
 	bool ShouldRender() const;
 
-	void RenderFrameImpl(const bool renderGUI, const bool renderLogger);
+	void RenderFrameImpl(
+		Renderer::Backend::ISwapChain& swapChain,
+		const bool renderGUI, const bool renderLogger);
 	void RenderFrame2D(const bool renderGUI, const bool renderLogger);
 	void RenderScreenShot(const bool needsPresent);
 	void RenderBigScreenShot(const bool needsPresent);
-
-	// SetRenderPath: Select the preferred render path.
-	// This may only be called before Open(), because the layout of vertex arrays and other
-	// data may depend on the chosen render path.
-	void SetRenderPath(RenderPath rp);
 
 	void ReloadShaders();
 
@@ -181,8 +183,8 @@ protected:
 	Stats m_Stats;
 
 	bool m_ShouldPreloadResourcesBeforeNextFrame = false;
-
-	ScreenShotType m_ScreenShotType = ScreenShotType::NONE;
 };
+
+#define g_Renderer CRenderer::GetSingleton()
 
 #endif // INCLUDED_RENDERER

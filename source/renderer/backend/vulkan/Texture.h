@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,13 +18,17 @@
 #ifndef INCLUDED_RENDERER_BACKEND_VULKAN_TEXTURE
 #define INCLUDED_RENDERER_BACKEND_VULKAN_TEXTURE
 
+#include "renderer/backend/Format.h"
 #include "renderer/backend/ITexture.h"
-#include "renderer/backend/Sampler.h"
 #include "renderer/backend/vulkan/DeviceObjectUID.h"
 #include "renderer/backend/vulkan/VMA.h"
 
+#include <cstdint>
 #include <glad/vulkan.h>
 #include <memory>
+
+namespace Renderer::Backend::Sampler { struct Desc; }
+namespace Renderer::Backend::Vulkan { class CDevice; }
 
 namespace Renderer
 {
@@ -34,8 +38,6 @@ namespace Backend
 
 namespace Vulkan
 {
-
-class CDevice;
 
 class CTexture final : public ITexture
 {

@@ -14,7 +14,6 @@
         <prop actor="particle/flame_firepit_2.xml" attachpoint="fire_2"/>
         <prop actor="props/structures/seleucids/wonder_relief.xml" attachpoint="root"/>
         <prop actor="props/structures/seleucids/wonder_statue.xml" attachpoint="root"/>
-        <prop actor="props/structures/seleucids/wonder_statue_head.xml" attachpoint="root"/>
         <prop actor="flora/trees/mediterranean_cypress.xml" attachpoint="bush" maxheight="20" minheight="-20"/>
         <prop actor="props/flora/grass_soft_small_tall.xml" attachpoint="bush" maxheight="20" minheight="-20"/>
         <prop actor="flora/trees/mediterranean_cypress.xml" attachpoint="bush_1" maxheight="20" minheight="-20"/>
@@ -51,7 +50,7 @@
     <variant name="ungarrisoned" frequency="1"/>
     <variant name="garrisoned">
       <props>
-        <prop actor="props/special/common/garrison_flag_seleucids.xml" attachpoint="garrisoned"/>
+        <prop actor="props/special/common/garrison_flag_seleucids.xml" attachpoint="garrisoned" selectable="false"/>
       </props>
     </variant>
   </group>

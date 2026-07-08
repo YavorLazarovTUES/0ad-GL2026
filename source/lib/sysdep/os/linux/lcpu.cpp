@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -23,10 +23,20 @@
 #include "precompiled.h"
 
 #include "lib/sysdep/os_cpu.h"
+
 #include "lib/alignment.h"
 #include "lib/bits.h"
 #include "lib/config2.h"
+#include "lib/debug.h"
 #include "lib/module_init.h"
+#include "lib/posix/posix_pthread.h"
+#include "lib/posix/posix_types.h"
+#include "lib/status.h"
+#include "lib/sysdep/os.h"
+
+#include <cerrno>
+#include <cstddef>
+#include <cstdint>
 
 #if CONFIG2_VALGRIND
 # include "valgrind.h"
@@ -105,7 +115,7 @@ size_t os_cpu_MemoryAvailable()
 // the current Android NDK (r7-crystax-4) doesn't support sched_setaffinity,
 // so provide a stub implementation instead
 
-uintptr_t os_cpu_SetThreadAffinityMask(uintptr_t UNUSED(processorMask))
+uintptr_t os_cpu_SetThreadAffinityMask(uintptr_t /*processorMask*/)
 {
 	// not yet implemented
 	return os_cpu_ProcessorMask();
@@ -116,7 +126,7 @@ uintptr_t os_cpu_SetThreadAffinityMask(uintptr_t UNUSED(processorMask))
 // glibc __CPU_SETSIZE=1024 is smaller than required on some Linux (4096),
 // but the CONFIG_NR_CPUS in a header may not reflect the actual kernel,
 // so we have to detect the limit at runtime.
-// (see http://trac.wildfiregames.com/ticket/547 for additional information)
+// (see https://gitea.wildfiregames.com/0ad/0ad/issues/547 for additional information)
 static size_t maxCpus;
 
 static bool IsMaxCpusSufficient()

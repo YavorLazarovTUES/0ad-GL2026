@@ -3,7 +3,7 @@
  */
 class Menu
 {
-	constructor(pauseControl, playerViewControl, chat)
+	constructor(pauseControl, playerViewControl, chat, closePageCallback)
 	{
 		this.menuButton = Engine.GetGUIObjectByName("menuButton");
 		this.menuButton.onPress = this.toggle.bind(this);
@@ -13,27 +13,26 @@ class Menu
 		this.lastTick = undefined;
 
 		this.menuButtonPanel = Engine.GetGUIObjectByName("menuButtonPanel");
-		let menuButtons = this.menuButtonPanel.children;
+		const menuButtons = this.menuButtonPanel.children;
 		this.margin = menuButtons[0].size.top;
 		this.buttonHeight = menuButtons[0].size.bottom;
 
-		let handlerNames = this.getHandlerNames();
+		const handlerNames = this.getHandlerNames();
 		if (handlerNames.length > menuButtons.length)
 			throw new Error(
 				"There are " + handlerNames.length + " menu buttons defined, " +
-				"but only " + menuButtons.length  + " objects!");
+				"but only " + menuButtons.length + " objects!");
 
-		this.buttons = handlerNames.map((handlerName, i) => {
-			let handler = new MenuButtons.prototype[handlerName](menuButtons[i], pauseControl, playerViewControl, chat);
-			this.initButton(handler, menuButtons[i], i);
+		this.buttons = handlerNames.map((handlerName, i) =>
+		{
+			const handler = new MenuButtons.prototype[handlerName](menuButtons[i], pauseControl, playerViewControl, chat);
+			this.initButton(handler, menuButtons[i], i, closePageCallback);
 			return handler;
 		});
 
 		this.endPosition = this.margin + this.buttonHeight * (1 + handlerNames.length);
-		let size = this.menuButtonPanel.size;
-		size.top = -this.endPosition;
-		size.bottom = 0;
-		this.menuButtonPanel.size = size;
+		this.menuButtonPanel.size.top = -this.endPosition;
+		this.menuButtonPanel.size.bottom = 0;
 	}
 
 	rebuild()
@@ -63,18 +62,15 @@ class Menu
 		this.startAnimation();
 	}
 
-	initButton(handler, button, i)
+	initButton(handler, button, i, closePageCallback)
 	{
-		button.onPress = () => {
+		button.onPress = () =>
+		{
 			this.close();
-			handler.onPress();
+			handler.onPress(closePageCallback);
 		};
-
-		let size = button.size;
-		size.top = this.buttonHeight * (i + 1) + this.margin;
-		size.bottom = this.buttonHeight * (i + 2);
-		button.size = size;
-
+		button.size.top = this.buttonHeight * (i + 1) + this.margin;
+		button.size.bottom = this.buttonHeight * (i + 2);
 		button.hidden = false;
 	}
 
@@ -89,14 +85,14 @@ class Menu
 	 */
 	onTick()
 	{
-		let tickLength = Date.now() - this.lastTick;
+		const tickLength = Date.now() - this.lastTick;
 		this.lastTick = Date.now();
 
-		let maxOffset =
+		const maxOffset =
 			this.endPosition + (
-			this.isOpen ?
-				-this.menuButtonPanel.size.bottom :
-				+this.menuButtonPanel.size.top);
+				this.isOpen ?
+					-this.menuButtonPanel.size.bottom :
+					+this.menuButtonPanel.size.top);
 
 
 		if (maxOffset <= 0)
@@ -105,11 +101,9 @@ class Menu
 			return;
 		}
 
-		let offset = Math.min(this.Speed * tickLength, maxOffset) * (this.isOpen ? +1 : -1);
-		let size = this.menuButtonPanel.size;
-		size.top += offset;
-		size.bottom += offset;
-		this.menuButtonPanel.size = size;
+		const offset = Math.min(this.Speed * tickLength, maxOffset) * (this.isOpen ? +1 : -1);
+		this.menuButtonPanel.size.top += offset;
+		this.menuButtonPanel.size.bottom += offset;
 	}
 }
 

@@ -9,18 +9,22 @@ function setupBiome_nubia()
 	]);
 
 	g_Gaia.tree3 = pickRandom([
-			"gaia/tree/baobab_4_dead",
-			"gaia/tree/baobab_3_mature"
+		"gaia/tree/baobab_4_dead",
+		"gaia/tree/baobab_3_mature"
 	]);
 
 	[g_Gaia.tree4, g_Gaia.tree5] = pickRandom([
 		[
 			"gaia/tree/date_palm",
-			"gaia/tree/bush_tropic"
+			"gaia/tree/acacia"
 		],
 		[
-			"gaia/tree/bush_tropic",
+			"gaia/tree/date_palm",
 			"gaia/tree/palm_doum"
-		]
+		],
+		[
+			"gaia/tree/baobab_3_mature",
+			"gaia/tree/bush_tropic"
+		],
 	]);
 }

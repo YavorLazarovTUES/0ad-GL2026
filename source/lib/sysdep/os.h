@@ -1,4 +1,4 @@
-/* Copyright (C) 2012 Wildfire Games.
+/* Copyright (C) 2024 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -38,14 +38,15 @@
 
 // Windows
 #if defined(_WIN64)
+# define OS_WIN 1
 # define OS_WIN64 1
 #else
 # define OS_WIN64 0
-#endif
 #if defined(_WIN32)
 # define OS_WIN 1
 #else
 # define OS_WIN 0
+#endif
 #endif
 // Linux
 #if defined(linux) || defined(__linux) || defined(__linux__)
@@ -89,12 +90,6 @@
 # define OS_BEOS 1
 #else
 # define OS_BEOS 0
-#endif
-// Mac OS 9 or below
-#if defined(macintosh)
-# define OS_MAC 1
-#else
-# define OS_MAC 0
 #endif
 // Amiga
 #if defined(AMIGA)

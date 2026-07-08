@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,10 +18,16 @@
 #ifndef INCLUDED_ICMPUNITMOTION
 #define INCLUDED_ICMPUNITMOTION
 
+#include "maths/Fixed.h"
+#include "maths/FixedVector2D.h"
+#include "simulation2/helpers/Pathfinding.h"
+#include "simulation2/helpers/Position.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
 #include "simulation2/system/Interface.h"
 
-#include "simulation2/components/ICmpPathfinder.h" // for pass_class_t
-#include "simulation2/components/ICmpPosition.h" // for entity_pos_t
+#include <js/Value.h>
+#include <string>
 
 /**
  * Motion interface for entities with complex movement capabilities.
@@ -77,6 +83,13 @@ public:
 	virtual bool IsTargetRangeReachable(entity_id_t target, entity_pos_t minRange, entity_pos_t maxRange) = 0;
 
 	/**
+	 * Returns true if we are possibly at our destination.
+	 * Since the concept of being at destination is dependent on why the move was requested,
+	 * UnitMotion can only ever hint about this, hence the conditional tone.
+	 */
+	virtual bool PossiblyAtDestination() const = 0;
+
+	/**
 	 * Turn to look towards the given point.
 	 */
 	virtual void FaceTowardsPoint(entity_pos_t x, entity_pos_t z) = 0;
@@ -92,9 +105,26 @@ public:
 	virtual fixed GetCurrentSpeed() const = 0;
 
 	/**
+	 * Set the speed.
+	 */
+	virtual void SetCurrentSpeed(const fixed& speed) = 0;
+
+	/**
+	* Get the current formation offset if this unit is moving as a formation member.
+	* @returns std::nullopt if the unit is not in formation movement mode,
+	*          otherwise returns the formation offset.
+	*/
+	virtual std::optional<CFixedVector2D> GetFormationOffset() const = 0;
+
+	/**
 	 * @returns true if the unit has a destination.
 	 */
 	virtual bool IsMoveRequested() const = 0;
+
+	/**
+	 * @returns true if the unit is moving orderly in it's Formation.
+	 */
+	virtual bool IsMovingAsFormation() const = 0;
 
 	/**
 	 * Get the unit template walk speed after modifications.

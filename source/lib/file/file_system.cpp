@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -26,180 +26,148 @@
 
 #include "precompiled.h"
 
+#include "file_system.h"
+
 #include "lib/debug.h"
-#include "lib/file/file_system.h"
+#include "lib/posix/posix_filesystem.h"
 
-#include "lib/sysdep/filesystem.h"
-
-#include <boost/filesystem.hpp>
-#include <boost/version.hpp>
-#include <memory>
+#include <chrono>
+#include <filesystem>
 
 bool DirectoryExists(const OsPath& path)
 {
-	WDIR* dir = wopendir(path);
-	if(dir)
+	try
 	{
-		wclosedir(dir);
-		return true;
+		return std::filesystem::is_directory(path.string());
+	}
+	catch (std::filesystem::filesystem_error& err)
+	{
+		debug_printf("DirectoryExists: failed to check if directory '%s' exists, reason: %s\n", path.string8().c_str(), err.what());
 	}
 	return false;
 }
 
 
-bool FileExists(const OsPath& pathname)
-{
-	struct stat s;
-	const bool exists = wstat(pathname, &s) == 0;
-	return exists;
-}
-
-
-u64 FileSize(const OsPath& pathname)
-{
-	struct stat s;
-	ENSURE(wstat(pathname, &s) == 0);
-	return s.st_size;
-}
-
-
 Status GetFileInfo(const OsPath& pathname, CFileInfo* pPtrInfo)
 {
-	errno = 0;
-	struct stat s;
-	memset(&s, 0, sizeof(s));
-	if(wstat(pathname, &s) != 0)
-		WARN_RETURN(StatusFromErrno());
-
-	*pPtrInfo = CFileInfo(pathname.Filename(), s.st_size, s.st_mtime);
+	try
+	{
+		const std::filesystem::path path{pathname.string()};
+		*pPtrInfo = CFileInfo(path.filename().wstring(), static_cast<u64>(std::filesystem::file_size(path)),
+			static_cast<time_t>(std::chrono::duration_cast<std::chrono::seconds>(std::filesystem::last_write_time(path).time_since_epoch()).count()));
+	}
+	catch (std::filesystem::filesystem_error& err)
+	{
+		debug_printf("GetFileInfo: failed to get file info for '%s', reason: %s\n", pathname.string8().c_str(), err.what());
+		return ERR::EXCEPTION;
+	}
 	return INFO::OK;
 }
-
-
-struct DirDeleter
-{
-	void operator()(WDIR* osDir) const
-	{
-		const int ret = wclosedir(osDir);
-		ENSURE(ret == 0);
-	}
-};
 
 Status GetDirectoryEntries(const OsPath& path, CFileInfos* files, DirectoryNames* subdirectoryNames)
 {
-	// open directory
-	errno = 0;
-	WDIR* pDir = wopendir(path);
-	if(!pDir)
-		return StatusFromErrno();	// NOWARN
-	std::shared_ptr<WDIR> osDir(pDir, DirDeleter());
-
-	for(;;)
+	try
 	{
-		errno = 0;
-		struct wdirent* osEnt = wreaddir(osDir.get());
-		if(!osEnt)
+		for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(path.string()))
 		{
-			// no error, just no more entries to return
-			if(!errno)
-				return INFO::OK;
-			WARN_RETURN(StatusFromErrno());
-		}
-
-		for(size_t i = 0; osEnt->d_name[i] != '\0'; i++)
-			RETURN_STATUS_IF_ERR(Path::Validate(osEnt->d_name[i]));
-		const OsPath name(osEnt->d_name);
-
-		// get file information (mode, size, mtime)
-		struct stat s;
-#if OS_WIN
-		// .. return wdirent directly (much faster than calling stat).
-		RETURN_STATUS_IF_ERR(wreaddir_stat_np(osDir.get(), &s));
-#else
-		// .. call regular stat().
-		errno = 0;
-		const OsPath pathname = path / name;
-		if(wstat(pathname, &s) != 0)
-		{
-			if(errno == ENOENT)
+			if (entry.is_directory() && entry.path().filename() != "." && entry.path().filename() != ".." && subdirectoryNames)
 			{
-				// TODO: This should be displayed to the user as a LOGWARNING when this code is
-				// moved to ps/
-				debug_printf("The path \"%s\" cannot be found. It is probably a dangling link "
-					"pointing to a non-existent path.\n", pathname.string8().c_str());
-				continue;
+				subdirectoryNames->emplace_back(entry.path().filename());
 			}
-			WARN_RETURN(StatusFromErrno());
+			else if (entry.is_regular_file() && files)
+			{
+				files->emplace_back(entry.path().filename().wstring(), static_cast<u64>(entry.file_size()),
+					static_cast<time_t>(std::chrono::duration_cast<std::chrono::seconds>(entry.last_write_time().time_since_epoch()).count()));
+			}
 		}
-#endif
-
-		if(files && S_ISREG(s.st_mode))
-			files->push_back(CFileInfo(name, s.st_size, s.st_mtime));
-		else if(subdirectoryNames && S_ISDIR(s.st_mode) && name != L"." && name != L"..")
-			subdirectoryNames->push_back(name);
 	}
+	catch (std::filesystem::filesystem_error& err)
+	{
+		debug_printf("GetDirectoryEntries: failed to get directory entries for'%s', reason: %s\n", path.string8().c_str(), err.what());
+		return ERR::EXCEPTION;
+	}
+	return INFO::OK;
 }
 
+namespace
+{
+
+std::filesystem::perms ModeTToPerms(mode_t mode)
+{
+	using std::filesystem::perms;
+	perms perm{perms::none};
+
+	if (mode | S_IRUSR)
+		perm |= perms::owner_read;
+	if (mode | S_IWUSR)
+		perm |= perms::owner_write;
+	if (mode | S_IXUSR)
+		perm |= perms::owner_exec;
+
+	if (mode | S_IRGRP)
+		perm |= perms::group_read;
+	if (mode | S_IWGRP)
+		perm |= perms::group_write;
+	if (mode | S_IXGRP)
+		perm |= perms::group_exec;
+
+	if (mode | S_IROTH)
+		perm |= perms::others_read;
+	if (mode | S_IWOTH)
+		perm |= perms::others_write;
+	if (mode | S_IXOTH)
+		perm |= perms::others_exec;
+
+	return perm;
+}
+
+Status CreateDirectoriesImpl(const std::filesystem::path& path, const std::filesystem::perms& perms)
+{
+	if (std::filesystem::exists(path))
+		return ERR::FAIL;
+
+	if (!std::filesystem::is_directory(path.parent_path()))
+	{
+		const Status status = CreateDirectoriesImpl(path.parent_path(), perms);
+		if (status != INFO::OK)
+			return status;
+	}
+
+	std::filesystem::create_directory(path);
+	std::filesystem::permissions(path, perms);
+	return INFO::OK;
+}
+
+} // namespace
 
 Status CreateDirectories(const OsPath& path, mode_t mode, bool breakpoint)
 {
-	if(path.empty())
-		return INFO::OK;
-
-	struct stat s;
-	if(wstat(path, &s) == 0)
+	try
 	{
-		if(!S_ISDIR(s.st_mode))	// encountered a file
-			WARN_RETURN(ERR::FAIL);
-		return INFO::OK;
+		return CreateDirectoriesImpl(std::filesystem::path(path.string()), ModeTToPerms(mode));
 	}
-
-	// If we were passed a path ending with '/', strip the '/' now so that
-	// we can consistently use Parent to find parent directory names
-	if(path.IsDirectory())
-		return CreateDirectories(path.Parent(), mode, breakpoint);
-
-	RETURN_STATUS_IF_ERR(CreateDirectories(path.Parent(), mode));
-
-	errno = 0;
-	if(wmkdir(path, mode) != 0)
+	catch (std::filesystem::filesystem_error& err)
 	{
-		debug_printf("CreateDirectories: failed to mkdir %s (mode %d)\n", path.string8().c_str(), mode);
+		debug_printf("CreateDirectories: failed to create directories '%s', reason: %s\n", path.string8().c_str(), err.what());
 		if (breakpoint)
-			WARN_RETURN(StatusFromErrno());
-		else
-			return StatusFromErrno();
+            WARN_RETURN(ERR::EXCEPTION);
+        else
+			return ERR::EXCEPTION;
 	}
-
-	return INFO::OK;
 }
 
 
 Status DeleteDirectory(const OsPath& path)
 {
-	// note: we have to recursively empty the directory before it can
-	// be deleted (required by Windows and POSIX rmdir()).
-
-	CFileInfos files; DirectoryNames subdirectoryNames;
-	RETURN_STATUS_IF_ERR(GetDirectoryEntries(path, &files, &subdirectoryNames));
-
-	// delete files
-	for(size_t i = 0; i < files.size(); i++)
+	try
 	{
-		const OsPath pathname = path / files[i].Name();
-		errno = 0;
-		if(wunlink(pathname) != 0)
-			WARN_RETURN(StatusFromErrno());
+		std::filesystem::remove_all(path.string());
 	}
-
-	// recurse over subdirectoryNames
-	for(size_t i = 0; i < subdirectoryNames.size(); i++)
-		RETURN_STATUS_IF_ERR(DeleteDirectory(path / subdirectoryNames[i]));
-
-	errno = 0;
-	if(wrmdir(path) != 0)
-		WARN_RETURN(StatusFromErrno());
-
+	catch (std::filesystem::filesystem_error& err)
+	{
+		debug_printf("DeleteDirectory: failed to delete directory '%s', reason: %s\n", path.string8().c_str(), err.what());
+		return ERR::EXCEPTION;
+	}
 	return INFO::OK;
 }
 
@@ -210,9 +178,9 @@ Status RenameFile(const OsPath& path, const OsPath& newPath)
 
 	try
 	{
-		fs::rename(fs::path(path.string()), fs::path(newPath.string()));
+		std::filesystem::rename(std::filesystem::path(path.string()), std::filesystem::path(newPath.string()));
 	}
-	catch (fs::filesystem_error& err)
+	catch (std::filesystem::filesystem_error& err)
 	{
 		debug_printf("RenameFile: failed to rename %s to %s.\n%s\n", path.string8().c_str(), path.string8().c_str(), err.what());
 		return ERR::EXCEPTION;
@@ -230,15 +198,11 @@ Status CopyFile(const OsPath& path, const OsPath& newPath, bool override_if_exis
 	try
 	{
 		if(override_if_exists)
-#if BOOST_VERSION >=107400
-			fs::copy_file(fs::path(path.string()), fs::path(newPath.string()), boost::filesystem::copy_options::overwrite_existing);
-#else
-			fs::copy_file(fs::path(path.string()), fs::path(newPath.string()), boost::filesystem::copy_option::overwrite_if_exists);
-#endif
+			std::filesystem::copy_file(std::filesystem::path(path.string()), std::filesystem::path(newPath.string()), std::filesystem::copy_options::overwrite_existing);
 		else
-			fs::copy_file(fs::path(path.string()), fs::path(newPath.string()));
+			std::filesystem::copy_file(std::filesystem::path(path.string()), std::filesystem::path(newPath.string()));
 	}
-	catch(fs::filesystem_error& err)
+	catch(std::filesystem::filesystem_error& err)
 	{
 		debug_printf("CopyFile: failed to copy %s to %s.\n%s\n", path.string8().c_str(), path.string8().c_str(), err.what());
 		return ERR::EXCEPTION;

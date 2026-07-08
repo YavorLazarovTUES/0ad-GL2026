@@ -2,13 +2,9 @@ Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap(mapSettings)
+export function* generateMap(mapSettings)
 {
-	if (mapSettings.Biome)
-		setSelectedBiome();
-	else
-		// TODO: Replace ugly default for atlas by a dropdown
-		setBiome("persian_highlands/summer");
+	setBiome(mapSettings.Biome);
 
 	const tDirtMain = g_Terrains.mainTerrain;
 	const tCity = g_Terrains.road;
@@ -63,8 +59,18 @@ function* GenerateMap(mapSettings)
 	const clBaseResource = g_Map.createTileClass();
 	const clCP = g_Map.createTileClass();
 
+	const pattern = mapSettings.PlayerPlacement;
+	const teamDist = (pattern == "river") ? 0.50 : 0.35;
+	const { playerIDs, playerPosition } =
+		playerPlacementByPattern(
+			pattern,
+			fractionToTiles(teamDist),
+			fractionToTiles(0.1),
+			randomAngle(),
+			undefined);
+
 	placePlayerBases({
-		"PlayerPlacement": playerPlacementCircle(fractionToTiles(0.35)),
+		"PlayerPlacement": [playerIDs, playerPosition],
 		"BaseResourceClass": clBaseResource,
 		"CityPatch": {
 			"outerTerrain": tCity,

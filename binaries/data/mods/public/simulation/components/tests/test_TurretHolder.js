@@ -25,7 +25,7 @@ AddMock(turretHolderID, IID_Position, {
 	"IsInWorld": () => true
 });
 
-for (let entity of entitiesToTest)
+for (const entity of entitiesToTest)
 {
 	AddMock(entity, IID_Position, {
 		"GetPosition": () => new Vector3D(4, 3, 25),
@@ -71,22 +71,22 @@ let cmpTurretHolder = ConstructComponent(turretHolderID, "TurretHolder", {
 	}
 });
 
-let siegeEngineID = entitiesToTest[0];
+const siegeEngineID = entitiesToTest[0];
 AddMock(siegeEngineID, IID_Identity, {
 	"GetClassesList": () => ["Siege"]
 });
 
-let archerID = entitiesToTest[1];
+const archerID = entitiesToTest[1];
 AddMock(archerID, IID_Identity, {
 	"GetClassesList": () => ["Infantry", "Ranged"]
 });
 
-let cavID = entitiesToTest[2];
+const cavID = entitiesToTest[2];
 AddMock(cavID, IID_Identity, {
 	"GetClassesList": () => ["Infantry", "Cavalry"]
 });
 
-let infID = entitiesToTest[3];
+const infID = entitiesToTest[3];
 AddMock(infID, IID_Identity, {
 	"GetClassesList": () => ["Infantry"]
 });
@@ -104,6 +104,28 @@ TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(cavID, cmpTurretHold
 TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(infID, cmpTurretHolder.turretPoints[0]), true);
 TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(infID, cmpTurretHolder.turretPoints[1]), false);
 TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(infID, cmpTurretHolder.turretPoints[2]), false);
+
+// Test forReplacement parameter - empty turret points should allow both
+TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(siegeEngineID, cmpTurretHolder.turretPoints[0], false), true);
+TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(siegeEngineID, cmpTurretHolder.turretPoints[0], true), true);
+
+// Now occupy some turret points to test replacement logic
+TS_ASSERT(cmpTurretHolder.OccupyTurretPoint(archerID, cmpTurretHolder.turretPoints[0]));
+TS_ASSERT(cmpTurretHolder.OccupyTurretPoint(cavID, cmpTurretHolder.turretPoints[2]));
+
+// Test that occupied turrets block normal occupation but allow replacement
+TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(siegeEngineID, cmpTurretHolder.turretPoints[0], false), false);
+TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(siegeEngineID, cmpTurretHolder.turretPoints[0], true), true);
+TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(infID, cmpTurretHolder.turretPoints[2], false), false);
+TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(infID, cmpTurretHolder.turretPoints[2], true), false); // Still false due to class restriction
+
+// Test that class restrictions still apply even for replacement
+TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(infID, cmpTurretHolder.turretPoints[1], false), false);
+TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(infID, cmpTurretHolder.turretPoints[1], true), false); // Still false due to class restriction
+
+// Clean up for subsequent tests
+TS_ASSERT(cmpTurretHolder.LeaveTurretPoint(archerID));
+TS_ASSERT(cmpTurretHolder.LeaveTurretPoint(cavID));
 
 // Test that one cannot leave a turret that is not occupied.
 TS_ASSERT(!cmpTurretHolder.LeaveTurretPoint(archerID));
@@ -137,20 +159,21 @@ cmpTurretHolder = ConstructComponent(turretHolderID, "TurretHolder", {
 });
 
 let spawned = 100;
-Engine.AddEntity = function() {
+Engine.AddEntity = function()
+{
 	++spawned;
-	if(spawned > 101)
+	if (spawned > 101)
 	{
 		ConstructComponent(spawned, "Turretable", {});
 	}
-	if(spawned > 102)
+	if (spawned > 102)
 	{
 		AddMock(spawned, IID_Ownership, {
 			"GetOwner": () => player,
 			"SetOwner": () => {}
 		});
 	}
-	if(spawned > 103)
+	if (spawned > 103)
 	{
 		AddMock(spawned, IID_Position, {
 			"GetPosition": () => new Vector3D(4, 3, 25),
@@ -160,9 +183,9 @@ Engine.AddEntity = function() {
 		});
 	}
 	return spawned;
-}
+};
 
-const GetUpgradedTemplate = (_, template)  => template === "units/iber/cavalry_javelineer_b" ? "units/iber/cavalry_javelineer_a" : template;
+const GetUpgradedTemplate = (_, template) => template === "units/iber/cavalry_javelineer_b" ? "units/iber/cavalry_javelineer_a" : template;
 Engine.RegisterGlobal("GetUpgradedTemplate", GetUpgradedTemplate);
 cmpTurretHolder.OnOwnershipChanged({
 	"to": 1,
@@ -186,7 +209,8 @@ cmpTurretHolder.OnOwnershipChanged({
 TS_ASSERT(cmpTurretHolder.OccupiesTurretPoint(spawned));
 
 // Normal turret creation.
-Engine.AddEntity = function(t) {
+Engine.AddEntity = function(t)
+{
 	++spawned;
 	// Check that we're using the upgraded template.
 	TS_ASSERT(t, "units/iber/cavalry_javelineer_a");
@@ -202,7 +226,7 @@ Engine.AddEntity = function(t) {
 		"IsInWorld": () => true
 	});
 	return spawned;
-}
+};
 
 cmpTurretHolder = ConstructComponent(turretHolderID, "TurretHolder", {
 	"TurretPoints": {

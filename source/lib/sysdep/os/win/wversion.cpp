@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -26,6 +26,7 @@
 #include "lib/sysdep/os/win/win.h"
 
 #include <sstream>
+#include <utility>
 
 const char* wversion_Family()
 {
@@ -37,17 +38,11 @@ const char* wversion_Family()
 	{
 		wchar_t windowsVersionString[32];
 		DWORD size = sizeof(windowsVersionString);
-		UNUSED2(RegQueryValueExW(hKey, L"CurrentVersion", 0, 0, reinterpret_cast<LPBYTE>(windowsVersionString), &size));
+		std::ignore = RegQueryValueExW(hKey, L"CurrentVersion", 0, 0,
+			reinterpret_cast<LPBYTE>(windowsVersionString), &size);
 
 		unsigned major = 0, minor = 0;
-		// ICC 11.1.082 generates incorrect code for the following:
-		// const int ret = swscanf_s(windowsVersionString, L"%u.%u", &major, &minor);
-		std::wstringstream ss(windowsVersionString);
-		ss >> major;
-		wchar_t dot;
-		ss >> dot;
-		ENSURE(dot == '.');
-		ss >> minor;
+		swscanf_s(windowsVersionString, L"%u.%u", &major, &minor);
 
 		ENSURE(4 <= major && major <= 0xFF);
 		ENSURE(minor <= 0xFF);

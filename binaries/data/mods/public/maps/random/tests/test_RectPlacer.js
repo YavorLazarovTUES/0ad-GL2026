@@ -1,4 +1,5 @@
-Engine.GetTemplate = (path) => {
+Engine.GetTemplate = (path) =>
+{
 	return {
 		"Identity": {
 			"GenericName": null,
@@ -10,14 +11,17 @@ Engine.GetTemplate = (path) => {
 
 Engine.LoadLibrary("rmgen");
 
-var g_MapSettings = { "Size": 512 };
-var g_Map = new RandomMap(0, "blackness");
-
+export function* generateMap()
 {
-	let min = new Vector2D(5, 5);
-	let max = new Vector2D(7, 7);
+	g_MapSettings = { "Size": 512 };
+	globalThis.g_Map = new RandomMap(0, "blackness");
 
-	let area = createArea(new RectPlacer(min, max));
+	yield 50;
+
+	const min = new Vector2D(5, 5);
+	const max = new Vector2D(7, 7);
+
+	const area = createArea(new RectPlacer(min, max));
 
 	TS_ASSERT(!area.contains(new Vector2D(-1, -1).add(min)));
 	TS_ASSERT(area.contains(min));

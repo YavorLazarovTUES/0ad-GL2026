@@ -1,4 +1,4 @@
-/* Copyright (C) 2019 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,14 +19,15 @@
 #define INCLUDED_SELECTION
 
 #include "ps/Profiler2.h"
-#include "simulation2/helpers/Player.h"
 #include "simulation2/Simulation2.h"
+#include "simulation2/helpers/Player.h"
+#include "simulation2/system/Component.h"
 #include "simulation2/system/Entity.h"
-#include "simulation2/system/IComponent.h"
 
+#include <string>
+#include <utility>
 #include <vector>
 
-class CSimulation2;
 class CCamera;
 
 bool CheckEntityInRect(CEntityHandle handle, const CCamera& camera, int sx0, int sy0, int sx1, int sy1, bool allowEditorSelectables);
@@ -75,7 +76,7 @@ std::vector<entity_id_t> PickNonGaiaEntitiesInRect(CSimulation2& simulation, con
  */
 struct DefaultComponentFilter
 {
-	bool operator()(IComponent* UNUSED(cmp))
+	bool operator()(IComponent*)
 	{
 		return true;
 	}

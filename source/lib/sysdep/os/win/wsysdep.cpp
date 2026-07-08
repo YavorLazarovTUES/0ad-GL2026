@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -39,10 +39,8 @@
 #include "lib/sysdep/os/win/error_dialog.h"
 #include "lib/sysdep/os/win/wutil.h"
 
-#if CONFIG_ENABLE_BOOST
-# include <boost/algorithm/string/classification.hpp>
-# include <boost/algorithm/string/split.hpp>
-#endif
+#include <boost/algorithm/string/classification.hpp>
+#include <boost/algorithm/string/split.hpp>
 
 #include <string_view>
 
@@ -91,7 +89,7 @@ void sys_display_msg(const wchar_t* caption, const wchar_t* msg)
 static POINTS dlg_clientOrigin;
 static POINTS dlg_prevClientSize;
 
-static void dlg_OnMove(HWND UNUSED(hDlg), int x, int y)
+static void dlg_OnMove(HWND /*hDlg*/, int x, int y)
 {
 	dlg_clientOrigin.x = (short)x;
 	dlg_clientOrigin.y = (short)y;
@@ -167,7 +165,7 @@ static void dlg_OnSize(HWND hDlg, UINT state, int clientSizeX, int clientSizeY)
 }
 
 
-static void dlg_OnGetMinMaxInfo(HWND UNUSED(hDlg), LPMINMAXINFO mmi)
+static void dlg_OnGetMinMaxInfo(HWND /*hDlg*/, LPMINMAXINFO mmi)
 {
 	// we must make sure resize_control will never set negative coords -
 	// Windows would clip them, and its real position would be lost.
@@ -183,7 +181,7 @@ struct DialogParams
 	size_t flags;
 };
 
-static BOOL dlg_OnInitDialog(HWND hDlg, HWND UNUSED(hWndFocus), LPARAM lParam)
+static BOOL dlg_OnInitDialog(HWND hDlg, HWND /*hWndFocus*/, LPARAM lParam)
 {
 	const DialogParams* params = reinterpret_cast<const DialogParams*>(lParam);
 	SetWindowLongPtr(hDlg, DWLP_USER, lParam);
@@ -216,7 +214,7 @@ static BOOL dlg_OnInitDialog(HWND hDlg, HWND UNUSED(hWndFocus), LPARAM lParam)
 }
 
 
-static void dlg_OnCommand(HWND hDlg, int id, HWND UNUSED(hWndCtl), UINT UNUSED(codeNotify))
+static void dlg_OnCommand(HWND hDlg, int id, HWND /*hWndCtl*/, UINT /*codeNotify*/)
 {
 	switch(id)
 	{
@@ -261,7 +259,7 @@ static void dlg_OnClose(HWND hDlg)
 }
 
 
-static void dlg_OnSysCommand(HWND hDlg, UINT cmd, int UNUSED(x), int UNUSED(y))
+static void dlg_OnSysCommand(HWND hDlg, UINT cmd, int /*x*/, int /*y*/)
 {
 	switch(cmd & 0xFFF0)	// NB: lower 4 bits are reserved
 	{
@@ -446,7 +444,7 @@ std::wstring sys_get_user_name()
 
 // callback for shell directory picker: used to set starting directory
 // (for user convenience).
-static int CALLBACK BrowseCallback(HWND hWnd, unsigned int msg, LPARAM UNUSED(lParam), LPARAM lpData)
+static int CALLBACK BrowseCallback(HWND hWnd, unsigned int msg, LPARAM /*lParam*/, LPARAM lpData)
 {
 	if(msg == BFFM_INITIALIZED)
 	{
@@ -522,8 +520,6 @@ Status sys_generate_random_bytes(u8* buffer, size_t size)
 	return INFO::OK;
 }
 
-
-#if CONFIG_ENABLE_BOOST
 
 /*
  * Given a string of the form
@@ -634,8 +630,6 @@ done:
 
 	return err;
 }
-
-#endif
 
 FILE* sys_OpenFile(const OsPath& pathname, const char* mode)
 {

@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,12 +18,16 @@
 #ifndef INCLUDED_CHOTKEYPICKER
 #define INCLUDED_CHOTKEYPICKER
 
-#include "gui/CGUI.h"
+#include "gui/CGUISetting.h"
 #include "gui/ObjectBases/IGUIObject.h"
-#include "lib/external_libraries/libsdl.h"
 #include "ps/CStr.h"
+#include "ps/Input.h"
 
+#include <SDL_scancode.h>
 #include <vector>
+
+class CGUI;
+union SDL_Event;
 
 /**
  * When in focus, returns all currently pressed keys.
@@ -38,10 +42,9 @@ class CHotkeyPicker : public IGUIObject
 
 public:
 	CHotkeyPicker(CGUI& pGUI);
-	virtual ~CHotkeyPicker();
 
 	// Do nothing.
-	virtual void Draw(CCanvas2D& UNUSED(canvas)) {};
+	virtual void Draw(CCanvas2D&) {};
 
 	// Checks if the timer has passed and we need to fire a "combination" event.
 	virtual void Tick();
@@ -50,7 +53,7 @@ public:
 	virtual void HandleMessage(SGUIMessage& Message);
 
 	// Pre-empt events: this is our sole purpose.
-	virtual InReaction PreemptEvent(const SDL_Event_* ev);
+	virtual Input::Reaction PreemptEvent(const SDL_Event& ev);
 
 	struct Key
 	{

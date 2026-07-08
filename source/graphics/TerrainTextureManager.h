@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,24 +19,25 @@
 #define INCLUDED_TERRAINTEXTUREMANAGER
 
 #include "lib/file/vfs/vfs_path.h"
+#include "lib/types.h"
 #include "ps/CStr.h"
+#include "ps/Loader.h"
 #include "ps/Singleton.h"
-#include "renderer/backend/IDeviceCommandContext.h"
 #include "renderer/backend/ITexture.h"
 
+#include <cstddef>
 #include <map>
 #include <memory>
 #include <vector>
 
-// access to sole CTerrainTextureManager object
-#define g_TexMan CTerrainTextureManager::GetSingleton()
-
-#define NUM_ALPHA_MAPS 14
-
-class CTerrainTextureEntry;
 class CTerrainProperties;
+class CTerrainTextureEntry;
+namespace Renderer::Backend { class IDevice; }
+namespace Renderer::Backend { class IDeviceCommandContext; }
 
 typedef std::shared_ptr<CTerrainProperties> CTerrainPropertiesPtr;
+
+#define NUM_ALPHA_MAPS 14
 
 class CTerrainGroup
 {
@@ -90,7 +91,7 @@ class CTerrainTextureManager : public Singleton<CTerrainTextureManager>
 	friend class CTerrainTextureEntry;
 
 public:
-	using TerrainGroupMap = std::map<CStr, CTerrainGroup*>;
+	using TerrainGroupMap = std::map<CStr, std::unique_ptr<CTerrainGroup>>;
 	using TerrainAlphaMap = std::map<VfsPath, TerrainAlpha>;
 
 	// constructor, destructor
@@ -99,18 +100,15 @@ public:
 
 	// Find all XML's in the directory (with subdirs) and try to load them as
 	// terrain XML's
-	int LoadTerrainTextures();
+	PS::Loader::Task LoadTerrainTextures();
 
 	void UnloadTerrainTextures();
 
-	CTerrainTextureEntry* FindTexture(const CStr& tag) const;
+	CTerrainTextureEntry* FindTexture(const CStr& tag);
 
 	// Create a texture object for a new terrain texture at path, using the
 	// property sheet props.
-	CTerrainTextureEntry* AddTexture(const CTerrainPropertiesPtr& props, const VfsPath& path);
-
-	// Remove the texture from all our maps and lists and delete it afterwards.
-	void DeleteTexture(CTerrainTextureEntry* entry);
+	void AddTexture(const CTerrainPropertiesPtr& props, const VfsPath& path);
 
 	// Find or create a new texture group. All terrain groups are owned by the
 	// texturemanager (TerrainTypeManager)
@@ -128,7 +126,7 @@ private:
 
 	// All texture entries created by this class, for easy freeing now that
 	// textures may be in several STextureType's
-	std::vector<CTerrainTextureEntry*> m_TextureEntries;
+	std::vector<std::unique_ptr<CTerrainTextureEntry>> m_TextureEntries;
 
 	TerrainGroupMap m_TerrainGroups;
 
@@ -140,5 +138,8 @@ private:
 	// Once we get a properly threaded loading we might optimize that.
 	std::vector<CTerrainTextureManager::TerrainAlphaMap::iterator> m_AlphaMapsToUpload;
 };
+
+// access to sole CTerrainTextureManager object
+#define g_TexMan CTerrainTextureManager::GetSingleton()
 
 #endif // INCLUDED_TERRAINTEXTUREMANAGER

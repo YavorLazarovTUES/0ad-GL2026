@@ -8,8 +8,8 @@ class TurretHolder
 	{
 		this.turretPoints = [];
 
-		let points = this.template.TurretPoints;
-		for (let point in points)
+		const points = this.template.TurretPoints;
+		for (const point in points)
 			this.turretPoints.push({
 				"name": point,
 				"offset": {
@@ -74,12 +74,14 @@ class TurretHolder
 	/**
 	 * @param {number} entity - The entity to check for.
 	 * @param {Object} turretPoint - The turret point to use.
+	 * @param {boolean} [forReplacement=false] - Whether this check is for replacement
+	 *        (if true, occupied turret points are allowed).
 	 *
 	 * @return {boolean} - Whether the entity is allowed to occupy the specified turret point.
 	 */
-	AllowedToOccupyTurretPoint(entity, turretPoint)
+	AllowedToOccupyTurretPoint(entity, turretPoint, forReplacement = false)
 	{
-		if (!turretPoint || turretPoint.entity)
+		if (!turretPoint || turretPoint.entity && !forReplacement)
 			return false;
 
 		if (!IsOwnedByMutualAllyOfEntity(entity, this.entity))
@@ -88,7 +90,7 @@ class TurretHolder
 		if (!turretPoint.allowedClasses)
 			return true;
 
-		let cmpIdentity = Engine.QueryInterface(entity, IID_Identity);
+		const cmpIdentity = Engine.QueryInterface(entity, IID_Identity);
 		return cmpIdentity && MatchesClassList(cmpIdentity.GetClassesList(), turretPoint.allowedClasses);
 	}
 
@@ -110,11 +112,11 @@ class TurretHolder
 	 */
 	OccupyTurretPoint(entity, requestedTurretPoint)
 	{
-		let cmpPositionOccupant = Engine.QueryInterface(entity, IID_Position);
+		const cmpPositionOccupant = Engine.QueryInterface(entity, IID_Position);
 		if (!cmpPositionOccupant)
 			return false;
 
-		let cmpPositionSelf = Engine.QueryInterface(this.entity, IID_Position);
+		const cmpPositionSelf = Engine.QueryInterface(this.entity, IID_Position);
 		if (!cmpPositionSelf)
 			return false;
 
@@ -234,7 +236,7 @@ class TurretHolder
 	 */
 	GetOccupiedTurretPointName(entity)
 	{
-		let turret = this.GetOccupiedTurretPoint(entity);
+		const turret = this.GetOccupiedTurretPoint(entity);
 		return turret ? turret.name : "";
 	}
 
@@ -243,8 +245,8 @@ class TurretHolder
 	 */
 	GetEntities()
 	{
-		let entities = [];
-		for (let turretPoint of this.turretPoints)
+		const entities = [];
+		for (const turretPoint of this.turretPoints)
 			if (turretPoint.entity)
 				entities.push(turretPoint.entity);
 		return entities;
@@ -274,7 +276,7 @@ class TurretHolder
 	{
 		if (!this.template.Pickup || this.IsFull())
 			return false;
-		let cmpOwner = Engine.QueryInterface(this.entity, IID_Ownership);
+		const cmpOwner = Engine.QueryInterface(this.entity, IID_Ownership);
 		return !!cmpOwner && IsOwnedByPlayer(cmpOwner.GetOwner(), ent);
 	}
 
@@ -283,13 +285,13 @@ class TurretHolder
 	 */
 	EjectOrKill(entities)
 	{
-		let removedEntities = [];
-		for (let entity of entities)
+		const removedEntities = [];
+		for (const entity of entities)
 		{
-			let cmpTurretable = Engine.QueryInterface(entity, IID_Turretable);
+			const cmpTurretable = Engine.QueryInterface(entity, IID_Turretable);
 			if (!cmpTurretable || !cmpTurretable.LeaveTurret(true))
 			{
-				let cmpHealth = Engine.QueryInterface(entity, IID_Health);
+				const cmpHealth = Engine.QueryInterface(entity, IID_Health);
 				if (cmpHealth)
 					cmpHealth.Kill();
 				else
@@ -331,13 +333,13 @@ class TurretHolder
 
 		if (msg.entity == this.entity)
 		{
-			let cmpTurretHolder = Engine.QueryInterface(msg.newentity, IID_TurretHolder);
+			const cmpTurretHolder = Engine.QueryInterface(msg.newentity, IID_TurretHolder);
 			if (cmpTurretHolder)
 				cmpTurretHolder.initTurrets = this.initTurrets;
 		}
 		else
 		{
-			let entityIndex = this.initTurrets.indexOf(msg.entity);
+			const entityIndex = this.initTurrets.indexOf(msg.entity);
 			if (entityIndex != -1)
 				this.initTurrets[entityIndex] = msg.newentity;
 		}
@@ -351,9 +353,9 @@ class TurretHolder
 		if (!this.initTurrets)
 			return;
 
-		for (let [turretPointName, entity] of this.initTurrets)
+		for (const [turretPointName, entity] of this.initTurrets)
 		{
-			let cmpTurretable = Engine.QueryInterface(entity, IID_Turretable);
+			const cmpTurretable = Engine.QueryInterface(entity, IID_Turretable);
 			if (!cmpTurretable || !cmpTurretable.OccupyTurret(this.entity, turretPointName, this.TurretPointByName(turretPointName).ejectable))
 				warn("Entity " + entity + " could not occupy the turret point " +
 					turretPointName + " of turret holder " + this.entity + ".");
@@ -367,12 +369,12 @@ class TurretHolder
 	 */
 	OnEntityRenamed(msg)
 	{
-		for (let entity of this.GetEntities())
+		for (const entity of this.GetEntities())
 		{
-			let cmpTurretable = Engine.QueryInterface(entity, IID_Turretable);
+			const cmpTurretable = Engine.QueryInterface(entity, IID_Turretable);
 			if (!cmpTurretable)
 				continue;
-			let currentPoint = this.GetOccupiedTurretPointName(entity);
+			const currentPoint = this.GetOccupiedTurretPointName(entity);
 			cmpTurretable.LeaveTurret(true);
 			cmpTurretable.OccupyTurret(msg.newentity, currentPoint);
 		}
@@ -389,7 +391,7 @@ class TurretHolder
 			return;
 		}
 
-		for (let point of this.turretPoints)
+		for (const point of this.turretPoints)
 		{
 			// If we were created, create any subunits now.
 			// This has to be done here (instead of on Init)
@@ -403,13 +405,13 @@ class TurretHolder
 				continue;
 			if (!point.ejectable)
 			{
-				let cmpTurretOwnership = Engine.QueryInterface(point.entity, IID_Ownership);
+				const cmpTurretOwnership = Engine.QueryInterface(point.entity, IID_Ownership);
 				if (cmpTurretOwnership)
 					cmpTurretOwnership.SetOwner(msg.to);
 			}
 			else if (!IsOwnedByMutualAllyOfEntity(point.entity, this.entity))
 			{
-				let cmpTurretable = Engine.QueryInterface(point.entity, IID_Turretable);
+				const cmpTurretable = Engine.QueryInterface(point.entity, IID_Turretable);
 				if (cmpTurretable)
 					cmpTurretable.LeaveTurret();
 			}
@@ -464,7 +466,7 @@ TurretHolder.prototype.Schema =
 		"<element name='LoadingRange' a:help='The maximum distance from this holder at which entities are allowed to occupy a turret point. Should be about 2.0 for land entities and preferably greater for ships.'>" +
 			"<ref name='nonNegativeDecimal'/>" +
 		"</element>" +
-	"</optional>"
+	"</optional>" +
 	"<optional>" +
 		"<element name='Pickup' a:help='This entity will try to move to pick up units to be turreted.'>" +
 			"<data type='boolean'/>" +

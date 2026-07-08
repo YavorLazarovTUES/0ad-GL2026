@@ -5,9 +5,9 @@ Trigger.prototype.IntroductionMessage = function(data)
 
 	var cmpGUIInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface);
 	cmpGUIInterface.PushNotification({
-		"players": [1,2],
+		"players": [1, 2],
 		"message": markForTranslation("Collect the treasures before your enemy does! May the better win!"),
-		translateMessage: true
+		"translateMessage": true
 	});
 };
 
@@ -20,11 +20,11 @@ Trigger.prototype.TreasureCollected = function(data)
 	var otherPlayer = (data.player == 1 ? 2 : 1);
 
 	// Check if having more treasures than the enemy is still possible
-	if ( (count == this.treasureCount.maximum / 2) &&
-		(this.treasureCount.players[otherPlayer] == this.treasureCount.maximum / 2) )
+	if ((count == this.treasureCount.maximum / 2) &&
+		(this.treasureCount.players[otherPlayer] == this.treasureCount.maximum / 2))
 	{
 		cmpGUIInterface.PushNotification({
-			"players": [1,2],
+			"players": [1, 2],
 			"message": markForTranslation("No winner yet, prepare for battle!"),
 			"translateMessage": true
 		});
@@ -64,10 +64,10 @@ Trigger.prototype.TreasureCollected = function(data)
 
 		if (count + 3 >= goalCount)
 		{
-			var remainingTreasures = ( goalCount - count);
+			var remainingTreasures = (goalCount - count);
 			cmpGUIInterface.PushNotification({
 				"players": [data.player],
-				"parameters": {"remainingTreasures": remainingTreasures},
+				"parameters": { "remainingTreasures": remainingTreasures },
 				"message": markForTranslation("Treasures remaining to collect for victory:  %(remainingTreasures)s!"),
 				"translateMessage": true
 			});
@@ -87,7 +87,7 @@ Trigger.prototype.BattleMessage = function()
 {
 	var cmpGUIInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface);
 	cmpGUIInterface.PushNotification({
-		"players": [1,2],
+		"players": [1, 2],
 		"message": markForTranslation("Defeat your enemy to win!"),
 		"translateMessage": true
 	});
@@ -110,7 +110,7 @@ Trigger.prototype.Victory = function(playerID)
 var cmpTrigger = Engine.QueryInterface(SYSTEM_ENTITY, IID_Trigger);
 
 // TODO: It would be nice to get the total number of treasure on the map automatically somehow
-cmpTrigger.treasureCount = { "players": { "1":0,"2":0 }, "maximum": 36 };
+cmpTrigger.treasureCount = { "players": { "1": 0, "2": 0 }, "maximum": 36 };
 cmpTrigger.state = "start";
 cmpTrigger.DoAfterDelay(2000, "IntroductionMessage", {});
 cmpTrigger.RegisterTrigger("OnTreasureCollected", "TreasureCollected", { "enabled": true });

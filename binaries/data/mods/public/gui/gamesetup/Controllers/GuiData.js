@@ -20,6 +20,7 @@ class GameSettingsGuiData
 	Serialize()
 	{
 		const ret = {
+			"linearPopulationCapacity": this.linearPopulationCapacity,
 			"mapFilter": this.mapFilter.filter
 		};
 		if (Object.keys(this.lockSettings).length)
@@ -30,6 +31,7 @@ class GameSettingsGuiData
 	Deserialize(data)
 	{
 		this.mapFilter.filter = data.mapFilter;
+		this.linearPopulationCapacity = data.linearPopulationCapacity;
 		this.lockSettings = data?.lockSettings || {};
 	}
 }

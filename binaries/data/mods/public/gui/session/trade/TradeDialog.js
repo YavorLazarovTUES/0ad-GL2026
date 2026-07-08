@@ -13,7 +13,7 @@ class TradeDialog
 		registerPlayersInitHandler(this.onPlayersInit.bind(this));
 		Engine.GetGUIObjectByName("closeTrade").onPress = this.close.bind(this);
 
-		registerSimulationUpdateHandler(this.updateIfOpen.bind(this))
+		registerSimulationUpdateHandler(this.updateIfOpen.bind(this));
 		registerEntitySelectionChangeHandler(this.updateIfOpen.bind(this));
 		playerViewControl.registerViewedPlayerChangeHandler(this.onViewedPlayerChange.bind(this));
 	}
@@ -49,7 +49,7 @@ class TradeDialog
 
 	toggle()
 	{
-		let open = this.isOpen();
+		const open = this.isOpen();
 		closeOpenDialogs();
 
 		if (!open)
@@ -70,14 +70,11 @@ class TradeDialog
 
 	onPlayersInit()
 	{
-		let size = this.tradeDialogPanel.size;
-
-		let width = 1/2 * Math.max(
+		const width = 1/2 * Math.max(
 			TradeDialog.prototype.BarterPanel.getWidthOffset(),
 			TradeDialog.prototype.TradePanel.getWidthOffset());
 
-		size.left -= width;
-		size.right += width;
-		this.tradeDialogPanel.size = size;
+		this.tradeDialogPanel.size.left -= width;
+		this.tradeDialogPanel.size.right += width;
 	}
 }

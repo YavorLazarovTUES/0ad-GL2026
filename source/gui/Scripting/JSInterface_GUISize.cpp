@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,8 +20,20 @@
 #include "JSInterface_GUISize.h"
 
 #include "ps/CStr.h"
-#include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/Object.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
+
+#include <js/CallArgs.h>
+#include <js/Class.h>
+#include <js/PropertyAndElement.h>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <string>
+
+struct JSContext;
 
 JSClass JSI_GUISize::JSI_class = {
 	"GUISize", 0, &JSI_GUISize::JSI_classops
@@ -30,7 +42,7 @@ JSClass JSI_GUISize::JSI_class = {
 JSClassOps JSI_GUISize::JSI_classops = {
 	nullptr, nullptr,
 	nullptr, nullptr,
-	nullptr, nullptr, nullptr, nullptr,
+	nullptr, nullptr, nullptr,
 	nullptr, JSI_GUISize::construct, nullptr
 };
 
@@ -40,7 +52,7 @@ JSFunctionSpec JSI_GUISize::JSI_methods[] =
 	JS_FS_END
 };
 
-void JSI_GUISize::RegisterScriptClass(ScriptInterface& scriptInterface)
+void JSI_GUISize::RegisterScriptClass(Script::Interface& scriptInterface)
 {
 	scriptInterface.DefineCustomObjectType(&JSI_GUISize::JSI_class, JSI_GUISize::construct, 0, nullptr, JSI_GUISize::JSI_methods, nullptr, nullptr);
 }
@@ -48,8 +60,8 @@ void JSI_GUISize::RegisterScriptClass(ScriptInterface& scriptInterface)
 bool JSI_GUISize::construct(JSContext* cx, uint argc, JS::Value* vp)
 {
 	JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-	ScriptRequest rq(cx);
-	const ScriptInterface& scriptInterface = rq.GetScriptInterface();
+	Script::Request rq(cx);
+	const Script::Interface& scriptInterface = rq.GetScriptInterface();
 
 	JS::RootedObject obj(rq.cx, scriptInterface.CreateCustomObject("GUISize"));
 
@@ -107,7 +119,7 @@ bool JSI_GUISize::toString(JSContext* cx, uint argc, JS::Value* vp)
 	JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 	CStr buffer;
 
-	ScriptRequest rq(cx);
+	Script::Request rq(cx);
 	double val, valr;
 
 #define SIDE(side) \

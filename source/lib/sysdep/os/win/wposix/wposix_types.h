@@ -1,4 +1,4 @@
-/* Copyright (C) 2010 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -27,53 +27,7 @@
 #ifndef INCLUDED_WPOSIX_TYPES
 #define INCLUDED_WPOSIX_TYPES
 
-#include <crtdefs.h>	// intptr_t
-
-
-//
-// <inttypes.h>
-//
-
-typedef signed char int8_t;
-typedef short int16_t;
-
-// already defined by MinGW
-#if MSC_VERSION
-typedef int int32_t;
-#endif
-
-#if MSC_VERSION || ICC_VERSION || LCC_VERSION
-typedef __int64 int64_t;
-#else
-typedef long long int64_t;
-#endif
-
-typedef unsigned char uint8_t;
-typedef unsigned short uint16_t;
-typedef unsigned int uint32_t;
-#if MSC_VERSION || ICC_VERSION || LCC_VERSION
-typedef unsigned __int64 uint64_t;
-#else
-typedef unsigned long long uint64_t;
-#endif
-
-// note: we used to define [u]intptr_t here (if not already done).
-// however, it's not necessary with VC7 and later, and the compiler's
-// definition squelches 'pointer-to-int truncation' warnings, so don't.
-
-#if MSC_VERSION >= 1600
-# include <cstdint>
-#else // define them ourselves
-# define INT16_MAX 32767
-# define INT16_MIN (-INT16_MAX-1)
-# define UINT16_MAX 65536u
-# define UINT16_MIN 0u
-# define INT32_MAX 2147483647
-# define INT32_MIN (-INT32_MAX-1)
-# define UINT32_MAX 4294967295u
-# define UINT32_MIN 0u
-#endif
-
+#include <cstdint>
 
 //
 // <sys/types.h>
@@ -82,6 +36,8 @@ typedef unsigned long long uint64_t;
 typedef intptr_t ssize_t;
 // prevent wxWidgets from (incompatibly) redefining it
 #define HAVE_SSIZE_T
+// prevent cpp-httplib from (incompatibly) redefining it
+#define _SSIZE_T_DEFINED
 
 // VC9 defines off_t as long, but we need 64-bit file offsets even in
 // 32-bit builds. to avoid conflicts, we have to define _OFF_T_DEFINED,
@@ -99,14 +55,5 @@ typedef long _off_t;
 
 // Win32 MAX_PATH is 260; our number may be a bit more efficient.
 #define PATH_MAX 256u
-
-#if OS_WIN
-# ifndef SIZE_MAX // VC2005 already defines this in limits.h
-#  define SIZE_MAX 0xFFFFFFFF
-# endif
-#else
-# define SIZE_MAX 0xFFFFFFFFFFFFFFFF
-#endif
-
 
 #endif	// #ifndef INCLUDED_WPOSIX_TYPES

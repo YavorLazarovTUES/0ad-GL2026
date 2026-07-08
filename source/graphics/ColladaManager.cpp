@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,15 +19,25 @@
 
 #include "ColladaManager.h"
 
-#include "graphics/ModelDef.h"
+#include "lib/debug.h"
+#include "lib/file/file_system.h"
+#include "lib/file/io/write_buffer.h"
+#include "lib/file/vfs/vfs_util.h"
+#include "lib/path.h"
+#include "lib/status.h"
+#include "lib/types.h"
 #include "maths/MD5.h"
-#include "ps/CacheLoader.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
+#include "ps/CacheLoader.h"
 #include "ps/DllLoader.h"
+#include "ps/Errors.h"
 #include "ps/Filesystem.h"
 
-#include <boost/algorithm/string/predicate.hpp>
+#include <algorithm>
+#include <cstddef>
+#include <string>
+#include <vector>
 
 namespace Collada
 {
@@ -82,7 +92,7 @@ public:
 	Status ReloadChangedFile(const VfsPath& path)
 	{
 		// Ignore files that aren't in the right path
-		if (!boost::algorithm::starts_with(path.string(), L"art/skeletons/"))
+		if (!path.string().starts_with(L"art/skeletons/"))
 			return INFO::OK;
 
 		if (path.Extension() != L".xml")

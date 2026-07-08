@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,16 +18,21 @@
 #ifndef NETFILETRANSFER_H
 #define NETFILETRANSFER_H
 
+#include "lib/alignment.h"
+#include "lib/status.h"
+#include "lib/types.h"
+#include "ps/Future.h"
+
+#include <cstddef>
 #include <functional>
 #include <map>
 #include <string>
 #include <unordered_map>
 
-class CNetMessage;
-class CFileTransferResponseMessage;
-class CFileTransferDataMessage;
 class CFileTransferAckMessage;
-class INetSession;
+class CFileTransferDataMessage;
+class CFileTransferResponseMessage;
+class CNetMessage;
 
 // Assume this is sufficiently less than MTU that packets won't get
 // fragmented or dropped.
@@ -48,8 +53,15 @@ static const size_t MAX_FILE_TRANSFER_SIZE = 8*MiB;
 class CNetFileTransferer
 {
 public:
-	CNetFileTransferer(INetSession* session)
-		: m_Session(session), m_NextRequestID(1), m_LastProgressReportTime(0)
+	enum class RequestType
+	{
+		LOADGAME,
+		REJOIN
+	};
+
+	template<typename Session>
+	CNetFileTransferer(Session& session) :
+		m_SendMessage{std::bind_front(&Session::SendMessage, std::ref(session))}
 	{
 	}
 
@@ -64,7 +76,7 @@ public:
 	/**
 	 * Registers a file-receiving task.
 	 */
-	void StartTask(std::function<void(std::string)> task);
+	void StartTask(RequestType requestType, std::function<void(std::string)> task);
 
 	/**
 	 * Registers data to be sent in response to a request.
@@ -94,11 +106,12 @@ private:
 		size_t offset;
 		size_t maxWindowSize;
 		size_t packetsInFlight;
+		Future<std::string> task;
 	};
 
-	INetSession* m_Session;
+	std::function<bool(const CNetMessage* message)> m_SendMessage;
 
-	u32 m_NextRequestID;
+	u32 m_NextRequestID{1};
 
 
 	struct AsyncFileReceiveTask
@@ -121,7 +134,7 @@ private:
 	using FileSendTasksMap = std::map<u32, CNetFileSendTask>;
 	FileSendTasksMap m_FileSendTasks;
 
-	double m_LastProgressReportTime;
+	double m_LastProgressReportTime{0};
 };
 
 #endif // NETFILETRANSFER_H

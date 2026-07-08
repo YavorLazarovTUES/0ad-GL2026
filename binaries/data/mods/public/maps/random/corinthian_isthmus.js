@@ -2,9 +2,9 @@ Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
-	setSelectedBiome();
+	setBiome(mapSettings.Biome);
 
 	TILE_CENTERED_HEIGHT_MAP = true;
 
@@ -288,9 +288,9 @@ function* GenerateMap()
 			[new SimpleObject(oFish, 2, 3, 0, 2)]
 		],
 		[
-			3 * scaleByMapSize(5, 20)
+			25 * scaleByMapSize(15, 20)
 		],
-		[avoidClasses(clFood, 8, clShallow, 2), stayClasses(clWater, 4)],
+		[avoidClasses(clFood, 10, clShallow, 2), stayClasses(clWater, 4)],
 		clFood);
 
 	createFood(

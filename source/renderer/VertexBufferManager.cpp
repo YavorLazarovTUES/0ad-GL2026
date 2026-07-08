@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,8 +19,12 @@
 
 #include "VertexBufferManager.h"
 
+#include "lib/debug.h"
 #include "ps/CLogger.h"
 #include "renderer/Renderer.h"
+
+#include <cstdio>
+#include <iterator>
 
 #define DUMP_VB_STATS 0 // for debugging
 
@@ -149,8 +153,10 @@ CVertexBufferManager::Handle CVertexBufferManager::AllocateChunk(
 
 	char bufferName[64] = {0};
 	snprintf(
-		bufferName, std::size(bufferName), "%s (%s, %zu%s)",
-		GetBufferTypeName(type), GetGroupName(group), vertexSize, ((usage & Renderer::Backend::IBuffer::Usage::DYNAMIC) ? ", dynamic" : ""));
+		bufferName, std::size(bufferName), "%s (%s, %zu%s%s)",
+		GetBufferTypeName(type), GetGroupName(group), vertexSize,
+		((usage & Renderer::Backend::IBuffer::Usage::DYNAMIC) ? ", dynamic" : ""),
+		((usage & Renderer::Backend::IBuffer::Usage::STORAGE) ? ", storage" : ""));
 
 	// got this far; need to allocate a new buffer
 	buffers.emplace_back(

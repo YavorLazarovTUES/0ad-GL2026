@@ -1,11 +1,11 @@
 {
-	"pair": "pair_unlock_civil_engineering_han",
+	"partOfPair": "pair_unlock_civil_engineering_han",
 	"genericName": "Robust Architecture",
 	"specificName": { "han": "Gōngchéng" },
 	"description": "",
 	"cost": {
 		"food": 0,
-		"wood": 300,
+		"wood": 100,
 		"stone": 300,
 		"metal": 0
 	},

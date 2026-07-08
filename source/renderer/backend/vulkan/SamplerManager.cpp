@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,9 +20,14 @@
 #include "SamplerManager.h"
 
 #include "lib/hash.h"
+#include "ps/CLogger.h"
+#include "renderer/backend/IDevice.h"
 #include "renderer/backend/vulkan/Device.h"
 #include "renderer/backend/vulkan/Mapping.h"
 #include "renderer/backend/vulkan/Utilities.h"
+
+#include <algorithm>
+#include <utility>
 
 namespace Renderer
 {
@@ -134,6 +139,11 @@ VkSampler CSamplerManager::GetOrCreateSampler(
 	it = m_SamplerMap.emplace(samplerDesc, sampler).first;
 
 	return sampler;
+}
+
+void CSamplerManager::CollectStatistics(IDevice::StatisticsVector& statistics) const
+{
+	statistics.emplace_back("Samplers count", "", static_cast<uint32_t>(m_SamplerMap.size()));
 }
 
 } // namespace Vulkan

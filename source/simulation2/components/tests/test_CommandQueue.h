@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -15,27 +15,32 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "simulation2/system/ComponentTest.h"
+#include "lib/self_test.h"
 
+#include "ps/XML/Xeromyces.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/components/ICmpCommandQueue.h"
+#include "simulation2/helpers/SimulationCommand.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/ComponentTest.h"
+#include "simulation2/system/Entity.h"
+
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <memory>
+#include <string>
+#include <vector>
 
 class TestCmpCommandQueue : public CxxTest::TestSuite
 {
 public:
-	void setUp()
-	{
-		CXeromyces::Startup();
-	}
-
-	void tearDown()
-	{
-		CXeromyces::Terminate();
-	}
-
 	void test_basic()
 	{
+		CXeromycesEngine xeromycesEngine;
 		ComponentTestHelper test(*g_ScriptContext);
-		ScriptRequest rq(test.GetScriptInterface());
+		Script::Request rq(test.GetScriptInterface());
 
 		std::vector<SimulationCommand> empty;
 

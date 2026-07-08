@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -23,14 +23,16 @@
 #include "graphics/FontMetrics.h"
 #include "graphics/TextRenderer.h"
 #include "gui/CGUI.h"
-#include "gui/ObjectBases/IGUIObject.h"
+#include "gui/SGUIIcon.h"
 #include "gui/SettingTypes/CGUIString.h"
-#include "ps/CStrInternStatic.h"
+#include "gui/SettingTypes/EAlign.h"
+#include "lib/debug.h"
 
+#include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <optional>
-
-extern int g_xres, g_yres;
+#include <utility>
 
 // TODO Gee: CRect => CPoint ?
 void SGenerateTextImage::SetupSpriteCall(
@@ -52,7 +54,7 @@ void SGenerateTextImage::SetupSpriteCall(
 		spriteCall.m_Area.right = width - bufferZone;
 	}
 
-	spriteCall.m_Sprite = textureName;
+	spriteCall.m_Sprite = CGUISpriteInstance{textureName, false};
 
 	m_YFrom = spriteCall.m_Area.top - bufferZone;
 	m_YTo = spriteCall.m_Area.bottom + bufferZone;
@@ -110,7 +112,7 @@ CGUIText::CGUIText(const CGUI& pGUI, const CGUIString& string, const CStrW& font
 		float spaceCorrection = feedback.m_EndsWithSpace ? spaceWidth : 0.f;
 
 		// If width is 0, then there's no word-wrapping, disable NewLine.
-		if ((width != 0 && from != i && (lineWidth - spaceCorrection + 2 * bufferZone > width || feedback.m_NewLine)) || i == static_cast<int>(string.m_Words.size()) - 2)
+		if ((width != 0 && ((from != i && lineWidth - spaceCorrection + 2 * bufferZone > width) || feedback.m_NewLine)) || i == static_cast<int>(string.m_Words.size()) - 2)
 		{
 			if (ProcessLine(pGUI, string, font, pObject, images, align, prelimLineHeight, width, bufferZone, firstLine, y, i, from))
 				return;
@@ -326,13 +328,13 @@ float CGUIText::GetLineOffset(
 	switch (align)
 	{
 	case EAlign::LEFT:
-		return widthRangeFrom;
+		return std::ceil(widthRangeFrom);
 
 	case EAlign::CENTER:
 		return (widthRangeTo + widthRangeFrom - lineSize.Width) / 2;
 
 	case EAlign::RIGHT:
-		return widthRangeTo - lineSize.Width;
+		return std::floor(widthRangeTo - lineSize.Width);
 
 	default:
 		debug_warn(L"Broken EAlign in CGUIText()");
@@ -468,8 +470,8 @@ void CGUIText::Draw(CGUI& pGUI, CCanvas2D& canvas, const CGUIColor& DefaultColor
 			continue;
 
 		textRenderer.SetCurrentColor(tc.m_UseCustomColor ? tc.m_Color : DefaultColor);
-		textRenderer.SetCurrentFont(tc.m_Font);
-		textRenderer.Put(floorf(pos.X + tc.m_Pos.X), floorf(pos.Y + tc.m_Pos.Y), &tc.m_String);
+		textRenderer.SetCurrentFont(tc.m_Font, tc.m_FontLocale);
+		textRenderer.Put(pos.X + tc.m_Pos.X, pos.Y + tc.m_Pos.Y, &tc.m_String);
 	}
 
 	canvas.DrawText(textRenderer);

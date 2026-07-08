@@ -5402,61 +5402,61 @@
 			<Orientation y="-2.32995"/>
 		</Entity>
 		<Entity uid="915">
-			<Template>units/spart/support_female_citizen</Template>
+			<Template>units/spart/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="434.89551" z="205.65085"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="916">
-			<Template>units/spart/support_female_citizen</Template>
+			<Template>units/spart/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="436.47007" z="207.21067"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="917">
-			<Template>units/spart/support_female_citizen</Template>
+			<Template>units/spart/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="438.6576" z="209.72873"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="918">
-			<Template>units/spart/support_female_citizen</Template>
+			<Template>units/spart/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="441.05433" z="212.10154"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="919">
-			<Template>units/spart/support_female_citizen</Template>
+			<Template>units/spart/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="442.79725" z="214.39856"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="920">
-			<Template>units/spart/support_female_citizen</Template>
+			<Template>units/spart/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="444.76191" z="216.47526"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="921">
-			<Template>units/spart/support_female_citizen</Template>
+			<Template>units/spart/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="447.09485" z="219.03473"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="922">
-			<Template>units/spart/support_female_citizen</Template>
+			<Template>units/spart/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="448.77247" z="220.96027"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="923">
-			<Template>units/spart/support_female_citizen</Template>
+			<Template>units/spart/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="451.06171" z="223.38675"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="924">
-			<Template>units/spart/support_female_citizen</Template>
+			<Template>units/spart/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="432.91214" z="203.7261"/>
 			<Orientation y="2.35621"/>
@@ -5582,73 +5582,73 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="948">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="390.13257" z="280.68494"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="949">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="609.66932" z="819.15143"/>
 			<Orientation y="-1.03153"/>
 		</Entity>
 		<Entity uid="950">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="218.63674" z="541.31128"/>
 			<Orientation y="0.83245"/>
 		</Entity>
 		<Entity uid="951">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="199.72545" z="318.72803"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="952">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="385.2771" z="55.11345"/>
 			<Orientation y="-0.10433"/>
 		</Entity>
 		<Entity uid="953">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="601.57496" z="83.28487"/>
 			<Orientation y="-2.29442"/>
 		</Entity>
 		<Entity uid="954">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="705.8354" z="926.23438"/>
 			<Orientation y="-2.43082"/>
 		</Entity>
 		<Entity uid="955">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="801.92664" z="673.42145"/>
 			<Orientation y="-0.14217"/>
 		</Entity>
 		<Entity uid="956">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="874.25104" z="512.6385"/>
 			<Orientation y="-1.7968"/>
 		</Entity>
 		<Entity uid="957">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="861.82038" z="228.74729"/>
 			<Orientation y="-0.09693"/>
 		</Entity>
 		<Entity uid="958">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="35.19288" z="491.09958"/>
 			<Orientation y="3.04317"/>
 		</Entity>
 		<Entity uid="959">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="718.82581" z="419.48227"/>
 			<Orientation y="-3.11541"/>

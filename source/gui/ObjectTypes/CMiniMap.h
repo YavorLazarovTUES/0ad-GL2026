@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,14 +20,20 @@
 
 #include "graphics/Color.h"
 #include "graphics/Texture.h"
+#include "gui/CGUISetting.h"
 #include "gui/ObjectBases/IGUIObject.h"
+#include "lib/posix/posix_types.h"
+#include "lib/types.h"
 #include "maths/Vector2D.h"
-#include "renderer/VertexArray.h"
+#include "ps/CStr.h"
 
 #include <deque>
 #include <vector>
 
-class CMatrix3D;
+class CCanvas2D;
+class CGUI;
+class CRect;
+class CVector3D;
 
 class CMiniMap : public IGUIObject
 {
@@ -35,7 +41,6 @@ class CMiniMap : public IGUIObject
 
 public:
 	CMiniMap(CGUI& pGUI);
-	virtual ~CMiniMap();
 
 	bool Flare(const CVector2D& pos, const CStr& colorStr);
 
@@ -46,6 +51,8 @@ protected:
 		CColor color;
 		double time;
 	};
+
+	virtual void Tick();
 
 	virtual void Draw(CCanvas2D& canvas);
 

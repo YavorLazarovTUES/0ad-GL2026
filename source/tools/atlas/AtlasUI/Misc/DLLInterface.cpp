@@ -1,4 +1,4 @@
-/* Copyright (C) 2020 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,30 +19,37 @@
 
 #include "DLLInterface.h"
 
-#include "General/AtlasEventLoop.h"
+#include "tools/atlas/AtlasUI/ActorEditor/ActorEditor.h"
+#include "tools/atlas/AtlasUI/CustomControls/Windows/AtlasWindow.h"
+#include "tools/atlas/AtlasUI/General/Datafile.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/ScenarioEditor.h"
+#include "tools/atlas/GameInterface/MessagePasser.h"
+#include "tools/atlas/GameInterface/SharedMemory.h"
 
-#include "General/Datafile.h"
-
-#include "ActorEditor/ActorEditor.h"
-#include "ScenarioEditor/ScenarioEditor.h"
-
-#include "GameInterface/MessagePasser.h"
-
-#include "wx/config.h"
-#include "wx/debugrpt.h"
-#include "wx/file.h"
-
-// wx and libxml both want to define ATTRIBUTE_PRINTF (with similar
-// meanings), so undef it to avoid a warning
-#undef ATTRIBUTE_PRINTF
-#include <libxml/parser.h>
+#include <cstdio>
+#include <cstdlib>
+#include <libxml/xmlversion.h>
+#include <wx/app.h>
+#include <wx/chartype.h>
+#include <wx/cmdargs.h>
+#include <wx/config.h>
+#include <wx/debug.h>
+#include <wx/file.h>
+#include <wx/fileconf.h>
+#include <wx/filename.h>
+#include <wx/frame.h>
+#include <wx/init.h>
+#include <wx/log.h>
+#include <wx/object.h>
+#include <wx/setup.h>
+#include <wx/string.h>
+#include <wx/translation.h>
+#include <wx/unichar.h>
+#include <wx/utils.h>
+#include <wx/wxcrt.h>
 
 #ifndef LIBXML_THREAD_ENABLED
 #error libxml2 must have threading support enabled
-#endif
-
-#ifdef __WXGTK__
-#include <X11/Xlib.h>
 #endif
 
 // If enabled, we'll try to use wxDebugReport to report fatal exceptions.
@@ -127,26 +134,31 @@ ATLASDLLIMPEXP void Atlas_StartWindow(const wchar_t* type)
 	// (If we're executed from the game instead, it has the responsibility to initialise libxml2)
 	LIBXML_TEST_VERSION
 
+#if defined(wxUSE_GLCANVAS_EGL) && wxUSE_GLCANVAS_EGL == 0
+	// The glcanvas is currently either built with support for GLX or EGL, if
+	// built with GLX support on Wayland we need to use XWayland.
+	// https://github.com/wxWidgets/wxWidgets/issues/22325
+	const wxString xdgSessionType{wxGetenv("XDG_SESSION_TYPE")};
+	const wxString waylandDisplay{wxGetenv("WAYLAND_DISPLAY")};
+	if (xdgSessionType == "wayland" || waylandDisplay.Contains("wayland"))
+	{
+		// GTK has an API to set allowed backends but would require to add it
+		// as a direct dependency, so just force it using an envvar.
+		wxSetEnv("GDK_BACKEND", "x11");
+	}
+#endif
+
 	g_InitialWindowType = type;
 #ifdef __WXMSW__
 	wxEntry(g_Module);
 #else
-#ifdef __WXGTK__
-	// Because we do GL calls from a secondary thread, Xlib needs to
-	// be told to support multiple threads safely
-	int status = XInitThreads();
-	if (status == 0)
-	{
-		fprintf(stderr, "Error enabling thread-safety via XInitThreads\n");
-	}
-#endif
 	int argc = 1;
 	char atlas[] = "atlas";
 	char *argv[] = {atlas, NULL};
-#ifndef __WXOSX__
+# ifndef __WXOSX__
 	wxEntry(argc, argv);
-#else
-	// Fix for OS X init (see http://trac.wildfiregames.com/ticket/2427 )
+# else
+	// Fix for OS X init (see https://gitea.wildfiregames.com/0ad/0ad/issues/2427 )
 	// If we launched from in-game, SDL started NSApplication which will
 	// break some things in wxWidgets
 	wxEntryStart(argc, argv);
@@ -154,8 +166,7 @@ ATLASDLLIMPEXP void Atlas_StartWindow(const wchar_t* type)
 	wxTheApp->OnRun();
 	wxTheApp->OnExit();
 	wxEntryCleanup();
-#endif
-
+# endif
 #endif
 }
 

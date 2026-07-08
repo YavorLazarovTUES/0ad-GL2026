@@ -267,25 +267,25 @@
 		<Entity uid="65">
 			<Template>units/athen/ship_fishing</Template>
 			<Player>1</Player>
-			<Position x="313.99878" z="106.94742"/>
+			<Position x="325.99878" z="97.94742"/>
 			<Orientation y="1.60703"/>
 		</Entity>
 		<Entity uid="66">
 			<Template>units/athen/ship_fishing</Template>
 			<Player>1</Player>
-			<Position x="339.35697" z="162.01983"/>
+			<Position x="345.55298" z="146.85743"/>
 			<Orientation y="2.40772"/>
 		</Entity>
 		<Entity uid="67">
 			<Template>units/athen/ship_fishing</Template>
 			<Player>1</Player>
-			<Position x="343.68882" z="166.46813"/>
+			<Position x="358.60004" z="160.28962"/>
 			<Orientation y="2.39055"/>
 		</Entity>
 		<Entity uid="68">
 			<Template>units/athen/ship_fishing</Template>
 			<Player>1</Player>
-			<Position x="313.93851" z="113.20711"/>
+			<Position x="330.32187" z="115.86803"/>
 			<Orientation y="1.76275"/>
 		</Entity>
 		<Entity uid="70">
@@ -1791,13 +1791,13 @@
 		<Entity uid="344">
 			<Template>units/athen/ship_fishing</Template>
 			<Player>1</Player>
-			<Position x="129.92458" z="457.09577"/>
+			<Position x="124.98847" z="474.15561"/>
 			<Orientation y="-0.62937"/>
 		</Entity>
 		<Entity uid="347">
 			<Template>units/athen/ship_fishing</Template>
 			<Player>1</Player>
-			<Position x="125.52878" z="453.59147"/>
+			<Position x="110.78371" z="463.38596"/>
 			<Orientation y="-0.65941"/>
 		</Entity>
 		<Entity uid="348">
@@ -2023,37 +2023,37 @@
 			<Orientation y="-1.97165"/>
 		</Entity>
 		<Entity uid="444">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="226.94291" z="223.62903"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="445">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="229.88494" z="227.09919"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="446">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="233.62517" z="231.14275"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="447">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="236.26621" z="234.83996"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="448">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="239.8227" z="238.99088"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="449">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="244.00495" z="243.07711"/>
 			<Orientation y="2.35621"/>
@@ -5608,7 +5608,7 @@
 			<Orientation y="-2.5016"/>
 		</Entity>
 		<Entity uid="1282">
-			<Template>units/pers/ship_arrow</Template>
+			<Template>units/achae/ship_arrow</Template>
 			<Player>2</Player>
 			<Position x="731.64252" z="52.8734"/>
 			<Orientation y="-1.59856"/>

@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,8 +20,8 @@
 
 #include "graphics/ShaderTechniquePtr.h"
 #include "ps/CStrIntern.h"
-#include "renderer/backend/IShaderProgram.h"
 
+#include <cstddef>
 #include <unordered_map>
 #include <vector>
 
@@ -30,7 +30,8 @@ class CBrush;
 class CCamera;
 class CMatrix3D;
 class CVector3D;
-
+namespace Renderer::Backend { class IDeviceCommandContext; }
+namespace Renderer::Backend { class IVertexInputLayout; }
 struct CColor;
 
 // Helper for unoptimized rendering of geometrics primitives. Should not be
@@ -43,15 +44,15 @@ public:
 	/**
 	 * Render the line in world space.
 	 */
-	void DrawLine(const CVector3D& from, const CVector3D& to,
-		const CColor& color, const float width, const bool depthTestEnabled = true);
-	void DrawLine(const std::vector<CVector3D>& line,
+	void DrawLine(Renderer::Backend::IDeviceCommandContext& deviceCommandContext, const CVector3D& from, const CVector3D& to,
+	              const CColor& color, const float width, const bool depthTestEnabled = true);
+	void DrawLine(Renderer::Backend::IDeviceCommandContext& deviceCommandContext, const std::vector<CVector3D>& line,
 		const CColor& color, const float width, const bool depthTestEnabled = true);
 
 	/**
 	 * Render the circle in world space oriented to the view camera.
 	 */
-	void DrawCircle(const CVector3D& origin, const float radius, const CColor& color);
+	void DrawCircle(Renderer::Backend::IDeviceCommandContext& deviceCommandContext, const CVector3D& origin, const float radius, const CColor& color);
 
 	/**
 	 * Render: Renders the camera's frustum in world space.
@@ -59,18 +60,18 @@ public:
 	 * @param intermediates determines how many intermediate distance planes should
 	 * be hinted at between the near and far planes
 	 */
-	void DrawCameraFrustum(const CCamera& camera, const CColor& color, int intermediates = 0, bool wireframe = false);
+	void DrawCameraFrustum(Renderer::Backend::IDeviceCommandContext& deviceCommandContext, const CCamera& camera, const CColor& color, int intermediates = 0, bool wireframe = false);
 
 	/**
 	 * Render the surfaces of the bound box as triangles.
 	 */
-	void DrawBoundingBox(const CBoundingBoxAligned& boundingBox, const CColor& color, bool wireframe = false);
-	void DrawBoundingBox(const CBoundingBoxAligned& boundingBox, const CColor& color, const CMatrix3D& transform, bool wireframe = false);
+	void DrawBoundingBox(Renderer::Backend::IDeviceCommandContext& deviceCommandContext, const CBoundingBoxAligned& boundingBox, const CColor& color, bool wireframe = false);
+	void DrawBoundingBox(Renderer::Backend::IDeviceCommandContext& deviceCommandContext, const CBoundingBoxAligned& boundingBox, const CColor& color, const CMatrix3D& transform, bool wireframe = false);
 
 	/**
 	 * Render the surfaces of the brush as triangles.
 	 */
-	void DrawBrush(const CBrush& brush, const CColor& color, bool wireframe = false);
+	void DrawBrush(Renderer::Backend::IDeviceCommandContext& deviceCommandContext, const CBrush& brush, const CColor& color, bool wireframe = false);
 
 private:
 	const CShaderTechniquePtr& GetShaderTechnique(

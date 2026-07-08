@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,13 +18,15 @@
 #ifndef INCLUDED_MODINSTALLER
 #define INCLUDED_MODINSTALLER
 
-#include "CStr.h"
 #include "lib/file/vfs/vfs.h"
-
+#include "lib/file/vfs/vfs_path.h"
+#include "lib/os_path.h"
+#include "lib/path.h"
+#include "ps/CStr.h"
 #include <memory>
 #include <vector>
 
-class ScriptContext;
+namespace Script { class Context; }
 
 /**
  * Install a mod into the mods directory.
@@ -61,7 +63,7 @@ public:
 	 */
 	ModInstallationResult Install(
 		const OsPath& mod,
-		const std::shared_ptr<ScriptContext>& scriptContext,
+		const std::shared_ptr<Script::Context>& scriptContext,
 		bool keepFile);
 
 	/**

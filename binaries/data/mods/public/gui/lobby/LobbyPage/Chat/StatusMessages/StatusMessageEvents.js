@@ -81,7 +81,7 @@ ChatMessageEvents.Role = class
 
 	onRoleChange(message)
 	{
-		let roleType = this.RoleStrings.find(type =>
+		const roleType = this.RoleStrings.find(type =>
 			type.newrole == message.newrole &&
 			(!type.oldrole || type.oldrole == message.oldrole));
 
@@ -94,6 +94,9 @@ ChatMessageEvents.Role = class
 			txt = sprintf(roleType.nick, this.args);
 		}
 
+		if (message.reason)
+			txt = sprintf(translate("%(rolechangemessage)s Reason: %(reason)s"), { "rolechangemessage": txt, "reason": message.reason });
+
 		this.chatMessagesPanel.addText(
 			message.time,
 			this.statusMessageFormat.format(txt));
@@ -101,30 +104,30 @@ ChatMessageEvents.Role = class
 };
 
 ChatMessageEvents.Role.prototype.RoleStrings =
-[
-	{
-		"newrole": "visitor",
-		"you": translate("You have been muted."),
-		"nick": translate("%(nick)s has been muted.")
-	},
-	{
-		"newrole": "moderator",
-		"you": translate("You are now a moderator."),
-		"nick": translate("%(nick)s is now a moderator.")
-	},
-	{
-		"newrole": "participant",
-		"oldrole": "visitor",
-		"you": translate("You have been unmuted."),
-		"nick": translate("%(nick)s has been unmuted.")
-	},
-	{
-		"newrole": "participant",
-		"oldrole": "moderator",
-		"you": translate("You are not a moderator anymore."),
-		"nick": translate("%(nick)s is not a moderator anymore.")
-	}
-];
+	[
+		{
+			"newrole": "visitor",
+			"you": translate("You have been muted."),
+			"nick": translate("%(nick)s has been muted.")
+		},
+		{
+			"newrole": "moderator",
+			"you": translate("You are now a moderator."),
+			"nick": translate("%(nick)s is now a moderator.")
+		},
+		{
+			"newrole": "participant",
+			"oldrole": "visitor",
+			"you": translate("You have been unmuted."),
+			"nick": translate("%(nick)s has been unmuted.")
+		},
+		{
+			"newrole": "participant",
+			"oldrole": "moderator",
+			"you": translate("You are not a moderator anymore."),
+			"nick": translate("%(nick)s is not a moderator anymore.")
+		}
+	];
 
 ChatMessageEvents.Subject = class
 {
@@ -139,7 +142,7 @@ ChatMessageEvents.Subject = class
 	onSubjectChange(message)
 	{
 		this.args.nick = escapeText(message.nick);
-		let subject = message.subject.trim();
+		const subject = message.subject.trim();
 		this.chatMessagesPanel.addText(
 			message.time,
 			this.statusMessageFormat.format(

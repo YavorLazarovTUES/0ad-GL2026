@@ -1,4 +1,4 @@
-/* Copyright (C) 2017 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
 * This file is part of 0 A.D.
 *
 * 0 A.D. is free software: you can redistribute it and/or modify
@@ -15,25 +15,34 @@
 * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "../Common/Sidebar.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/Sections/Common/Sidebar.h"
+
+#include <wx/event.h>
+
+class ScenarioEditor;
+class wxCheckBox;
+class wxListBox;
+class wxScrolledWindow;
+class wxTextCtrl;
+class wxWindow;
 
 class CinemaSidebar : public Sidebar
 {
 public:
 	CinemaSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContainer, wxWindow* bottomBarContainer);
 
-	virtual void OnMapReload();
-	virtual void OnTogglePathsDrawing(wxCommandEvent& evt);
-	virtual void OnAddPath(wxCommandEvent& evt);
-	virtual void OnDeletePath(wxCommandEvent& evt);
+	void OnMapReload() override;
+
+protected:
+	void OnFirstDisplay() override;
+
+private:
+	void OnTogglePathsDrawing(wxCommandEvent& evt);
+	void OnAddPath(wxCommandEvent& evt);
+	void OnDeletePath(wxCommandEvent& evt);
 
 	void ReloadPathList();
 
-protected:
-	virtual void OnFirstDisplay();
-
-private:
-	wxScrolledWindow* scrolledWindow;
 	wxCheckBox* m_DrawPath;
 	wxListBox* m_PathList;
 	wxTextCtrl* m_NewPathName;

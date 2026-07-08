@@ -41,10 +41,9 @@
   "AISeed": 0,
   "AllyView": false,
   "CircularMap": true,
-  "Description": "The Savanna is open and foreboding, chock full of animal, both huntable and hunter. \n\nHere we have an example of the two seasons prevelant on the savanna: The wet season and the dry season.",
+  "Description": "The Savanna is open and foreboding, chock full of animal, both huntable and hunter. \n\nHere we have an example of the two seasons prevalent on the savanna: The wet season and the dry season.",
   "Keywords": [
-    "demo",
-    "new"
+    "demo"
   ],
   "LockTeams": false,
   "Name": "North African Savanna (2 players)",

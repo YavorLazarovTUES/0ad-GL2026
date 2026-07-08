@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,18 +19,27 @@
 
 #include "ICmpRangeOverlayRenderer.h"
 
+#include "graphics/Color.h"
 #include "graphics/Overlay.h"
-#include "graphics/TextureManager.h"
+#include "maths/Vector2D.h"
+#include "ps/CStrIntern.h"
 #include "renderer/Renderer.h"
+#include "renderer/Scene.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/ICmpOwnership.h"
 #include "simulation2/components/ICmpPlayer.h"
 #include "simulation2/components/ICmpPlayerManager.h"
 #include "simulation2/components/ICmpPosition.h"
+#include "simulation2/helpers/Player.h"
 #include "simulation2/helpers/Render.h"
 #include "simulation2/system/Component.h"
+#include "simulation2/system/Message.h"
 
 #include <memory>
+#include <string>
+#include <vector>
+
+class CFrustum;
 
 class CCmpRangeOverlayRenderer final : public ICmpRangeOverlayRenderer
 {
@@ -56,7 +65,7 @@ public:
 		return "<a:component type='system'/><empty/>";
 	}
 
-	void Init(const CParamNode& UNUSED(paramNode)) override
+	void Init(const CParamNode&) override
 	{
 		m_Enabled = m_LastEnabledState = false;
 		UpdateMessageSubscriptions();
@@ -64,11 +73,11 @@ public:
 
 	void Deinit() override { }
 
-	void Serialize(ISerializer& UNUSED(serialize)) override
+	void Serialize(ISerializer&) override
 	{
 	}
 
-	void Deserialize(const CParamNode& paramNode, IDeserializer& UNUSED(deserialize)) override
+	void Deserialize(const CParamNode& paramNode, IDeserializer&) override
 	{
 		Init(paramNode);
 	}
@@ -98,7 +107,7 @@ public:
 		UpdateMessageSubscriptions();
 	}
 
-	void HandleMessage(const CMessage& msg, bool UNUSED(global)) override
+	void HandleMessage(const CMessage& msg, bool /*global*/) override
 	{
 		switch (msg.GetType())
 		{

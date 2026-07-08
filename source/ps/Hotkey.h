@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -31,8 +31,10 @@
  * triggered. All with the hotkey name stored in ev.user.data1 as a const char*.
  */
 
-#include "CStr.h"
-#include "lib/input.h"
+#include "lib/types.h"
+#include "ps/CStr.h"
+#include "ps/containers/StaticVector.h"
+#include "ps/Input.h"
 
 #include <unordered_map>
 #include <vector>
@@ -49,7 +51,8 @@ const uint SDL_HOTKEYUP = SDL_USEREVENT_ + 2;
 const uint SDL_HOTKEYPRESS_SILENT = SDL_USEREVENT_ + 3;
 const uint SDL_HOTKEYUP_SILENT = SDL_USEREVENT_ + 4;
 
-constexpr SDL_Scancode_ UNUSED_HOTKEY_CODE = 0; // == SDL_SCANCODE_UNKNOWN
+// Value not mapping to any valid SDL_SCANCODE_*
+constexpr SDL_Scancode_ UNUSED_HOTKEY_CODE{-1};
 
 struct SKey
 {
@@ -63,7 +66,7 @@ struct SHotkeyMapping
 {
 	CStr name; // name of the hotkey
 	SKey primary; // the primary key
-	std::vector<SKey> required; // list of non-primary keys that must also be active
+	PS::StaticVector<SKey, 8> required; // list of non-primary keys that must also be active
 };
 
 typedef std::vector<SHotkeyMapping> KeyMapping;
@@ -80,22 +83,22 @@ extern void UnloadHotkeys();
 /**
  * Updates g_HotkeyMap.
  */
-extern InReaction HotkeyStateChange(const SDL_Event_* ev);
+extern Input::Reaction HotkeyStateChange(const SDL_Event& ev);
 
 /**
  * Detects hotkeys that should fire. This allows using EventWillFireHotkey,
  * (and then possibly preventing those hotkeys from firing by handling the event).
  */
-extern InReaction HotkeyInputPrepHandler(const SDL_Event_* ev);
+extern Input::Reaction HotkeyInputPrepHandler(const SDL_Event& ev);
 /**
  * Actually fires hotkeys.
  */
-extern InReaction HotkeyInputActualHandler(const SDL_Event_* ev);
+extern Input::Reaction HotkeyInputActualHandler(const SDL_Event& ev);
 
 /**
  * @return whether the event @param ev will fire the hotkey @param keyname.
  */
-extern bool EventWillFireHotkey(const SDL_Event_* ev, const CStr& keyname);
+extern bool EventWillFireHotkey(const SDL_Event& ev, const CStr& keyname);
 
 /**
  * Resets all currently active hotkeys (and clears in-flight hotkeys).

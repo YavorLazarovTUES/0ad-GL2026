@@ -19,26 +19,30 @@ Engine.LoadComponentScript("interfaces/TerritoryDecay.js");
 Engine.LoadComponentScript("interfaces/Trigger.js");
 Engine.LoadComponentScript("interfaces/Timer.js");
 Engine.LoadComponentScript("interfaces/UnitAI.js");
+Engine.LoadComponentScript("interfaces/Turretable.js");
+Engine.LoadComponentScript("interfaces/TurretHolder.js");
 Engine.LoadComponentScript("AutoBuildable.js");
 Engine.LoadComponentScript("Foundation.js");
 Engine.LoadComponentScript("Timer.js");
 
-let player = 1;
-let playerEnt = 3;
-let foundationEnt = 20;
-let previewEnt = 21;
-let newEnt = 22;
-let finalTemplate = "structures/athen/civil_centre.xml";
+const player = 1;
+const playerEnt = 3;
+const foundationEnt = 20;
+const previewEnt = 21;
+const newEnt = 22;
+const finalTemplate = "structures/athen/civil_centre.xml";
 
 function testFoundation(...mocks)
 {
 	ResetState();
 
 	let foundationHP = 1;
-	let maxHP = 100;
-	let rot = new Vector3D(1, 2, 3);
-	let pos = new Vector2D(4, 5);
-	let cmpFoundation;
+	const maxHP = 100;
+	const rot = new Vector3D(1, 2, 3);
+	const pos = new Vector2D(4, 5);
+	const cmpFoundation = ConstructComponent(foundationEnt, "Foundation", {
+		"BuildTimeModifier": "0.7"
+	});
 
 	AddMock(SYSTEM_ENTITY, IID_Trigger, {
 		"CallEvent": () => {},
@@ -49,14 +53,16 @@ function testFoundation(...mocks)
 	});
 
 	AddMock(SYSTEM_ENTITY, IID_TerritoryManager, {
-		"GetOwner": (x, y) => {
+		"GetOwner": (x, y) =>
+		{
 			TS_ASSERT_EQUALS(x, pos.x);
 			TS_ASSERT_EQUALS(y, pos.y);
 			return player;
 		},
 	});
 
-	Engine.RegisterGlobal("PlaySound", (name, source) => {
+	Engine.RegisterGlobal("PlaySound", (name, source) =>
+	{
 		TS_ASSERT_EQUALS(name, "constructed");
 		TS_ASSERT_EQUALS(source, newEnt);
 	});
@@ -70,7 +76,8 @@ function testFoundation(...mocks)
 	AddMock(foundationEnt, IID_Health, {
 		"GetHitpoints": () => foundationHP,
 		"GetMaxHitpoints": () => maxHP,
-		"Increase": hp => {
+		"Increase": hp =>
+		{
 			foundationHP = Math.min(foundationHP + hp, maxHP);
 			cmpFoundation.OnHealthChanged();
 		},
@@ -96,18 +103,26 @@ function testFoundation(...mocks)
 		"MoveOutOfWorld": () => {}
 	});
 
+	AddMock(foundationEnt, IID_Turretable, {
+		"IsTurreted": () => false,
+		"HolderID": () => 0,
+		"LeaveTurret": () => true
+	});
+
 	AddMock(previewEnt, IID_Ownership, {
 		"SetOwner": owner => { TS_ASSERT_EQUALS(owner, player); },
 	});
 
 	AddMock(previewEnt, IID_Position, {
-		"JumpTo": (x, y) => {
+		"JumpTo": (x, y) =>
+		{
 			TS_ASSERT_EQUALS(x, pos.x);
 			TS_ASSERT_EQUALS(y, pos.y);
 		},
 		"SetConstructionProgress": p => {},
 		"SetYRotation": r => { TS_ASSERT_EQUALS(r, rot.y); },
-		"SetXZRotation": (rx, rz) => {
+		"SetXZRotation": (rx, rz) =>
+		{
 			TS_ASSERT_EQUALS(rx, rot.x);
 			TS_ASSERT_EQUALS(rz, rot.z);
 		},
@@ -119,29 +134,36 @@ function testFoundation(...mocks)
 
 	AddMock(newEnt, IID_Position, {
 		"GetPosition2D": () => pos,
-		"JumpTo": (x, y) => {
+		"JumpTo": (x, y) =>
+		{
 			TS_ASSERT_EQUALS(x, pos.x);
 			TS_ASSERT_EQUALS(y, pos.y);
 		},
 		"SetYRotation": r => { TS_ASSERT_EQUALS(r, rot.y); },
-		"SetXZRotation": (rx, rz) => {
+		"SetXZRotation": (rx, rz) =>
+		{
 			TS_ASSERT_EQUALS(rx, rot.x);
 			TS_ASSERT_EQUALS(rz, rot.z);
 		},
 		"SetHeightOffset": () => {}
 	});
 
-	for (let mock of mocks)
+	AddMock(newEnt, IID_Turretable, {
+		"IsTurreted": () => false,
+		"HolderID": () => 0,
+		"CanOccupy": (target) => true,
+		"LeaveTurret": () => true
+	});
+
+	for (const mock of mocks)
 		AddMock(...mock);
 
 	// INITIALISE
-	Engine.AddLocalEntity = function(template) {
+	Engine.AddLocalEntity = function(template)
+	{
 		TS_ASSERT_EQUALS(template, "construction|" + finalTemplate);
 		return previewEnt;
 	};
-	cmpFoundation = ConstructComponent(foundationEnt, "Foundation", {
-		"BuildTimeModifier": "0.7"
-	});
 	cmpFoundation.InitialiseConstruction(finalTemplate);
 
 	TS_ASSERT_EQUALS(cmpFoundation.finalTemplateName, finalTemplate);
@@ -151,8 +173,8 @@ function testFoundation(...mocks)
 	// BUILDER COUNT, BUILD RATE, TIME REMAINING
 	AddMock(10, IID_Builder, { "GetRate": () => 1.0 });
 	AddMock(11, IID_Builder, { "GetRate": () => 1.0 });
-	let twoBuilderMultiplier = Math.pow(2, cmpFoundation.buildTimeModifier) / 2;
-	let threeBuilderMultiplier = Math.pow(3, cmpFoundation.buildTimeModifier) / 3;
+	const twoBuilderMultiplier = Math.pow(2, cmpFoundation.buildTimeModifier) / 2;
+	const threeBuilderMultiplier = Math.pow(3, cmpFoundation.buildTimeModifier) / 3;
 
 	TS_ASSERT_EQUALS(cmpFoundation.CalculateBuildMultiplier(1), 1);
 	TS_ASSERT_EQUALS(cmpFoundation.CalculateBuildMultiplier(2), twoBuilderMultiplier);
@@ -191,7 +213,7 @@ function testFoundation(...mocks)
 
 	// COMMIT FOUNDATION
 	TS_ASSERT_EQUALS(cmpFoundation.committed, false);
-	let work = 5;
+	const work = 5;
 	cmpFoundation.Build(10, work);
 	TS_ASSERT_EQUALS(cmpFoundation.committed, true);
 	TS_ASSERT_EQUALS(foundationHP, 1 + work * cmpFoundation.GetBuildRate() * cmpFoundation.buildMultiplier);
@@ -199,7 +221,8 @@ function testFoundation(...mocks)
 	TS_ASSERT_EQUALS(cmpFoundation.totalBuilderRate, 5);
 
 	// FINISH CONSTRUCTION
-	Engine.AddEntity = function(template) {
+	Engine.AddEntity = function(template)
+	{
 		TS_ASSERT_EQUALS(template, finalTemplate);
 		return newEnt;
 	};
@@ -211,7 +234,8 @@ function testFoundation(...mocks)
 testFoundation();
 
 testFoundation([foundationEnt, IID_Visual, {
-	"SetVariable": (key, num) => {
+	"SetVariable": (key, num) =>
+	{
 		TS_ASSERT_EQUALS(key, "numbuilders");
 		TS_ASSERT(num == 1 || num == 2);
 	},
@@ -224,16 +248,17 @@ testFoundation([newEnt, IID_TerritoryDecay, {
 }]);
 
 testFoundation([playerEnt, IID_StatisticsTracker, {
-	"IncreaseConstructedBuildingsCounter": ent => {
+	"IncreaseConstructedBuildingsCounter": ent =>
+	{
 		TS_ASSERT_EQUALS(ent, newEnt);
 	},
 }]);
 
 // Test autobuild feature.
 const foundationEnt2 = 42;
-let turnLength = 0.2;
+const turnLength = 0.2;
 let currentFoundationHP = 1;
-let cmpTimer = ConstructComponent(SYSTEM_ENTITY, "Timer");
+const cmpTimer = ConstructComponent(SYSTEM_ENTITY, "Timer");
 
 AddMock(foundationEnt2, IID_Cost, {
 	"GetBuildTime": () => 50,
@@ -246,10 +271,17 @@ const cmpAutoBuildingFoundation = ConstructComponent(foundationEnt2, "Foundation
 AddMock(foundationEnt2, IID_Health, {
 	"GetHitpoints": () => currentFoundationHP,
 	"GetMaxHitpoints": () => 100,
-	"Increase": hp => {
+	"Increase": hp =>
+	{
 		currentFoundationHP = Math.min(currentFoundationHP + hp, 100);
 		cmpAutoBuildingFoundation.OnHealthChanged();
 	},
+});
+
+AddMock(foundationEnt2, IID_Turretable, {
+	"IsTurreted": () => false,
+	"HolderID": () => 0,
+	"LeaveTurret": () => true
 });
 
 const cmpBuildableAuto = ConstructComponent(foundationEnt2, "AutoBuildable", {
@@ -269,9 +301,9 @@ for (let i = 0; i < 10; ++i)
 		TS_ASSERT_EQUALS(cmpAutoBuildingFoundation.GetNumBuilders(), 0);
 	}
 
-	let currentPercentage = cmpAutoBuildingFoundation.GetBuildPercentage();
+	const currentPercentage = cmpAutoBuildingFoundation.GetBuildPercentage();
 	cmpTimer.OnUpdate({ "turnLength": turnLength * 5 });
-	let newPercentage = cmpAutoBuildingFoundation.GetBuildPercentage();
+	const newPercentage = cmpAutoBuildingFoundation.GetBuildPercentage();
 
 	if (i >= 8)
 		TS_ASSERT_EQUALS(currentPercentage, newPercentage);

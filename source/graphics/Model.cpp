@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,20 +22,26 @@
 #include "graphics/Decal.h"
 #include "graphics/MeshManager.h"
 #include "graphics/ModelDef.h"
-#include "graphics/ObjectEntry.h"
+#include "graphics/RenderableObject.h"
 #include "graphics/SkeletonAnim.h"
 #include "graphics/SkeletonAnimDef.h"
-#include "maths/BoundingBoxAligned.h"
-#include "maths/Quaternion.h"
 #include "lib/sysdep/rtl.h"
+#include "maths/BoundingBoxAligned.h"
+#include "maths/Matrix3D.h"
+#include "maths/Vector3D.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
-#include "ps/Profile.h"
+#include "ps/Profiler2.h"
 #include "renderer/RenderingOptions.h"
 #include "simulation2/components/ICmpTerrain.h"
 #include "simulation2/components/ICmpWaterManager.h"
-#include "simulation2/Simulation2.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
 
+#include <algorithm>
+#include <utility>
 
 CModel::CModel(const CSimulation2& simulation, const CMaterial& material, const CModelDefPtr& modeldef)
 	: m_Simulation{simulation}, m_Material{material}, m_pModelDef{modeldef}
@@ -236,13 +242,10 @@ void CModel::ValidatePosition()
 	// For CPU skinning, we precompute as much as possible so that the only
 	// per-vertex work is a single matrix*vec multiplication.
 	// For GPU skinning, we try to minimise CPU work by doing most computation
-	// in the vertex shader instead.
-	// Using g_RenderingOptions to detect CPU vs GPU is a bit hacky,
-	// and this doesn't allow the setting to change at runtime, but there isn't
-	// an obvious cleaner way to determine what data needs to be computed,
-	// and GPU skinning is a rarely-used experimental feature anyway.
-	bool worldSpaceBoneMatrices = !g_RenderingOptions.GetGPUSkinning();
-	bool computeBlendMatrices = !g_RenderingOptions.GetGPUSkinning();
+	// in the compute shader instead.
+	const bool isGPUSkinningEnabled{g_RenderingOptions.GetGPUSkinning()};
+	const bool worldSpaceBoneMatrices{!isGPUSkinningEnabled};
+	const bool computeBlendMatrices{!isGPUSkinningEnabled};
 
 	if (m_BoneMatrices && worldSpaceBoneMatrices)
 	{
@@ -319,7 +322,7 @@ void CModel::ValidatePosition()
 		//	which we indicate with the blending bone ID set to the total number
 		//	of bones. But since we're skinning in world space, we use the model's
 		//	world space transform and store that matrix in this special index.
-		//	(see http://trac.wildfiregames.com/ticket/1012)
+		//	(see https://gitea.wildfiregames.com/0ad/0ad/issues/1012)
 		m_BoneMatrices[m_pModelDef->GetNumBones()] = m_Transform;
 
 		if (computeBlendMatrices)
@@ -350,7 +353,7 @@ bool CModel::SetAnimation(CSkeletonAnim* anim, bool once)
 		{
 			LOGERROR("Mismatch between model's skeleton and animation's skeleton (%s.dae has %lu model bones while the animation %s has %lu animation keys.)",
 				m_pModelDef->GetName().string8().c_str() ,
-				static_cast<unsigned long>(m_pModelDef->GetNumBones()), 
+				static_cast<unsigned long>(m_pModelDef->GetNumBones()),
 				anim->m_Name.c_str(),
 				static_cast<unsigned long>(anim->m_AnimDef->GetNumKeys()));
 			return false;
@@ -506,18 +509,25 @@ void CModel::AddFlagsRec(int flags)
 			m_Props[i].m_Model->ToCModel()->AddFlagsRec(flags);
 }
 
-void CModel::RemoveShadowsRec()
+void CModel::RemoveShadowsCast()
 {
 	m_Flags &= ~ModelFlag::CAST_SHADOWS;
-
-	m_Material.AddShaderDefine(str_DISABLE_RECEIVE_SHADOWS, str_1);
-
 	for (size_t i = 0; i < m_Props.size(); ++i)
 	{
 		if (m_Props[i].m_Model->ToCModel())
-			m_Props[i].m_Model->ToCModel()->RemoveShadowsRec();
+			m_Props[i].m_Model->ToCModel()->RemoveShadowsCast();
+	}
+}
+
+void CModel::RemoveShadowsReceive()
+{
+	m_Material.AddShaderDefine(str_DISABLE_RECEIVE_SHADOWS, str_1);
+	for (size_t i = 0; i < m_Props.size(); ++i)
+	{
+		if (m_Props[i].m_Model->ToCModel())
+			m_Props[i].m_Model->ToCModel()->RemoveShadowsReceive();
 		else if (m_Props[i].m_Model->ToCModelDecal())
-			m_Props[i].m_Model->ToCModelDecal()->RemoveShadows();
+			m_Props[i].m_Model->ToCModelDecal()->RemoveShadowsReceive();
 	}
 }
 

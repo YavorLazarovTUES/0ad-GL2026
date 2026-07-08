@@ -91,7 +91,7 @@ function createDefaultFortressTypes()
 	/**
 	 * Define some basic default fortress types.
 	 */
-	const addFortress = (type, walls) => defaultFortresses[type] = { "wall": walls.concat(walls, walls, walls) };
+	const addFortress = (type, walls) => { defaultFortresses[type] = { "wall": walls.concat(walls, walls, walls) }; };
 	addFortress("tiny", ["gate", "tower", "short", "cornerIn", "short", "tower"]);
 	addFortress("small", ["gate", "tower", "medium", "cornerIn", "medium", "tower"]);
 	addFortress("medium", ["gate", "tower", "long", "cornerIn", "long", "tower"]);
@@ -253,7 +253,7 @@ function getWallElement(element, style)
 				ret.length = 0;
 			}
 			else
-				warn("Unrecognised wall element: '" + element + "' (" + style + "). Defaulting to " + (wallset.tower ? "'tower'." : "a blank element."));
+				warn("Unrecognized wall element: '" + element + "' (" + style + "). Defaulting to " + (wallset.tower ? "'tower'." : "a blank element."));
 		}
 	}
 
@@ -880,7 +880,6 @@ function placeGenericFortress(center, radius = 20, playerId = 0, style, irregula
 	while (tries < maxTries && minOverlap > g_WallStyles[style].overlap)
 	{
 		const pointDerivation = [];
-		let distanceToTarget = 1000;
 		while (true)
 		{
 			const indent = randFloat(-irregularity * pointDistance, irregularity * pointDistance);
@@ -890,7 +889,7 @@ function placeGenericFortress(center, radius = 20, playerId = 0, style, irregula
 			actualOff.add(new Vector2D(pointDistance, 0).rotate(-tmpAngle));
 			actualAngle = getAngle(0, 0, actualOff.x, actualOff.y);
 			pointDerivation.push(actualOff.clone());
-			distanceToTarget = pointDerivation[0].distanceTo(actualOff);
+			const distanceToTarget = pointDerivation[0].distanceTo(actualOff);
 
 			const numPoints = pointDerivation.length;
 			if (numPoints > 3 && distanceToTarget < pointDistance) // Could be done better...

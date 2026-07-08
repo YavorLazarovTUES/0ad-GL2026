@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,10 +21,26 @@
 
 #include "gui/CGUI.h"
 #include "gui/CGUIScrollBarVertical.h"
+#include "gui/CGUIText.h"
+#include "gui/IGUIScrollBar.h"
+#include "gui/SGUIMessage.h"
 #include "gui/SettingTypes/CGUIColor.h"
 #include "gui/SettingTypes/CGUIList.h"
+#include "gui/SettingTypes/CGUIString.h"
 #include "lib/external_libraries/libsdl.h"
 #include "lib/timer.h"
+#include "maths/Size2D.h"
+#include "maths/Vector2D.h"
+#include "ps/XMB/XMBData.h"
+
+#include <SDL_events.h>
+#include <SDL_keycode.h>
+#include <cstddef>
+#include <memory>
+#include <string>
+#include <utility>
+
+class CCanvas2D;
 
 const CStr CList::EventNameSelectionChange = "SelectionChange";
 const CStr CList::EventNameHoverChange = "HoverChange";
@@ -63,10 +79,6 @@ CList::CList(CGUI& pGUI)
 	auto bar = std::make_unique<CGUIScrollBarVertical>(pGUI);
 	bar->SetRightAligned(true);
 	AddScrollBar(std::move(bar));
-}
-
-CList::~CList()
-{
 }
 
 void CList::SetupText()
@@ -146,16 +158,17 @@ void CList::ResetStates()
 	IGUIScrollBarOwner::ResetStates();
 }
 
-void CList::UpdateCachedSize()
+void CList::HandleSizeChanged()
 {
-	IGUIObject::UpdateCachedSize();
-	IGUITextOwner::UpdateCachedSize();
+	IGUIObject::HandleSizeChanged();
+	IGUITextOwner::HandleSizeChanged();
 }
 
 void CList::HandleMessage(SGUIMessage& Message)
 {
 	IGUIObject::HandleMessage(Message);
-	IGUIScrollBarOwner::HandleMessage(Message);
+	if (m_ScrollBar)
+		IGUIScrollBarOwner::HandleMessage(Message);
 	//IGUITextOwner::HandleMessage(Message); <== placed it after the switch instead!
 
 	m_Modified = false;
@@ -247,52 +260,52 @@ void CList::HandleMessage(SGUIMessage& Message)
 	IGUITextOwner::HandleMessage(Message);
 }
 
-InReaction CList::ManuallyHandleKeys(const SDL_Event_* ev)
+Input::Reaction CList::ManuallyHandleKeys(const SDL_Event& ev)
 {
-	InReaction result = IN_PASS;
+	Input::Reaction result{Input::Reaction::PASS};
 
-	if (ev->ev.type == SDL_KEYDOWN)
+	if (ev.type == SDL_KEYDOWN)
 	{
-		int szChar = ev->ev.key.keysym.sym;
+		int szChar = ev.key.keysym.sym;
 
 		switch (szChar)
 		{
 		case SDLK_HOME:
 			SelectFirstElement();
 			UpdateAutoScroll();
-			result = IN_HANDLED;
+			result = Input::Reaction::HANDLED;
 			break;
 
 		case SDLK_END:
 			SelectLastElement();
 			UpdateAutoScroll();
-			result = IN_HANDLED;
+			result = Input::Reaction::HANDLED;
 			break;
 
 		case SDLK_UP:
 			SelectPrevElement();
 			UpdateAutoScroll();
-			result = IN_HANDLED;
+			result = Input::Reaction::HANDLED;
 			break;
 
 		case SDLK_DOWN:
 			SelectNextElement();
 			UpdateAutoScroll();
-			result = IN_HANDLED;
+			result = Input::Reaction::HANDLED;
 			break;
 
 		case SDLK_PAGEUP:
 			GetScrollBar(0).ScrollMinusPlenty();
-			result = IN_HANDLED;
+			result = Input::Reaction::HANDLED;
 			break;
 
 		case SDLK_PAGEDOWN:
 			GetScrollBar(0).ScrollPlusPlenty();
-			result = IN_HANDLED;
+			result = Input::Reaction::HANDLED;
 			break;
 
 		default: // Do nothing
-			result = IN_PASS;
+			result = Input::Reaction::PASS;
 		}
 	}
 

@@ -1,4 +1,4 @@
-/* Copyright (C) 2015 Wildfire Games.
+/* Copyright (C) 2024 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -27,23 +27,35 @@
 #include "precompiled.h"
 
 #include "lib/sysdep/cpu.h"
+#include "lib/sysdep/os.h"
 
-intptr_t cpu_AtomicAdd(volatile intptr_t* location, intptr_t increment)
-{
-	return __sync_fetch_and_add(location, increment);
-}
-
-bool cpu_CAS(volatile intptr_t* location, intptr_t expected, intptr_t newValue)
-{
-	return __sync_bool_compare_and_swap(location, expected, newValue);
-}
-
-bool cpu_CAS64(volatile i64* location, i64 expected, i64 newValue)
-{
-	return __sync_bool_compare_and_swap(location, expected, newValue);
-}
+#if OS_MACOSX
+#include <cstdlib>
+#include <cstddef>
+#include <sys/sysctl.h>
+#endif
 
 const char* cpu_IdentifierString()
 {
+#if OS_MACOSX
+	size_t bufferSize = 0;
+
+	if (sysctlbyname("machdep.cpu.brand_string", nullptr, &bufferSize, nullptr, 0) != 0) {
+		return "unknown";
+	}
+
+	char* result = static_cast<char*>(malloc(bufferSize));
+	if (!result) {
+		return "unknown";
+	}
+
+	if (sysctlbyname("machdep.cpu.brand_string", result, &bufferSize, nullptr, 0) != 0) {
+		free(result);
+		return "unknown";
+	}
+
+	return result;
+#else
 	return "unknown"; // TODO
+#endif
 }

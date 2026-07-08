@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -28,14 +28,28 @@
 #ifndef INCLUDED_IO
 #define INCLUDED_IO
 
-#include "lib/config2.h"
 #include "lib/alignment.h"
 #include "lib/bits.h"
-#include "lib/timer.h"
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
 #include "lib/file/file.h"
-#include "lib/sysdep/rtl.h"
-#include "lib/sysdep/filesystem.h"	// wtruncate
+#include "lib/lib.h"
+#include "lib/os_path.h"
 #include "lib/posix/posix_aio.h"	// LIO_READ, LIO_WRITE
+#include "lib/posix/posix_types.h"
+#include "lib/status.h"
+#include "lib/sysdep/filesystem.h"
+#include "lib/sysdep/os.h"
+#include "lib/sysdep/rtl.h"
+#include "lib/types.h"
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <fcntl.h>
+#include <filesystem>
+#include <memory>
+#include <system_error>
 
 namespace ERR
 {
@@ -165,7 +179,7 @@ struct DefaultCompletedHook
 	 * allows progress notification and processing data while waiting for
 	 * previous I/Os to complete.
 	 **/
-	Status operator()(const u8* UNUSED(block), size_t UNUSED(blockSize)) const
+	Status operator()(const u8* /*block*/, size_t /*blockSize*/) const
 	{
 		return INFO::OK;
 	}
@@ -181,7 +195,7 @@ struct DefaultIssueHook
 	 * allows generating the data to write while waiting for
 	 * previous I/Os to complete.
 	 **/
-	Status operator()(aiocb& UNUSED(cb)) const
+	Status operator()(aiocb&) const
 	{
 		return INFO::OK;
 	}
@@ -315,14 +329,17 @@ static inline Status Store(const OsPath& pathname, const void* data, size_t size
 	io::Operation op(file, (void*)data, size);
 
 #if OS_WIN
-	UNUSED2(waio_Preallocate(op.m_FileDescriptor, (off_t)size));
+	std::ignore = waio_Preallocate(op.m_FileDescriptor, (off_t)size);
 #endif
 
 	RETURN_STATUS_IF_ERR(io::Run(op, p, completedHook, issueHook));
 
-	file.Close();	// (required by wtruncate)
+	file.Close();	// (required by resize_file)
 
-	RETURN_STATUS_IF_ERR(wtruncate(pathname, size));
+	std::error_code ec{};
+	std::filesystem::resize_file(pathname.string(), size, ec);
+	if (ec)
+		return StatusFromSystemError(ec);
 
 	return INFO::OK;
 }

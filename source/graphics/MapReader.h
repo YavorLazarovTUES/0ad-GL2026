@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,27 +21,36 @@
 #include "MapIO.h"
 
 #include "graphics/LightEnv.h"
+#include "lib/file/vfs/vfs_path.h"
+#include "lib/posix/posix_types.h"
+#include "lib/types.h"
+#include "maths/Vector3D.h"
 #include "ps/CStr.h"
+#include "ps/Errors.h"
 #include "ps/FileIo.h"
-#include "scriptinterface/ScriptTypes.h"
+#include "ps/Loader.h"
 #include "simulation2/system/Entity.h"
 
+#include <cstddef>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
 #include <memory>
+#include <vector>
 
-class CTerrain;
-class WaterManager;
-class SkyManager;
-class CLightEnv;
 class CCinemaManager;
-class CPostprocManager;
-class CTriggerManager;
-class CSimulation2;
-class CSimContext;
-class CTerrainTextureEntry;
 class CGameView;
+class CPostprocManager;
+class CSimContext;
+class CSimulation2;
+class CTerrain;
+class CTerrainTextureEntry;
+class CTriggerManager;
 class CXMLReader;
-class ScriptContext;
-class ScriptInterface;
+class SkyManager;
+class WaterManager;
+namespace Script { class Context; }
+namespace Script { class Interface; }
 
 class CMapReader : public CMapIO
 {
@@ -50,14 +59,18 @@ class CMapReader : public CMapIO
 public:
 	// constructor
 	CMapReader();
+	CMapReader(const CMapReader&) = delete;
+	CMapReader& operator =(const CMapReader&) = delete;
+	CMapReader(CMapReader&&) = delete;
+	CMapReader& operator =(CMapReader&&) = delete;
 	~CMapReader();
 
 	// LoadMap: try to load the map from given file; reinitialise the scene to new data if successful
-	void LoadMap(const VfsPath& pathname, const ScriptContext& cx, JS::HandleValue settings, CTerrain*, WaterManager*, SkyManager*, CLightEnv*, CGameView*,
+	void LoadMap(const VfsPath& pathname, const Script::Context& cx, JS::HandleValue settings, CTerrain*, WaterManager*, SkyManager*, CLightEnv*, CGameView*,
 		CCinemaManager*, CTriggerManager*, CPostprocManager* pPostproc, CSimulation2*, const CSimContext*,
 	        int playerID, bool skipEntities);
 
-	void LoadRandomMap(const CStrW& scriptFile, const ScriptContext& cx, JS::HandleValue settings, CTerrain*, WaterManager*, SkyManager*, CLightEnv*, CGameView*, CCinemaManager*, CTriggerManager*, CPostprocManager* pPostproc_, CSimulation2*, int playerID);
+	void LoadRandomMap(const CStrW& scriptFile, const Script::Context& cx, JS::HandleValue settings, CTerrain*, WaterManager*, SkyManager*, CLightEnv*, CGameView*, CCinemaManager*, CTriggerManager*, CPostprocManager* pPostproc_, CSimulation2*, int playerID);
 
 private:
 	// Load script settings for use by scripts
@@ -70,7 +83,7 @@ private:
 	int LoadMapSettings();
 
 	// UnpackTerrain: unpack the terrain from the input stream
-	int UnpackTerrain();
+	PS::Loader::Task UnpackTerrain();
 	// UnpackCinema: unpack the cinematic tracks from the input stream
 	int UnpackCinema();
 
@@ -82,20 +95,19 @@ private:
 	int ReadXML();
 
 	// read entity data from the XML file
-	int ReadXMLEntities();
+	PS::Loader::Task ReadXMLEntities();
 
 	// Copy random map settings over to sim
 	int LoadRMSettings();
 
 	// Generate random map
-	int StartMapGeneration(const CStrW& scriptFile);
-	int PollMapGeneration();
+	PS::Loader::Task RunMapGeneration(const CStrW& scriptFile);
 
 	// Parse script data into terrain
 	int ParseTerrain();
 
 	// Parse script data into entities
-	int ParseEntities();
+	PS::Loader::Task ParseEntities();
 
 	// Parse script data into environment
 	int ParseEnvironment();
@@ -121,9 +133,6 @@ private:
 	JS::PersistentRootedValue m_ScriptSettings;
 	JS::PersistentRootedValue m_MapData;
 
-	struct GeneratorState;
-	std::unique_ptr<GeneratorState> m_GeneratorState;
-
 	CFileUnpacker unpacker;
 	CTerrain* pTerrain;
 	WaterManager* pWaterMan;
@@ -137,18 +146,13 @@ private:
 	const CSimContext* pSimContext;
 	int m_PlayerID;
 	bool m_SkipEntities;
-	VfsPath filename_xml;
+	VfsPath m_FilenameXml;
 	bool only_xml;
 	u32 file_format_version;
 	entity_id_t m_StartingCameraTarget;
 	CVector3D m_StartingCamera;
 
-	// UnpackTerrain generator state
-	// It's important to initialize it to 0 - resets generator state
-	size_t cur_terrain_tex{0};
-	size_t num_terrain_tex;
-
-	CXMLReader* xml_reader{nullptr};
+	std::unique_ptr<CXMLReader> m_XmlReader;
 };
 
 /**
@@ -172,7 +176,7 @@ public:
 	 * }
 	 * @endcode
 	 */
-	void GetMapSettings(const ScriptInterface& scriptInterface, JS::MutableHandleValue);
+	void GetMapSettings(const Script::Interface& scriptInterface, JS::MutableHandleValue);
 
 private:
 	CStr m_ScriptSettings;

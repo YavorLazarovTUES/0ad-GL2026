@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,53 +19,56 @@
 
 #include "View.h"
 
-#include "ActorViewer.h"
-#include "GameLoop.h"
-#include "Messages.h"
-#include "SimState.h"
-
 #include "graphics/Canvas2D.h"
 #include "graphics/CinemaManager.h"
+#include "graphics/Color.h"
 #include "graphics/GameView.h"
-#include "graphics/ParticleManager.h"
-#include "graphics/UnitManager.h"
-#include "lib/timer.h"
+#include "lib/debug.h"
 #include "lib/utf8.h"
 #include "maths/MathUtil.h"
+#include "maths/Matrix3D.h"
+#include "maths/Vector2D.h"
+#include "ps/CStr.h"
+#include "ps/CLogger.h"
 #include "ps/ConfigDB.h"
 #include "ps/Game.h"
-#include "ps/GameSetup/GameSetup.h"
 #include "ps/VideoMode.h"
-#include "ps/World.h"
-#include "renderer/backend/IDevice.h"
 #include "renderer/DebugRenderer.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
-#include "simulation2/components/ICmpObstructionManager.h"
+#include "renderer/backend/ISwapChain.h"
+#include "simulation2/Simulation2.h"
+#include "simulation2/components/ICmpRangeManager.h"
 #include "simulation2/components/ICmpParticleManager.h"
 #include "simulation2/components/ICmpPathfinder.h"
-#include "simulation2/Simulation2.h"
+#include "simulation2/system/Component.h"
 #include "soundmanager/ISoundManager.h"
+#include "tools/atlas/GameInterface/ActorViewer.h"
+#include "tools/atlas/GameInterface/GameLoop.h"
+#include "tools/atlas/GameInterface/Messages.h"
+#include "tools/atlas/GameInterface/SimState.h"
+
+#include <sstream>
+#include <utility>
+#include <vector>
 
 extern void (*Atlas_GLSwapBuffers)(void* context);
 
-extern int g_xres, g_yres;
-
 //////////////////////////////////////////////////////////////////////////
 
-void AtlasView::SetParam(const std::wstring& UNUSED(name), bool UNUSED(value))
+void AtlasView::SetParam(const std::wstring& /*name*/, bool /*value*/)
 {
 }
 
-void AtlasView::SetParam(const std::wstring& UNUSED(name), const AtlasMessage::Color& UNUSED(value))
+void AtlasView::SetParam(const std::wstring& /*name*/, const AtlasMessage::Color& /*value*/)
 {
 }
 
-void AtlasView::SetParam(const std::wstring& UNUSED(name), const std::wstring& UNUSED(value))
+void AtlasView::SetParam(const std::wstring& /*name*/, const std::wstring& /*value*/)
 {
 }
 
-void AtlasView::SetParam(const std::wstring& UNUSED(name), int UNUSED(value))
+void AtlasView::SetParam(const std::wstring& /*name*/, int /*value*/)
 {
 }
 
@@ -88,19 +91,25 @@ void AtlasViewActor::Update(float realFrameLength)
 
 void AtlasViewActor::Render()
 {
-	SViewPort vp = { 0, 0, g_xres, g_yres };
-	CCamera& camera = GetCamera();
+	SViewPort vp = { 0, 0, g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight() };
+	CCamera camera{GetCamera()};
 	camera.SetViewPort(vp);
 	camera.SetPerspectiveProjection(2.f, 512.f, DEGTORAD(20.f));
 	camera.UpdateFrustum();
+	SetCamera(camera);
 
 	m_ActorViewer->Render();
 	Atlas_GLSwapBuffers((void*)g_AtlasGameLoop->glCanvas);
 }
 
-CCamera& AtlasViewActor::GetCamera()
+const CCamera& AtlasViewActor::GetCamera() const
 {
 	return m_Camera;
+}
+
+void AtlasViewActor::SetCamera(const CCamera& camera)
+{
+	m_Camera = camera;
 }
 
 CSimulation2* AtlasViewActor::GetSimulation2()
@@ -108,17 +117,22 @@ CSimulation2* AtlasViewActor::GetSimulation2()
 	return m_ActorViewer->GetSimulation2();
 }
 
-entity_id_t AtlasViewActor::GetEntityId(AtlasMessage::ObjectID UNUSED(obj))
+entity_id_t AtlasViewActor::GetEntityId(AtlasMessage::ObjectID)
 {
 	return m_ActorViewer->GetEntity();
 }
 
-bool AtlasViewActor::WantsHighFramerate()
+bool AtlasViewActor::GetSmoothFramerate() const
 {
 	if (m_SpeedMultiplier != 0.f)
 		return true;
 
-	return false;
+	return m_SmoothFramerate;
+}
+
+void AtlasViewActor::SetSmoothFramerate(const bool enabled)
+{
+	m_SmoothFramerate = enabled;
 }
 
 void AtlasViewActor::SetEnabled(bool enabled)
@@ -146,7 +160,7 @@ void AtlasViewActor::SetParam(const std::wstring& name, bool value)
 		m_ActorViewer->SetGroundEnabled(value);
 	// TODO: this causes corruption of WaterManager's global state
 	//	which should be asociated with terrain or simulation instead
-	//	see http://trac.wildfiregames.com/ticket/2692
+	//	see https://gitea.wildfiregames.com/0ad/0ad/issues/2692
 	//else if (name == L"water")
 		//m_ActorViewer->SetWaterEnabled(value);
 	else if (name == L"shadows")
@@ -165,7 +179,7 @@ void AtlasViewActor::SetParam(const std::wstring& name, int value)
 		m_ActorViewer->SetPropPointsMode(value);
 }
 
-void AtlasViewActor::SetParam(const std::wstring& UNUSED(name), const AtlasMessage::Color& UNUSED(value))
+void AtlasViewActor::SetParam(const std::wstring& /*name*/, const AtlasMessage::Color& /*value*/)
 {
 }
 
@@ -219,28 +233,32 @@ void AtlasViewGame::Update(float realFrameLength)
 
 	// Cinematic motion should be independent of simulation update, so we can
 	// preview the cinematics by themselves
-	g_Game->GetView()->GetCinema()->Update(realFrameLength);
+	CCamera camera{g_Game->GetView()->GetCamera()};
+	g_Game->GetView()->GetCinema()->Update(realFrameLength, camera);
+	g_Game->GetView()->SetCamera(camera);
 }
 
 void AtlasViewGame::Render()
 {
-	if (!g_VideoMode.GetBackendDevice()->AcquireNextBackbuffer())
+	Renderer::Backend::ISwapChain* swapChain{g_VideoMode.GetOrCreateSwapChain()};
+	if (!swapChain || !swapChain->IsValid() || !swapChain->AcquireNextBackbuffer())
 		return;
 
-	SViewPort vp = { 0, 0, g_xres, g_yres };
-	CCamera& camera = GetCamera();
+	SViewPort vp = { 0, 0, g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight() };
+	CCamera camera{GetCamera()};
 	camera.SetViewPort(vp);
-	camera.SetProjectionFromCamera(*g_Game->GetView()->GetCamera());
+	camera.SetProjectionFromCamera(g_Game->GetView()->GetCamera());
 	camera.UpdateFrustum();
+	SetCamera(camera);
 
 	g_Renderer.RenderFrame(false);
 	Atlas_GLSwapBuffers((void*)g_AtlasGameLoop->glCanvas);
-	// In case of atlas the device's present will do only internal stuff
+	// In case of atlas the swapchain's present will do only internal stuff
 	// without calling a real backbuffer swap.
-	g_VideoMode.GetBackendDevice()->Present();
+	swapChain->Present();
 }
 
-void AtlasViewGame::DrawCinemaPathTool()
+void AtlasViewGame::DrawCinemaPathTool(Renderer::Backend::IDeviceCommandContext& deviceCommandContext)
 {
 	if (!m_DrawMoveTool)
 		return;
@@ -252,12 +270,15 @@ void AtlasViewGame::DrawCinemaPathTool()
 	const float lineWidth = scale / 1e3f;
 
 	g_Renderer.GetDebugRenderer().DrawLine(
+		deviceCommandContext,
 		focus, focus + CVector3D(axisLength, 0, 0),
 		CColor(1.0f, 0.0f, 0.0f, 1.0f), lineWidth, false);
 	g_Renderer.GetDebugRenderer().DrawLine(
+		deviceCommandContext,
 		focus, focus + CVector3D(0, axisLength, 0),
 		CColor(0.0f, 1.0f, 0.0f, 1.0f), lineWidth, false);
 	g_Renderer.GetDebugRenderer().DrawLine(
+		deviceCommandContext,
 		focus, focus + CVector3D(0, 0, axisLength),
 		CColor(0.0f, 0.0f, 1.0f, 1.0f), lineWidth, false);
 }
@@ -321,12 +342,17 @@ void AtlasViewGame::SetParam(const std::wstring& name, const std::wstring& value
 	}
 }
 
-CCamera& AtlasViewGame::GetCamera()
+const CCamera& AtlasViewGame::GetCamera() const
 {
-	return *g_Game->GetView()->GetCamera();
+	return g_Game->GetView()->GetCamera();
 }
 
-bool AtlasViewGame::WantsHighFramerate()
+void AtlasViewGame::SetCamera(const CCamera& camera)
+{
+	g_Game->GetView()->SetCamera(camera);
+}
+
+bool AtlasViewGame::GetSmoothFramerate() const
 {
 	if (g_Game->GetView()->GetCinema()->IsPlaying())
 		return true;
@@ -334,7 +360,12 @@ bool AtlasViewGame::WantsHighFramerate()
 	if (m_SpeedMultiplier != 0.f)
 		return true;
 
-	return false;
+	return m_SmoothFramerate;
+}
+
+void AtlasViewGame::SetSmoothFramerate(const bool enabled)
+{
+	m_SmoothFramerate = enabled;
 }
 
 void AtlasViewGame::SetSpeedMultiplier(float speed)
@@ -364,6 +395,12 @@ void AtlasViewGame::RestoreState(const std::wstring& label)
 		return;
 
 	simState->Thaw();
+
+	// LOS override setting isn't part of the sim state as such we have to set
+	// it again when restoring a game.
+	CmpPtr<ICmpRangeManager> cmpRangeManager{*g_Game->GetSimulation2(), SYSTEM_ENTITY};
+	if (cmpRangeManager)
+		cmpRangeManager->SetLosRevealWholeMapForAll(true);
 }
 
 std::wstring AtlasViewGame::DumpState(bool binary)
@@ -405,8 +442,7 @@ void AtlasViewGame::SetBandbox(bool visible, float x0, float y0, float x1, float
 		if (y0 > y1)
 			std::swap(y0, y1);
 
-		float scale;
-		CFG_GET_VAL("gui.scale", scale);
+		const float scale{g_ConfigDB.Get("gui.scale", 0.0f)};
 		m_Bandbox = CRect(x0 / scale, y0 / scale, x1 / scale, y1 / scale);
 	}
 	else
@@ -454,8 +490,15 @@ AtlasViewGame* AtlasView::GetView_Game()
 
 AtlasViewActor* AtlasView::GetView_Actor()
 {
-	if (! view_Actor)
-		view_Actor = new AtlasViewActor();
+	try
+	{
+		if (!view_Actor)
+			view_Actor = new AtlasViewActor();
+	}
+	catch (const CSimulation2::LoadScriptError& e)
+	{
+		LOGERROR("%s", e.what());
+	}
 	return view_Actor;
 }
 

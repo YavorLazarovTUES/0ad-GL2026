@@ -3,9 +3,10 @@ Resources = {
 	"GetTradableCodes": () => ["food", "metal", "stone", "wood"],
 	"GetBarterableCodes": () => ["food", "metal", "stone", "wood"],
 	"GetResource": () => ({}),
-	"BuildSchema": (type) => {
+	"BuildSchema": (type) =>
+	{
 		let schema = "";
-		for (let res of Resources.GetCodes())
+		for (const res of Resources.GetCodes())
 			schema +=
 				"<optional>" +
 					"<element name='" + res + "'>" +

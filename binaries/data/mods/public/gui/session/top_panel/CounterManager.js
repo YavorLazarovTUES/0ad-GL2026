@@ -14,7 +14,7 @@ class CounterManager
 		this.resourceCounts = Engine.GetGUIObjectByName("resourceCounts");
 
 		// TODO: filter resources depending on JSON file
-		for (let resCode of g_ResourceData.GetCodes())
+		for (const resCode of g_ResourceData.GetCodes())
 			this.addCounter(resCode, CounterResource);
 
 		this.addCounter("population", CounterPopulation);
@@ -29,11 +29,11 @@ class CounterManager
 
 	addCounter(resCode, type)
 	{
-		let panelCount = this.resourceCounts.children.length;
+		const panelCount = this.resourceCounts.children.length;
 		if (this.counters.length + 1 > panelCount)
 			throw "There are " + (this.counters.length + 1) + " resource counters to display, but only " + panelCount + " panel items!";
 
-		let id = "[" + this.counters.length + "]";
+		const id = "[" + this.counters.length + "]";
 		this.counters.push(
 			new type(
 				resCode,
@@ -50,16 +50,16 @@ class CounterManager
 
 		// Population has a wider caption than ordinary resources. Give the
 		// following time counter enough breathing room to avoid overlap.
-		let timeCounter = this.counters.find(counter => counter.resCode == "time");
+		const timeCounter = this.counters.find(counter => counter.resCode == "time");
 		if (timeCounter)
 		{
-			let size = timeCounter.panel.size;
+			const size = timeCounter.panel.size;
 			size.left += 24;
 			size.right += 24;
 			timeCounter.panel.size = size;
 		}
 
-		for (let counter of this.counters)
+		for (const counter of this.counters)
 		{
 			counter.icon.sprite = "stretched:session/icons/resources/" + counter.resCode + ".png";
 			counter.panel.onPress = this.onPress.bind(this);
@@ -77,14 +77,14 @@ class CounterManager
 
 	rebuild()
 	{
-		let hidden = g_ViewedPlayer <= 0;
+		const hidden = g_ViewedPlayer <= 0;
 		this.resourceCounts.hidden = hidden;
 		if (hidden)
 			return;
 
-		let viewedPlayerState = g_SimState.players[g_ViewedPlayer];
+		const viewedPlayerState = g_SimState.players[g_ViewedPlayer];
 		this.allyPlayerStates = {};
-		for (let player in g_SimState.players)
+		for (const player in g_SimState.players)
 			if (player != 0 &&
 				player != g_ViewedPlayer &&
 				g_Players[player].state != "defeated" &&
@@ -96,11 +96,11 @@ class CounterManager
 		this.selectedOrder = +Engine.ConfigDB_GetValue("user", "gui.session.respoptooltipsort");
 		this.orderTooltip = this.getOrderTooltip();
 
-		for (let counter of this.counters)
+		for (const counter of this.counters)
 		{
-			let hidden = g_ViewedPlayer <= 0;
-			counter.panel.hidden = hidden;
-			if (!hidden)
+			const isHidden = g_ViewedPlayer <= 0;
+			counter.panel.hidden = isHidden;
+			if (!isHidden)
 				counter.rebuild(viewedPlayerState, this.getAllyStatTooltip.bind(this));
 		}
 	}
@@ -115,19 +115,19 @@ class CounterManager
 			"order":
 				this.selectedOrder == 0 ?
 					translate("Unordered") :
-				this.selectedOrder == 1 ?
-					translate("Descending") :
-					translate("Ascending")
-		})
+					this.selectedOrder == 1 ?
+						translate("Descending") :
+						translate("Ascending")
+		});
 	}
 
 	getAllyStatTooltip(getTooltipData)
 	{
-		let tooltipData = [];
+		const tooltipData = [];
 
-		for (let playerID in this.allyPlayerStates)
+		for (const playerID in this.allyPlayerStates)
 		{
-			let playername = colorizePlayernameHelper("■", playerID) + " " + g_Players[playerID].name;
+			const playername = colorizePlayernameHelper("■", playerID) + " " + g_Players[playerID].name;
 			tooltipData.push(getTooltipData(this.allyPlayerStates[playerID], playername));
 		}
 
@@ -136,10 +136,14 @@ class CounterManager
 
 		return this.orderTooltip +
 			tooltipData.reduce((result, data) =>
-				result + "\n" + sprintf(translate(this.AllyStatTooltip), data), "");
+				setStringTags(
+					result + "\n" + sprintf(translate(this.AllyStatTooltip), data),
+					this.AllyStatTags
+				), "");
 	}
 }
 
 CounterManager.ResourceTitleTags = { "font": "sans-bold-16" };
 
 CounterManager.prototype.AllyStatTooltip = markForTranslation("%(playername)s: %(statValue)s");
+CounterManager.prototype.AllyStatTags = { "font": "sans-bold-stroke-14" };

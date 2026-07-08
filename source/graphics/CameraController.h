@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
 * This file is part of 0 A.D.
 *
 * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,6 +20,17 @@
 
 #include "graphics/ICameraController.h"
 #include "graphics/SmoothedValue.h"
+#include "lib/code_annotation.h"
+#include "ps/Input.h"
+#include "simulation2/system/Entity.h"
+
+#include <memory>
+
+class CCamera;
+class CConfigDBHook;
+class CMatrix3D;
+class CVector3D;
+union SDL_Event;
 
 class CCameraController : public ICameraController
 {
@@ -32,7 +43,7 @@ public:
 
 	void LoadConfig() override;
 
-	InReaction HandleEvent(const SDL_Event_* ev) override;
+	Input::Reaction HandleEvent(const SDL_Event& ev) override;
 
 	CVector3D GetCameraPivot() const override;
 	CVector3D GetCameraPosition() const override;
@@ -63,6 +74,7 @@ public:
 private:
 	CVector3D GetSmoothPivot(CCamera &camera) const;
 	void ResetCameraAngleZoom();
+	void ToggleBirdsEyeView();
 	void SetupCameraMatrixSmooth(CMatrix3D* orientation);
 	void SetupCameraMatrixSmoothRot(CMatrix3D* orientation);
 	void SetupCameraMatrixNonSmooth(CMatrix3D* orientation);
@@ -89,6 +101,11 @@ private:
 	*/
 	bool m_FollowFirstPerson;
 
+	/**
+	* Whether the camera is in bird's eye view mode.
+	*/
+	bool m_BirdsEyeView;
+
 	// Settings
 	float m_ViewScrollSpeed;
 	float m_ViewScrollSpeedModifier;
@@ -103,6 +120,7 @@ private:
 	float m_ViewRotateYDefault;
 	float m_ViewRotateSpeedModifier;
 	float m_ViewDragSpeed;
+	bool m_ViewDragInverted;
 	float m_ViewZoomSpeed;
 	float m_ViewZoomSpeedWheel;
 	float m_ViewZoomMin;
@@ -125,6 +143,9 @@ private:
 	CSmoothedValue m_Zoom;
 	CSmoothedValue m_RotateX; // inclination around x axis (relative to camera)
 	CSmoothedValue m_RotateY; // rotation around y (vertical) axis
+
+	std::unique_ptr<CConfigDBHook> m_ViewDragInvertedConfigHook;
+	std::unique_ptr<CConfigDBHook> m_ViewDragSpeedConfigHook;
 };
 
 #endif // INCLUDED_CAMERACONTROLLER

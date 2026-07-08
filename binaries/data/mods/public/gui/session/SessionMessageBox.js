@@ -4,12 +4,12 @@
  */
 class SessionMessageBox
 {
-	async display()
+	async display(closePageCallback)
 	{
 		closeOpenDialogs();
 		g_PauseControl.implicitPause();
 
-		const buttonId = await Engine.PushGuiPage(
+		const buttonId = await Engine.OpenChildPage(
 			"page_msgbox.xml",
 			{
 				"width": this.Width,
@@ -20,7 +20,11 @@ class SessionMessageBox
 			});
 
 		if (this.Buttons && this.Buttons[buttonId].onPress)
-			this.Buttons[buttonId].onPress.call(this);
+		{
+			const ret = this.Buttons[buttonId].onPress.call(this);
+			if (ret !== undefined)
+				closePageCallback({ [Engine.openRequest]: ret });
+		}
 
 		if (this.ResumeOnClose)
 			resumeGame();

@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,22 +18,37 @@
 #include "precompiled.h"
 
 #include "MessageHandler.h"
-#include "../MessagePasserImpl.h"
-
-#include "../GameLoop.h"
-#include "../View.h"
-#include "graphics/GameView.h"
-#include "gui/GUIManager.h"
 #include "gui/CGUI.h"
+#include "gui/GUIManager.h"
 #include "lib/external_libraries/libsdl.h"
+#include "lib/path.h"
+#include "lib/types.h"
 #include "maths/MathUtil.h"
 #include "ps/Game.h"
 #include "ps/GameSetup/Config.h"
 #include "ps/GameSetup/GameSetup.h"
+#include "ps/Input.h"
+#include "ps/VideoMode.h"
 #include "renderer/Renderer.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "simulation2/Simulation2.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/components/ICmpSoundManager.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+#include "tools/atlas/GameInterface/MessagePasser.h"
+#include "tools/atlas/GameInterface/MessagePasserImpl.h"
+#include "tools/atlas/GameInterface/Messages.h"
+#include "tools/atlas/GameInterface/Shareable.h"
+#include "tools/atlas/GameInterface/SharedTypes.h"
+#include "tools/atlas/GameInterface/View.h"
+
+#include <SDL_events.h>
+#include <SDL_keyboard.h>
+#include <SDL_keycode.h>
+#include <cstddef>
+#include <js/CallArgs.h>
+#include <js/RootingAPI.h>
+#include <memory>
+#include <string>
 
 extern void (*Atlas_GLSwapBuffers)(void* context);
 
@@ -55,13 +70,10 @@ MESSAGEHANDLER(Screenshot)
 
 QUERYHANDLER(Ping)
 {
-	UNUSED2(msg);
 }
 
 MESSAGEHANDLER(SimStopMusic)
 {
-	UNUSED2(msg);
-
 	CmpPtr<ICmpSoundManager> cmpSoundManager(*g_Game->GetSimulation2(), SYSTEM_ENTITY);
 	if (cmpSoundManager)
 		cmpSoundManager->StopMusic();
@@ -88,6 +100,12 @@ MESSAGEHANDLER(SimPlay)
 	AtlasView::GetView_Game()->SetTesting(msg->simTest);
 }
 
+MESSAGEHANDLER(SetSmoothFramerate)
+{
+	AtlasView::GetView_Game()->SetSmoothFramerate(msg->enabled);
+	AtlasView::GetView_Actor()->SetSmoothFramerate(msg->enabled);
+}
+
 MESSAGEHANDLER(JavaScript)
 {
 	g_GUI->GetActiveGUI()->GetScriptInterface()->LoadGlobalScript(L"Atlas", *msg->command);
@@ -100,36 +118,36 @@ MESSAGEHANDLER(GuiSwitchPage)
 
 MESSAGEHANDLER(GuiMouseButtonEvent)
 {
-	SDL_Event_ ev = { { 0 } };
-	ev.ev.type = msg->pressed ? SDL_MOUSEBUTTONDOWN : SDL_MOUSEBUTTONUP;
-	ev.ev.button.button = msg->button;
-	ev.ev.button.state = msg->pressed ? SDL_PRESSED : SDL_RELEASED;
-	ev.ev.button.clicks = msg->clicks;
+	SDL_Event ev{};
+	ev.type = msg->pressed ? SDL_MOUSEBUTTONDOWN : SDL_MOUSEBUTTONUP;
+	ev.button.button = msg->button;
+	ev.button.state = msg->pressed ? SDL_PRESSED : SDL_RELEASED;
+	ev.button.clicks = msg->clicks;
 	float x, y;
 	msg->pos->GetScreenSpace(x, y);
-	ev.ev.button.x = static_cast<u16>(Clamp<int>(x, 0, g_xres));
-	ev.ev.button.y = static_cast<u16>(Clamp<int>(y, 0, g_yres));
-	in_dispatch_event(&ev);
+	ev.button.x = static_cast<u16>(Clamp<int>(x, 0, g_VideoMode.GetWindowWidth()));
+	ev.button.y = static_cast<u16>(Clamp<int>(y, 0, g_VideoMode.GetWindowHeight()));
+	g_VideoMode.m_InputManager.DispatchEvent(ev);
 }
 
 MESSAGEHANDLER(GuiMouseMotionEvent)
 {
-	SDL_Event_ ev = { { 0 } };
-	ev.ev.type = SDL_MOUSEMOTION;
+	SDL_Event ev{};
+	ev.type = SDL_MOUSEMOTION;
 	float x, y;
 	msg->pos->GetScreenSpace(x, y);
-	ev.ev.motion.x = static_cast<u16>(Clamp<int>(x, 0, g_xres));
-	ev.ev.motion.y = static_cast<u16>(Clamp<int>(y, 0, g_yres));
-	in_dispatch_event(&ev);
+	ev.motion.x = static_cast<u16>(Clamp<int>(x, 0, g_VideoMode.GetWindowWidth()));
+	ev.motion.y = static_cast<u16>(Clamp<int>(y, 0, g_VideoMode.GetWindowHeight()));
+	g_VideoMode.m_InputManager.DispatchEvent(ev);
 }
 
 MESSAGEHANDLER(GuiKeyEvent)
 {
-	SDL_Event_ ev = { { 0 } };
-	ev.ev.type = msg->pressed ? SDL_KEYDOWN : SDL_KEYUP;
-	ev.ev.key.keysym.sym = (SDL_Keycode)(int)msg->sdlkey;
-	ev.ev.key.keysym.scancode = SDL_GetScancodeFromKey((SDL_Keycode)(int)msg->sdlkey);
-	in_dispatch_event(&ev);
+	SDL_Event ev{};
+	ev.type = msg->pressed ? SDL_KEYDOWN : SDL_KEYUP;
+	ev.key.keysym.sym = static_cast<SDL_Keycode>(static_cast<int>(msg->sdlkey));
+	ev.key.keysym.scancode = SDL_GetScancodeFromKey(static_cast<SDL_Keycode>(static_cast<int>(msg->sdlkey)));
+	g_VideoMode.m_InputManager.DispatchEvent(ev);
 }
 
 MESSAGEHANDLER(GuiCharEvent)
@@ -137,18 +155,18 @@ MESSAGEHANDLER(GuiCharEvent)
 	// Simulate special 'text input' events in the SDL
 	// This isn't quite compatible with WXWidget's handling,
 	// so to avoid trouble we only send 'letter-like' ASCII input.
-	SDL_Event_ ev = { { 0 } };
-	ev.ev.type = SDL_TEXTEDITING;
-	ev.ev.text.type = SDL_TEXTEDITING;
-	ev.ev.text.text[0] = (char)msg->sdlkey;
-	ev.ev.text.text[1] = (char)0;
-	in_dispatch_event(&ev);
+	SDL_Event ev{};
+	ev.type = SDL_TEXTEDITING;
+	ev.text.type = SDL_TEXTEDITING;
+	ev.text.text[0] = static_cast<char>(msg->sdlkey);
+	ev.text.text[1] = '\0';
+	g_VideoMode.m_InputManager.DispatchEvent(ev);
 
-	ev.ev.type = SDL_TEXTINPUT;
-	ev.ev.text.type = SDL_TEXTINPUT;
-	ev.ev.text.text[0] = (char)msg->sdlkey;
-	ev.ev.text.text[1] = (char)0;
-	in_dispatch_event(&ev);
+	ev.type = SDL_TEXTINPUT;
+	ev.text.type = SDL_TEXTINPUT;
+	ev.text.text[0] = static_cast<char>(msg->sdlkey);
+	ev.text.text[1] = '\0';
+	g_VideoMode.m_InputManager.DispatchEvent(ev);
 }
 
 } // namespace AtlasMessage

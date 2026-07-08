@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,11 +18,21 @@
 #ifndef INCLUDED_FONTMANAGER
 #define INCLUDED_FONTMANAGER
 
+#include "lib/code_annotation.h"
 #include "ps/CStrIntern.h"
 
+#include <array>
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include <memory>
 #include <unordered_map>
 
+class CConfigDBHook;
 class CFont;
+struct FT_LibraryRec_;
+
+namespace Renderer::Backend { class IDevice; }
+namespace Renderer::Backend { class IDeviceCommandContext; }
 
 /**
  * Font manager: loads and caches bitmap fonts.
@@ -30,13 +40,39 @@ class CFont;
 class CFontManager
 {
 public:
-	std::shared_ptr<CFont> LoadFont(CStrIntern fontName);
+	CFontManager(Renderer::Backend::IDevice* device);
+	~CFontManager();
+	NONCOPYABLE(CFontManager);
+
+	CFont* LoadFont(CStrIntern fontName, CStrIntern locale);
+	void UploadAtlasTexturesToGPU(
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
 
 private:
-	bool ReadFont(CFont* font, CStrIntern fontName);
+	static void ftLibraryDeleter(FT_Library library)
+	{
+		FT_Done_FreeType(library);
+	}
 
-	using FontsMap = std::unordered_map<CStrIntern, std::shared_ptr<CFont>>;
+	std::unique_ptr<FT_LibraryRec_, decltype(&ftLibraryDeleter)> m_FreeType{nullptr, &ftLibraryDeleter};
+
+	std::unique_ptr<std::array<float, 256>> m_GammaCorrectionLUT;
+
+	using FontsMap = std::unordered_map<CStrIntern, CFont>;
 	FontsMap m_Fonts;
+
+	float m_GUIScale{1.0f};
+	std::unique_ptr<CConfigDBHook> m_GUIScaleHook;
+
+	Renderer::Backend::IDevice* m_Device;
+
+	/*
+	* Most monitors today use 2.2 as the standard gamma.
+	* MacOS may use 2.2 or 1.8 in some cases.
+	* This method assumes your OS or GPU didn’t override the gamma ramp.
+	* Unless we need super-accurate gamma (e.g., for print preview or color grading), this is usually acceptable.
+	*/
+	static constexpr float GAMMA_CORRECTION = 2.2f;
 };
 
 #endif // INCLUDED_FONTMANAGER

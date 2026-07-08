@@ -1,4 +1,4 @@
-/* Copyright (C) 2020 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -36,9 +36,11 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreServices/CoreServices.h>
 
+#include <mutex>
 #include <vector>
 
 static FSEventStreamRef g_Stream = NULL;
+static std::mutex g_QueuedDirsMutex;
 
 struct DirWatch
 {
@@ -74,13 +76,8 @@ static bool CanRunNotifications()
   #define kFSEventStreamEventFlagItemModified 0x00001000
 #endif
 
-static void fsevent_callback(
-    ConstFSEventStreamRef UNUSED(streamRef),
-    void * UNUSED(clientCallBackInfo),
-    size_t numEvents,
-    void *eventPaths,
-    const FSEventStreamEventFlags eventFlags[],
-    const FSEventStreamEventId UNUSED(eventIds)[] )
+static void fsevent_callback(ConstFSEventStreamRef, void* /*clientCallBackInfo*/, size_t numEvents,
+	void *eventPaths, const FSEventStreamEventFlags eventFlags[], const FSEventStreamEventId[])
 {
     unsigned long i;
     char **paths = (char **)eventPaths;
@@ -101,6 +98,7 @@ static void fsevent_callback(
       if ( ! isWatched )
         return;
 
+      std::lock_guard lock{g_QueuedDirsMutex};
       OsPath filename = Path( eventPath.string().c_str() );
 
       if ( eventType & kFSEventStreamEventFlagItemIsFile)
@@ -111,7 +109,10 @@ static void fsevent_callback(
           g_QueuedDirs.push_back(DirWatchNotification( filename.string().c_str(), DirWatchNotification::Deleted ));
         else if ( eventType & kFSEventStreamEventFlagItemCreated )
           g_QueuedDirs.push_back(DirWatchNotification( filename.string().c_str(), DirWatchNotification::Created ));
-        else if ( eventType & kFSEventStreamEventFlagItemModified )
+        else if (eventType & (kFSEventStreamEventFlagItemModified |
+          kFSEventStreamEventFlagItemInodeMetaMod | kFSEventStreamEventFlagItemFinderInfoMod |
+          kFSEventStreamEventFlagItemChangeOwner | kFSEventStreamEventFlagItemXattrMod |
+          kFSEventStreamEventFlagItemCloned))
           g_QueuedDirs.push_back(DirWatchNotification( filename.string().c_str(), DirWatchNotification::Changed ));
       }
     }
@@ -134,7 +135,7 @@ static FSEventStreamRef CreateEventStream( DirWatchMap path )
     FSEventStreamContext *callbackInfo = NULL;
 
     FSEventStreamRef stream = FSEventStreamCreate(NULL, &fsevent_callback, callbackInfo, pathsToWatch,
-        kFSEventStreamEventIdSinceNow, 1.0, kFSEventStreamCreateFlagFileEvents );
+        kFSEventStreamEventIdSinceNow, 0.1, kFSEventStreamCreateFlagFileEvents );
 
     CFRelease( pathsToWatch );
     free( pathLists );
@@ -163,6 +164,7 @@ static void DeleteEventStream()
 
 Status dir_watch_Add(const OsPath& path, PDirWatch& dirWatch)
 {
+  std::lock_guard lock{g_QueuedDirsMutex};
   PDirWatch tmpDirWatch(new DirWatch);
   dirWatch.swap(tmpDirWatch);
   dirWatch->path = path;
@@ -193,6 +195,7 @@ Status dir_watch_Poll(DirWatchNotifications& notifications)
   }
   else
   {
+    std::lock_guard lock{g_QueuedDirsMutex};
     for ( DirWatchNotifications::iterator it = g_QueuedDirs.begin() ; it != g_QueuedDirs.end(); ++it)
       notifications.push_back(DirWatchNotification( *it ));
 

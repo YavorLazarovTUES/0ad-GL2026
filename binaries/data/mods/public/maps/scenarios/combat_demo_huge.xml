@@ -73,7 +73,7 @@
 	<ScriptSettings><![CDATA[
 	{
 		"Name": "Combat Demo (Huge)",
-		"Description": "1296 units. Extremely slow (we need more optimisation).",
+		"Description": "1296 units. Extremely slow (we need more optimization).",
 		"Keywords": ["demo"],
 		"PlayerData":
 		[

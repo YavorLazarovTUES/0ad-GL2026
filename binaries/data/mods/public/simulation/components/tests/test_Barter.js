@@ -24,7 +24,7 @@ AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
 let timerActivated = false;
 let bought = 0;
 let sold = 0;
-let multiplier = {
+const multiplier = {
 	"buy": {
 		"wood": 1.0,
 		"stone": 1.0,
@@ -36,11 +36,12 @@ let multiplier = {
 		"metal": 1.0
 	}
 };
-let cmpBarter = ConstructComponent(SYSTEM_ENTITY, "Barter");
+const cmpBarter = ConstructComponent(SYSTEM_ENTITY, "Barter");
 
 AddMock(SYSTEM_ENTITY, IID_Timer, {
 	"CancelTimer": id => { timerActivated = false; },
-	"SetInterval": (ent, iid, funcname, time, repeattime, data) => {
+	"SetInterval": (ent, iid, funcname, time, repeattime, data) =>
+	{
 		TS_ASSERT_EQUALS(time, cmpBarter.RESTORE_TIMER_INTERVAL);
 		TS_ASSERT_EQUALS(repeattime, cmpBarter.RESTORE_TIMER_INTERVAL);
 		timerActivated = true;
@@ -52,12 +53,14 @@ AddMock(SYSTEM_ENTITY, IID_Timer, {
 TS_ASSERT_EQUALS(cmpBarter.restoreTimer, undefined);
 TS_ASSERT_UNEVAL_EQUALS(cmpBarter.priceDifferences, { "wood": 0, "stone": 0, "metal": 0 });
 
-let cmpPlayer = AddMock(playerEnt, IID_Player, {
-	"TrySubtractResources": amounts => {
+const cmpPlayer = AddMock(playerEnt, IID_Player, {
+	"TrySubtractResources": amounts =>
+	{
 		sold = amounts[Object.keys(amounts)[0]];
 		return true;
 	},
-	"AddResource": (type, amount) => {
+	"AddResource": (type, amount) =>
+	{
 		bought = amount;
 		return true;
 	},
@@ -100,7 +103,7 @@ cmpBarter.priceDifferences = { "wood": 0, "stone": 0, "metal": 0 };
 cmpBarter.ExchangeResources(playerID, "wood", "stone", 100);
 TS_ASSERT_EQUALS(cmpBarter.restoreTimer, 7);
 TS_ASSERT(timerActivated);
-TS_ASSERT_UNEVAL_EQUALS(cmpBarter.priceDifferences, { "wood": -cmpBarter.DIFFERENCE_PER_DEAL, "stone": cmpBarter.DIFFERENCE_PER_DEAL, "metal": 0 });
+TS_ASSERT_UNEVAL_EQUALS(cmpBarter.priceDifferences, { "wood": -cmpBarter.DIFFERENCE_PER_DEAL * bought / 100, "stone": cmpBarter.DIFFERENCE_PER_DEAL * bought / 100, "metal": 0 });
 TS_ASSERT_EQUALS(sold, 100);
 TS_ASSERT_EQUALS(bought, Math.round(100 * (100 - cmpBarter.CONSTANT_DIFFERENCE + 0) / (100 + cmpBarter.CONSTANT_DIFFERENCE + 0)));
 
@@ -125,17 +128,16 @@ TS_ASSERT_EQUALS(bought, 0);
 
 cmpBarter.priceDifferences = { "wood": 0, "stone": 99 - cmpBarter.CONSTANT_DIFFERENCE, "metal": 0 };
 cmpBarter.ExchangeResources(playerID, "wood", "stone", 100);
-TS_ASSERT_UNEVAL_EQUALS(cmpBarter.priceDifferences, { "wood": -cmpBarter.DIFFERENCE_PER_DEAL, "stone": 99 - cmpBarter.CONSTANT_DIFFERENCE, "metal": 0 });
+TS_ASSERT_UNEVAL_EQUALS(cmpBarter.priceDifferences, { "wood": -cmpBarter.DIFFERENCE_PER_DEAL * bought / 100, "stone": 99 - cmpBarter.CONSTANT_DIFFERENCE, "metal": 0 });
 TS_ASSERT_EQUALS(bought, Math.round(100 * (100 - cmpBarter.CONSTANT_DIFFERENCE + 0) / (100 + cmpBarter.CONSTANT_DIFFERENCE + 99 - cmpBarter.CONSTANT_DIFFERENCE)));
 
 cmpBarter.priceDifferences = { "wood": -99 + cmpBarter.CONSTANT_DIFFERENCE, "stone": 0, "metal": 0 };
 cmpBarter.ExchangeResources(playerID, "wood", "stone", 100);
-TS_ASSERT_UNEVAL_EQUALS(cmpBarter.priceDifferences, { "wood": -99 + cmpBarter.CONSTANT_DIFFERENCE, "stone": cmpBarter.DIFFERENCE_PER_DEAL, "metal": 0 });
+TS_ASSERT_UNEVAL_EQUALS(cmpBarter.priceDifferences, { "wood": -99 + cmpBarter.CONSTANT_DIFFERENCE, "stone": cmpBarter.DIFFERENCE_PER_DEAL * bought / 100, "metal": 0 });
 TS_ASSERT_EQUALS(bought, Math.round(100 * (100 - cmpBarter.CONSTANT_DIFFERENCE - 99 + cmpBarter.CONSTANT_DIFFERENCE) / (100 + cmpBarter.CONSTANT_DIFFERENCE + 0)));
 
 cmpBarter.priceDifferences = { "wood": 0, "stone": 0, "metal": 0 };
 cmpBarter.restoreTimer = undefined;
-timerActivated = false;
 AddMock(playerEnt, IID_Player, {
 	"TrySubtractResources": () => false,
 	"AddResource": () => {},

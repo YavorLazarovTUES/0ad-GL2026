@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,17 +19,28 @@
 
 #include "XMBStorage.h"
 
+#include "lib/debug.h"
 #include "lib/file/io/write_buffer.h"
 #include "lib/file/vfs/vfs.h"
 #include "ps/CLogger.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptExtraHeaders.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 
+#include <algorithm>
+#include <js/Array.h>
+#include <js/RootingAPI.h>
+#include <js/Value.h>
+#include <jsapi.h>
+#include <jspubtd.h>
 #include <libxml/parser.h>
+#include <libxml/xmlmemory.h>
+#include <libxml/xmlstring.h>
 #include <string_view>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 const char* XMBStorage::HeaderMagicStr = "XMB0";
 const char* XMBStorage::UnfinishedHeaderMagicStr = "XMBu";
@@ -144,7 +155,7 @@ void XMBStorageWriter::OutputNames(WriteBuffer& writeBuffer, const std::unordere
 class JSNodeData
 {
 public:
-	JSNodeData(const ScriptInterface& s) : scriptInterface(s), rq(s) {}
+	JSNodeData(const Script::Interface& s) : scriptInterface(s), rq(s) {}
 
 	bool Setup(XMBStorageWriter& xmb, JS::HandleValue value);
 	bool Output(WriteBuffer& writeBuffer, JS::HandleValue value) const;
@@ -152,8 +163,8 @@ public:
 	std::vector<std::pair<u32, std::string>> m_Attributes;
 	std::vector<std::pair<u32, JS::Heap<JS::Value>>> m_Children;
 
-	const ScriptInterface& scriptInterface;
-	const ScriptRequest rq;
+	const Script::Interface& scriptInterface;
+	const Script::Request rq;
 };
 
 template<>
@@ -293,7 +304,6 @@ bool JSNodeData::Output(WriteBuffer& writeBuffer, JS::HandleValue value) const
 	switch (JS_TypeOfValue(rq.cx, value))
 	{
 		case JSTYPE_UNDEFINED:
-		case JSTYPE_NULL:
 		{
 			writeBuffer.Append("\0\0\0\0", 4);
 			break;
@@ -460,7 +470,7 @@ bool XMBStorage::LoadXMLDoc(const xmlDocPtr doc)
 	return true;
 }
 
-bool XMBStorage::LoadJSValue(const ScriptInterface& scriptInterface, JS::HandleValue value, const std::string& rootName)
+bool XMBStorage::LoadJSValue(const Script::Interface& scriptInterface, JS::HandleValue value, const std::string& rootName)
 {
 	WriteBuffer writeBuffer;
 

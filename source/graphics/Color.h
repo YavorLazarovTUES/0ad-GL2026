@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,10 +19,14 @@
 #define INCLUDED_COLOR
 
 #include "graphics/SColor.h"
+#include "lib/types.h"
 #include "maths/Vector3D.h"
 #include "maths/Vector4D.h"
-#include "ps/containers/Span.h"
-#include "ps/CStrForward.h"
+
+#include <span>
+#include <cstddef>
+
+class CStr8;
 
 // Simple defines for 3 and 4 component floating point colors - just map to
 // corresponding vector types.
@@ -41,8 +45,8 @@ extern void ColorActivateFastImpl();
 
 struct CColor
 {
-	CColor() : r(-1.f), g(-1.f), b(-1.f), a(1.f) {}
-	CColor(float cr, float cg, float cb, float ca) : r(cr), g(cg), b(cb), a(ca) {}
+	constexpr CColor() : r(-1.f), g(-1.f), b(-1.f), a(1.f) {}
+	constexpr CColor(float cr, float cg, float cb, float ca) : r(cr), g(cg), b(cb), a(ca) {}
 
 	/**
 	 * Returns whether this has been set to a valid color.
@@ -67,7 +71,7 @@ struct CColor
 	}
 
 	// For passing to uniform as vec3/vec4.
-	PS::span<const float> AsFloatArray() const
+	std::span<const float, 4> AsFloatArray() const
 	{
 		// Additional check to prevent a weird compiler has a different
 		// alignement for an array and a class members.
@@ -78,7 +82,7 @@ struct CColor
 			offsetof(CColor, b) == sizeof(float) * 2u &&
 			offsetof(CColor, a) == sizeof(float) * 3u,
 			"CColor should be properly layouted to use AsFloatArray");
-		return PS::span(&r, 4);
+		return std::span<const float, 4>(&r, 4);
 	}
 
 	// For passing to CRenderer:

@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * Copyright (C) 2013-2016 SuperTuxKart-Team.
  * This file is part of 0 A.D.
  *
@@ -21,14 +21,21 @@
 #include "StunClient.h"
 
 #include "lib/byte_order.h"
+#include "lib/code_annotation.h"
 #include "lib/external_libraries/enet.h"
 #include "ps/CLogger.h"
-#include "ps/ConfigDB.h"
 #include "ps/CStr.h"
+#include "ps/ConfigDB.h"
 
+#include <bit>
+#include <cerrno>
 #include <chrono>
+#include <concepts>
 #include <cstddef>
+#include <cstdlib>
+#include <cstring>
 #include <thread>
+#include <type_traits>
 #include <vector>
 
 namespace StunClient
@@ -77,43 +84,41 @@ ENetAddress m_StunServer;
 ENetAddress m_PublicAddress;
 
 /**
- * Push POD data to a network-byte-order buffer.
- * TODO: this should be optimised & moved to byte_order.h
+ * Push integral type to a network-byte-order buffer.
  */
-template<typename T, size_t n = sizeof(T)>
+template<std::integral T, size_t n = sizeof(T)>
 void AddToBuffer(std::vector<u8>& buffer, const T value)
 {
-	static_assert(std::is_pod_v<T>, "T must be POD");
 	buffer.reserve(buffer.size() + n);
 	// std::byte* can alias anything so this is legal.
 	const std::byte* ptr = reinterpret_cast<const std::byte*>(&value);
 	for (size_t a = 0; a < n; ++a)
-#if BYTE_ORDER == LITTLE_ENDIAN
-		buffer.push_back(static_cast<u8>(*(ptr + n - 1 - a)));
-#else
-		buffer.push_back(static_cast<u8>(*(ptr + a)));
-#endif
+	{
+		if constexpr (std::endian::native == std::endian::little)
+			buffer.push_back(static_cast<u8>(*(ptr + n - 1 - a)));
+		else
+			buffer.push_back(static_cast<u8>(*(ptr + a)));
+	}
 }
 
 /**
- * Read POD data from a network-byte-order buffer.
- * TODO: this should be optimised & moved to byte_order.h
+ * Read integral type from a network-byte-order buffer.
  */
-template<typename T, size_t n = sizeof(T)>
+template<std::integral T, size_t n = sizeof(T)>
 bool GetFromBuffer(const std::vector<u8>& buffer, u32& offset, T& result)
 {
-	static_assert(std::is_pod_v<T>, "T must be POD");
 	if (offset + n > buffer.size())
 		return false;
 
 	// std::byte* can alias anything so this is legal.
 	std::byte* ptr = reinterpret_cast<std::byte*>(&result);
 	for (size_t a = 0; a < n; ++a)
-#if BYTE_ORDER == LITTLE_ENDIAN
-		*ptr++ = static_cast<std::byte>(buffer[offset + n - 1 - a]);
-#else
-		*ptr++ = static_cast<std::byte>(buffer[offset + a]);
-#endif
+	{
+		if constexpr (std::endian::native == std::endian::little)
+			*ptr++ = static_cast<std::byte>(buffer[offset + n - 1 - a]);
+		else
+			*ptr++ = static_cast<std::byte>(buffer[offset + a]);
+	}
 
 	offset += n;
 	return true;
@@ -146,10 +151,8 @@ void SendStunRequest(ENetHost& transactionHost, ENetAddress addr)
  */
 bool CreateStunRequest(ENetHost& transactionHost)
 {
-	CStr server_name;
-	int port;
-	CFG_GET_VAL("lobby.stun.server", server_name);
-	CFG_GET_VAL("lobby.stun.port", port);
+	const std::string server_name{g_ConfigDB.Get("lobby.stun.server", std::string{})};
+	const int port{g_ConfigDB.Get("lobby.stun.port", 0)};
 
 	LOGMESSAGE("StunClient: Using STUN server %s:%d\n", server_name.c_str(), port);
 
@@ -183,12 +186,11 @@ bool ReceiveStunResponse(ENetHost& transactionHost, std::vector<u8>& buffer)
 	ENetAddress sender = m_StunServer;
 	int len = enet_socket_receive(transactionHost.socket, &sender, &enetBuffer, 1);
 
-	int delay = 200;
-	CFG_GET_VAL("lobby.stun.delay", delay);
+	const int delay{g_ConfigDB.Get("lobby.stun.delay", 10)};
+	const int maxTries{g_ConfigDB.Get("lobby.stun.max_tries", 100)};
 
 	// Wait to receive the message because enet sockets are non-blocking
-	const int max_tries = 5;
-	for (int count = 0; len <= 0 && (count < max_tries || max_tries == -1); ++count)
+	for (int count = 0; len <= 0 && (count < maxTries || maxTries == -1); ++count)
 	{
 		std::this_thread::sleep_for(std::chrono::milliseconds(delay));
 		len = enet_socket_receive(transactionHost.socket, &sender, &enetBuffer, 1);
@@ -358,11 +360,11 @@ void SendHolePunchingMessages(ENetHost& enetClient, const std::string& serverAdd
 	addr.port = serverPort;
 	enet_address_set_host(&addr, serverAddress.c_str());
 
-	int delay = 200;
-	CFG_GET_VAL("lobby.stun.delay", delay);
+	const int delay{g_ConfigDB.Get("lobby.fw_punch.delay", 200)};
+	const int numMsg{g_ConfigDB.Get("lobby.fw_punch.num_msg", 3)};
 
 	// Send an UDP message from enet host to ip:port
-	for (int i = 0; i < 3; ++i)
+	for (int i = 0; i < numMsg || numMsg == -1; ++i)
 	{
 		SendStunRequest(enetClient, addr);
 		std::this_thread::sleep_for(std::chrono::milliseconds(delay));

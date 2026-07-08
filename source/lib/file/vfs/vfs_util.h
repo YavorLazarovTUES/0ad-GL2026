@@ -1,4 +1,4 @@
-/* Copyright (C) 2015 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -27,10 +27,17 @@
 #ifndef INCLUDED_VFS_UTIL
 #define INCLUDED_VFS_UTIL
 
-#include "lib/os_path.h"
+#include "lib/file/file_system.h"
 #include "lib/file/vfs/vfs.h"
+#include "lib/file/vfs/vfs_path.h"
+#include "lib/status.h"
 
-namespace vfs {
+#include <cstddef>
+#include <cstdint>
+#include <queue>
+
+namespace vfs
+{
 
 extern Status GetPathnames(const PIVFS& fs, const VfsPath& path, const wchar_t* filter, VfsPaths& pathnames);
 
@@ -79,8 +86,24 @@ enum DirFlags
  * @param dircbData
  * @return Status
  **/
-extern Status ForEachFile(const PIVFS& fs, const VfsPath& path, FileCallback cb, uintptr_t cbData, const wchar_t* pattern = 0, size_t flags = 0, DirCallback dircb = NULL, uintptr_t dircbData = 0);
+Status ForEachFile(const PIVFS& fs, const VfsPath& path, FileCallback cb, uintptr_t cbData, const wchar_t* pattern = 0, size_t flags = 0, DirCallback dircb = NULL, uintptr_t dircbData = 0);
 
+struct ForEachFileContext
+{
+	// (declare here to avoid reallocations)
+	CFileInfos files;
+	DirectoryNames subdirectoryNames;
+
+	// (a FIFO queue is more efficient than recursion because it uses less
+	// stack space and avoids seeks due to breadth-first traversal.)
+	std::queue<VfsPath> pendingDirectories;
+
+	ForEachFileContext(const VfsPath& startPath) { pendingDirectories.push(startPath / ""); }
+
+	bool empty() const { return pendingDirectories.empty(); }
+};
+// The same ForEachFile but allows to pause the iteration.
+Status ForEachFileNext(ForEachFileContext& context, const PIVFS& fs, FileCallback cb, uintptr_t cbData, const wchar_t* pattern = 0, size_t flags = 0, DirCallback dircb = NULL, uintptr_t dircbData = 0);
 
 /**
  * Determine the next available pathname with a given format.
@@ -95,7 +118,7 @@ extern Status ForEachFile(const PIVFS& fs, const VfsPath& path, FileCallback cb,
  *		  If 0, numbers corresponding to existing files are skipped.
  * @param nextPathname receives the output.
  **/
-extern void NextNumberedFilename(const PIVFS& fs, const VfsPath& pathnameFormat, size_t& nextNumber, VfsPath& nextPathname);
+void NextNumberedFilename(const PIVFS& fs, const VfsPath& pathnameFormat, size_t& nextNumber, VfsPath& nextPathname);
 
 }	// namespace vfs
 

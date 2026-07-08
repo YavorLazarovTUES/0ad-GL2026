@@ -1,4 +1,4 @@
-/* Copyright (C) 2009 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,12 +19,13 @@
 
 // TODO: organise things better, rather than sticking them in Misc
 
-#include "Messages.h"
-
+#include "graphics/Camera.h"
+#include "graphics/GameView.h"
+#include "lib/debug.h"
+#include "maths/Vector2D.h"
 #include "maths/Vector3D.h"
 #include "ps/Game.h"
-#include "graphics/GameView.h"
-#include "graphics/Camera.h"
+#include "tools/atlas/GameInterface/SharedTypes.h"
 
 CVector3D AtlasMessage::Position::GetWorldSpace(bool floating) const
 {
@@ -35,7 +36,7 @@ CVector3D AtlasMessage::Position::GetWorldSpace(bool floating) const
 		break;
 
 	case 1:
-		return g_Game->GetView()->GetCamera()->GetWorldCoordinates(type1.x, type1.y, floating);
+		return g_Game->GetView()->GetCamera().GetWorldCoordinates(type1.x, type1.y, floating);
 		break;
 
 	case 2:
@@ -54,7 +55,7 @@ CVector3D AtlasMessage::Position::GetWorldSpace(float h, bool floating) const
 	switch (type)
 	{
 	case 1:
-		return g_Game->GetView()->GetCamera()->GetWorldCoordinates(type1.x, type1.y, h);
+		return g_Game->GetView()->GetCamera().GetWorldCoordinates(type1.x, type1.y, h);
 
 	default:
 		return GetWorldSpace(floating);
@@ -78,9 +79,13 @@ void AtlasMessage::Position::GetScreenSpace(float& x, float& y) const
 	switch (type)
 	{
 	case 0:
-		g_Game->GetView()->GetCamera()->GetScreenCoordinates(CVector3D(type0.x, type0.y, type0.x), x, y);
+	{
+		const CVector2D screenPos{g_Game->GetView()->GetCamera().GetScreenCoordinates(
+			CVector3D{type0.x, type0.y, type0.x})};
+		x = screenPos.X;
+		y = screenPos.Y;
 		break;
-
+	}
 	case 1:
 		x = type1.x;
 		y = type1.y;

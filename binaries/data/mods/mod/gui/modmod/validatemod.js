@@ -1,29 +1,29 @@
 const g_ModProperties = {
-	// example: "0ad"
+	// example: "community-mod"
 	"name": {
 		"required": true,
 		"type": "string",
 		"validate": validateName
 	},
-	// example: "0.0.27"
+	// example: "0.29.0"
 	"version": {
 		"required": true,
 		"type": "string",
 		"validate": validateVersion
 	},
-	// example: ["0ad<=0.0.16", "rote"]
+	// example: ["0ad<=0.0.28", "rote"]
 	"dependencies": {
 		"required": true,
 		"type": "object",
 		"validate": validateDependencies
 	},
-	// example: "0 A.D. - Empires Ascendant"
+	// example: "Community Mod"
 	"label": {
 		"required": true,
 		"type": "string",
 		"validate": validateLabel
 	},
-	// example: "A free, open-source, historical RTS game."
+	// example: "The Community Mod is a community-led effort to improve the gameplay."
 	"description": {
 		"required": true,
 		"type": "string"
@@ -38,7 +38,7 @@ const g_ModProperties = {
 /**
  * Tests if the string only contains alphanumeric characters and _ -
  */
-const g_RegExpName = /[a-zA-Z0-9\-\_]+/;
+const g_RegExpName = /[a-zA-Z0-9\-_]+/;
 
 /**
  * Tests if the version string consists only of numbers and at most two periods.
@@ -73,9 +73,9 @@ function validateMod(folder, modData, notify)
 {
 	let valid = true;
 
-	for (let propertyName in g_ModProperties)
+	for (const propertyName in g_ModProperties)
 	{
-		let property = g_ModProperties[propertyName];
+		const property = g_ModProperties[propertyName];
 
 		if (modData[propertyName] === undefined)
 		{
@@ -88,7 +88,7 @@ function validateMod(folder, modData, notify)
 			valid = false;
 		}
 
-		if (typeof modData[propertyName] != property.type)
+		if (typeof modData[propertyName] !== property.type)
 		{
 			if (notify)
 				warn(propertyName + " in mod '" + folder + "' is not of the type '" + property.type + "'!");
@@ -107,7 +107,7 @@ function validateMod(folder, modData, notify)
 
 function validateName(folder, modData, notify)
 {
-	let valid = modData.name.match(globalRegExp(g_RegExpName));
+	const valid = modData.name.match(globalRegExp(g_RegExpName));
 
 	if (!valid && notify)
 		warn("mod name of " + folder + " may only contain alphanumeric characters, but found '" + modData.name + "'!");
@@ -117,7 +117,7 @@ function validateName(folder, modData, notify)
 
 function validateVersion(folder, modData, notify)
 {
-	let valid = modData.version.match(globalRegExp(g_RegExpVersion));
+	const valid = modData.version.match(globalRegExp(g_RegExpVersion));
 
 	if (!valid && notify)
 		warn("mod version of " + folder + " may only contain numbers and at most 2 periods, but found '" + modData.version + "'!");
@@ -129,7 +129,7 @@ function validateDependencies(folder, modData, notify)
 {
 	let valid = true;
 
-	for (let dependency of modData.dependencies)
+	for (const dependency of modData.dependencies)
 	{
 		valid = valid && (
 			dependency.match(globalRegExp(g_RegExpName)) ||
@@ -144,7 +144,7 @@ function validateDependencies(folder, modData, notify)
 
 function validateLabel(folder, modData, notify)
 {
-	let valid = modData.label.match(g_RegExpLabel);
+	const valid = modData.label.match(g_RegExpLabel);
 
 	if (!valid && notify)
 		warn("mod label of " + folder + " may not be empty!");

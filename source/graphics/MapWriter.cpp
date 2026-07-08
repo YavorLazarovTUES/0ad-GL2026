@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,26 +17,34 @@
 
 #include "precompiled.h"
 
-#include "Camera.h"
-#include "CinemaManager.h"
-#include "GameView.h"
-#include "LightEnv.h"
-#include "MapReader.h"
 #include "MapWriter.h"
-#include "Patch.h"
-#include "Terrain.h"
-#include "TerrainTextureEntry.h"
-#include "TerrainTextureManager.h"
 
+#include "graphics/Camera.h"
+#include "graphics/Color.h"
+#include "graphics/LightEnv.h"
+#include "graphics/MapIO.h"
+#include "graphics/MiniPatch.h"
+#include "graphics/Patch.h"
+#include "graphics/Terrain.h"
+#include "graphics/TerrainTextureEntry.h"
+#include "lib/debug.h"
+#include "lib/path.h"
+#include "lib/posix/posix_types.h"
+#include "lib/types.h"
+#include "maths/Fixed.h"
+#include "maths/FixedVector3D.h"
 #include "maths/MathUtil.h"
+#include "maths/Matrix3D.h"
 #include "maths/NUSpline.h"
+#include "maths/Vector3D.h"
 #include "ps/CLogger.h"
-#include "ps/Loader.h"
+#include "ps/FileIo.h"
 #include "ps/Filesystem.h"
 #include "ps/XML/XMLWriter.h"
 #include "renderer/PostprocManager.h"
 #include "renderer/SkyManager.h"
 #include "renderer/WaterManager.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpCinemaManager.h"
 #include "simulation2/components/ICmpGarrisonHolder.h"
@@ -47,6 +55,17 @@
 #include "simulation2/components/ICmpTurretHolder.h"
 #include "simulation2/components/ICmpVisual.h"
 #include "simulation2/components/ICmpWaterManager.h"
+#include "simulation2/helpers/CinemaPath.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <map>
+#include <numbers>
+#include <string>
+#include <utility>
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // CMapWriter constructor: nothing to do at the minute
@@ -56,11 +75,9 @@ CMapWriter::CMapWriter()
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // SaveMap: try to save the current map to the given file
-void CMapWriter::SaveMap(const VfsPath& pathname, CTerrain* pTerrain,
-						 WaterManager* pWaterMan, SkyManager* pSkyMan,
-						 CLightEnv* pLightEnv, CCamera* pCamera, CCinemaManager* UNUSED(pCinema),
-						 CPostprocManager* pPostproc,
-						 CSimulation2* pSimulation2)
+void CMapWriter::SaveMap(const VfsPath& pathname, CTerrain* pTerrain, WaterManager* pWaterMan,
+	SkyManager* pSkyMan, CLightEnv* pLightEnv, const CCamera& camera, CCinemaManager*,
+	CPostprocManager* pPostproc, CSimulation2* pSimulation2)
 {
 	CFilePacker packer(FILE_VERSION, "PSMP");
 
@@ -79,7 +96,7 @@ void CMapWriter::SaveMap(const VfsPath& pathname, CTerrain* pTerrain,
 	}
 
 	VfsPath pathnameXML = pathname.ChangeExtension(L".xml");
-	WriteXML(pathnameXML, pWaterMan, pSkyMan, pLightEnv, pCamera, pPostproc, pSimulation2);
+	WriteXML(pathnameXML, pWaterMan, pSkyMan, pLightEnv, camera, pPostproc, pSimulation2);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -187,7 +204,7 @@ void CMapWriter::PackTerrain(CFilePacker& packer, CTerrain* pTerrain)
 
 void CMapWriter::WriteXML(const VfsPath& filename,
 						  WaterManager* pWaterMan, SkyManager* pSkyMan,
-						  CLightEnv* pLightEnv, CCamera* pCamera,
+						  CLightEnv* pLightEnv, const CCamera& camera,
 						  CPostprocManager* pPostproc,
 						  CSimulation2* pSimulation2)
 {
@@ -282,16 +299,16 @@ void CMapWriter::WriteXML(const VfsPath& filename,
 			XMLWriter_Element cameraTag(xmlMapFile, "Camera");
 			{
 				XMLWriter_Element positionTag(xmlMapFile, "Position");
-				CVector3D pos = pCamera->GetOrientation().GetTranslation();
+				const CVector3D pos{camera.GetOrientation().GetTranslation()};
 				positionTag.Attribute("x", pos.X);
 				positionTag.Attribute("y", pos.Y);
 				positionTag.Attribute("z", pos.Z);
 			}
 
-			CVector3D in = pCamera->GetOrientation().GetIn();
+			const CVector3D in{camera.GetOrientation().GetIn()};
 			// Convert to spherical coordinates
 			float rotation = atan2(in.X, in.Z);
-			float declination = atan2(sqrt(in.X*in.X + in.Z*in.Z), in.Y) - static_cast<float>(M_PI / 2);
+			float declination = atan2(sqrt(in.X*in.X + in.Z*in.Z), in.Y) - std::numbers::pi_v<float> / 2.f;
 
 			{
 				XMLWriter_Element rotationTag(xmlMapFile, "Rotation");

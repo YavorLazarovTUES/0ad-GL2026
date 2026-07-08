@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -23,6 +23,7 @@
 #ifndef INCLUDED_STL_ALLOCATORS
 #define INCLUDED_STL_ALLOCATORS
 
+#include <cstddef>
 #include <memory>
 #include <type_traits>
 
@@ -57,7 +58,7 @@ public:
 
 	T* allocate(size_t n)
 	{
-		return static_cast<T*>(allocator->allocate(n * sizeof(T), nullptr, alignof(T)));
+		return static_cast<T*>(allocator->allocate(n * sizeof(T), alignof(T)));
 	}
 
 	void deallocate(T* ptr, const size_t n)
@@ -101,12 +102,24 @@ public:
 
 	T* allocate(size_t n)
 	{
-		return static_cast<T*>(allocator.allocate(n * sizeof(T), nullptr, alignof(T)));
+		return static_cast<T*>(allocator.allocate(n * sizeof(T), alignof(T)));
 	}
 
 	void deallocate(T* ptr, const size_t n)
 	{
 		return allocator.deallocate(static_cast<void*>(ptr), n * sizeof(T));
+	}
+
+	template<typename V>
+	bool operator==(const ProxyAllocator<V, Backend>& other) const
+	{
+		return std::addressof(allocator) == std::addressof(other.allocator);
+	}
+
+	template<typename V>
+	bool operator!=(const ProxyAllocator<V, Backend>& other) const
+	{
+		return std::addressof(allocator) != std::addressof(other.allocator);
 	}
 
 private:

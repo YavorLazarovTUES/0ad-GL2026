@@ -2,11 +2,11 @@ Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
 	TILE_CENTERED_HEIGHT_MAP = true;
 
-	setSelectedBiome();
+	setBiome(mapSettings.Biome);
 
 	const tMainTerrain = g_Terrains.mainTerrain;
 	const tForestFloor1 = g_Terrains.forestFloor1;
@@ -82,7 +82,7 @@ function* GenerateMap()
 	const radiusCentralIsland = fractionToTiles(0.14);
 	const radiusCentralHill = fractionToTiles(0.12);
 
-	const [playerIDs, playerPosition, playerAngle, startAngle] = playerPlacementCircle(radiusPlayers);
+	const { playerIDs, playerPosition, playerAngle, startAngle } = playerPlacementCircle(radiusPlayers);
 
 	g_Map.log("Determining number of rivers between players");
 	let split = 1;

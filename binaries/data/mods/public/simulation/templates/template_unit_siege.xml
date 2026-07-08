@@ -5,6 +5,7 @@
   </Cost>
   <Decay>
     <DelayTime>0.0</DelayTime>
+    <SinkProb>1.0</SinkProb>
     <SinkRate>0.0</SinkRate>
     <SinkAccel>2.0</SinkAccel>
   </Decay>
@@ -35,7 +36,7 @@
         </Poisoned>
       </ApplyStatus>
       <Damage>
-        <Hack>1</Hack>
+        <Hack>6</Hack>
         <Pierce>25</Pierce>
         <Crush>5</Crush>
       </Damage>

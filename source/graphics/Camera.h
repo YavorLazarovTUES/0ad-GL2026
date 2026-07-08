@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -26,8 +26,12 @@
 #include "maths/BoundingBoxAligned.h"
 #include "maths/Frustum.h"
 #include "maths/Matrix3D.h"
+#include "maths/Vector3D.h"
 
 #include <array>
+
+class CPlane;
+class CVector2D;
 
 // view port
 struct SViewPort
@@ -83,16 +87,21 @@ class CCamera
 		float GetOrthoScale() const { return m_OrthoScale; }
 
 		// Returns a quad of view in camera space at given distance from camera.
-		void GetViewQuad(float dist, Quad& quad) const;
+		Quad GetViewQuad(const float dist) const;
 
 		// Builds a ray passing through the screen coordinate (px, py), calculates
 		// origin and direction of the ray.
-		void BuildCameraRay(int px, int py, CVector3D& origin, CVector3D& dir) const;
+		struct Ray
+		{
+			CVector3D origin;
+			CVector3D direction;
+		};
+		Ray BuildCameraRay(const int px, const int py) const;
 
 		// General helpers that seem to fit here
 
 		// Get the screen-space coordinates corresponding to a given world-space position
-		void GetScreenCoordinates(const CVector3D& world, float& x, float& y) const;
+		CVector2D GetScreenCoordinates(const CVector3D& world) const;
 
 		// Get the point on the terrain corresponding to pixel (px,py) (or the mouse coordinates)
 		// The aboveWater parameter determines whether we want to stop at the water plane or also get underwater points

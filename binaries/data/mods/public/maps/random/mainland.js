@@ -2,9 +2,9 @@ Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
-	setSelectedBiome();
+	setBiome(mapSettings.Biome);
 
 	const tMainTerrain = g_Terrains.mainTerrain;
 	const tForestFloor1 = g_Terrains.forestFloor1;
@@ -64,8 +64,16 @@ function* GenerateMap()
 	const clFood = g_Map.createTileClass();
 	const clBaseResource = g_Map.createTileClass();
 
+	const { playerIDs, playerPosition } =
+		playerPlacementByPattern(
+			mapSettings.PlayerPlacement,
+			fractionToTiles(0.35),
+			fractionToTiles(0.1),
+			randomAngle(),
+			undefined);
+
 	placePlayerBases({
-		"PlayerPlacement": playerPlacementCircle(fractionToTiles(0.35)),
+		"PlayerPlacement": [playerIDs, playerPosition],
 		"PlayerTileClass": clPlayer,
 		"BaseResourceClass": clBaseResource,
 		"CityPatch": {

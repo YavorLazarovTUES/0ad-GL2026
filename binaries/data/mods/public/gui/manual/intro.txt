@@ -50,6 +50,8 @@ You may change hotkeys in [font="sans-bold-14"]Options > Hotkeys[font="sans-14"]
   hotkey.bigscreenshot – Take huge screenshot (6400×4800 pixels, in .bmp format, location is displayed in the top left of the GUI after the file has been saved, and can also be seen in the console/logs if you miss it there)
   hotkey.tab.next – Switch to the next tab
   hotkey.tab.prev – Switch to the previous tab
+  hotkey.item.next – Switch to the next item of a list
+  hotkey.item.prev – Switch to the previous item of a list
 
 [font="sans-bold-14"]In Game[font="sans-14"]
   Double Left Click \[on unit] – Select all of your units of the same kind on the screen (even if they're different ranks)
@@ -91,7 +93,7 @@ You may change hotkeys in [font="sans-bold-14"]Options > Hotkeys[font="sans-14"]
   hotkey.lobby – Show the multiplayer lobby in a dialog window
   hotkey.session.gui.diplomacy.toggle – Toggle in-game diplomacy panel
   hotkey.session.gui.barter.toggle – Toggle in-game barter and trade panel
-  hotkey.session.gui.objectives.toggle – Toggle in-game objectives panel
+  hotkey.session.gui.matchsettings.toggle – Toggle in-game match settings panel
   hotkey.session.gui.tutorial.toggle – Toggle in-game tutorial panel
   hotkey.structree – Toggle structure tree panel
   hotkey.civinfo – Toggle civilization info panel

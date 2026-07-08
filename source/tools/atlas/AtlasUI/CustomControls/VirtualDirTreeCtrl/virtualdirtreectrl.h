@@ -1,4 +1,4 @@
-/* Copyright (C) 2009 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,18 +22,24 @@
 #ifndef INCLUDED_VIRTUALDIRTREECTRL
 #define INCLUDED_VIRTUALDIRTREECTRL
 
-//#ifdef __GNUG__
-//    #pragma interface "virtualdirtreectrl.cpp"
-//#endif
-
-#ifndef WX_PRECOMP
-    #include "wx/wx.h"
-#endif
-
+#include <cstdlib>
+#include <wx/arrstr.h>
+#include <wx/chartype.h>
+#include <wx/debug.h>
 #include <wx/dynarray.h>
+#include <wx/event.h>
+#include <wx/string.h>
+#include <wx/toolbar.h>
+#include <wx/treebase.h>
 #include <wx/treectrl.h>
-#include <wx/filesys.h>
-#include <wx/imaglist.h>
+#include <wx/validate.h>
+
+class wxFileName;
+class wxPoint;
+class wxSize;
+class wxBitmap;
+class wxImageList;
+class wxWindow;
 
 enum
 {

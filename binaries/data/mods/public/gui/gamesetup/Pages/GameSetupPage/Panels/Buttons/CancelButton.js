@@ -1,15 +1,13 @@
 class CancelButton
 {
-	constructor(setupWindow, startGameButton, readyButton)
+	constructor(startGameButton, readyButton, cancelCallback)
 	{
-		this.setupWindow = setupWindow;
-
 		this.buttonPositions = Engine.GetGUIObjectByName("bottomRightPanel").children;
 
 		this.cancelButton = Engine.GetGUIObjectByName("cancelButton");
 		this.cancelButton.caption = this.Caption;
 		this.cancelButton.tooltip = Engine.HasXmppClient() ? this.TooltipLobby : this.TooltipMenu;
-		this.cancelButton.onPress = setupWindow.closePage.bind(setupWindow);
+		this.cancelButton.onPress = cancelCallback;
 	}
 }
 

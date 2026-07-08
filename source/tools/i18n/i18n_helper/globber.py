@@ -1,22 +1,26 @@
-"""Utils to list .po"""
+"""Utils to list .po."""
+
 import os
-from typing import List
 
 from i18n_helper.catalog import Catalog
 
-def getCatalogs(inputFilePath, filters : List[str] = None) -> List[Catalog]:
-    """Returns a list of "real" catalogs (.po) in the given folder."""
-    existingTranslationCatalogs = []
-    l10nFolderPath = os.path.dirname(inputFilePath)
-    inputFileName = os.path.basename(inputFilePath)
 
-    for filename in os.listdir(str(l10nFolderPath)):
+def get_catalogs(input_file_path, filters: list[str] | None = None) -> list[Catalog]:
+    """Return a list of "real" catalogs (.po) in the given folder."""
+    existing_translation_catalogs = []
+    l10n_folder_path = os.path.dirname(input_file_path)
+    input_file_name = os.path.basename(input_file_path)
+
+    for filename in os.listdir(str(l10n_folder_path)):
         if filename.startswith("long") or not filename.endswith(".po"):
             continue
-        if filename.split(".")[1] != inputFileName.split(".")[0]:
+        if filename.split(".")[1] != input_file_name.split(".")[0]:
             continue
         if not filters or filename.split(".")[0] in filters:
-            existingTranslationCatalogs.append(
-                Catalog.readFrom(os.path.join(l10nFolderPath, filename), locale=filename.split('.')[0]))
+            existing_translation_catalogs.append(
+                Catalog.read_from(
+                    os.path.join(l10n_folder_path, filename), locale=filename.split(".")[0]
+                )
+            )
 
-    return existingTranslationCatalogs
+    return existing_translation_catalogs

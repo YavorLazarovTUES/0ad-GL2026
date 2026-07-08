@@ -1,4 +1,4 @@
-/* Copyright (C) 2020 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -15,20 +15,25 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "../Common/Sidebar.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/Sections/Common/Sidebar.h"
+
+#include <memory>
+#include <wx/event.h>
 
 class ITool;
-
+class ScenarioEditor;
+class wxWindow;
 struct ObjectSidebarImpl;
+
 class ObjectSidebar : public Sidebar
 {
 public:
 	ObjectSidebar(ScenarioEditor& scenarioEditor, wxWindow* sidebarContainer, wxWindow* bottomBarContainer);
-	~ObjectSidebar();
+
 	void FilterObjects();
 
 protected:
-	virtual void OnFirstDisplay();
+	void OnFirstDisplay() override;
 
 private:
 	void OnToolChange(ITool* tool);
@@ -38,7 +43,7 @@ private:
 	void OnSelectObject(wxCommandEvent& evt);
 	void OnToggleExactFilter(wxCommandEvent& evt);
 
-	ObjectSidebarImpl* m_Impl;
+	std::unique_ptr<ObjectSidebarImpl> m_Impl;
 
 	DECLARE_EVENT_TABLE();
 };

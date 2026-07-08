@@ -31,7 +31,7 @@ class TemplateLoader
 	{
 		if (!(templateName in this.auraData))
 		{
-			let data = Engine.ReadJSONFile(this.AuraPath + templateName + ".json");
+			const data = Engine.ReadJSONFile(this.AuraPath + templateName + ".json");
 			translateObjectKeys(data, this.AuraTranslateKeys);
 
 			this.auraData[templateName] = data;
@@ -54,11 +54,11 @@ class TemplateLoader
 		if (!(templateName in this.templateData))
 		{
 			// We need to clone the template because we want to perform some translations.
-			let data = clone(Engine.GetTemplate(templateName));
+			const data = clone(Engine.GetTemplate(templateName));
 			translateObjectKeys(data, this.EntityTranslateKeys);
 
 			if (data.Auras)
-				for (let auraID of data.Auras._string.split(/\s+/))
+				for (const auraID of data.Auras._string.split(/\s+/))
 					this.loadAuraTemplate(auraID);
 
 			if (data.Identity.Civ != this.DefaultCiv && civCode != this.DefaultCiv && data.Identity.Civ != civCode)
@@ -86,7 +86,7 @@ class TemplateLoader
 	{
 		if (!(civCode in this.playerData))
 		{
-			let templateName = this.buildPlayerTemplateName(civCode);
+			const templateName = this.buildPlayerTemplateName(civCode);
 			this.playerData[civCode] = Engine.GetTemplate(templateName);
 
 			// No object keys need to be translated
@@ -107,12 +107,12 @@ class TemplateLoader
 	{
 		if (!(templateName in this.technologyData))
 		{
-			let data = Engine.ReadJSONFile(this.TechnologyPath + templateName + ".json");
+			const data = Engine.ReadJSONFile(this.TechnologyPath + templateName + ".json");
 			translateObjectKeys(data, this.TechnologyTranslateKeys);
 
 			// Translate specificName as in GetTechnologyData() from gui/session/session.js
 			if (typeof (data.specificName) === 'object')
-				for (let civ in data.specificName)
+				for (const civ in data.specificName)
 					data.specificName[civ] = translate(data.specificName[civ]);
 			else if (data.specificName)
 				warn("specificName should be an object of civ->name mappings in " + templateName + ".json");
@@ -130,9 +130,9 @@ class TemplateLoader
 	 */
 	loadTechnologyPairTemplate(templateName, civCode)
 	{
-		let template = this.loadTechnologyTemplate(templateName);
+		const template = this.loadTechnologyTemplate(templateName);
 		return {
-			"techs": [template.top, template.bottom],
+			"techs": template.pair,
 			"reqs": DeriveTechnologyRequirements(template, civCode)
 		};
 	}
@@ -155,7 +155,8 @@ class TemplateLoader
 					production.units.push(templateName);
 			}
 
-		const appendTechnology = (technologyName) => {
+		const appendTechnology = (technologyName) =>
+		{
 			const technology = this.loadTechnologyTemplate(technologyName, civCode);
 			if (DeriveTechnologyRequirements(technology, civCode))
 				production.techs.push(technologyName);
@@ -172,7 +173,7 @@ class TemplateLoader
 
 				if (this.isPairTech(technologyName))
 				{
-					let technologyPair = this.loadTechnologyPairTemplate(technologyName, civCode);
+					const technologyPair = this.loadTechnologyPairTemplate(technologyName, civCode);
 					if (technologyPair.reqs)
 						for (technologyName of technologyPair.techs)
 							appendTechnology(technologyName);
@@ -186,7 +187,7 @@ class TemplateLoader
 
 	deriveBuildQueue(template, civCode)
 	{
-		let buildQueue = [];
+		const buildQueue = [];
 
 		if (!template.Builder || !template.Builder.Entities._string)
 			return buildQueue;
@@ -222,7 +223,7 @@ class TemplateLoader
 	 */
 	buildPlayerTemplateName(civCode)
 	{
-		let templateName = this.PlayerPath + civCode;
+		const templateName = this.PlayerPath + civCode;
 		if (Engine.TemplateExists(templateName))
 			return templateName;
 
@@ -239,10 +240,10 @@ class TemplateLoader
 	 */
 	findAllAutoResearchedTechs()
 	{
-		let techList = [];
-		for (let templateName of listFiles(this.TechnologyPath, ".json", true))
+		const techList = [];
+		for (const templateName of listFiles(this.TechnologyPath, ".json", true))
 		{
-			let data = this.loadTechnologyTemplate(templateName);
+			const data = this.loadTechnologyTemplate(templateName);
 			if (data && data.autoResearch)
 				techList.push(templateName);
 		}
@@ -271,13 +272,13 @@ class TemplateLoader
 			return undefined;
 
 		templateName = removeFiltersFromTemplateName(templateName);
-		let template = this.loadEntityTemplate(templateName, civCode);
+		const template = this.loadEntityTemplate(templateName, civCode);
 
 		if (!dirname(templateName) || dirname(template["@parent"]) != dirname(templateName))
 			return [templateName, TemplateVariant.base];
 
-		let parentTemplate = this.loadEntityTemplate(template["@parent"], civCode);
-		let inheritedVariance = this.getVariantBaseAndType(template["@parent"], civCode);
+		const parentTemplate = this.loadEntityTemplate(template["@parent"], civCode);
+		const inheritedVariance = this.getVariantBaseAndType(template["@parent"], civCode);
 
 		if (parentTemplate.Identity)
 		{
@@ -289,7 +290,7 @@ class TemplateLoader
 		}
 
 		if (parentTemplate.Upgrade)
-			for (let upgrade in parentTemplate.Upgrade)
+			for (const upgrade in parentTemplate.Upgrade)
 				if (parentTemplate.Upgrade[upgrade].Entity)
 					return [inheritedVariance[0], TemplateVariant.upgrade, upgrade.toLowerCase()];
 
@@ -297,7 +298,7 @@ class TemplateLoader
 			return [inheritedVariance[0], TemplateVariant.unlockedByTechnology, template.Identity.Requirements?.Techs];
 
 		if (parentTemplate.Cost)
-			for (let res in parentTemplate.Cost.Resources)
+			for (const res in parentTemplate.Cost.Resources)
 				if (+parentTemplate.Cost.Resources[res])
 					return [inheritedVariance[0], TemplateVariant.trainable];
 
@@ -307,7 +308,7 @@ class TemplateLoader
 
 	isPairTech(technologyCode)
 	{
-		return !!this.loadTechnologyTemplate(technologyCode).top;
+		return !!this.loadTechnologyTemplate(technologyCode).pair;
 	}
 
 	isPhaseTech(technologyCode)

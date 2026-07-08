@@ -46,7 +46,8 @@ g_SelectionPanels.Alert = {
 	},
 	"setupButton": function(data)
 	{
-		data.button.onPress = function() {
+		data.button.onPress = function()
+		{
 			switch (data.item)
 			{
 			case "raise":
@@ -55,6 +56,8 @@ g_SelectionPanels.Alert = {
 			case "end":
 				endOfAlert();
 				return;
+			default:
+				error("Unknown value for alert action: " + data.item);
 			}
 		};
 
@@ -63,8 +66,8 @@ g_SelectionPanels.Alert = {
 		case "raise":
 			data.icon.sprite = "stretched:session/icons/bell_level1.png";
 			data.button.tooltip = translate("Raise an alert!");
-			if (data.unitEntStates.every(state => MatchesClassList(["FemaleCitizen"], state.alertRaiser?.classes)))
-				data.button.tooltip += "\n" + bodyFont(translate("Alert nearby Female Citizens to seek refuge."));
+			if (data.unitEntStates.every(state => MatchesClassList(["Civilian"], state.alertRaiser?.classes)))
+				data.button.tooltip += "\n" + bodyFont(translate("Alert nearby Civilians to seek refuge."));
 			else if (data.unitEntStates.every(state => MatchesClassList(["Trader"], state.alertRaiser?.classes)))
 				data.button.tooltip += "\n" + bodyFont(translate("Alert nearby Traders to seek refuge."));
 			else
@@ -73,13 +76,15 @@ g_SelectionPanels.Alert = {
 		case "end":
 			data.icon.sprite = "stretched:session/icons/bell_level0.png";
 			data.button.tooltip = translate("End the alert.");
-			if (data.unitEntStates.every(state => MatchesClassList(["FemaleCitizen"], state.alertRaiser?.classes)))
-				data.button.tooltip += "\n" + bodyFont(translate("Unload nearby Female Citizens."));
+			if (data.unitEntStates.every(state => MatchesClassList(["Civilian"], state.alertRaiser?.classes)))
+				data.button.tooltip += "\n" + bodyFont(translate("Unload nearby Civilians."));
 			else if (data.unitEntStates.every(state => MatchesClassList(["Trader"], state.alertRaiser?.classes)))
 				data.button.tooltip += "\n" + bodyFont(translate("Unload nearby Traders."));
 			else
 				data.button.tooltip += "\n" + bodyFont(translate("Unload nearby vulnerable units."));
 			break;
+		default:
+			error("Unknown value for alert action: " + data.item);
 		}
 		data.button.enabled = controlsPlayer(data.player);
 
@@ -120,16 +125,17 @@ g_SelectionPanels.Command = {
 	},
 	"getItems": function(unitEntStates)
 	{
-		let commands = [];
+		const commands = [];
 
-		for (let command in g_EntityCommands)
+		for (const command in g_EntityCommands)
 		{
-			let info = getCommandInfo(command, unitEntStates);
-			if (info)
-			{
-				info.name = command;
-				commands.push(info);
-			}
+			const info = getCommandInfo(command, unitEntStates);
+			if (!info)
+				continue;
+
+			info.name = command;
+			if (commands.push(info) >= this.getMaxNumberOfItems())
+				break;
 		}
 		return commands;
 	},
@@ -137,7 +143,8 @@ g_SelectionPanels.Command = {
 	{
 		data.button.tooltip = data.item.tooltip;
 
-		data.button.onPress = function() {
+		data.button.onPress = function()
+		{
 			if (data.item.callback)
 				data.item.callback(data.item);
 			else
@@ -150,14 +157,16 @@ g_SelectionPanels.Command = {
 
 		data.icon.sprite = "stretched:session/icons/" + data.item.icon;
 
-		let size = data.button.size;
-		// relative to the center ( = 50%)
-		size.rleft = 50;
-		size.rright = 50;
-		// offset from the center calculation, count on square buttons, so size.bottom is the width too
-		size.left = (data.i - data.numberOfItems / 2) * (size.bottom + 1);
-		size.right = size.left + size.bottom;
-		data.button.size = size;
+		const left = (data.i - data.numberOfItems / 2) * (data.button.size.bottom + 1);
+		Object.assign(data.button.size, {
+			// relative to the center ( = 50%)
+			"rleft": 50,
+			"rright": 50,
+			// offset from the center calculation, count on square buttons, so size.bottom is the width too
+			"left": left,
+			"right": left + data.button.size.bottom
+		});
+
 		return true;
 	}
 };
@@ -174,7 +183,7 @@ g_SelectionPanels.Construction = {
 	},
 	"setupButton": function(data)
 	{
-		let template = GetTemplateData(data.item, data.player);
+		const template = GetTemplateData(data.item, data.player);
 		if (!template)
 			return false;
 
@@ -191,11 +200,11 @@ g_SelectionPanels.Construction = {
 			});
 
 		data.button.onPress = function() { startBuildingPlacement(data.item, data.playerState); };
-		let showTemplateFunc = () => { showTemplateDetails(data.item, data.playerState.civ); };
+		const showTemplateFunc = () => { showTemplateDetails(data.item, data.playerState.civ); };
 		data.button.onPressRight = showTemplateFunc;
 		data.button.onPressRightDisabled = showTemplateFunc;
 
-		let tooltips = [
+		const tooltips = [
 			getEntityNamesFormatted,
 			getVisibleEntityClassesFormatted,
 			getAurasTooltip,
@@ -207,11 +216,11 @@ g_SelectionPanels.Construction = {
 			getGarrisonTooltip(template),
 			getTurretsTooltip(template),
 			getPopulationBonusTooltip(template),
-			showTemplateViewerOnRightClickTooltip(template)
+			getTemplateViewerOnRightClickTooltip(template)
 		);
 
 
-		let limits = getEntityLimitAndCount(data.playerState, data.item);
+		const limits = getEntityLimitAndCount(data.playerState, data.item);
 		tooltips.push(
 			formatLimitString(limits.entLimit, limits.entCount, limits.entLimitChangers),
 			formatMatchLimitString(limits.matchLimit, limits.matchCount, limits.type),
@@ -267,25 +276,26 @@ g_SelectionPanels.Formation = {
 		if (!g_FormationsInfo.has(data.item))
 			g_FormationsInfo.set(data.item, Engine.GuiInterfaceCall("GetFormationInfoFromTemplate", { "templateName": data.item }));
 
-		let formationOk = canMoveSelectionIntoFormation(data.item);
-		let unitIds = data.unitEntStates.map(state => state.id);
-		let formationSelected = Engine.GuiInterfaceCall("IsFormationSelected", {
+		const formationOk = canMoveSelectionIntoFormation(data.item);
+		const unitIds = data.unitEntStates.map(state => state.id);
+		const formationSelected = Engine.GuiInterfaceCall("IsFormationSelected", {
 			"ents": unitIds,
 			"formationTemplate": data.item
 		});
 
-		data.button.onPress = function() {
+		data.button.onPress = function()
+		{
 			performFormation(unitIds, data.item);
 		};
 
 		data.button.onMouseRightPress = () => g_AutoFormation.setDefault(data.item);
 
-		let formationInfo = g_FormationsInfo.get(data.item);
+		const formationInfo = g_FormationsInfo.get(data.item);
 		let tooltip = translate(formationInfo.name);
 		if (formationInfo.tooltip)
 			tooltip += "\n" + bodyFont(translate(formationInfo.tooltip));
 
-		let isDefaultFormation = g_AutoFormation.isDefault(data.item);
+		const isDefaultFormation = g_AutoFormation.isDefault(data.item);
 		if (data.item === NULL_FORMATION)
 			tooltip += "\n" + (isDefaultFormation ?
 				translate("Default formation is disabled.") :
@@ -300,7 +310,7 @@ g_SelectionPanels.Formation = {
 		data.button.tooltip = tooltip;
 
 		data.button.enabled = formationOk && controlsPlayer(data.player);
-		let grayscale = formationOk ? "" : "grayscale:";
+		const grayscale = formationOk ? "" : "grayscale:";
 		data.guiSelection.hidden = !formationSelected;
 		data.countDisplay.hidden = !isDefaultFormation;
 		data.icon.sprite = "stretched:" + grayscale + "session/icons/" + formationInfo.icon;
@@ -322,9 +332,9 @@ g_SelectionPanels.Garrison = {
 		if (unitEntStates.every(state => !state.garrisonHolder))
 			return [];
 
-		let groups = new EntityGroups();
+		const groups = new EntityGroups();
 
-		for (let state of unitEntStates)
+		for (const state of unitEntStates)
 			if (state.garrisonHolder)
 				groups.add(state.garrisonHolder.entities);
 
@@ -332,19 +342,20 @@ g_SelectionPanels.Garrison = {
 	},
 	"setupButton": function(data)
 	{
-		let entState = GetEntityState(data.item.ents[0]);
+		const entState = GetEntityState(data.item.ents[0]);
 
-		let template = GetTemplateData(entState.template);
+		const template = GetTemplateData(entState.template);
 		if (!template)
 			return false;
 
-		data.button.onPress = function() {
+		data.button.onPress = function()
+		{
 			unloadTemplate(template.selectionGroupName || entState.template, entState.player);
 		};
 
 		data.countDisplay.caption = data.item.ents.length > 1 ? data.item.ents.length : "";
 
-		let canUngarrison = controlsPlayer(data.player) || controlsPlayer(entState.player);
+		const canUngarrison = controlsPlayer(data.player) || controlsPlayer(entState.player);
 
 		data.button.enabled = canUngarrison;
 
@@ -379,8 +390,8 @@ g_SelectionPanels.Gate = {
 	"rowLength": 10,
 	"getItems": function(unitEntStates)
 	{
-		let hideLocked = unitEntStates.every(state => !state.gate || !state.gate.locked);
-		let hideUnlocked = unitEntStates.every(state => !state.gate || state.gate.locked);
+		const hideLocked = unitEntStates.every(state => !state.gate || !state.gate.locked);
+		const hideUnlocked = unitEntStates.every(state => !state.gate || state.gate.locked);
 
 		if (hideLocked && hideUnlocked)
 			return [];
@@ -421,8 +432,8 @@ g_SelectionPanels.Pack = {
 	"rowLength": 10,
 	"getItems": function(unitEntStates)
 	{
-		let checks = {};
-		for (let state of unitEntStates)
+		const checks = {};
+		for (const state of unitEntStates)
 		{
 			if (!state.pack)
 				continue;
@@ -440,7 +451,7 @@ g_SelectionPanels.Pack = {
 				checks.packCancelButton = true;
 		}
 
-		let items = [];
+		const items = [];
 		if (checks.packButton)
 			items.push({
 				"packing": false,
@@ -542,17 +553,15 @@ g_SelectionPanels.Queue = {
 	},
 	"resizePanel": function(numberOfItems, rowLength)
 	{
-		let numRows = Math.ceil(numberOfItems / rowLength);
-		let panel = Engine.GetGUIObjectByName("unitQueuePanel");
-		let size = panel.size;
-		let buttonSize = Engine.GetGUIObjectByName("unitQueueButton[0]").size.bottom;
-		let margin = 4;
-		size.top = size.bottom - numRows * buttonSize - (numRows + 2) * margin;
-		panel.size = size;
+		const numRows = Math.ceil(numberOfItems / rowLength);
+		const panel = Engine.GetGUIObjectByName("unitQueuePanel");
+		const buttonSize = Engine.GetGUIObjectByName("unitQueueButton[0]").size.bottom;
+		const margin = 4;
+		panel.size.top = panel.size.bottom - numRows * buttonSize - (numRows + 2) * margin;
 	},
 	"setupButton": function(data)
 	{
-		let queuedItem = data.item.queuedItem;
+		const queuedItem = data.item.queuedItem;
 
 		// Differentiate between units and techs
 		let template;
@@ -578,7 +587,7 @@ g_SelectionPanels.Queue = {
 				"neededSlots": queuedItem.neededSlots
 			}));
 		}
-		tooltips.push(showTemplateViewerOnRightClickTooltip(template));
+		tooltips.push(getTemplateViewerOnRightClickTooltip(template));
 		data.button.tooltip = tooltips.join("\n");
 
 		data.countDisplay.caption = queuedItem.count > 1 ? queuedItem.count : "";
@@ -587,12 +596,10 @@ g_SelectionPanels.Queue = {
 		if (data.item.ghost)
 		{
 			data.button.enabled = false;
-			progressSlider.sprite="color:0 150 250 50";
-			const size = progressSlider.size;
+			progressSlider.sprite = "color:0 150 250 50";
 
 			// Buttons are assumed to be square, so left/right offsets can be used for top/bottom.
-			size.top = size.left;
-			progressSlider.size = size;
+			progressSlider.size.top = progressSlider.size.left;
 		}
 		else
 		{
@@ -602,11 +609,9 @@ g_SelectionPanels.Queue = {
 					Engine.FormatMillisecondsIntoDateStringGMT(queuedItem.timeRemaining, translateWithContext("countdown format", "m:ss"));
 
 			progressSlider.sprite = "queueProgressSlider";
-			const size = progressSlider.size;
 
 			// Buttons are assumed to be square, so left/right offsets can be used for top/bottom.
-			size.top = size.left + Math.round(queuedItem.progress * (size.right - size.left));
-			progressSlider.size = size;
+			progressSlider.size.top = progressSlider.size.left + Math.round(queuedItem.progress * (progressSlider.size.right - progressSlider.size.left));
 
 			data.button.enabled = controlsPlayer(data.player);
 
@@ -642,8 +647,30 @@ g_SelectionPanels.Research = {
 		return 10;
 	},
 	"rowLength": 10,
+	"init": function()
+	{
+		const updateAffectsIconVisibility = () =>
+		{
+			this.helper.showAffectsIcons = Engine.ConfigDB_GetValue("user", "gui.session.techarrows") === "true";
+		};
+		registerConfigChangeHandler(changes =>
+		{
+			if (changes.has("gui.session.techarrows"))
+				updateAffectsIconVisibility();
+			// They will be rerendered with the new visibility next frame.
+		});
+		updateAffectsIconVisibility();
+	},
+	"reset": function()
+	{
+		this.helper.occupiedPositions = new Set();
+		this.helper.bottomRowButtonCount = 0;
+	},
 	"getItems": function(unitEntStates)
 	{
+		if (getNumberOfRightPanelButtons() >= this.rowLength * 2)
+			return [];
+
 		let ret = [];
 		if (unitEntStates.length == 1)
 		{
@@ -660,12 +687,12 @@ g_SelectionPanels.Research = {
 			}));
 		}
 
-		let sortedEntStates = unitEntStates.sort((a, b) =>
+		const sortedEntStates = unitEntStates.sort((a, b) =>
 			(!b.upgrade || !b.upgrade.isUpgrading) - (!a.upgrade || !a.upgrade.isUpgrading) ||
-		 	(!a.production ? 0 : a.production.queue.length) - (!b.production ? 0 : b.production.queue.length)
-		 );
+			(!a.production ? 0 : a.production.queue.length) - (!b.production ? 0 : b.production.queue.length)
+		);
 
-		for (let state of sortedEntStates)
+		for (const state of sortedEntStates)
 		{
 			if (!state.researcher || !state.researcher.technologies)
 				continue;
@@ -679,14 +706,13 @@ g_SelectionPanels.Research = {
 						(item.tech == tech ||
 							item.tech.pair &&
 							tech.pair &&
-							item.tech.bottom == tech.bottom &&
-							item.tech.top == tech.top) &&
+							item.tech.pair?.[0] == tech.pair?.[0] &&
+							item.tech.pair?.[1] == tech.pair?.[1]) &&
 						Object.keys(item.techCostMultiplier).every(
 							k => item.techCostMultiplier[k] == state.researcher.techCostMultiplier[k])
 				));
 
-			if (filteredTechs.length + ret.length <= this.getMaxNumberOfItems() &&
-			    getNumberOfRightPanelButtons() <= this.getMaxNumberOfItems() * (filteredTechs.some(tech => !!tech.pair) ? 1 : 2))
+			if (filteredTechs.length + ret.length <= this.getMaxNumberOfItems())
 				ret = ret.concat(filteredTechs.map(tech => ({
 					"tech": tech,
 					"techCostMultiplier": state.researcher.techCostMultiplier,
@@ -699,84 +725,285 @@ g_SelectionPanels.Research = {
 	"hideItem": function(i, rowLength) // Called when no item is found
 	{
 		Engine.GetGUIObjectByName("unitResearchButton[" + i + "]").hidden = true;
-		// We also remove the paired tech and the pair symbol
-		Engine.GetGUIObjectByName("unitResearchButton[" + (i + rowLength) + "]").hidden = true;
-		Engine.GetGUIObjectByName("unitResearchPair[" + i + "]").hidden = true;
+		// Remove the button it would have been paired with as well.
+		Engine.GetGUIObjectByName("unitResearchButton[" + (i + this.getMaxNumberOfItems()) + "]").hidden = true;
 	},
 	"setupButton": function(data)
 	{
 		if (!data.item.tech)
 		{
-			g_SelectionPanels.Research.hideItem(data.i, data.rowLength);
+			this.hideItem(data.i, data.rowLength);
 			return false;
 		}
 
-		// Start position (start at the bottom)
-		let position = data.i + data.rowLength;
+		// There are twice as many button objects than this.getMaxNumberOfItems()
+		// This is because each item could be a tech pair and need a second one in addition to the one at data.i
+		data.j = data.i + this.getMaxNumberOfItems();
 
-		// Only show the top button for pairs
-		if (!data.item.tech.pair)
-			Engine.GetGUIObjectByName("unitResearchButton[" + data.i + "]").hidden = true;
+		const playerState = GetSimState().players[data.player];
 
-		// Set up the tech connector
-		let pair = Engine.GetGUIObjectByName("unitResearchPair[" + data.i + "]");
-		pair.hidden = data.item.tech.pair == null;
-		setPanelObjectPosition(pair, data.i, data.rowLength);
-
-		// Handle one or two techs (tech pair)
-		let player = data.player;
-		let playerState = GetSimState().players[player];
-		for (let tech of data.item.tech.pair ? [data.item.tech.bottom, data.item.tech.top] : [data.item.tech])
+		if (data.item.tech.pair)
 		{
-			// Don't change the object returned by GetTechnologyData
-			let template = clone(GetTechnologyData(tech, playerState.civ));
-			if (!template)
-				return false;
+			const firstTemplate = GetTechnologyData(data.item.tech.pair[0], playerState.civ);
+			const secondTemplate = GetTechnologyData(data.item.tech.pair[1], playerState.civ);
 
-			// Not allowed by civ.
-			if (!template.reqs)
+			// template.reqs is false if the tech isn't researchable by the current civ.
+			const firstResearchable = !!firstTemplate?.reqs;
+			const secondResearchable = !!secondTemplate?.reqs;
+
+			if (firstResearchable && secondResearchable)
+				// Ideal/expected case: Display both techs in a pair.
+				return this.helper.setupButtonPair(data, data.item.tech.pair[0], data.item.tech.pair[1], firstTemplate,
+					secondTemplate, playerState);
+
+			// At least one of the two is not valid or researchable. If the other one is, display it as a single tech
+			// on its own.
+			if (firstResearchable && !secondResearchable)
+				return this.helper.setupSingleButton(data, data.item.tech.pair[0], firstTemplate, playerState);
+			if (!firstResearchable && secondResearchable)
+				return this.helper.setupSingleButton(data, data.item.tech.pair[1], secondTemplate, playerState);
+
+			// Neither of the two are valid and researchable.
+			this.hideItem(data.i, data.rowLength);
+			return false;
+		}
+
+		const template = GetTechnologyData(data.item.tech, playerState.civ);
+		// template.reqs is false if the tech isn't researchable by the current civ.
+		if (template?.reqs)
+			return this.helper.setupSingleButton(data, data.item.tech, template, playerState);
+
+		this.hideItem(data.i, data.rowLength);
+		return false;
+	},
+	"helper": {
+		// Techs can optionally define a placeBelow property that specifies a unit whose training button they want to be placed below.
+		// It can be:
+		// 		- "{UnlockedUnit}": the first unit whose requirements (of the Identity component) contain the tech.
+		// 		- "{AffectedUnit}": the first unit whose stats are modified (receives buffs or debuffs) by the tech.
+		// 		- class combination: the first unit whose identity classes match that combination.
+		"findTargetTrainingButton": function(data, techName, template)
+		{
+			// Also check whether the other right panel buttons (training, constructing, upgrading) reach the second row.
+			// In that case, we want to place all techs in the bottom row. Research buttons should never be placed in the
+			// same row as these.
+			if (!template.placeBelow || getNumberOfRightPanelButtons() > data.rowLength)
+				return -1;
+
+			const indices = [];
+			if (template.placeBelow === "{UnlockedUnit}")
 			{
-				// One of the pair may still be researchable by the current civ,
-				// hence don't hide everything.
-				Engine.GetGUIObjectByName("unitResearchButton[" + data.i + "]").hidden = true;
-				pair.hidden = true;
-				continue;
+				getAllTrainableEntitiesFromSelection().forEach((trainableTemplate, i) =>
+				{
+					if (GetTemplateData(trainableTemplate, data.player)?.requirements?.Techs?._string.split(/\s+/).includes(techName))
+						indices.push(i);
+				});
+			}
+			else
+			{
+				let targetClassList;
+				if (template.placeBelow === "{AffectedUnit}")
+				{
+					const affectsList = (template.affects || []);
+					for (const mod of template.modifications)
+						if (mod.affects)
+							affectsList.push(mod.affects);
+
+					targetClassList = affectsList.map(classes => classes.split(/\s+/));
+				}
+				else
+					targetClassList = [template.placeBelow.split(/\s+/)];
+
+				getAllTrainableEntitiesFromSelection().forEach((trainableTemplate, i) =>
+				{
+					if (MatchesClassList(GetTemplateData(trainableTemplate, data.player).visibleIdentityClasses, targetClassList))
+						indices.push(i);
+				});
+			}
+			// Only choose a training button if it's the only matching one.
+			if (indices.length !== 1)
+				return -1;
+
+			// Make sure to account for the other buttons placed before the unit training ones.
+			return indices[0] + ["Construction", "Pack", "Gate", "Upgrade"].reduce((total, panel) =>
+				total + g_unitPanelButtons[panel], 0
+			);
+
+		},
+		"setupSingleButton": function(data, techName, template, playerState)
+		{
+			// The item is not a tech pair. So hide the button that data.button would have been paired with.
+			Engine.GetGUIObjectByName("unitResearchButton[" + data.j + "]").hidden = true;
+
+			// Note: The GUI object container of the research buttons (unlike the one of the training buttons) only reaches up to the second row.
+			// This means that, for example, a research button with position 5 is located directly one row under a training button with position 5.
+			let position = this.findTargetTrainingButton(data, techName, template);
+
+			let placeInBottomRow = position == -1;
+			if (!placeInBottomRow && this.occupiedPositions.has(position))
+			{
+				// Try to fall back to the third (second-to-bottom) row.
+				position += data.rowLength;
+				if (this.occupiedPositions.has(position))
+					// Both positions below the target unit are already used by other techs.
+					// Note: Ideally this should never occur. Two techs per unit should be the limit. This here is just edge case handling.
+					placeInBottomRow = true;
+			}
+			if (placeInBottomRow)
+			{
+				// Try to move it to the fourth (bottom) row.
+				if (this.bottomRowButtonCount >= data.rowLength)
+					return false; // Bottom row is full, we can't display it.
+				position = this.bottomRowButtonCount + data.rowLength * 2;
 			}
 
-			for (let res in template.cost)
-				template.cost[res] *= data.item.techCostMultiplier[res] !== undefined ? data.item.techCostMultiplier[res] : 1;
+			Engine.GetGUIObjectByName("unitResearchVerticalPairIcon[" + data.i + "]").hidden = true;
+			Engine.GetGUIObjectByName("unitResearchHorizontalPairIcon[" + data.i + "]").hidden = true;
 
-			let neededResources = Engine.GuiInterfaceCall("GetNeededResources", {
-				"cost": template.cost,
-				"player": player
+			// When it's not "active", it's grayed out.
+			const buttonActive = this.buildButton(data, techName, template, position, playerState, data.button, data.icon);
+			this.buildAffectsIcon(data.i, !placeInBottomRow, buttonActive);
+
+			return true;
+		},
+		"setupButtonPair": function(data, firstTechName, secondTechName, firstTemplate, secondTemplate, playerState)
+		{
+			// Note: The GUI object container of the research buttons (unlike the one of the training buttons) only
+			// reaches up to the second row. This means that, for example, a research button with position 5 is located
+			// directly one row under a training button with position 5.
+			let firstPosition = this.findTargetTrainingButton(data, firstTechName, firstTemplate);
+			let secondPosition = this.findTargetTrainingButton(data, secondTechName, secondTemplate);
+
+			// Possible placements of tech pair with descending preference:
+			// 	- Vertically below a single unit.
+			//  - Horizontally below two adjacent units.
+			//  - Horizontally adjacent below no unit in the bottom row.
+
+			// Only ever place either below a unit, if the other can be too and below the same or an adjacent one.
+			let placeInBottomRow = firstPosition == -1 || secondPosition == -1 || Math.abs(firstPosition - secondPosition) > 1;
+			let placeHorizontally = true;
+			if (!placeInBottomRow && firstPosition === secondPosition)
+			{
+				// Both want to be placed under the same unit.
+				// Try to place the pair vertically by moving the second one down to the third (second-to-bottom) row,
+				// below the first one.
+				secondPosition += data.rowLength;
+				if (this.occupiedPositions.has(firstPosition) || this.occupiedPositions.has(secondPosition))
+					placeInBottomRow = true;
+				else
+					placeHorizontally = false;
+			}
+			else if (!placeInBottomRow && (this.occupiedPositions.has(firstPosition) || this.occupiedPositions.has(secondPosition)))
+			{
+				// At least one of the two respective positions in the second (third-to-bottom) row is occupied.
+				// So try move both to the third.
+				firstPosition += data.rowLength;
+				secondPosition += data.rowLength;
+				if (this.occupiedPositions.has(firstPosition) || this.occupiedPositions.has(secondPosition))
+					// Neither the two positions in the second row nor the third row below the target training buttons
+					// are available.
+					placeInBottomRow = true;
+			}
+
+			if (placeInBottomRow)
+			{
+				// Try to move both to the bottom row.
+				if (this.bottomRowButtonCount >= data.rowLength - 1)
+					// Not enough space in the bottom row for both of them. We can't display them.
+					return false;
+
+				firstPosition = this.bottomRowButtonCount + data.rowLength * 2;
+				secondPosition = firstPosition + 1;
+			}
+
+			// Note: the button indices here aren't related to positioning at all.
+			const firstButtonIndex = data.i;
+			const secondButtonIndex = data.j;
+			const firstButton = data.button;
+			const secondButton = Engine.GetGUIObjectByName("unitResearchButton[" + secondButtonIndex + "]");
+			const firstIcon = data.icon;
+			const secondIcon = Engine.GetGUIObjectByName("unitResearchIcon[" + secondButtonIndex + "]");
+
+			// When it's not "active", it's grayed out.
+			const firstButtonActive = this.buildButton(data, firstTechName, firstTemplate, firstPosition, playerState,
+				firstButton, firstIcon);
+			this.buildAffectsIcon(firstButtonIndex, !placeInBottomRow, firstButtonActive);
+
+			// When it's not "active", it's grayed out.
+			const secondButtonActive = this.buildButton(data, secondTechName, secondTemplate, secondPosition, playerState,
+				secondButton, secondIcon);
+			this.buildAffectsIcon(secondButtonIndex, !placeInBottomRow && placeHorizontally, secondButtonActive);
+
+			this.buildPairIcon(false, firstButtonIndex, placeHorizontally && secondPosition > firstPosition, firstButtonActive);
+			this.buildPairIcon(false, secondButtonIndex, placeHorizontally && secondPosition < firstPosition, secondButtonActive);
+			this.buildPairIcon(true, firstButtonIndex, !placeHorizontally, firstButtonActive);
+			this.buildPairIcon(true, secondButtonIndex, false, secondButtonActive);
+
+			// While hovering over either button, show a cross over the other one.
+			// TODO: The following lines have to be executed only once, technically, and not every this function is called.
+			const firstUnchosenIcon = Engine.GetGUIObjectByName("unitResearchUnchosenIcon[" + firstButtonIndex + "]");
+			const secondUnchosenIcon = Engine.GetGUIObjectByName("unitResearchUnchosenIcon[" + secondButtonIndex + "]");
+			firstButton.onMouseEnter = () => { secondUnchosenIcon.hidden = false; };
+			firstButton.onMouseLeave = () => { secondUnchosenIcon.hidden = true; };
+			secondButton.onMouseEnter = () => { firstUnchosenIcon.hidden = false; };
+			secondButton.onMouseLeave = () => { firstUnchosenIcon.hidden = true; };
+
+			return true;
+		},
+		"buildAffectsIcon": function(i, show, enable)
+		{
+			const icon = Engine.GetGUIObjectByName("unitResearchAffectsIcon[" + i + "]");
+			const hidden = !show || !this.showAffectsIcons;
+			icon.hidden = hidden;
+			if (!hidden)
+				icon.sprite = "stretched:session/icons/" + (enable ? "tech_affects.png" : "tech_affects_disabled.png");
+		},
+		"buildPairIcon": function(vertical, i, show, enable)
+		{
+			const icon = Engine.GetGUIObjectByName("unitResearch" + (vertical ? "Vertical" : "Horizontal") + "PairIcon[" + i + "]");
+			icon.hidden = !show;
+			if (show)
+				icon.sprite = "stretched:session/icons/" +
+					(vertical ?
+						enable ? "vertical_tech_pair.png" : "vertical_tech_pair_disabled.png" :
+						enable ? "horizontal_tech_pair.png" : "horizontal_tech_pair_disabled.png");
+		},
+		"buildButton": function(baseData, techName, template, position, playerState, button, icon)
+		{
+			// Make sure to not modify the original template.
+			const adaptedTemplate = clone(template);
+			for (const res in adaptedTemplate.cost)
+				adaptedTemplate.cost[res] *=
+					baseData.item.techCostMultiplier[res] !== undefined ? baseData.item.techCostMultiplier[res] : 1;
+
+			const neededResources = Engine.GuiInterfaceCall("GetNeededResources", {
+				"cost": adaptedTemplate.cost,
+				"player": baseData.player
 			});
 
-			let requirementsPassed = Engine.GuiInterfaceCall("CheckTechnologyRequirements", {
-				"tech": tech,
-				"player": player
+			const requirementsPassed = Engine.GuiInterfaceCall("CheckTechnologyRequirements", {
+				"tech": techName,
+				"player": baseData.player
 			});
 
-			let button = Engine.GetGUIObjectByName("unitResearchButton[" + position + "]");
-			let icon = Engine.GetGUIObjectByName("unitResearchIcon[" + position + "]");
-
-			let tooltips = [
+			const tooltips = [
 				getEntityNamesFormatted,
 				getEntityTooltip,
 				getEntityCostTooltip,
-				showTemplateViewerOnRightClickTooltip
-			].map(func => func(template));
+				getTemplateViewerOnRightClickTooltip
+			].map(func => func(adaptedTemplate));
 
 			if (!requirementsPassed)
 			{
-				let tip = template.requirementsTooltip;
-				let reqs = template.reqs;
-				for (let req of reqs)
+				let tip = adaptedTemplate.requirementsTooltip;
+				const reqs = adaptedTemplate.reqs;
+				for (const req of reqs)
 				{
 					if (!req.entities)
 						continue;
 
-					let entityCounts = [];
-					for (let entity of req.entities)
+					const entityCounts = [];
+					for (const entity of req.entities)
 					{
 						let current = 0;
 						switch (entity.check)
@@ -789,9 +1016,11 @@ g_SelectionPanels.Research = {
 							current = playerState.typeCountsByClass[entity.class] ?
 								Object.keys(playerState.typeCountsByClass[entity.class]).length : 0;
 							break;
+						default:
+							error("Unknow value in entity requirement check: " + entity.check);
 						}
 
-						let remaining = entity.number - current;
+						const remaining = entity.number - current;
 						if (remaining < 1)
 							continue;
 
@@ -810,37 +1039,29 @@ g_SelectionPanels.Research = {
 			tooltips.push(getNeededResourcesTooltip(neededResources));
 			button.tooltip = tooltips.filter(tip => tip).join("\n");
 
-			button.onPress = (t => function() {
-				addResearchToQueue(data.item.researchFacilityId, t);
-			})(tech);
+			button.onPress = (t => function()
+			{
+				addResearchToQueue(baseData.item.researchFacilityId, t);
+			})(techName);
 
-			let showTemplateFunc =  (t => function() {
+			const showTemplateFunc = (t => function()
+			{
 				showTemplateDetails(
 					t,
-					GetTemplateData(data.unitEntStates.find(state => state.id == data.item.researchFacilityId).template).nativeCiv);
+					GetTemplateData(baseData.unitEntStates.find(state => state.id == baseData.item.researchFacilityId).template).nativeCiv);
 			});
 
-			button.onPressRight = showTemplateFunc(tech);
-			button.onPressRightDisabled = showTemplateFunc(tech);
-
-			if (data.item.tech.pair)
-			{
-				// On mouse enter, show a cross over the other icon
-				let unchosenIcon = Engine.GetGUIObjectByName("unitResearchUnchosenIcon[" + (position + data.rowLength) % (2 * data.rowLength) + "]");
-				button.onMouseEnter = function() {
-					unchosenIcon.hidden = false;
-				};
-				button.onMouseLeave = function() {
-					unchosenIcon.hidden = true;
-				};
-			}
+			button.onPressRight = showTemplateFunc(techName);
+			button.onPressRightDisabled = showTemplateFunc(techName);
 
 			button.hidden = false;
 			let modifier = "";
+			let isActive = true;
 			if (!requirementsPassed)
 			{
 				button.enabled = false;
 				modifier += "color:0 0 0 127:grayscale:";
+				isActive = false;
 			}
 			else if (neededResources)
 			{
@@ -848,26 +1069,32 @@ g_SelectionPanels.Research = {
 				modifier += resourcesToAlphaMask(neededResources) + ":";
 			}
 			else
-				button.enabled = controlsPlayer(data.player);
+				button.enabled = controlsPlayer(baseData.player);
 
-			if (data.item.isUpgrading)
+			if (baseData.item.isUpgrading)
 			{
 				button.enabled = false;
 				modifier += "color:0 0 0 127:grayscale:";
+				isActive = false;
 				button.tooltip += "\n" + objectionFont(translate("Cannot research while upgrading."));
-
 			}
 
-			if (template.icon)
-				icon.sprite = modifier + "stretched:session/portraits/" + template.icon;
+			if (adaptedTemplate.icon)
+				icon.sprite = modifier + "stretched:session/portraits/" + adaptedTemplate.icon;
 
-			setPanelObjectPosition(button, position, data.rowLength);
+			this.occupiedPositions.add(position);
+			if (position >= 2 * baseData.rowLength)
+				this.bottomRowButtonCount++;
 
-			// Prepare to handle the top button (if any)
-			position -= data.rowLength;
+			// The panel is a bit higher than 4 * baseData.rowLength, which allows us to visibility anchor the buttons
+			// in the bottom row to the bottom by moving them down those few pixels. Else the gap would be at the bottom.
+			// This creates a small spatial separation between the "generic" techs in the bottom row and the "specific"
+			// techs above them.
+			const vOffset = position >= baseData.rowLength * 2 ? 6 : 0;
+			setPanelObjectPosition(button, position, baseData.rowLength, 1, 1, vOffset);
+
+			return isActive;
 		}
-
-		return true;
 	}
 };
 
@@ -885,20 +1112,20 @@ g_SelectionPanels.Selection = {
 	},
 	"setupButton": function(data)
 	{
-		let entState = GetEntityState(data.item.ents[0]);
-		let template = GetTemplateData(entState.template);
+		const entState = GetEntityState(data.item.ents[0]);
+		const template = GetTemplateData(entState.template);
 		if (!template)
 			return false;
 
-		for (let ent of data.item.ents)
+		for (const ent of data.item.ents)
 		{
-			let state = GetEntityState(ent);
+			const state = GetEntityState(ent);
 
 			if (state.resourceCarrying && state.resourceCarrying.length !== 0)
 			{
 				if (!data.carried)
 					data.carried = {};
-				let carrying = state.resourceCarrying[0];
+				const carrying = state.resourceCarrying[0];
 				if (data.carried[carrying.type])
 					data.carried[carrying.type] += carrying.amount;
 				else
@@ -909,8 +1136,8 @@ g_SelectionPanels.Selection = {
 			{
 				if (!data.carried)
 					data.carried = {};
-				let amount = state.trader.goods.amount;
-				let type = state.trader.goods.type;
+				const amount = state.trader.goods.amount;
+				const type = state.trader.goods.type;
 				let totalGain = amount.traderGain;
 				if (amount.market1Gain)
 					totalGain += amount.market1Gain;
@@ -923,7 +1150,7 @@ g_SelectionPanels.Selection = {
 			}
 		}
 
-		let unitOwner = GetEntityState(data.item.ents[0]).player;
+		const unitOwner = GetEntityState(data.item.ents[0]).player;
 		let tooltip = getEntityNames(template);
 		if (data.carried)
 			tooltip += "\n" + Object.keys(data.carried).map(res =>
@@ -940,7 +1167,8 @@ g_SelectionPanels.Selection = {
 
 		data.countDisplay.caption = data.item.ents.length > 1 ? data.item.ents.length : "";
 
-		data.button.onPress = function() {
+		data.button.onPress = function()
+		{
 			if (Engine.HotkeyIsPressed("session.deselectgroup"))
 				removeFromSelectionGroup(data.item.key);
 			else
@@ -970,7 +1198,7 @@ g_SelectionPanels.Stance = {
 	},
 	"setupButton": function(data)
 	{
-		let unitIds = data.unitEntStates.map(state => state.id);
+		const unitIds = data.unitEntStates.map(state => state.id);
 		data.button.onPress = function() { performStance(unitIds, data.item); };
 
 		data.button.tooltip = getStanceDisplayName(data.item) + "\n" + bodyFont(getStanceTooltip(data.item));
@@ -999,7 +1227,7 @@ g_SelectionPanels.Training = {
 	},
 	"setupButton": function(data)
 	{
-		let template = GetTemplateData(data.item, data.player);
+		const template = GetTemplateData(data.item, data.player);
 		if (!template)
 			return false;
 
@@ -1008,11 +1236,11 @@ g_SelectionPanels.Training = {
 			"player": data.player
 		});
 
-		let unitIds = data.unitEntStates.map(status => status.id);
-		let [buildingsCountToTrainFullBatch, fullBatchSize, remainderBatch] =
+		const unitIds = data.unitEntStates.map(status => status.id);
+		const [buildingsCountToTrainFullBatch, fullBatchSize, remainderBatch] =
 			getTrainingStatus(unitIds, data.item, data.playerState);
 
-		let trainNum = buildingsCountToTrainFullBatch * fullBatchSize + remainderBatch;
+		const trainNum = buildingsCountToTrainFullBatch * fullBatchSize + remainderBatch;
 
 		let neededResources;
 		if (template.cost)
@@ -1021,12 +1249,12 @@ g_SelectionPanels.Training = {
 				"player": data.player
 			});
 
-		data.button.onPress = function() {
-			if (!neededResources)
-				addTrainingToQueue(unitIds, data.item, data.playerState);
+		data.button.onPress = function()
+		{
+			addTrainingToQueue(unitIds, data.item, data.playerState);
 		};
 
-		let showTemplateFunc = () => { showTemplateDetails(data.item, data.playerState.civ); };
+		const showTemplateFunc = () => { showTemplateDetails(data.item, data.playerState.civ); };
 		data.button.onPressRight = showTemplateFunc;
 		data.button.onPressRightDisabled = showTemplateFunc;
 
@@ -1041,7 +1269,7 @@ g_SelectionPanels.Training = {
 			getEntityTooltip(template),
 			getEntityCostTooltip(template, data.player, unitIds[0], buildingsCountToTrainFullBatch, fullBatchSize, remainderBatch)
 		];
-		let limits = getEntityLimitAndCount(data.playerState, data.item);
+		const limits = getEntityLimitAndCount(data.playerState, data.item);
 		tooltips.push(formatLimitString(limits.entLimit, limits.entCount, limits.entLimitChangers),
 			formatMatchLimitString(limits.matchLimit, limits.matchCount, limits.type));
 
@@ -1058,7 +1286,7 @@ g_SelectionPanels.Training = {
 				getResourceDropsiteTooltip
 			].map(func => func(template)));
 
-		tooltips.push(showTemplateViewerOnRightClickTooltip());
+		tooltips.push(getTemplateViewerOnRightClickTooltip());
 		tooltips.push(
 			formatBatchTrainingString(buildingsCountToTrainFullBatch, fullBatchSize, remainderBatch),
 			getRequirementsTooltip(requirementsMet, template.requirements, GetSimState().players[data.player].civ),
@@ -1089,7 +1317,7 @@ g_SelectionPanels.Training = {
 		if (template.icon)
 			data.icon.sprite = modifier + "stretched:session/portraits/" + template.icon;
 
-		let index = data.i + getNumberOfRightPanelButtons();
+		const index = data.i + getNumberOfRightPanelButtons();
 		setPanelObjectPosition(data.button, index, data.rowLength);
 
 		return true;
@@ -1112,11 +1340,11 @@ g_SelectionPanels.Upgrade = {
 	},
 	"setupButton": function(data)
 	{
-		let template = GetTemplateData(data.item.entity);
+		const template = GetTemplateData(data.item.entity);
 		if (!template)
 			return false;
 
-		let progressOverlay = Engine.GetGUIObjectByName("unitUpgradeProgressSlider[" + data.i + "]");
+		const progressOverlay = Engine.GetGUIObjectByName("unitUpgradeProgressSlider[" + data.i + "]");
 		progressOverlay.hidden = true;
 
 		const requirementsMet = !data.item.requirements ||
@@ -1125,14 +1353,14 @@ g_SelectionPanels.Upgrade = {
 				"player": data.player
 			});
 
-		let limits = getEntityLimitAndCount(data.playerState, data.item.entity);
-		let upgradingEntStates = data.unitEntStates.filter(state => state.upgrade.template == data.item.entity);
+		const limits = getEntityLimitAndCount(data.playerState, data.item.entity);
+		const upgradingEntStates = data.unitEntStates.filter(state => state.upgrade.template == data.item.entity);
 
-		let upgradableEntStates = data.unitEntStates.filter(state =>
+		const upgradableEntStates = data.unitEntStates.filter(state =>
 			!state.upgrade.progress &&
 			(!state.production || !state.production.queue || !state.production.queue.length));
 
-		let neededResources = data.item.cost && Engine.GuiInterfaceCall("GetNeededResources", {
+		const neededResources = data.item.cost && Engine.GuiInterfaceCall("GetNeededResources", {
 			"cost": multiplyEntityCosts(data.item, upgradableEntStates.length),
 			"player": data.player
 		});
@@ -1141,12 +1369,12 @@ g_SelectionPanels.Upgrade = {
 		let modifier = "";
 		if (!upgradingEntStates.length && upgradableEntStates.length)
 		{
-			let primaryName = g_SpecificNamesPrimary ? template.name.specific : template.name.generic;
+			const primaryName = g_SpecificNamesPrimary ? template.name.specific : template.name.generic;
 			let secondaryName;
 			if (g_ShowSecondaryNames)
 				secondaryName = g_SpecificNamesPrimary ? template.name.generic : template.name.specific;
 
-			let tooltips = [];
+			const tooltips = [];
 			if (g_ShowSecondaryNames)
 			{
 				if (data.item.tooltip)
@@ -1180,14 +1408,16 @@ g_SelectionPanels.Upgrade = {
 				formatMatchLimitString(limits.matchLimit, limits.matchCount, limits.type),
 				getRequirementsTooltip(requirementsMet, data.item.requirements, GetSimState().players[data.player].civ),
 				getNeededResourcesTooltip(neededResources),
-				showTemplateViewerOnRightClickTooltip());
+				getTemplateViewerOnRightClickTooltip()
+			);
 
 			tooltip = tooltips.filter(tip => tip).join("\n");
 
-			data.button.onPress = function() {
+			data.button.onPress = function()
+			{
 				upgradeEntity(
-				    data.item.entity,
-				    upgradableEntStates.map(state => state.id));
+					data.item.entity,
+					upgradableEntStates.map(state => state.id));
 			};
 
 			if (!requirementsMet || limits.canBeAddedCount == 0 &&
@@ -1211,12 +1441,11 @@ g_SelectionPanels.Upgrade = {
 			data.countDisplay.caption = upgradingEntStates.length > 1 ? upgradingEntStates.length : "";
 
 			let progress = 0;
-			for (let state of upgradingEntStates)
+			for (const state of upgradingEntStates)
 				progress = Math.max(progress, state.upgrade.progress || 1);
-			let progressOverlaySize = progressOverlay.size;
+
 			// TODO This is bad: we assume the progressOverlay is square
-			progressOverlaySize.top = progressOverlaySize.bottom + Math.round((1 - progress) * (progressOverlaySize.left - progressOverlaySize.right));
-			progressOverlay.size = progressOverlaySize;
+			progressOverlay.size.top = progressOverlay.size.bottom + Math.round((1 - progress) * (progressOverlay.size.left - progressOverlay.size.right));
 			progressOverlay.hidden = false;
 		}
 		else
@@ -1234,7 +1463,7 @@ g_SelectionPanels.Upgrade = {
 		data.button.enabled = controlsPlayer(data.player);
 		data.button.tooltip = tooltip;
 
-		let showTemplateFunc = () => { showTemplateDetails(data.item.entity, data.playerState.civ); };
+		const showTemplateFunc = () => { showTemplateDetails(data.item.entity, data.playerState.civ); };
 		data.button.onPressRight = showTemplateFunc;
 		data.button.onPressRightDisabled = showTemplateFunc;
 
@@ -1248,10 +1477,12 @@ g_SelectionPanels.Upgrade = {
 
 function initSelectionPanels()
 {
-
-	let unitBarterPanel = Engine.GetGUIObjectByName("unitBarterPanel");
+	const unitBarterPanel = Engine.GetGUIObjectByName("unitBarterPanel");
 	if (BarterButtonManager.IsAvailable(unitBarterPanel))
 		g_SelectionPanelBarterButtonManager = new BarterButtonManager(unitBarterPanel);
+
+	for (const panel in g_SelectionPanels)
+		g_SelectionPanels[panel].init?.();
 }
 
 /**
@@ -1268,7 +1499,7 @@ async function showTemplateDetails(templateName, civCode)
 		return;
 	g_PauseControl.implicitPause();
 
-	await Engine.PushGuiPage(
+	await Engine.OpenChildPage(
 		"page_viewer.xml",
 		{
 			"templateName": templateName,
@@ -1283,7 +1514,7 @@ async function showTemplateDetails(templateName, civCode)
  *
  * Note that the panel needs to appear in the list to get rendered.
  */
-let g_PanelsOrder = [
+const g_PanelsOrder = [
 	// LEFT PANE
 	"Barter", // Must always be visible on markets
 	"Garrison", // More important than Formation, as you want to see the garrisoned units in ships

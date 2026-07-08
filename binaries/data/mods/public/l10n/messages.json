@@ -84,7 +84,7 @@
             {
                 "extractor": "javascript",
                 "filemasks": [
-                    "gui/gamesettings/attributes/**.js",
+                    "gamesettings/attributes/**.js",
                     "gui/gamesetup/**.js",
                     "gui/gamesetup_mp/**.js",
                     "gui/loading/**.js"
@@ -456,8 +456,7 @@
                 "extractor": "txt",
                 "filemasks": [
                     "gui/gamesetup/**.txt",
-                    "gui/splashscreen/splashscreen.txt",
-                    "gui/text/tips/**.txt"
+                    "gui/reference/tips/texts/**.txt"
                 ],
                 "options": {
                 }
@@ -480,15 +479,6 @@
                     "keywords": {
                         "AttackName": {
                             "customContext": "Name of an attack, usually the weapon."
-                        },
-                        "StatusName": {
-                            "customContext": "status effect"
-                        },
-                        "ApplierTooltip": {
-                            "customContext": "status effect"
-                        },
-                        "ReceiverTooltip": {
-                            "customContext": "status effect"
                         },
                         "GenericName": {},
                         "SpecificName": {},
@@ -523,15 +513,6 @@
                     "keywords": {
                         "AttackName": {
                             "customContext": "Name of an attack, usually the weapon."
-                        },
-                        "StatusName": {
-                            "customContext": "status effect"
-                        },
-                        "ApplierTooltip": {
-                            "customContext": "status effect"
-                        },
-                        "ReceiverTooltip": {
-                            "customContext": "status effect"
                         },
                         "GenericName": {},
                         "SpecificName": {},
@@ -772,6 +753,32 @@
                     "keywords": {
                         "Name": {},
                         "Tooltip": {}
+                    }
+                }
+            },
+            {
+                "extractor": "json",
+                "filemasks": [
+                    "simulation/data/settings/player_placements.json"
+                ],
+                "options": {
+                    "keywords": {
+                        "Name": {},
+                        "Description": {}
+                    }
+                }
+            },
+            {
+                "extractor": "json",
+                "filemasks": [
+                    "simulation/data/settings/population_capacities.json"
+                ],
+                "options": {
+                    "keywords": {
+                        "Title": {},
+                        "Tooltip": {},
+                        "CapTitle": {},
+                        "CapTooltip": {}
                     }
                 }
             },

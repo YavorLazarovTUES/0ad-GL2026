@@ -1,71 +1,82 @@
 #!/bin/sh
 set -e
-LIB_VERSION="nvtt-2.1.1+wildfiregames.5"
-JOBS=${JOBS:="-j2"}
-MAKE=${MAKE:="make"}
-LDFLAGS=${LDFLAGS:=""}
-CFLAGS=${CFLAGS:=""}
-CXXFLAGS=${CXXFLAGS:=""}
-CMAKE_FLAGS=${CMAKE_FLAGS:=""}
 
-if [ -e .already-built ] && [ "$(cat .already-built)" = "${LIB_VERSION}" ]
-then
-  echo "NVTT is already up to date."
-  exit
-fi
+: "${TAR:=tar}"
+
+cd "$(dirname "$0")"
+
+PV=28209
+LIB_VERSION=${PV}+wfg4
+
+fetch()
+{
+	tar_version=$(tar --version | head --lines 1)
+	case "${tar_version}" in
+		*"GNU tar"*)
+			tar_extra_opts="--owner root --group root"
+			;;
+		*"libarchive"*)
+			tar_extra_opts="--uname root --gname root"
+			;;
+		*)
+			echo "unknown tar implementation ${tar_version}"
+			;;
+	esac
+
+	rm -Rf nvtt-${PV}
+	svn export https://svn.wildfiregames.com/public/source-libs/trunk/nvtt@${PV} nvtt-${PV}
+	# shellcheck disable=SC2086
+	"${TAR}" -c ${tar_extra_opts} -Jf nvtt-${PV}.tar.xz nvtt-${PV}
+	rm -R nvtt-${PV}
+}
 
 echo "Building NVTT..."
-echo
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		--fetch-only)
+			fetch
+			exit
+			;;
+		--force-rebuild) rm -f .already-built ;;
+		*)
+			echo "Unknown option: $1"
+			exit 1
+			;;
+	esac
+	shift
+done
 
-rm -f .already-built
-rm -f lib/*.a
-rm -rf src/build/
-mkdir -p src/build/
-cd src/build/
-
-if [ "$(uname -s)" = "Darwin" ]; then
-  # Could use CMAKE_OSX_DEPLOYMENT_TARGET and CMAKE_OSX_SYSROOT
-  # but they're not as flexible for cross-compiling
-  # Disable png support (avoids some conflicts with MacPorts)
-  cmake .. \
-    -DCMAKE_LINK_FLAGS="$LDFLAGS" \
-    -DCMAKE_C_FLAGS="$CFLAGS" \
-    -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-    -DCMAKE_BUILD_TYPE=Release \
-    $CMAKE_FLAGS \
-    -DBINDIR=bin \
-    -DLIBDIR=lib \
-    -DPNG=0 \
-    -G "Unix Makefiles"
-else
-  cmake .. \
-    -DCMAKE_LINK_FLAGS="$LDFLAGS" \
-    -DCMAKE_C_FLAGS="$CFLAGS" \
-    -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-    $CMAKE_FLAGS \
-    -DNVTT_SHARED=1 \
-    -DOpenGL_GL_PREFERENCE=GLVND \
-    -DBINDIR=bin \
-    -DLIBDIR=lib \
-    -G "Unix Makefiles"
+if [ -e .already-built ] && [ "$(cat .already-built || true)" = "${LIB_VERSION}" ]; then
+	echo "Skipping - already built (use --force-rebuild to override)"
+	exit
 fi
 
-"${MAKE}" clean && "${MAKE}" nvtt "${JOBS}"
-cd ../../
-mkdir -p lib/
-LIB_PREFIX=lib
-
-if [ "$(uname -s)" = "Darwin" ]; then
-  LIB_EXTN=a
-  cp src/build/src/bc*/"${LIB_PREFIX}"bc*."${LIB_EXTN}" lib/
-  cp src/build/src/nvtt/squish/"${LIB_PREFIX}"squish."${LIB_EXTN}" lib/
-else
-  LIB_EXTN=so
-  cp src/build/src/nv*/"${LIB_PREFIX}"nv*."${LIB_EXTN}" ../../../binaries/system/
+# fetch
+if [ ! -e "nvtt-${PV}.tar.xz" ]; then
+	fetch
 fi
 
-cp src/build/src/nv*/"${LIB_PREFIX}"nv*."${LIB_EXTN}" lib/
+# unpack
+rm -Rf nvtt-${PV}
+"${TAR}" xf nvtt-${PV}.tar.xz
 
-echo "$LIB_VERSION" > .already-built
+# patch
+patch -d nvtt-${PV} -p1 <patches/0001-Don-t-overspecify-flags.patch
+patch -d nvtt-${PV} -p1 <patches/0002-Bump-cmake-min-version-to-3.10.patch
+patch -d nvtt-${PV} -p1 <patches/0003-Use-execute_process-insted-of-exec_program.patch
+patch -d nvtt-${PV} -p1 <patches/0004-Properly-detect-ppc64le-systems.patch
+patch -d nvtt-${PV} -p1 <patches/0005-Fix-compiler-flags-on-ppc64le-systems.patch
+patch -d nvtt-${PV} -p1 <patches/0006-Fix-altivec-include-on-ppc64le-systems.patch
+
+# build
+(
+	cd nvtt-${PV}
+	mkdir bin lib
+	./build.sh
+)
+
+# install
+rm -Rf bin include lib
+cp -R nvtt-${PV}/bin nvtt-${PV}/include nvtt-${PV}/lib .
+
+echo "${LIB_VERSION}" >.already-built

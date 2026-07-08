@@ -1,11 +1,16 @@
+import { addAnimals, addBerries, addBluffs, addDecoration, addForests, addHills, addLayeredPatches,
+	addMetal, addStone, addStragglerTrees, createBluffsPassages, markPlayerAvoidanceArea } from
+	"maps/random/rmgen2/gaia.js";
+import { addElements, createBases, initTileClasses, playerbaseTypes } from "maps/random/rmgen2/setup.js";
+
+
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
-Engine.LoadLibrary("rmgen2");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap(mapSettings)
+export function* generateMap(mapSettings)
 {
-	setSelectedBiome();
+	setBiome(mapSettings.Biome);
 
 	const heightLand = 2;
 
@@ -20,19 +25,17 @@ function* GenerateMap(mapSettings)
 
 	yield 10;
 
-	const pattern = mapSettings.TeamPlacement ||
-		pickRandom(["line", "radial", "randomGroup", "stronghold"]);
 	const [playerIDs, playerPosition] =
 		createBases(
-			...playerPlacementByPattern(
-				pattern,
-				fractionToTiles(randFloat(0.2, 0.35)),
+			playerPlacementByPattern(
+				mapSettings.PlayerPlacement,
+				fractionToTiles(randFloat(0.25, 0.35)),
 				fractionToTiles(randFloat(0.08, 0.1)),
 				randomAngle(),
 				undefined),
-			g_PlayerbaseTypes[pattern].walls);
+			playerbaseTypes[mapSettings.PlayerPlacement].walls);
 
-	if (!isNomad())
+	if (!mapSettings.Nomad)
 		markPlayerAvoidanceArea(playerPosition, defaultPlayerBaseRadius());
 
 	yield 20;
@@ -60,7 +63,7 @@ function* GenerateMap(mapSettings)
 	]);
 	yield 30;
 
-	if (!isNomad())
+	if (!mapSettings.Nomad)
 		createBluffsPassages(playerPosition);
 
 	addElements([
@@ -221,7 +224,7 @@ function* GenerateMap(mapSettings)
 	]));
 	yield 90;
 
-	if (isNomad())
+	if (mapSettings.Nomad)
 	{
 		g_Map.log("Preventing units to be spawned at the map border");
 		createArea(

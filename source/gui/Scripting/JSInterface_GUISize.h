@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,9 +18,18 @@
 #ifndef INCLUDED_JSI_GUISIZE
 #define INCLUDED_JSI_GUISIZE
 
+
+#include "lib/posix/posix_types.h"
+#include "lib/types.h"
 #include "ps/CStr.h"
-#include "scriptinterface/ScriptForward.h"
-#include "scriptinterface/ScriptTypes.h"
+
+namespace JS { class Value; }
+namespace Script { class Interface; }
+struct JSClass;
+struct JSClassOps;
+struct JSContext;
+struct JSFunctionSpec;
+struct JSPropertySpec;
 
 namespace JSI_GUISize
 {
@@ -29,7 +38,7 @@ namespace JSI_GUISize
 	extern JSPropertySpec JSI_props[];
 	extern JSFunctionSpec JSI_methods[];
 
-	void RegisterScriptClass(ScriptInterface& scriptInterface);
+	void RegisterScriptClass(Script::Interface& scriptInterface);
 
 	bool construct(JSContext* cx, uint argc, JS::Value* vp);
 	bool toString(JSContext* cx, uint argc, JS::Value* vp);

@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,11 +18,18 @@
 #ifndef INCLUDED_CTOOLTIP
 #define INCLUDED_CTOOLTIP
 
+#include "gui/CGUISetting.h"
 #include "gui/CGUISprite.h"
 #include "gui/ObjectBases/IGUIObject.h"
 #include "gui/ObjectBases/IGUITextOwner.h"
+#include "gui/SettingTypes/CGUIColor.h"
 #include "gui/SettingTypes/CGUIString.h"
+#include "lib/types.h"
 #include "maths/Vector2D.h"
+#include "ps/CStr.h"
+
+class CGUI;
+enum class EVAlign;
 
 /**
  * Dynamic tooltips. Similar to CText.
@@ -33,7 +40,6 @@ class CTooltip : public IGUIObject, public IGUITextOwner
 
 public:
 	CTooltip(CGUI& pGUI);
-	virtual ~CTooltip();
 
 	const CStr& GetUsedObject() const { return m_UseObject; }
 	i32 GetTooltipDelay() const { return m_Delay; }
@@ -44,9 +50,9 @@ protected:
 	void SetupText();
 
 	/**
-	 * @see IGUIObject#UpdateCachedSize()
+	 * @see IGUIObject#HandleSizeChanged()
 	 */
-	void UpdateCachedSize();
+	void HandleSizeChanged();
 
 	/**
 	 * @see IGUIObject#HandleMessage()

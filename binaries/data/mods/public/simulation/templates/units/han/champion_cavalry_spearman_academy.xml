@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Entity parent="template_unit_champion_cavalry_spearman">
+<Entity parent="spec_champ|template_unit_champion_cavalry_spearman">
   <Identity>
     <Civ>han</Civ>
-    <SpecificName>Wu Wei Yin Cao Cao Guard</SpecificName>
+    <GenericName>Youzhou Cavalry</GenericName>
+    <SpecificName>Yōuzhōu Tūqí</SpecificName>
     <SelectionGroupName>units/han/champion_cavalry</SelectionGroupName>
     <Icon>units/han/champion_cavalry_spearman.png</Icon>
     <Requirements>

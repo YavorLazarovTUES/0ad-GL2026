@@ -23,7 +23,8 @@ class SavegameDeleter
 	onSelectionChange(gameID, metadata, label)
 	{
 		this.deleteGameButton.enabled = !!metadata;
-		this.deleteGameButton.onPress = () => {
+		this.deleteGameButton.onPress = () =>
+		{
 			this.deleteGame(gameID, label);
 		};
 	}
@@ -59,7 +60,7 @@ class SavegameDeleter
 		if (!Engine.DeleteSavedGame(gameID))
 			error("Could not delete saved game: " + gameID);
 
-		for (let handler of this.savegameListChangeHandlers)
-			handler.onSavegameListChange()
+		for (const handler of this.savegameListChangeHandlers)
+			handler.onSavegameListChange();
 	}
 }

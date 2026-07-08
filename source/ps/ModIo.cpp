@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -25,7 +25,10 @@
 #include "ModIo.h"
 
 #include "i18n/L10n.h"
+#include "lib/code_generation.h"
+#include "lib/debug.h"
 #include "lib/file/file_system.h"
+#include "lib/status.h"
 #include "lib/sysdep/filesystem.h"
 #include "lib/sysdep/sysdep.h"
 #include "maths/MD5.h"
@@ -36,15 +39,27 @@
 #include "ps/Mod.h"
 #include "ps/ModInstaller.h"
 #include "ps/Util.h"
-#include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptRequest.h"
 #include "scriptinterface/JSON.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Request.h"
 
+#include <algorithm>
 #include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/split.hpp>
-#include <iomanip>
+#include <cstdio>
+#include <cstring>
+#include <filesystem>
+#include <fmt/printf.h>
+#include <initializer_list>
+#include <js/Array.h>
+#include <js/PropertyAndElement.h>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <system_error>
+
+namespace Script { class Interface; }
 
 ModIo* g_ModIo = nullptr;
 
@@ -186,7 +201,8 @@ size_t ModIo::DownloadCallback(void* buffer, size_t size, size_t nmemb, void* us
 	return written;
 }
 
-int ModIo::DownloadProgressCallback(void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t UNUSED(ultotal), curl_off_t UNUSED(ulnow))
+int ModIo::DownloadProgressCallback(void* clientp, curl_off_t dltotal, curl_off_t dlnow,
+	curl_off_t /*ultotal*/, curl_off_t /*ulnow*/)
 {
 	DownloadProgressData* data = static_cast<DownloadProgressData*>(clientp);
 
@@ -237,7 +253,17 @@ CURLMcode ModIo::SetupRequest(const std::string& url, bool fileDownload)
 
 void ModIo::TearDownRequest()
 {
-	ENSURE(curl_multi_remove_handle(m_CurlMulti, m_Curl) == CURLM_OK);
+	const curl_version_info_data* info = curl_version_info(CURLVERSION_NOW);
+	const CURLMcode code = curl_multi_remove_handle(m_CurlMulti, m_Curl);
+	if (info->version_num >= 0x080a00 && info->version_num < 0x080b02)
+	{
+		// Version 8.10.0 through 8.11.1 return CURLM_BAD_EASY_HANDLE
+		ENSURE(code == CURLM_OK || code == CURLM_BAD_EASY_HANDLE);
+	}
+	else
+	{
+		ENSURE(code == CURLM_OK);
+	}
 
 	if (m_CallbackData)
 	{
@@ -386,7 +412,7 @@ void ModIo::CancelRequest()
 	}
 }
 
-bool ModIo::AdvanceRequest(const ScriptInterface& scriptInterface)
+bool ModIo::AdvanceRequest(const Script::Interface& scriptInterface)
 {
 	// If the request was cancelled, stop trying to advance it
 	if (m_DownloadProgressData.status != DownloadProgressStatus::GAMEID &&
@@ -500,7 +526,7 @@ bool ModIo::AdvanceRequest(const ScriptInterface& scriptInterface)
 	return true;
 }
 
-bool ModIo::ParseGameId(const ScriptInterface& scriptInterface, std::string& err)
+bool ModIo::ParseGameId(const Script::Interface& scriptInterface, std::string& err)
 {
 	int id = -1;
 	bool ret = ParseGameIdResponse(scriptInterface, m_ResponseData, id, err);
@@ -512,7 +538,7 @@ bool ModIo::ParseGameId(const ScriptInterface& scriptInterface, std::string& err
 	return true;
 }
 
-bool ModIo::ParseMods(const ScriptInterface& scriptInterface, std::string& err)
+bool ModIo::ParseMods(const Script::Interface& scriptInterface, std::string& err)
 {
 	bool ret = ParseModsResponse(scriptInterface, m_ResponseData, m_ModData, m_pk, err);
 	m_ResponseData.clear();
@@ -521,7 +547,9 @@ bool ModIo::ParseMods(const ScriptInterface& scriptInterface, std::string& err)
 
 void ModIo::DeleteDownloadedFile()
 {
-	if (wunlink(m_DownloadFilePath) != 0)
+	std::error_code ec{};
+	std::filesystem::remove(m_DownloadFilePath.string(), ec);
+	if (ec)
 		LOGERROR("Failed to delete temporary file.");
 	m_DownloadFilePath = OsPath();
 }
@@ -530,8 +558,13 @@ bool ModIo::VerifyDownloadedFile(std::string& err)
 {
 	// Verify filesize, as a first basic download check.
 	{
-		u64 filesize = std::stoull(m_ModData[m_DownloadModID].properties.at("filesize"));
-		if (filesize != FileSize(m_DownloadFilePath))
+		std::error_code ec{};
+		const u64 fileSize{static_cast<u64>(std::filesystem::file_size(std::filesystem::path(m_DownloadFilePath.string()), ec))};
+		if (ec)
+			LOGERROR("Failed to get filesize for '%s', reason: %s", m_DownloadFilePath.string8().c_str(), ec.message());
+		const u64 expectedFileSize{std::stoull(m_ModData[m_DownloadModID].properties.at("filesize"))};
+
+		if (ec || fileSize != expectedFileSize)
 		{
 			err = g_L10n.Translate("Mismatched filesize.");
 			return false;
@@ -590,10 +623,10 @@ bool ModIo::VerifyDownloadedFile(std::string& err)
  *
  * @returns true iff it successfully parsed the id.
  */
-bool ModIo::ParseGameIdResponse(const ScriptInterface& scriptInterface, const std::string& responseData, int& id, std::string& err)
+bool ModIo::ParseGameIdResponse(const Script::Interface& scriptInterface, const std::string& responseData, int& id, std::string& err)
 {
 #define CLEANUP() id = -1;
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 
 	JS::RootedValue gameResponse(rq.cx);
 
@@ -633,9 +666,6 @@ bool ModIo::ParseGameIdResponse(const ScriptInterface& scriptInterface, const st
 	JS::RootedValue idProperty(rq.cx);
 	ENSURE(JS_GetProperty(rq.cx, firstObj, "id", &idProperty));
 
-	// Make sure the property is not set to something that could be converted to a bogus value
-	// TODO: We should be able to convert JS::Values to C++ variables in a way that actually
-	// fails when types do not match (see https://trac.wildfiregames.com/ticket/5128).
 	if (!idProperty.isNumber())
 		FAIL("id property not a number.");
 
@@ -659,12 +689,12 @@ bool ModIo::ParseGameIdResponse(const ScriptInterface& scriptInterface, const st
  * Only the listed properties are of interest to consumers, and we flatten
  * the modfile structure as that simplifies handling and there are no conflicts.
  */
-bool ModIo::ParseModsResponse(const ScriptInterface& scriptInterface, const std::string& responseData, std::vector<ModIoModData>& modData, const PKStruct& pk, std::string& err)
+bool ModIo::ParseModsResponse(const Script::Interface& scriptInterface, const std::string& responseData, std::vector<ModIoModData>& modData, const PKStruct& pk, std::string& err)
 {
 // Make sure we don't end up passing partial results back
 #define CLEANUP() modData.clear();
 
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 
 	JS::RootedValue modResponse(rq.cx);
 
@@ -710,7 +740,7 @@ bool ModIo::ParseModsResponse(const ScriptInterface& scriptInterface, const std:
 		bool ok = true;
 		std::string copyStringError;
 #define COPY_STRINGS_ELSE_CONTINUE(prefix, obj, ...) \
-	for (const std::string& prop : { __VA_ARGS__ }) \
+	for (const std::string prop : { __VA_ARGS__ }) \
 	{ \
 		std::string val; \
 		if (!Script::FromJSProperty(rq, obj, prop.c_str(), val, true)) \
@@ -804,9 +834,9 @@ bool ModIo::ParseSignature(const std::vector<std::string>& minisigs, SigStruct& 
 		// because that is easy.
 		const std::string untrusted_comment_prefix = "untrusted comment: ";
 		const std::string trusted_comment_prefix = "trusted comment: ";
-		if (!boost::algorithm::starts_with(sig_lines[0], untrusted_comment_prefix))
+		if (!sig_lines[0].starts_with(untrusted_comment_prefix))
 			FAIL("Malformed untrusted comment.");
-		if (!boost::algorithm::starts_with(sig_lines[2], trusted_comment_prefix))
+		if (!sig_lines[2].starts_with(trusted_comment_prefix))
 			FAIL("Malformed trusted comment.");
 
 		// We only _really_ care about the second line which is the signature of the file (b64-encoded)

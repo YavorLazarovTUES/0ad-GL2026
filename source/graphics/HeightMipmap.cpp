@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,14 +19,23 @@
 
 #include "HeightMipmap.h"
 
-#include "lib/bits.h"
-#include "lib/timer.h"
+#include "lib/alignment.h"
+#include "lib/allocators/dynarray.h"
 #include "lib/allocators/shared_ptr.h"
+#include "lib/bits.h"
+#include "lib/debug.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/file/vfs/vfs_path.h"
+#include "lib/posix/posix_types.h"
+#include "lib/status.h"
 #include "lib/tex/tex.h"
 #include "maths/MathUtil.h"
 #include "ps/Filesystem.h"
 
 #include <cmath>
+#include <cstring>
+#include <memory>
+#include <tuple>
 
 CHeightMipmap::CHeightMipmap()
 {
@@ -255,5 +264,5 @@ void CHeightMipmap::DumpToDisk(const VfsPath& filename) const
 	DynArray da;
 	WARN_IF_ERR(t.encode(filename.Extension(), &da));
 	g_VFS->CreateFile(filename, DummySharedPtr(da.base), da.pos);
-	ignore_result(da_free(&da));
+	std::ignore = da_free(&da);
 }

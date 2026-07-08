@@ -10,7 +10,8 @@ ResignConfirmation.prototype.Buttons = [
 	},
 	{
 		"caption": translate("Yes"),
-		"onPress": () => {
+		"onPress": () =>
+		{
 			Engine.PostNetworkCommand({
 				"type": "resign"
 			});

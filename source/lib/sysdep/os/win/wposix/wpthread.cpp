@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -30,11 +30,11 @@
 #include <new>
 #include <process.h>
 
-#include "lib/sysdep/cpu.h"	// cpu_CAS
 #include "lib/posix/posix_filesystem.h"	// O_CREAT
 #include "lib/sysdep/os/win/wposix/wposix_internal.h"
-#include "lib/sysdep/os/win/wposix/wtime.h"			// timespec
 #include "lib/sysdep/os/win/wseh.h"		// wseh_ExceptionFilter
+
+#include <ctime>
 
 namespace
 {
@@ -83,14 +83,6 @@ int pthread_equal(pthread_t t1, pthread_t t2)
 pthread_t pthread_self()
 {
 	return pthread_from_HANDLE(GetCurrentThreadUniqueHandle());
-}
-
-
-int pthread_once(pthread_once_t* once, void (*init_routine)())
-{
-	if(cpu_CAS((volatile intptr_t*)once, 0, 1))
-		init_routine();
-	return 0;
 }
 
 
@@ -147,7 +139,8 @@ static const size_t MAX_DTORS = 4;
 static struct
 {
 	pthread_key_t key;
-	void (*dtor)(void*);
+	using dtortype = void (*)(void*);
+	std::atomic<dtortype> dtor{ nullptr };
 }
 dtors[MAX_DTORS];
 
@@ -165,7 +158,8 @@ int pthread_key_create(pthread_key_t* key, void (*dtor)(void*))
 	size_t i;
 	for(i = 0; i < MAX_DTORS; i++)
 	{
-		if(cpu_CAS((volatile intptr_t*)&dtors[i].dtor, (intptr_t)0, (intptr_t)dtor))
+		void (*zero)(void*) { nullptr };
+		if(dtors[i].dtor.compare_exchange_strong(zero, dtor))
 			goto have_slot;
 	}
 
@@ -279,23 +273,23 @@ again:
 // memory manager used a pthread_mutex.
 
 
-int pthread_mutexattr_init(pthread_mutexattr_t* UNUSED(attr))
+int pthread_mutexattr_init(pthread_mutexattr_t*)
 {
 	return 0;
 }
 
-int pthread_mutexattr_destroy(pthread_mutexattr_t* UNUSED(attr))
+int pthread_mutexattr_destroy(pthread_mutexattr_t*)
 {
 	return 0;
 }
 
-int pthread_mutexattr_gettype(const pthread_mutexattr_t* UNUSED(attr), int* type)
+int pthread_mutexattr_gettype(const pthread_mutexattr_t*, int* type)
 {
 	*type = PTHREAD_MUTEX_RECURSIVE;
 	return 0;
 }
 
-int pthread_mutexattr_settype(pthread_mutexattr_t* UNUSED(attr), int type)
+int pthread_mutexattr_settype(pthread_mutexattr_t*, int type)
 {
 	return (type == PTHREAD_MUTEX_RECURSIVE)? 0 : -ENOSYS;
 }
@@ -364,7 +358,7 @@ int pthread_mutex_unlock(pthread_mutex_t* m)
 
 // not implemented - pthread_mutex is based on CRITICAL_SECTION,
 // which doesn't support timeouts. use sem_timedwait instead.
-int pthread_mutex_timedlock(pthread_mutex_t* UNUSED(m), const struct timespec* UNUSED(abs_timeout))
+int pthread_mutex_timedlock(pthread_mutex_t*, const struct timespec* /*abs_timeout*/)
 {
 	return -ENOSYS;
 }
@@ -444,7 +438,7 @@ int sem_close(sem_t* sem)
 	return 0;	// success
 }
 
-int sem_unlink(const char* UNUSED(name))
+int sem_unlink(const char* /*name*/)
 {
 	// see sem_close
 	return 0;	// success
@@ -574,7 +568,7 @@ static unsigned __stdcall thread_start(void* param)
 }
 
 
-int pthread_create(pthread_t* thread_id, const void* UNUSED(attr), void* (*func)(void*), void* arg)
+int pthread_create(pthread_t* thread_id, const void* /*attr*/, void* (*func)(void*), void* arg)
 {
 	// notes:
 	// - use wutil_Allocate instead of the normal heap because we /might/

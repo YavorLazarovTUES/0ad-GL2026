@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -24,7 +24,10 @@
 #define INCLUDED_ALLOCATORS_DYNAMIC_ARENA
 
 #include "lib/bits.h"
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
 
+#include <cstdint>
 #include <cstdlib>
 #include <new> // bad_alloc
 #include <utility>
@@ -123,7 +126,7 @@ public:
 		m_Blocks.emplace_back();
 	}
 
-	void* allocate(size_t n, const void*, size_t alignment)
+	void* allocate(size_t n, size_t alignment)
 	{
 		// Safely handle zero-sized allocations (happens with GCC STL - see ticket #909).
 		if (n == 0)
@@ -141,7 +144,7 @@ public:
 		return reinterpret_cast<void*>(m_Blocks.back().Allocate(n, alignment));
 	}
 
-	void deallocate(void* UNUSED(p), size_t UNUSED(n))
+	void deallocate(void*, size_t)
 	{
 		// ignored
 	}

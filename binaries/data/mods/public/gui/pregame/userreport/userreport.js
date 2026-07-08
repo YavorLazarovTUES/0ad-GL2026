@@ -9,7 +9,8 @@ var g_TermsUserReport = {
 			"configPath": setStringTags(escapeText(Engine.GetUserReportConfigPath()), { "font": "sans-bold-12" })
 		},
 		"config": "userreport.terms",
-		"callback": data => {
+		"callback": data =>
+		{
 			setUserReportEnabled(data.accepted);
 		},
 		"accepted": false,
@@ -39,7 +40,7 @@ var g_UserReportStatusFormat = {
 	})
 };
 
-function initUserReport()
+export function initUserReport()
 {
 	initTerms(g_TermsUserReport);
 	loadTermsAcceptance();
@@ -55,26 +56,28 @@ function setUserReportEnabled(enabled)
 
 function updateUserReportButtons()
 {
-	let termsFeedback = checkTerms();
+	const termsFeedback = checkTerms();
 
-	let userReportEnableButton = Engine.GetGUIObjectByName("userReportEnableButton");
+	const userReportEnableButton = Engine.GetGUIObjectByName("userReportEnableButton");
 	userReportEnableButton.caption = Engine.IsUserReportEnabled() ? translate("Disable Feedback") : translate("Enable Feedback");
 	userReportEnableButton.enabled = !termsFeedback;
 	userReportEnableButton.tooltip = termsFeedback;
-	userReportEnableButton.onPress = () => {
+	userReportEnableButton.onPress = () =>
+	{
 		setUserReportEnabled(!Engine.IsUserReportEnabled());
 	};
 
-	let userReportTermsButton = Engine.GetGUIObjectByName("userReportTermsButton");
+	const userReportTermsButton = Engine.GetGUIObjectByName("userReportTermsButton");
 	userReportTermsButton.caption = g_TermsUserReport.TermsAndConditions.title;
-	userReportTermsButton.onPress = () => {
+	userReportTermsButton.onPress = () =>
+	{
 		openTerms("TermsAndConditions");
 	};
 }
 
-function updateUserReportStatus()
+export function updateUserReportStatus()
 {
-	let statusData = Engine.GetUserReportStatus().split(":");
+	const statusData = Engine.GetUserReportStatus().split(":");
 
 	Engine.GetGUIObjectByName("userReportText").caption =
 		Engine.IsUserReportEnabled() ?

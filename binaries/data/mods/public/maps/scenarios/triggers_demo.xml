@@ -15,11 +15,12 @@
 		<Water>
 			<WaterBody>
 				<Type>lake</Type>
-				<Color r="0.113725" g="0.188235" b="0.462745"/>
+				<Color r="0.109804" g="0.184314" b="0.458824"/>
+				<Tint r="0.254902" g="0.356863" b="0.647059"/>
 				<Height>8</Height>
-				<Waviness>4.0</Waviness>
+				<Waviness>4</Waviness>
 				<Murkiness>0.83</Murkiness>
-				<Tint r="0.254902" g="0.360784" b="0.65098"/>
+				<WindAngle>0</WindAngle>
 			</WaterBody>
 		</Water>
 		<Postproc>
@@ -31,9 +32,9 @@
 		</Postproc>
 	</Environment>
 	<Camera>
-		<Position x="128.252" y="149.056" z="435.398"/>
-		<Rotation angle="0.738915"/>
-		<Declination angle="0.610865"/>
+		<Position x="341.133" y="92.0801" z="674.214"/>
+		<Rotation angle="-0.471276"/>
+		<Declination angle="0.858503"/>
 	</Camera>
 	<ScriptSettings><![CDATA[
 {
@@ -50,6 +51,7 @@
   "LockTeams": false,
   "Name": "Triggers Demo",
   "PlayerData": [
+    null,
     {
       "Civ": "athen",
       "Resources": {
@@ -64,7 +66,9 @@
   "RevealMap": false,
   "Script": "pyrenean_sierra.js",
   "Size": 256,
-  "TriggerScripts": ["scenarios/triggers_demo.js"],
+  "TriggerScripts": [
+    "scenarios/triggers_demo.js"
+  ],
   "VictoryConditions": []
 }
 ]]></ScriptSettings>
@@ -76,25 +80,25 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="151">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="235.99642" z="759.78876"/>
 			<Orientation y="3.927"/>
 		</Entity>
 		<Entity uid="152">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="241.65326" z="754.13192"/>
 			<Orientation y="3.927"/>
 		</Entity>
 		<Entity uid="153">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="247.31012" z="748.47506"/>
 			<Orientation y="3.927"/>
 		</Entity>
 		<Entity uid="154">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="252.96697" z="742.81821"/>
 			<Orientation y="3.927"/>
@@ -15014,6 +15018,20 @@
 			<Position x="618.87043" z="513.47492"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="5060"/>
+		</Entity>
+		<Entity uid="2854">
+			<Template>gaia/fauna_bear_brown</Template>
+			<Player>0</Player>
+			<Position x="316.55048" z="717.12929"/>
+			<Orientation y="-0.47248"/>
+			<Actor seed="12517"/>
+		</Entity>
+		<Entity uid="2855">
+			<Template>gaia/fauna_goat_trainable</Template>
+			<Player>1</Player>
+			<Position x="312.80845" z="728.36194"/>
+			<Orientation y="2.23311"/>
+			<Actor seed="54621"/>
 		</Entity>
 	</Entities>
 	<Paths/>

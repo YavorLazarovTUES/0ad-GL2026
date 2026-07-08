@@ -1,11 +1,15 @@
+import { addAnimals, addBerries, addDecoration, addForests, addLayeredPatches, addMetal, addProps, addStone,
+	addStragglerTrees } from "maps/random/rmgen2/gaia.js";
+import { addElements, allAmounts, allMixes, allSizes, createBases, initTileClasses } from
+	"maps/random/rmgen2/setup.js";
+
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
-Engine.LoadLibrary("rmgen2");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
-	setSelectedBiome();
+	setBiome(mapSettings.Biome);
 
 	const topTerrain = g_Terrains.tier2Terrain;
 
@@ -28,8 +32,8 @@ function* GenerateMap()
 	yield 10;
 
 	createBases(
-		...playerPlacementByPattern(
-			"radial",
+		playerPlacementByPattern(
+			"circle",
 			fractionToTiles(0.4),
 			fractionToTiles(randFloat(0.05, 0.1)),
 			startAngle,
@@ -101,7 +105,7 @@ function* GenerateMap()
 				g_TileClasses.mountain, 2,
 				g_TileClasses.player, 12,
 				g_TileClasses.step, 2
-			 ],
+			],
 			"stay": [g_TileClasses.valley, 7],
 			"sizes": ["normal"],
 			"mixes": ["normal"],
@@ -167,7 +171,7 @@ function* GenerateMap()
 			"stay": [g_TileClasses.valley, 7],
 			"sizes": ["normal"],
 			"mixes": ["same"],
-			"amounts": g_AllAmounts
+			"amounts": allAmounts
 		},
 		{
 			"func": addStone,
@@ -199,7 +203,7 @@ function* GenerateMap()
 			"stay": [g_TileClasses.valley, 7],
 			"sizes": ["normal"],
 			"mixes": ["same"],
-			"amounts": g_AllAmounts
+			"amounts": allAmounts
 		},
 		{
 			"func": addForests,
@@ -248,8 +252,8 @@ function* GenerateMap()
 				g_TileClasses.rock, 10
 			],
 			"stay": [g_TileClasses.settlement, 7],
-			"sizes": g_AllSizes,
-			"mixes": g_AllMixes,
+			"sizes": allSizes,
+			"mixes": allMixes,
 			"amounts": ["tons"]
 		},
 		{
@@ -265,9 +269,9 @@ function* GenerateMap()
 				g_TileClasses.step, 5
 			],
 			"stay": [g_TileClasses.valley, 7],
-			"sizes": g_AllSizes,
-			"mixes": g_AllMixes,
-			"amounts": g_AllAmounts
+			"sizes": allSizes,
+			"mixes": allMixes,
+			"amounts": allAmounts
 		},
 		{
 			"func": addAnimals,
@@ -280,8 +284,8 @@ function* GenerateMap()
 				g_TileClasses.rock, 1
 			],
 			"stay": [g_TileClasses.settlement, 7],
-			"sizes": g_AllSizes,
-			"mixes": g_AllMixes,
+			"sizes": allSizes,
+			"mixes": allMixes,
 			"amounts": ["tons"]
 		},
 		{
@@ -297,9 +301,9 @@ function* GenerateMap()
 				g_TileClasses.step, 5
 			],
 			"stay": [g_TileClasses.valley, 7],
-			"sizes": g_AllSizes,
-			"mixes": g_AllMixes,
-			"amounts": g_AllAmounts
+			"sizes": allSizes,
+			"mixes": allMixes,
+			"amounts": allAmounts
 		},
 		{
 			"func": addStragglerTrees,
@@ -312,8 +316,8 @@ function* GenerateMap()
 				g_TileClasses.rock, 3
 			],
 			"stay": [g_TileClasses.settlement, 7],
-			"sizes": g_AllSizes,
-			"mixes": g_AllMixes,
+			"sizes": allSizes,
+			"mixes": allMixes,
 			"amounts": ["tons"]
 		},
 		{
@@ -329,8 +333,8 @@ function* GenerateMap()
 				g_TileClasses.step, 5
 			],
 			"stay": [g_TileClasses.valley, 7],
-			"sizes": g_AllSizes,
-			"mixes": g_AllMixes,
+			"sizes": allSizes,
+			"mixes": allMixes,
 			"amounts": ["normal", "many", "tons"]
 		},
 		{
@@ -508,7 +512,8 @@ function* GenerateMap()
 				new TileClassPainter(g_TileClasses.mountain)
 			]);
 
-		const getCoords = (distance, playerID, playerIDOffset) => {
+		const getCoords = (distance, playerID, playerIDOffset) =>
+		{
 			const angle = startAngle + (playerID + playerIDOffset) * 2 * Math.PI / numPlayers;
 			return Vector2D.add(mapCenter, new Vector2D(fractionToTiles(distance), 0).rotate(-angle))
 				.round();
@@ -544,7 +549,7 @@ function* GenerateMap()
 
 			// Den
 			createArea(
-				new ClumpPlacer(diskArea(fractionToTiles(0.1)) / (isNomad() ? 2 : 1), 0.9, 0.3,
+				new ClumpPlacer(diskArea(fractionToTiles(0.1)) / (mapSettings.Nomad ? 2 : 1), 0.9, 0.3,
 					Infinity, playerPosition),
 				[
 					new LayeredPainter([g_Terrains.cliff, base], [3]),

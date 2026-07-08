@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -27,11 +27,8 @@
 #ifndef INCLUDED_SDL
 #define INCLUDED_SDL
 
-#include "lib/config2.h"
-#include "lib/external_libraries/libsdl_fwd.h"
-
-# include "SDL.h"
-# include "SDL_thread.h"
+# include <SDL.h>
+# include <SDL_thread.h>
 
 #if !SDL_VERSION_ATLEAST(2,0,2)
 #error You are using an old libsdl release. At least libsdl2 >= 2.0.2 is required.
@@ -41,28 +38,9 @@
 // in static bswap routines. doesn't matter - modern compilers
 // will strip them if unused, and this is more convenient than
 // another header that toggles between wsdl and SDL_endian.h.
-# include "SDL_endian.h"
-
-# if MSC_VERSION
-#  pragma comment(lib, "SDL2")
-#  pragma comment(lib, "SDL2main")
-# endif
-
-// complete definition of our forward-declared SDL_Event (see sdl_fwd.h)
-struct SDL_Event_
-{
-	SDL_Event ev;
-};
+# include <SDL_endian.h>
 
 // Returns a windowing subsystem used for the window.
 const char* GetSDLSubsystem(SDL_Window* window);
-
-#if defined(SDL_VIDEO_DRIVER_X11) && !CONFIG2_GLES
-void* GetX11Display(SDL_Window* window);
-#endif
-
-#if defined(SDL_VIDEO_DRIVER_WAYLAND) && !CONFIG2_GLES
-void* GetWaylandDisplay(SDL_Window* window);
-#endif
 
 #endif // INCLUDED_SDL

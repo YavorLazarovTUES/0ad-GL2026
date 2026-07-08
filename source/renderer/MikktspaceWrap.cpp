@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,7 +17,14 @@
 
 #include "precompiled.h"
 
-#include "renderer/MikktspaceWrap.h"
+#include "MikktspaceWrap.h"
+
+#include "graphics/ModelDef.h"
+#include "lib/types.h"
+#include "maths/Vector2D.h"
+#include "maths/Vector3D.h"
+
+#include <cstddef>
 
 MikkTSpace::MikkTSpace(const CModelDefPtr& m, std::vector<float>& v, bool gpuSkinning) : m_Model(m),
 			m_NewVertices(v), m_GpuSkinning(gpuSkinning)
@@ -49,7 +56,7 @@ int MikkTSpace::GetNumFaces(const SMikkTSpaceContext* pContext)
 	return GetUserDataFromContext(pContext)->m_Model->GetNumFaces();
 }
 
-int MikkTSpace::GetNumVerticesOfFace(const SMikkTSpaceContext* UNUSED(pContext), const int UNUSED(iFace))
+int MikkTSpace::GetNumVerticesOfFace(const SMikkTSpaceContext*, const int /*iFace*/)
 {
 	return 3;
 }
@@ -91,7 +98,7 @@ void MikkTSpace::GetTexCoord(const SMikkTSpaceContext* pContext,
 
 
 void MikkTSpace::SetTSpace(const SMikkTSpaceContext* pContext, const float* fvTangent,
-	const float* UNUSED(fvBiTangent), const float UNUSED(fMagS), const float UNUSED(fMagT),
+	const float* /*fvBiTangent*/, const float /*fMagS*/, const float /*fMagT*/,
 	const tbool bIsOrientationPreserving, const int iFace, const int iVert)
 {
 	const MikkTSpace* userData = GetUserDataFromContext(pContext);

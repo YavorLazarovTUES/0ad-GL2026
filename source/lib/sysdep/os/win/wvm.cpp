@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -31,11 +31,11 @@
 #include "lib/alignment.h"	// CACHE_ALIGNED
 #include "lib/bits.h"	// round_down
 #include "lib/module_init.h"
-#include "lib/sysdep/cpu.h"    // cpu_AtomicAdd
 #include "lib/sysdep/numa.h"
 #include "lib/sysdep/os/win/wutil.h"
 #include "lib/timer.h"
 
+#include <atomic>
 #include <excpt.h>
 
 namespace vm
@@ -51,16 +51,16 @@ CACHE_ALIGNED(struct Statistics)	// POD
 	// thread-safe (required due to concurrent commits)
 	void NotifyLargePageCommit()
 	{
-		cpu_AtomicAdd(&largePageCommits, +1);
+		++largePageCommits;
 	}
 
 	void NotifySmallPageCommit()
 	{
-		cpu_AtomicAdd(&smallPageCommits, +1);
+		++smallPageCommits;
 	}
 
-	intptr_t largePageCommits;
-	intptr_t smallPageCommits;
+	std::atomic<size_t> largePageCommits{ 0 };
+	std::atomic<size_t> smallPageCommits{ 0 };
 };
 static CACHE_ALIGNED(Statistics) statistics[os_cpu_MaxProcessors];
 
@@ -209,8 +209,9 @@ CACHE_ALIGNED(struct AddressRangeDescriptor)	// POD
 	Status Allocate(size_t size, size_t commitSize, PageType pageType, int prot)
 	{
 		// if this descriptor wasn't yet in use, mark it as busy
-		// (double-checking is cheaper than cpu_CAS)
-		if(base != 0 || !cpu_CAS(&base, intptr_t(0), intptr_t(this)))
+		// (double-checking is cheaper than compare_exchange)
+		void* unused{ nullptr };
+		if(base != nullptr || !base.compare_exchange_strong(unused, static_cast<void*>(this)))
 			return INFO::SKIPPED;
 
 		ENSURE(size != 0);		// probably indicates a bug in caller
@@ -225,7 +226,7 @@ CACHE_ALIGNED(struct AddressRangeDescriptor)	// POD
 
 		// NB: it is meaningless to ask for large pages when reserving
 		// (see ShouldUseLargePages). pageType only affects subsequent commits.
-		base = (intptr_t)AllocateLargeOrSmallPages(0, m_TotalSize, MEM_RESERVE);
+		base = AllocateLargeOrSmallPages(0, m_TotalSize, MEM_RESERVE);
 		if(!base)
 		{
 			debug_printf("AllocateLargeOrSmallPages of %lld failed\n", (u64)m_TotalSize);
@@ -233,25 +234,25 @@ CACHE_ALIGNED(struct AddressRangeDescriptor)	// POD
 			return ERR::NO_MEM;	// NOWARN (error string is more helpful)
 		}
 
-		alignedBase = round_up(uintptr_t(base), m_Alignment);
+		alignedBase = round_up(reinterpret_cast<uintptr_t>(base.load()), m_Alignment);
 		alignedEnd = alignedBase + round_up(size, m_Alignment);
 		return INFO::OK;
 	}
 
 	void Free()
 	{
-		vm::Free((void*)base, m_TotalSize);
-		m_Alignment = alignedBase = alignedEnd = 0;
+		vm::Free(base, m_TotalSize);
+		m_Alignment = 0;
 		m_TotalSize = 0;
-		COMPILER_FENCE;
 		base = 0;	// release descriptor for subsequent reuse
+		alignedBase = alignedEnd = 0;
 	}
 
 	bool Contains(uintptr_t address) const
 	{
 		// safety check: we should never see pointers in the no-man's-land
 		// between the original and rounded up base addresses.
-		ENSURE(!(uintptr_t(base) <= address && address < alignedBase));
+		ENSURE(!(reinterpret_cast<uintptr_t>(base.load()) <= address && address < alignedBase));
 
 		return (alignedBase <= address && address < alignedEnd);
 	}
@@ -274,7 +275,7 @@ CACHE_ALIGNED(struct AddressRangeDescriptor)	// POD
 
 	// (actual requested size / allocated address is required by
 	// ReleaseAddressSpace due to variable alignment.)
-	volatile intptr_t base;	// (type is dictated by cpu_CAS)
+	std::atomic<void*> base{ nullptr };
 	size_t m_TotalSize;
 
 	// parameters to be relayed to vm::Commit
@@ -335,7 +336,7 @@ void* ReserveAddressSpace(size_t size, size_t commitSize, PageType pageType, int
 }
 
 
-void ReleaseAddressSpace(void* p, size_t UNUSED(size))
+void ReleaseAddressSpace(void* p, size_t)
 {
 	// it is customary to ignore null pointers
 	if(!p)
@@ -355,12 +356,8 @@ void ReleaseAddressSpace(void* p, size_t UNUSED(size))
 //-----------------------------------------------------------------------------
 // commit/decommit, allocate/free, protect
 
-TIMER_ADD_CLIENT(tc_commit);
-
 bool Commit(uintptr_t address, size_t size, PageType pageType, int prot)
 {
-	TIMER_ACCRUE_ATOMIC(tc_commit);
-
 	return AllocateLargeOrSmallPages(address, size, MEM_COMMIT, pageType, prot) != 0;
 }
 
@@ -386,7 +383,7 @@ void* Allocate(size_t size, PageType pageType, int prot)
 }
 
 
-void Free(void* p, size_t UNUSED(size))
+void Free(void* p, size_t)
 {
 	if(p)	// otherwise, VirtualFree complains
 	{
@@ -448,8 +445,8 @@ static LONG CALLBACK VectoredHandler(const PEXCEPTION_POINTERS ep)
 
 
 static PVOID handler;
-static ModuleInitState initState;
-static volatile intptr_t references = 0;	// atomic
+static ModuleInitState initState{ 0 };
+static std::atomic<intptr_t> references{ 0 };
 
 static Status InitHandler()
 {
@@ -470,12 +467,12 @@ static void ShutdownHandler()
 void BeginOnDemandCommits()
 {
 	ModuleInit(&initState, InitHandler);
-	cpu_AtomicAdd(&references, +1);
+	++references;
 }
 
 void EndOnDemandCommits()
 {
-	if(cpu_AtomicAdd(&references, -1) == 1)
+	if(references.fetch_sub(1) == 1)
 		ModuleShutdown(&initState, ShutdownHandler);
 }
 

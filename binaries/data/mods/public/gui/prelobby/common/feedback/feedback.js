@@ -1,10 +1,12 @@
 var g_LobbyMessages = {
-	"error": message => {
+	"error": message =>
+	{
 		setFeedback(message.text ||
 			translate("Unknown error. This usually occurs because the same IP address is not allowed to register more than one account within one hour."));
 		Engine.StopXmppClient();
 	},
-	"disconnected": message => {
+	"disconnected": message =>
+	{
 		setFeedback(message.reason + message.certificate_status);
 		Engine.StopXmppClient();
 	}
@@ -17,11 +19,11 @@ var g_LobbyMessages = {
  */
 function onTick()
 {
-	let messages = Engine.LobbyGuiPollNewMessages();
+	const messages = Engine.LobbyGuiPollNewMessages();
 	if (!messages)
 		return;
 
-	for (let message of messages)
+	for (const message of messages)
 	{
 		if (message.type == "system" && message.level)
 			g_LobbyMessages[message.level](message);
@@ -37,9 +39,11 @@ function setFeedback(feedbackText)
 	Engine.GetGUIObjectByName("continue").enabled = !feedbackText;
 }
 
-function cancelButton()
+async function cancelButton()
 {
+	await new Promise(resolve => { Engine.GetGUIObjectByName("cancel").onPress = resolve; });
 	if (Engine.HasXmppClient())
 		Engine.StopXmppClient();
-	Engine.PopGuiPage();
+
+	return false;
 }

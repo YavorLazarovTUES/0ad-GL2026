@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,23 +17,30 @@
 
 #include "precompiled.h"
 
-#include "renderer/DebugRenderer.h"
+#include "DebugRenderer.h"
 
 #include "graphics/Camera.h"
 #include "graphics/Color.h"
+#include "graphics/ShaderDefines.h"
 #include "graphics/ShaderManager.h"
-#include "graphics/ShaderProgram.h"
+#include "graphics/ShaderTechnique.h"
+#include "lib/code_generation.h"
 #include "lib/hash.h"
 #include "maths/BoundingBoxAligned.h"
 #include "maths/Brush.h"
 #include "maths/Matrix3D.h"
 #include "maths/Vector3D.h"
 #include "ps/CStrInternStatic.h"
-#include "renderer/backend/IDeviceCommandContext.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
+#include "renderer/backend/Format.h"
+#include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/IShaderProgram.h"
+#include "renderer/backend/PipelineState.h"
 
+#include <array>
 #include <cmath>
+#include <numbers>
 
 void CDebugRenderer::Initialize()
 {
@@ -46,38 +53,37 @@ void CDebugRenderer::Initialize()
 }
 
 void CDebugRenderer::DrawLine(
+	Renderer::Backend::IDeviceCommandContext& deviceCommandContext,
 	const CVector3D& from, const CVector3D& to, const CColor& color,
 	const float width, const bool depthTestEnabled)
 {
 	if (from == to)
 		return;
 
-	DrawLine({from, to}, color, width, depthTestEnabled);
+	DrawLine(deviceCommandContext, {from, to}, color, width, depthTestEnabled);
 }
 
 void CDebugRenderer::DrawLine(
+	Renderer::Backend::IDeviceCommandContext& deviceCommandContext,
 	const std::vector<CVector3D>& line, const CColor& color,
 	const float width, const bool depthTestEnabled)
 {
 	if (line.size() <= 1)
 		return;
 
-	Renderer::Backend::IDeviceCommandContext* deviceCommandContext =
-		g_Renderer.GetDeviceCommandContext();
-
 	CShaderTechniquePtr debugLineTech =
 		GetShaderTechnique(str_debug_line, color, depthTestEnabled);
-	deviceCommandContext->SetGraphicsPipelineState(
+	deviceCommandContext.SetGraphicsPipelineState(
 		debugLineTech->GetGraphicsPipelineState());
-	deviceCommandContext->BeginPass();
+	deviceCommandContext.BeginPass();
 
 	const CCamera& viewCamera = g_Renderer.GetSceneRenderer().GetViewCamera();
 
 	Renderer::Backend::IShaderProgram* debugLineShader = debugLineTech->GetShader();
 	const CMatrix3D transform = viewCamera.GetViewProjection();
-	deviceCommandContext->SetUniform(
+	deviceCommandContext.SetUniform(
 		debugLineShader->GetBindingSlot(str_transform), transform.AsFloatArray());
-	deviceCommandContext->SetUniform(
+	deviceCommandContext.SetUniform(
 		debugLineShader->GetBindingSlot(str_color), color.AsFloatArray());
 
 	const CVector3D cameraIn = viewCamera.GetOrientation().GetIn();
@@ -109,35 +115,34 @@ void CDebugRenderer::DrawLine(
 
 #undef ADD
 
-	deviceCommandContext->SetVertexInputLayout(m_VertexInputLayout);
-	deviceCommandContext->SetVertexBufferData(
+	deviceCommandContext.SetVertexInputLayout(m_VertexInputLayout);
+	deviceCommandContext.SetVertexBufferData(
 		0, vertices.data(), vertices.size() * sizeof(vertices[0]));
 
-	deviceCommandContext->Draw(0, vertices.size() / 3);
+	deviceCommandContext.Draw(0, vertices.size() / 3);
 
-	deviceCommandContext->EndPass();
+	deviceCommandContext.EndPass();
 }
 
-void CDebugRenderer::DrawCircle(const CVector3D& origin, const float radius, const CColor& color)
+void CDebugRenderer::DrawCircle(
+	Renderer::Backend::IDeviceCommandContext& deviceCommandContext,
+	const CVector3D& origin, const float radius, const CColor& color)
 {
 	CShaderTechniquePtr debugCircleTech =
 		GetShaderTechnique(str_debug_line, color);
 
-	Renderer::Backend::IDeviceCommandContext* deviceCommandContext =
-		g_Renderer.GetDeviceCommandContext();
-
-	deviceCommandContext->SetGraphicsPipelineState(
+	deviceCommandContext.SetGraphicsPipelineState(
 		debugCircleTech->GetGraphicsPipelineState());
-	deviceCommandContext->BeginPass();
+	deviceCommandContext.BeginPass();
 
 	const CCamera& camera = g_Renderer.GetSceneRenderer().GetViewCamera();
 
 	Renderer::Backend::IShaderProgram* debugCircleShader = debugCircleTech->GetShader();
 
 	const CMatrix3D transform = camera.GetViewProjection();
-	deviceCommandContext->SetUniform(
+	deviceCommandContext.SetUniform(
 		debugCircleShader->GetBindingSlot(str_transform), transform.AsFloatArray());
-	deviceCommandContext->SetUniform(
+	deviceCommandContext.SetUniform(
 		debugCircleShader->GetBindingSlot(str_color), color.AsFloatArray());
 
 	const CVector3D cameraUp = camera.GetOrientation().GetUp();
@@ -152,9 +157,9 @@ void CDebugRenderer::DrawCircle(const CVector3D& origin, const float radius, con
 	constexpr size_t segments = 16;
 	for (size_t idx = 0; idx <= segments; ++idx)
 	{
-		const float angle = M_PI * 2.0f * idx / segments;
+		const float angle = std::numbers::pi_v<float> * 2.0f * idx / segments;
 		const CVector3D offset = cameraUp * sin(angle) - cameraLeft * cos(angle);
-		const float nextAngle = M_PI * 2.0f * (idx + 1) / segments;
+		const float nextAngle = std::numbers::pi_v<float> * 2.0f * (idx + 1) / segments;
 		const CVector3D nextOffset = cameraUp * sin(nextAngle) - cameraLeft * cos(nextAngle);
 		ADD(origin)
 		ADD(origin + offset * radius)
@@ -163,43 +168,38 @@ void CDebugRenderer::DrawCircle(const CVector3D& origin, const float radius, con
 
 #undef ADD
 
-	deviceCommandContext->SetVertexInputLayout(m_VertexInputLayout);
-	deviceCommandContext->SetVertexBufferData(
+	deviceCommandContext.SetVertexInputLayout(m_VertexInputLayout);
+	deviceCommandContext.SetVertexBufferData(
 		0, vertices.data(), vertices.size() * sizeof(vertices[0]));
 
-	deviceCommandContext->Draw(0, vertices.size() / 3);
+	deviceCommandContext.Draw(0, vertices.size() / 3);
 
-	deviceCommandContext->EndPass();
+	deviceCommandContext.EndPass();
 }
 
-void CDebugRenderer::DrawCameraFrustum(const CCamera& camera, const CColor& color, int intermediates, bool wireframe)
+void CDebugRenderer::DrawCameraFrustum(Renderer::Backend::IDeviceCommandContext& deviceCommandContext,
+	const CCamera& camera, const CColor& color, int intermediates, bool wireframe)
 {
-	CCamera::Quad nearPoints;
-	CCamera::Quad farPoints;
-
-	camera.GetViewQuad(camera.GetNearPlane(), nearPoints);
-	camera.GetViewQuad(camera.GetFarPlane(), farPoints);
-	for (int i = 0; i < 4; ++i)
-	{
-		nearPoints[i] = camera.m_Orientation.Transform(nearPoints[i]);
-		farPoints[i] = camera.m_Orientation.Transform(farPoints[i]);
-	}
+	CCamera::Quad nearPoints{camera.GetViewQuad(camera.GetNearPlane())};
+	for (CVector3D& point : nearPoints)
+		point = camera.m_Orientation.Transform(point);
+	CCamera::Quad farPoints{camera.GetViewQuad(camera.GetFarPlane())};
+	for (CVector3D& point : farPoints)
+		point = camera.m_Orientation.Transform(point);
 
 	CShaderTechniquePtr overlayTech =
 		GetShaderTechnique(str_debug_line, color, true, wireframe);
 
-	Renderer::Backend::IDeviceCommandContext* deviceCommandContext =
-		g_Renderer.GetDeviceCommandContext();
-	deviceCommandContext->SetGraphicsPipelineState(
+	deviceCommandContext.SetGraphicsPipelineState(
 		overlayTech->GetGraphicsPipelineState());
-	deviceCommandContext->BeginPass();
+	deviceCommandContext.BeginPass();
 
 	Renderer::Backend::IShaderProgram* overlayShader = overlayTech->GetShader();
 
 	const CMatrix3D transform = g_Renderer.GetSceneRenderer().GetViewCamera().GetViewProjection();
-	deviceCommandContext->SetUniform(
+	deviceCommandContext.SetUniform(
 		overlayShader->GetBindingSlot(str_transform), transform.AsFloatArray());
-	deviceCommandContext->SetUniform(
+	deviceCommandContext.SetUniform(
 		overlayShader->GetBindingSlot(str_color), color.AsFloatArray());
 
 	std::vector<float> vertices;
@@ -241,11 +241,11 @@ void CDebugRenderer::DrawCameraFrustum(const CCamera& camera, const CColor& colo
 		ADD(intermediatePoints[3]);
 	}
 
-	deviceCommandContext->SetVertexInputLayout(m_VertexInputLayout);
-	deviceCommandContext->SetVertexBufferData(
+	deviceCommandContext.SetVertexInputLayout(m_VertexInputLayout);
+	deviceCommandContext.SetVertexBufferData(
 		0, vertices.data(), vertices.size() * sizeof(vertices[0]));
 
-	deviceCommandContext->Draw(0, vertices.size() / 3);
+	deviceCommandContext.Draw(0, vertices.size() / 3);
 
 	vertices.clear();
 
@@ -261,43 +261,44 @@ void CDebugRenderer::DrawCameraFrustum(const CCamera& camera, const CColor& colo
 		ADD(farPoints[nextI]);
 	}
 
-	deviceCommandContext->SetVertexInputLayout(m_VertexInputLayout);
-	deviceCommandContext->SetVertexBufferData(
+	deviceCommandContext.SetVertexInputLayout(m_VertexInputLayout);
+	deviceCommandContext.SetVertexBufferData(
 		0, vertices.data(), vertices.size() * sizeof(vertices[0]));
 
-	deviceCommandContext->Draw(0, vertices.size() / 3);
+	deviceCommandContext.Draw(0, vertices.size() / 3);
 #undef ADD
 
-	deviceCommandContext->EndPass();
+	deviceCommandContext.EndPass();
 }
 
 void CDebugRenderer::DrawBoundingBox(
+	Renderer::Backend::IDeviceCommandContext& deviceCommandContext,
 	const CBoundingBoxAligned& boundingBox, const CColor& color,
 	bool wireframe)
 {
 	DrawBoundingBox(
+		deviceCommandContext,
 		boundingBox, color,
 		g_Renderer.GetSceneRenderer().GetViewCamera().GetViewProjection(), wireframe);
 }
 
 void CDebugRenderer::DrawBoundingBox(
+	Renderer::Backend::IDeviceCommandContext& deviceCommandContext,
 	const CBoundingBoxAligned& boundingBox, const CColor& color,
 	const CMatrix3D& transform, bool wireframe)
 {
 	CShaderTechniquePtr shaderTech =
 		GetShaderTechnique(str_debug_line, color, true, wireframe);
 
-	Renderer::Backend::IDeviceCommandContext* deviceCommandContext =
-		g_Renderer.GetDeviceCommandContext();
-	deviceCommandContext->SetGraphicsPipelineState(
+	deviceCommandContext.SetGraphicsPipelineState(
 		shaderTech->GetGraphicsPipelineState());
-	deviceCommandContext->BeginPass();
+	deviceCommandContext.BeginPass();
 
 	Renderer::Backend::IShaderProgram* shader = shaderTech->GetShader();
 
-	deviceCommandContext->SetUniform(
+	deviceCommandContext.SetUniform(
 		shader->GetBindingSlot(str_transform), transform.AsFloatArray());
-	deviceCommandContext->SetUniform(
+	deviceCommandContext.SetUniform(
 		shader->GetBindingSlot(str_color), color.AsFloatArray());
 
 	std::vector<float> data;
@@ -321,32 +322,32 @@ void CDebugRenderer::DrawBoundingBox(
 
 #undef ADD_FACE
 
-	deviceCommandContext->SetVertexInputLayout(m_VertexInputLayout);
-	deviceCommandContext->SetVertexBufferData(
+	deviceCommandContext.SetVertexInputLayout(m_VertexInputLayout);
+	deviceCommandContext.SetVertexBufferData(
 		0, data.data(), data.size() * sizeof(data[0]));
 
-	deviceCommandContext->Draw(0, 6 * 6);
+	deviceCommandContext.Draw(0, 6 * 6);
 
-	deviceCommandContext->EndPass();
+	deviceCommandContext.EndPass();
 }
 
-void CDebugRenderer::DrawBrush(const CBrush& brush, const CColor& color, bool wireframe)
+void CDebugRenderer::DrawBrush(
+	Renderer::Backend::IDeviceCommandContext& deviceCommandContext,
+	const CBrush& brush, const CColor& color, bool wireframe)
 {
 	CShaderTechniquePtr shaderTech =
 		GetShaderTechnique(str_debug_line, color, true, wireframe);
 
-	Renderer::Backend::IDeviceCommandContext* deviceCommandContext =
-		g_Renderer.GetDeviceCommandContext();
-	deviceCommandContext->SetGraphicsPipelineState(
+	deviceCommandContext.SetGraphicsPipelineState(
 		shaderTech->GetGraphicsPipelineState());
-	deviceCommandContext->BeginPass();
+	deviceCommandContext.BeginPass();
 
 	Renderer::Backend::IShaderProgram* shader = shaderTech->GetShader();
 
 	const CMatrix3D transform = g_Renderer.GetSceneRenderer().GetViewCamera().GetViewProjection();
-	deviceCommandContext->SetUniform(
+	deviceCommandContext.SetUniform(
 		shader->GetBindingSlot(str_transform), transform.AsFloatArray());
-	deviceCommandContext->SetUniform(
+	deviceCommandContext.SetUniform(
 		shader->GetBindingSlot(str_color), color.AsFloatArray());
 
 	std::vector<float> data;
@@ -374,13 +375,13 @@ void CDebugRenderer::DrawBrush(const CBrush& brush, const CColor& color, bool wi
 
 #undef ADD_VERT
 
-	deviceCommandContext->SetVertexInputLayout(m_VertexInputLayout);
-	deviceCommandContext->SetVertexBufferData(
+	deviceCommandContext.SetVertexInputLayout(m_VertexInputLayout);
+	deviceCommandContext.SetVertexBufferData(
 		0, data.data(), data.size() * sizeof(data[0]));
 
-	deviceCommandContext->Draw(0, data.size() / 5);
+	deviceCommandContext.Draw(0, data.size() / 5);
 
-	deviceCommandContext->EndPass();
+	deviceCommandContext.EndPass();
 }
 
 size_t CDebugRenderer::ShaderTechniqueKeyHash::operator()(

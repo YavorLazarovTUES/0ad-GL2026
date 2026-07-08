@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -22,9 +22,10 @@
 
 #include "precompiled.h"
 
-#include "lib/app_hooks.h"
+#include "app_hooks.h"
 
 #include "lib/sysdep/sysdep.h"
+#include "lib/types.h"
 
 #include <cstdio>
 
@@ -41,12 +42,12 @@ static const OsPath& def_get_log_dir()
 }
 
 
-static void def_bundle_logs(FILE* UNUSED(f))
+static void def_bundle_logs(FILE*)
 {
 }
 
 
-static ErrorReactionInternal def_display_error(const wchar_t* UNUSED(text), size_t UNUSED(flags))
+static ErrorReactionInternal def_display_error(const wchar_t* /*text*/, size_t /*flags*/)
 {
 	return ERI_NOT_IMPLEMENTED;
 }
@@ -75,11 +76,9 @@ static AppHooks default_ah = ah;
 // register the specified hook function pointers. any of them that
 // are non-zero override the previous function pointer value
 // (these default to the stub hooks which are functional but basic).
-void app_hooks_update(AppHooks* new_ah)
+void app_hooks_update(const AppHooks& new_ah)
 {
-	ENSURE(new_ah);
-
-#define OVERRIDE_IF_NONZERO(HOOKNAME) if(new_ah->HOOKNAME) ah.HOOKNAME = new_ah->HOOKNAME;
+#define OVERRIDE_IF_NONZERO(HOOKNAME) if(new_ah.HOOKNAME) ah.HOOKNAME = new_ah.HOOKNAME;
 	OVERRIDE_IF_NONZERO(get_log_dir)
 	OVERRIDE_IF_NONZERO(bundle_logs)
 	OVERRIDE_IF_NONZERO(display_error)

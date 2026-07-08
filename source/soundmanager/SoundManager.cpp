@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,23 +17,34 @@
 
 #include "precompiled.h"
 
-#include "ISoundManager.h"
 #include "SoundManager.h"
-#include "data/SoundData.h"
+
 #include "items/CBufferItem.h"
 #include "items/CSoundItem.h"
 #include "items/CStreamItem.h"
-
-#include "lib/external_libraries/libsdl.h"
+#include "lib/code_generation.h"
+#include "lib/debug.h"
+#include "lib/path.h"
+#include "lib/sysdep/os.h"
+#include "lib/timer.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
 #include "ps/ConfigDB.h"
 #include "ps/Filesystem.h"
 #include "ps/Profiler2.h"
 #include "ps/Threading.h"
+#include "ps/XMB/XMBStorage.h"
 #include "ps/XML/Xeromyces.h"
+#include "soundmanager/ISoundManager.h"
+#include "soundmanager/data/SoundData.h"
+#include "soundmanager/items/ISoundItem.h"
+#include "soundmanager/scripting/SoundGroup.h"
 
+#include <SDL_timer.h>
+#include <algorithm>
+#include <cstring>
 #include <thread>
+#include <utility>
 
 ISoundManager* g_SoundManager = NULL;
 
@@ -179,7 +190,7 @@ private:
 
 	bool m_Shutdown;
 
-	CSoundManagerWorker(ISoundManager* UNUSED(other)){};
+	CSoundManagerWorker(ISoundManager* /*other*/){};
 };
 
 void ISoundManager::CreateSoundManager()
@@ -223,7 +234,7 @@ void CSoundManager::al_check(const char* caller, int line)
 		al_ReportError(err, caller, line);
 }
 
-Status CSoundManager::ReloadChangedFiles(const VfsPath& UNUSED(path))
+Status CSoundManager::ReloadChangedFiles(const VfsPath&)
 {
 	// TODO implement sound file hotloading
 	return INFO::OK;
@@ -238,19 +249,16 @@ CSoundManager::CSoundManager(ALCdevice* device)
 	: m_Context(nullptr), m_Device(device), m_ALSourceBuffer(nullptr),
 	m_CurrentTune(nullptr), m_CurrentEnvirons(nullptr),
 	m_Worker(nullptr), m_DistressMutex(), m_PlayListItems(nullptr), m_SoundGroups(),
-	m_Gain(.5f), m_MusicGain(.5f), m_AmbientGain(.5f), m_ActionGain(.5f), m_UIGain(.5f),
-	m_Enabled(false), m_BufferSize(98304), m_BufferCount(50),
-	m_SoundEnabled(true), m_MusicEnabled(true), m_MusicPaused(false),
-	m_AmbientPaused(false), m_ActionPaused(false),
+	m_Gain{g_ConfigDB.Get("sound.mastergain", 0.5f)},
+	m_MusicGain{g_ConfigDB.Get("sound.musicgain", 0.5f)},
+	m_AmbientGain{g_ConfigDB.Get("sound.ambientgain", 0.5f)},
+	m_ActionGain{g_ConfigDB.Get("sound.actiongain", 0.5f)},
+	m_UIGain{g_ConfigDB.Get("sound.uigain", 0.5f)},
+	m_Enabled(false), m_SoundEnabled(true), m_MusicEnabled(true),
+	m_MusicPaused(false), m_AmbientPaused(false), m_ActionPaused(false),
 	m_RunningPlaylist(false), m_PlayingPlaylist(false), m_LoopingPlaylist(false),
 	m_PlaylistGap(0), m_DistressErrCount(0), m_DistressTime(0)
 {
-	CFG_GET_VAL("sound.mastergain", m_Gain);
-	CFG_GET_VAL("sound.musicgain", m_MusicGain);
-	CFG_GET_VAL("sound.ambientgain", m_AmbientGain);
-	CFG_GET_VAL("sound.actiongain", m_ActionGain);
-	CFG_GET_VAL("sound.uigain", m_UIGain);
-
 	AlcInit();
 
 	if (m_Enabled)
@@ -261,7 +269,7 @@ CSoundManager::CSoundManager(ALCdevice* device)
 		m_PlayListItems = new PlayList;
 	}
 
-	if (!CXeromyces::AddValidator(g_VFS, "sound_group", "audio/sound_group.rng"))
+	if (!g_Xeromyces.AddValidator(g_VFS, "sound_group", "audio/sound_group.rng"))
 		LOGERROR("CSoundManager: failed to load grammar file 'audio/sound_group.rng'");
 
 	RegisterFileReloadFunc(ReloadChangedFileCB, this);
@@ -433,15 +441,6 @@ void CSoundManager::ReleaseALSource(ALuint theSource)
 	}
 }
 
-long CSoundManager::GetBufferCount()
-{
-	return m_BufferCount;
-}
-long CSoundManager::GetBufferSize()
-{
-	return m_BufferSize;
-}
-
 void CSoundManager::AddPlayListItem(const VfsPath& itemPath)
 {
 	if (m_Enabled)
@@ -603,7 +602,7 @@ void CSoundManager::IdleTask()
 	}
 }
 
-ISoundItem*	CSoundManager::ItemForEntity(entity_id_t UNUSED(source), CSoundData* sndData)
+ISoundItem*	CSoundManager::ItemForEntity(entity_id_t /*source*/, CSoundData* sndData)
 {
 	ISoundItem* currentItem = NULL;
 
@@ -676,23 +675,20 @@ void CSoundManager::PlayAsGroup(const VfsPath& groupPath, const CVector3D& sourc
 		group->PlayNext(sourcePos, source);
 }
 
-void CSoundManager::PlayAsMusic(const VfsPath& itemPath, bool looping)
+void CSoundManager::PlayAsMusic(const VfsPath& itemPath, bool /*looping*/)
 {
 	if (m_Enabled)
 	{
-		UNUSED2(looping);
-
 		ISoundItem* aSnd = LoadItem(itemPath);
 		if (aSnd != NULL)
 			SetMusicItem(aSnd);
 	}
 }
 
-void CSoundManager::PlayAsAmbient(const VfsPath& itemPath, bool looping)
+void CSoundManager::PlayAsAmbient(const VfsPath& itemPath, bool /*looping*/)
 {
 	if (m_Enabled)
 	{
-		UNUSED2(looping);
 		ISoundItem* aSnd = LoadItem(itemPath);
 		if (aSnd != NULL)
 			SetAmbientItem(aSnd);
@@ -831,22 +827,30 @@ void CSoundManager::RunHardwareDetection()
 	// Sound cards
 
 	const ALCchar* devices = nullptr;
-	if (alcIsExtensionPresent(nullptr, "ALC_enumeration_EXT") == AL_TRUE)
+	if (alcIsExtensionPresent(nullptr, "ALC_ENUMERATION_EXT") == AL_TRUE)
 	{
-		if (alcIsExtensionPresent(nullptr, "ALC_enumerate_all_EXT") == AL_TRUE)
+		if (alcIsExtensionPresent(nullptr, "ALC_ENUMERATE_ALL_EXT") == AL_TRUE)
 			devices = alcGetString(nullptr, ALC_ALL_DEVICES_SPECIFIER);
 		else
 			devices = alcGetString(nullptr, ALC_DEVICE_SPECIFIER);
 	}
-	WARN_IF_FALSE(devices);
 
 	m_SoundCardNames.clear();
-	do
+	if (devices)
 	{
-		m_SoundCardNames += devices;
-		devices += strlen(devices) + 1;
-		m_SoundCardNames += "; ";
-	} while (*devices);
+		do
+		{
+			m_SoundCardNames += devices;
+			devices += strlen(devices) + 1;
+			m_SoundCardNames += "; ";
+		} while (*devices);
+	}
+	else
+	{
+		const char* failMsg = "Failed to query audio device names";
+		LOGERROR(failMsg);
+		m_SoundCardNames = failMsg;
+	}
 
 	// Driver version
 	const ALCchar* al_version = alGetString(AL_VERSION);
@@ -867,7 +871,7 @@ CStr8 CSoundManager::GetSoundCardNames() const
 #else // CONFIG2_AUDIO
 
 void ISoundManager::CreateSoundManager(){}
-void ISoundManager::SetEnabled(bool UNUSED(doEnable)){}
+void ISoundManager::SetEnabled(bool /*doEnable*/){}
 void ISoundManager::CloseGame(){}
 void ISoundManager::RunHardwareDetection() {}
 CStr8 ISoundManager::GetSoundCardNames() const { return CStr8(); };

@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,13 +18,19 @@
 #ifndef INCLUDED_GAME
 #define INCLUDED_GAME
 
-#include "graphics/Color.h"
+#include "lib/code_annotation.h"
+#include "lib/os_path.h"
+#include "lib/types.h"
 #include "ps/CStr.h"
 #include "ps/Errors.h"
-#include "lib/os_path.h"
-#include "scriptinterface/ScriptTypes.h"
 #include "simulation2/helpers/Player.h"
+#include "simulation2/system/DebugOptions.h"
 
+#include <algorithm>
+#include <cmath>
+#include <iosfwd>
+#include <js/TypeDecls.h>
+#include <string>
 #include <vector>
 
 class CGameView;
@@ -32,6 +38,7 @@ class CSimulation2;
 class CTurnManager;
 class CWorld;
 class IReplayLogger;
+struct CColor;
 
 /**
  * The container that holds the rules, resources and attributes of the game.
@@ -82,7 +89,7 @@ class CGame
 	CTurnManager* m_TurnManager;
 
 public:
-	CGame(bool replayLog);
+	CGame(bool replayLog, const SimulationDebugOptions debugOptions = {});
 	~CGame();
 
 	/**
@@ -114,6 +121,8 @@ public:
 	int GetViewedPlayerID();
 	void SetViewedPlayerID(player_id_t playerID);
 
+	bool CheatsEnabled() const;
+
 	/**
 	 * Check if the game is finished by testing if there's a winner.
 	 * It is used to end a non visual autostarted game.
@@ -121,6 +130,11 @@ public:
 	 * @return true if there's a winner, false otherwise.
 	 */
 	bool IsGameFinished() const;
+
+	/**
+	 * Check if the given player has been defeated or won the game.
+	 */
+	bool PlayerFinished(player_id_t playerID) const;
 
 	/**
 	 * Retrieving player colors from scripts is slow, so this updates an
@@ -213,6 +227,8 @@ private:
 
 	int LoadInitialState(const std::string& savedState);
 	bool m_IsSavedGame; // true if loading a saved game; false for a new game
+
+	bool m_CheatsEnabled;
 
 	int LoadVisualReplayData();
 	OsPath m_ReplayPath;

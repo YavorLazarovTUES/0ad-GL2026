@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,14 +20,18 @@
 #include "JSInterface_L10n.h"
 
 #include "i18n/L10n.h"
-#include "lib/utf8.h"
 #include "ps/CLogger.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptRequest.h"
+
+#include <unicode/utypes.h>
+#include <string>
+#include <vector>
+
+namespace JS { class CallArgs; }
 
 namespace JSI_L10n
 {
-L10n* L10nGetter(const ScriptRequest&, JS::CallArgs&)
+L10n* L10nGetter(const Script::Request&, JS::CallArgs&)
 {
 	if (!g_L10n.IsInitialised())
 	{
@@ -59,21 +63,21 @@ std::string FormatMillisecondsIntoDateStringGMT(UDate milliseconds, const std::s
 	return g_L10n.FormatMillisecondsIntoDateString(milliseconds, formatString, false);
 }
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
 #define REGISTER_L10N(name) \
-	ScriptFunction::Register<&L10n::name, &L10nGetter>(rq, #name);
+	Script::Function::Register<&L10n::name, &L10nGetter>(rq, #name);
 #define REGISTER_L10N_FUNC(func, name) \
-	ScriptFunction::Register<func, &L10nGetter>(rq, name);
+	Script::Function::Register<func, &L10nGetter>(rq, name);
 
 	REGISTER_L10N(Translate)
 	REGISTER_L10N(TranslateWithContext)
 	REGISTER_L10N(TranslatePlural)
 	REGISTER_L10N(TranslatePluralWithContext)
 	REGISTER_L10N(TranslateLines)
-	ScriptFunction::Register<&TranslateArray>(rq, "TranslateArray");
-	ScriptFunction::Register<&FormatMillisecondsIntoDateStringLocal>(rq, "FormatMillisecondsIntoDateStringLocal");
-	ScriptFunction::Register<&FormatMillisecondsIntoDateStringGMT>(rq, "FormatMillisecondsIntoDateStringGMT");
+	Script::Function::Register<&TranslateArray>(rq, "TranslateArray");
+	Script::Function::Register<&FormatMillisecondsIntoDateStringLocal>(rq, "FormatMillisecondsIntoDateStringLocal");
+	Script::Function::Register<&FormatMillisecondsIntoDateStringGMT>(rq, "FormatMillisecondsIntoDateStringGMT");
 	REGISTER_L10N(FormatDecimalNumberIntoString)
 
 	REGISTER_L10N(GetSupportedLocaleBaseNames)
@@ -84,7 +88,6 @@ void RegisterScriptFunctions(const ScriptRequest& rq)
 	REGISTER_L10N_FUNC(static_cast<std::string(L10n::*)(const std::string&) const>(&L10n::GetDictionaryLocale), "GetDictionaryLocale");
 	REGISTER_L10N(GetDictionariesForLocale)
 
-	REGISTER_L10N(UseLongStrings)
 	REGISTER_L10N(GetLocaleLanguage)
 	REGISTER_L10N(GetLocaleBaseName)
 	REGISTER_L10N(GetLocaleCountry)

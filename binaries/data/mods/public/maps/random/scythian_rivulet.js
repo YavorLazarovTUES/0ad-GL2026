@@ -1,7 +1,7 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
 	const tMainTerrain = "alpine_snow_a";
 	const tTier1Terrain = "snow rough";
@@ -78,9 +78,9 @@ function* GenerateMap()
 
 	const startAngle = randomAngle();
 
-	const [playerIDs, playerPosition] = playerPlacementRiver(startAngle, fractionToTiles(0.6));
+	const { playerIDs, playerPosition } = playerPlacementRiver(startAngle, fractionToTiles(0.6));
 
-	if (!isNomad())
+	if (!mapSettings.Nomad)
 		for (const position of playerPosition)
 			addCivicCenterAreaToClass(position, clPlayer);
 
@@ -283,9 +283,9 @@ function* GenerateMap()
 			[new SimpleObject(oFish, 1, 2, 0, 2)]
 		],
 		[
-			3 * numPlayers
+			12 * numPlayers
 		],
-		[avoidClasses(clPlayer, 8, clForest, 1, clHill, 4), stayClasses (clWater, 6)],
+		[avoidClasses(clPlayer, 8, clForest, 1, clHill, 4), stayClasses (clWater, 2)],
 		clFood);
 
 	g_Map.log("Creating shallow flora");

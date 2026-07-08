@@ -27,12 +27,14 @@ var g_ModIOState = {
 	/**
 	 * Finished status indicators
 	 */
-	"ready": progressData => {
+	"ready": (progressData, closePageCallback) =>
+	{
 		// GameID acquired, ready to fetch mod list
 		if (!g_RequestCancelled)
-			updateModList();
+			updateModList(closePageCallback);
 	},
-	"listed": progressData => {
+	"listed": progressData =>
+	{
 		// List of available mods acquired
 
 		// Only run this once (for each update).
@@ -44,7 +46,8 @@ var g_ModIOState = {
 		g_ModsAvailableOnline = Engine.ModIoGetMods();
 		displayMods();
 	},
-	"success": progressData => {
+	"success": progressData =>
+	{
 		// Successfully acquired a mod file
 		hideDialog();
 		Engine.GetGUIObjectByName("downloadButton").enabled = true;
@@ -52,20 +55,24 @@ var g_ModIOState = {
 	/**
 	 * In-progress status indicators.
 	 */
-	"gameid": progressData => {
+	"gameid": progressData =>
+	{
 		// Acquiring GameID from mod.io
 	},
-	"listing": progressData => {
+	"listing": progressData =>
+	{
 		// Acquiring list of available mods from mod.io
 	},
-	"downloading": progressData => {
+	"downloading": progressData =>
+	{
 		// Downloading a mod file
 		updateProgressBar(progressData.progress, g_ModsAvailableOnline[selectedModIndex()].filesize);
 	},
 	/**
 	 * Error/Failure status indicators.
 	 */
-	"failed_gameid": async(progressData) => {
+	"failed_gameid": async(progressData, closePageCallback) =>
+	{
 		// Game ID couldn't be retrieved
 		const promise = showErrorMessageBox(
 			sprintf(translateWithContext("mod.io error message", "Game ID could not be retrieved.\n\n%(technicalDetails)s"), {
@@ -76,11 +83,12 @@ var g_ModIOState = {
 		if (!promise)
 			return;
 		if (await promise === 0)
-			closePage();
+			closePageCallback();
 		else
 			init();
 	},
-	"failed_listing": async(progressData) => {
+	"failed_listing": async(progressData, closePageCallback) =>
+	{
 		// Mod list couldn't be retrieved
 		const promise = showErrorMessageBox(
 			sprintf(translateWithContext("mod.io error message", "Mod List could not be retrieved.\n\n%(technicalDetails)s"), {
@@ -91,11 +99,12 @@ var g_ModIOState = {
 		if (!promise)
 			return;
 		if (await promise === 0)
-			cancelModListUpdate();
+			cancelModListUpdate(closePageCallback);
 		else
-			updateModList();
+			updateModList(closePageCallback);
 	},
-	"failed_downloading": async(progressData) => {
+	"failed_downloading": async(progressData) =>
+	{
 		// File couldn't be retrieved
 		const promise = showErrorMessageBox(
 			sprintf(translateWithContext("mod.io error message", "File download failed.\n\n%(technicalDetails)s"), {
@@ -110,7 +119,8 @@ var g_ModIOState = {
 		else
 			downloadMod();
 	},
-	"failed_filecheck": async(progressData) => {
+	"failed_filecheck": async(progressData) =>
+	{
 		// The file is corrupted
 		const promise = showErrorMessageBox(
 			sprintf(translateWithContext("mod.io error message", "File verification error.\n\n%(technicalDetails)s"), {
@@ -126,52 +136,61 @@ var g_ModIOState = {
 	/**
 	 * Default
 	 */
-	"none": progressData => {
+	"none": progressData =>
+	{
 		// Nothing has happened yet.
 	}
 };
 
 function init(data)
 {
-	progressDialog(
+	const promise = progressDialog(
 		translate("Initializing mod.io interface."),
 		translate("Initializing"),
 		false,
-		translate("Cancel"),
-		closePage);
+		translate("Cancel"));
 
 	g_Failure = false;
 	Engine.ModIoStartGetGameId();
+
+	return Promise.race([
+		promise,
+		new Promise(closePageCallback =>
+		{
+			Engine.GetGUIObjectByName("backButton").onPress = closePageCallback;
+			Engine.GetGUIObjectByName("modio").onTick = onTick.bind(null, closePageCallback);
+		})
+	]);
 }
 
-function onTick()
+function onTick(closePageCallback)
 {
-	let progressData = Engine.ModIoGetDownloadProgress();
+	const progressData = Engine.ModIoGetDownloadProgress();
 
-	let handler = g_ModIOState[progressData.status];
+	const handler = g_ModIOState[progressData.status];
 	if (!handler)
 	{
 		warn("Unrecognized progress status: " + progressData.status);
 		return;
 	}
 
-	handler(progressData);
+	handler(progressData, closePageCallback);
 	if (!progressData.status.startsWith("failed"))
 		Engine.ModIoAdvanceRequest();
 }
 
 function displayMods()
 {
-	let modsAvailableList = Engine.GetGUIObjectByName("modsAvailableList");
-	let selectedMod = modsAvailableList.list[modsAvailableList.selected];
+	const modsAvailableList = Engine.GetGUIObjectByName("modsAvailableList");
+	const selectedMod = modsAvailableList.list[modsAvailableList.selected];
 	modsAvailableList.selected = -1;
 
 	let displayedMods = clone(g_ModsAvailableOnline);
 	for (let i = 0; i < displayedMods.length; ++i)
 		displayedMods[i].i = i;
 
-	let filterColumns = ["name", "name_id", "summary"];
-	let filterText = Engine.GetGUIObjectByName("modFilter").caption.toLowerCase();
+	const filterColumns = ["name", "name_id", "summary"];
+	const filterText = Engine.GetGUIObjectByName("modFilter").caption.toLowerCase();
 	if (Engine.GetGUIObjectByName("compatibilityFilter").checked)
 		displayedMods = displayedMods.filter(mod => !mod.invalid);
 	displayedMods = displayedMods.filter(mod => filterColumns.some(column => mod[column].toLowerCase().indexOf(filterText) != -1));
@@ -193,7 +212,7 @@ function displayMods()
 
 function clearModList()
 {
-	let modsAvailableList = Engine.GetGUIObjectByName("modsAvailableList");
+	const modsAvailableList = Engine.GetGUIObjectByName("modsAvailableList");
 	modsAvailableList.selected = -1;
 	modsAvailableList.list_name = [];
 	modsAvailableList.list_name_id = [];
@@ -205,7 +224,7 @@ function clearModList()
 
 function selectedModIndex()
 {
-	let modsAvailableList = Engine.GetGUIObjectByName("modsAvailableList");
+	const modsAvailableList = Engine.GetGUIObjectByName("modsAvailableList");
 
 	if (modsAvailableList.selected == -1)
 		return undefined;
@@ -220,21 +239,21 @@ function isSelectedModInvalid(selected)
 
 function showModDescription()
 {
-	let selected = selectedModIndex();
-	let isSelected = selected !== undefined;
-	let isInvalid = isSelectedModInvalid(selected);
+	const selected = selectedModIndex();
+	const isSelected = selected !== undefined;
+	const isInvalid = isSelectedModInvalid(selected);
 	Engine.GetGUIObjectByName("downloadButton").enabled = isSelected && !isInvalid;
 	Engine.GetGUIObjectByName("modDescription").caption = isSelected && !isInvalid ? g_ModsAvailableOnline[selected].summary : "";
-	Engine.GetGUIObjectByName("modError").caption = isSelected && isInvalid ? sprintf(translate("Invalid mod: %(error)s"), {"error": g_ModsAvailableOnline[selected].error }) : "";
+	Engine.GetGUIObjectByName("modError").caption = isSelected && isInvalid ? sprintf(translate("Invalid mod: %(error)s"), { "error": g_ModsAvailableOnline[selected].error }) : "";
 }
 
-function cancelModListUpdate()
+function cancelModListUpdate(closePageCallback)
 {
 	cancelRequest();
 
 	if (!g_ModsAvailableOnline.length)
 	{
-		closePage();
+		closePageCallback();
 		return;
 	}
 
@@ -242,44 +261,48 @@ function cancelModListUpdate()
 	Engine.GetGUIObjectByName('refreshButton').enabled = true;
 }
 
-function updateModList()
+async function updateModList(closePageCallback)
 {
 	clearModList();
 	Engine.GetGUIObjectByName("refreshButton").enabled = false;
 
-	progressDialog(
+	const promise = progressDialog(
 		translate("Fetching and updating list of available mods."),
 		translate("Updating"),
 		false,
-		translate("Cancel Update"),
-		cancelModListUpdate);
+		translate("Cancel Update"));
 
 	g_Failure = false;
 	g_RequestCancelled = false;
 	Engine.ModIoStartListMods();
+
+	await promise;
+	cancelModListUpdate(closePageCallback);
 }
 
-function downloadMod()
+async function downloadMod()
 {
-	let selected = selectedModIndex();
+	const selected = selectedModIndex();
 
 	if (isSelectedModInvalid(selected))
 		return;
 
-	progressDialog(
+	const promise = progressDialog(
 		sprintf(translate("Downloading “%(modname)s”"), {
 			"modname": g_ModsAvailableOnline[selected].name
 		}),
 		translate("Downloading"),
 		true,
-		translate("Cancel Download"),
-		() => { Engine.GetGUIObjectByName("downloadButton").enabled = true; });
+		translate("Cancel Download"));
 
 	Engine.GetGUIObjectByName("downloadButton").enabled = false;
 
 	g_Failure = false;
 	g_RequestCancelled = false;
 	Engine.ModIoStartDownloadMod(selected);
+
+	await promise;
+	Engine.GetGUIObjectByName("downloadButton").enabled = true;
 }
 
 function cancelRequest()
@@ -288,11 +311,6 @@ function cancelRequest()
 	g_RequestCancelled = true;
 	Engine.ModIoCancelRequest();
 	hideDialog();
-}
-
-function closePage()
-{
-	Engine.PopGuiPage();
 }
 
 function showErrorMessageBox(caption, title, buttonCaptions)
@@ -304,27 +322,28 @@ function showErrorMessageBox(caption, title, buttonCaptions)
 	return messageBox(500, 250, caption, title, buttonCaptions);
 }
 
-function progressDialog(dialogCaption, dialogTitle, showProgressBar, buttonCaption, buttonAction)
+async function progressDialog(dialogCaption, dialogTitle, showProgressBar, buttonCaption)
 {
 	Engine.GetGUIObjectByName("downloadDialog_title").caption = dialogTitle;
 
-	let downloadDialog_caption = Engine.GetGUIObjectByName("downloadDialog_caption");
-	downloadDialog_caption.caption = dialogCaption;
-
-	let size = downloadDialog_caption.size;
-	size.rbottom = showProgressBar ? 40 : 80;
-	downloadDialog_caption.size = size;
+	const downloadDialogCaption = Engine.GetGUIObjectByName("downloadDialog_caption");
+	downloadDialogCaption.caption = dialogCaption;
+	downloadDialogCaption.size.rbottom = showProgressBar ? 40 : 80;
 
 	Engine.GetGUIObjectByName("downloadDialog_progress").hidden = !showProgressBar;
 	Engine.GetGUIObjectByName("downloadDialog_status").hidden = !showProgressBar;
 
-	let downloadDialog_button = Engine.GetGUIObjectByName("downloadDialog_button");
-	downloadDialog_button.caption = buttonCaption;
-	downloadDialog_button.onPress = () => { cancelRequest(); buttonAction(); };
-
 	Engine.GetGUIObjectByName("downloadDialog").hidden = false;
 
 	g_RequestStartTime = Date.now();
+
+	const downloadDialog_button = Engine.GetGUIObjectByName("downloadDialog_button");
+	downloadDialog_button.caption = buttonCaption;
+	await new Promise(resolve =>
+	{
+		downloadDialog_button.onPress = resolve;
+	});
+	cancelRequest();
 }
 
 /*
@@ -333,11 +352,11 @@ function progressDialog(dialogCaption, dialogTitle, showProgressBar, buttonCapti
  */
 function updateProgressBar(progress, totalSize)
 {
-	let progressPercent = Math.ceil(progress * 100);
+	const progressPercent = Math.ceil(progress * 100);
 	Engine.GetGUIObjectByName("downloadDialog_progressBar").progress = progressPercent;
 
-	let transferredSize = progress * totalSize;
-	let transferredSizeObj = filesizeToObj(transferredSize);
+	const transferredSize = progress * totalSize;
+	const transferredSizeObj = filesizeToObj(transferredSize);
 	// Translation: Mod file download indicator. Current size over expected final size, with percentage complete.
 	Engine.GetGUIObjectByName("downloadDialog_progressText").caption = sprintf(translate("%(current)s / %(total)s (%(percent)s%%)"), {
 		"current": filesizeToObj(totalSize).unit == transferredSizeObj.unit ? transferredSizeObj.filesize : filesizeToString(transferredSize),
@@ -345,9 +364,9 @@ function updateProgressBar(progress, totalSize)
 		"percent": progressPercent
 	});
 
-	let elapsedTime = Date.now() - g_RequestStartTime;
-	let remainingTime = progressPercent ? (100 - progressPercent) * elapsedTime / progressPercent : 0;
-	let avgSpeed = filesizeToObj(transferredSize / (elapsedTime / 1000));
+	const elapsedTime = Date.now() - g_RequestStartTime;
+	const remainingTime = progressPercent ? (100 - progressPercent) * elapsedTime / progressPercent : 0;
+	const avgSpeed = filesizeToObj(transferredSize / (elapsedTime / 1000));
 	// Translation: Mod file download status message.
 	Engine.GetGUIObjectByName("downloadDialog_status").caption = sprintf(translate("Time Elapsed: %(elapsed)s\nEstimated Time Remaining: %(remaining)s\nAverage Speed: %(avgSpeed)s"), {
 		"elapsed": timeToString(elapsedTime),

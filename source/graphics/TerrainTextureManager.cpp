@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,30 +19,42 @@
 
 #include "TerrainTextureManager.h"
 
-#include "graphics/TerrainTextureEntry.h"
 #include "graphics/TerrainProperties.h"
-#include "graphics/TextureManager.h"
+#include "graphics/TerrainTextureEntry.h"
+#include "lib/alignment.h"
 #include "lib/allocators/shared_ptr.h"
 #include "lib/bits.h"
+#include "lib/debug.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/file/vfs/vfs_util.h"
+#include "lib/path.h"
+#include "lib/status.h"
 #include "lib/tex/tex.h"
-#include "lib/timer.h"
+#include "maths/MathUtil.h"
 #include "ps/CLogger.h"
 #include "ps/Filesystem.h"
+#include "ps/XMB/XMBStorage.h"
 #include "ps/XML/Xeromyces.h"
+#include "renderer/backend/Format.h"
 #include "renderer/backend/IDevice.h"
-#include "renderer/Renderer.h"
+#include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/Sampler.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <utility>
 #include <vector>
+
+class CFileInfo;
 
 CTerrainTextureManager::CTerrainTextureManager(Renderer::Backend::IDevice* device)
 	: m_Device(device)
 {
 	if (!VfsDirectoryExists(L"art/terrains/"))
 		return;
-	if (!CXeromyces::AddValidator(g_VFS, "terrain", "art/terrains/terrain.rng"))
+	if (!g_Xeromyces.AddValidator(g_VFS, "terrain", "art/terrains/terrain.rng"))
 		LOGERROR("CTerrainTextureManager: failed to load grammar file 'art/terrains/terrain.rng'");
-	if (!CXeromyces::AddValidator(g_VFS, "terrain_texture", "art/terrains/terrain_texture.rng"))
+	if (!g_Xeromyces.AddValidator(g_VFS, "terrain_texture", "art/terrains/terrain_texture.rng"))
 		LOGERROR("CTerrainTextureManager: failed to load grammar file 'art/terrains/terrain_texture.rng'");
 }
 
@@ -56,43 +68,31 @@ CTerrainTextureManager::~CTerrainTextureManager()
 
 void CTerrainTextureManager::UnloadTerrainTextures()
 {
-	for (CTerrainTextureEntry* const& te : m_TextureEntries)
-		delete te;
 	m_TextureEntries.clear();
-
-	for (const std::pair<const CStr, CTerrainGroup*>& tg : m_TerrainGroups)
-		delete tg.second;
 	m_TerrainGroups.clear();
 
 	m_LastGroupIndex = 0;
 }
 
-CTerrainTextureEntry* CTerrainTextureManager::FindTexture(const CStr& tag_) const
+CTerrainTextureEntry* CTerrainTextureManager::FindTexture(const CStr& tag_)
 {
 	CStr tag = tag_.BeforeLast("."); // Strip extension
 
-	for (CTerrainTextureEntry* const& te : m_TextureEntries)
-		if (te->GetTag() == tag)
-			return te;
+	for (const auto& textureEntry : m_TextureEntries)
+		if (textureEntry->GetTag() == tag)
+			return textureEntry.get();
 
-	LOGWARNING("CTerrainTextureManager: Couldn't find terrain %s", tag.c_str());
-	return 0;
+	LOGWARNING("CTerrainTextureManager: Couldn't find terrain %s using fallback texture", tag.c_str());
+
+	// If the texture is not found, return a default texture.
+	// This is a fallback texture, so it should not be used in the editor.
+	std::unique_ptr<CTerrainTextureEntry> fallback{std::make_unique<CTerrainTextureEntry>(tag)};
+	return m_TextureEntries.emplace_back(std::move(fallback)).get();
 }
 
-CTerrainTextureEntry* CTerrainTextureManager::AddTexture(const CTerrainPropertiesPtr& props, const VfsPath& path)
+void CTerrainTextureManager::AddTexture(const CTerrainPropertiesPtr& props, const VfsPath& path)
 {
-	CTerrainTextureEntry* entry = new CTerrainTextureEntry(props, path);
-	m_TextureEntries.push_back(entry);
-	return entry;
-}
-
-void CTerrainTextureManager::DeleteTexture(CTerrainTextureEntry* entry)
-{
-	std::vector<CTerrainTextureEntry*>::iterator it = std::find(m_TextureEntries.begin(), m_TextureEntries.end(), entry);
-	if (it != m_TextureEntries.end())
-		m_TextureEntries.erase(it);
-
-	delete entry;
+	m_TextureEntries.emplace_back(std::make_unique<CTerrainTextureEntry>(props, path));
 }
 
 struct AddTextureCallbackData
@@ -113,7 +113,7 @@ static Status AddTextureDirCallback(const VfsPath& pathname, const uintptr_t cbD
 	return INFO::OK;
 }
 
-static Status AddTextureCallback(const VfsPath& pathname, const CFileInfo& UNUSED(fileInfo), const uintptr_t cbData)
+static Status AddTextureCallback(const VfsPath& pathname, const CFileInfo&, const uintptr_t cbData)
 {
 	AddTextureCallbackData& data = *(AddTextureCallbackData*)cbData;
 	if (pathname.Basename() != L"terrains")
@@ -122,20 +122,33 @@ static Status AddTextureCallback(const VfsPath& pathname, const CFileInfo& UNUSE
 	return INFO::OK;
 }
 
-int CTerrainTextureManager::LoadTerrainTextures()
+PS::Loader::Task CTerrainTextureManager::LoadTerrainTextures()
 {
-	AddTextureCallbackData data = {this, CTerrainPropertiesPtr(new CTerrainProperties(CTerrainPropertiesPtr()))};
-	vfs::ForEachFile(g_VFS, L"art/terrains/", AddTextureCallback, (uintptr_t)&data, L"*.xml", vfs::DIR_RECURSIVE, AddTextureDirCallback, (uintptr_t)&data);
-	return 0;
+	vfs::ForEachFileContext context{VfsPath{L"art/terrains/"}};
+	AddTextureCallbackData data{this, std::make_shared<CTerrainProperties>(CTerrainPropertiesPtr())};
+	while (true)
+	{
+		vfs::ForEachFileNext(context, g_VFS, AddTextureCallback,
+			reinterpret_cast<uintptr_t>(&data), L"*.xml", vfs::DIR_RECURSIVE,
+			AddTextureDirCallback, reinterpret_cast<uintptr_t>(&data));
+
+		if (context.empty())
+			co_return 0;
+
+		// We don't know exact number so just using a rough approximation of the
+		// current number.
+		const size_t totalApproximateAmountOfTextures{1000};
+		co_yield Clamp<int>(m_TextureEntries.size() * 90 / totalApproximateAmountOfTextures, 10, 100);
+	}
 }
 
 CTerrainGroup* CTerrainTextureManager::FindGroup(const CStr& name)
 {
 	TerrainGroupMap::const_iterator it = m_TerrainGroups.find(name);
 	if (it != m_TerrainGroups.end())
-		return it->second;
+		return it->second.get();
 	else
-		return m_TerrainGroups[name] = new CTerrainGroup(name, ++m_LastGroupIndex);
+		return m_TerrainGroups.insert_or_assign(name, std::make_unique<CTerrainGroup>(name, ++m_LastGroupIndex)).first->second.get();
 }
 
 // LoadAlphaMaps: load the 14 default alpha maps, pack them into one composite texture and

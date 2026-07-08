@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,36 +20,54 @@
 #include "CGUI.h"
 
 #include "graphics/Canvas2D.h"
+#include "graphics/Color.h"
+#include "gui/CGUISetting.h"
+#include "gui/CGUISprite.h"
+#include "gui/GUIObjectEventBroadcaster.h"
 #include "gui/IGUIScrollBar.h"
 #include "gui/ObjectBases/IGUIObject.h"
 #include "gui/ObjectTypes/CGUIDummyObject.h"
 #include "gui/ObjectTypes/CTooltip.h"
-#include "gui/Scripting/ScriptFunctions.h"
 #include "gui/Scripting/JSInterface_GUIProxy.h"
+#include "gui/Scripting/ScriptFunctions.h"
+#include "gui/SettingTypes/CGUISize.h"
 #include "i18n/L10n.h"
-#include "lib/allocators/DynamicArena.h"
-#include "lib/allocators/STLAllocators.h"
 #include "lib/bits.h"
-#include "lib/input.h"
-#include "lib/sysdep/sysdep.h"
+#include "lib/debug.h"
+#include "lib/external_libraries/libsdl.h"
+#include "lib/file/vfs/vfs_util.h"
+#include "lib/path.h"
 #include "lib/timer.h"
 #include "lib/utf8.h"
 #include "maths/Size2D.h"
+#include "network/NetClient.h"
 #include "ps/CLogger.h"
+#include "ps/Errors.h"
 #include "ps/Filesystem.h"
 #include "ps/GameSetup/Config.h"
-#include "ps/Globals.h"
 #include "ps/Hotkey.h"
-#include "ps/Profile.h"
-#include "ps/Pyrogenesis.h"
 #include "ps/VideoMode.h"
+#include "ps/XMB/XMBData.h"
 #include "ps/XML/Xeromyces.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "renderer/backend/Sampler.h"
+#include "scriptinterface/FunctionWrapper.h"
+#include "scriptinterface/Object.h"
+#include "scriptinterface/Exceptions.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 
+#include <algorithm>
+#include <js/CallAndConstruct.h>
+#include <js/Promise.h>
+#include <optional>
+#include <SDL_events.h>
+#include <SDL_mouse.h>
+#include <stdexcept>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 
 const double SELECT_DBLCLICK_RATE = 0.5;
 const u32 MAX_OBJECT_DEPTH = 100; // Max number of nesting for GUI includes. Used to detect recursive inclusion
@@ -63,45 +81,23 @@ const CStr CGUI::EventNameMouseRightPress = "MouseRightPress";
 const CStr CGUI::EventNameMouseLeftPress = "MouseLeftPress";
 const CStr CGUI::EventNameMouseWheelDown = "MouseWheelDown";
 const CStr CGUI::EventNameMouseWheelUp = "MouseWheelUp";
+const CStr CGUI::EventNameMouseWheelLeft = "MouseWheelLeft";
+const CStr CGUI::EventNameMouseWheelRight = "MouseWheelRight";
 const CStr CGUI::EventNameMouseLeftDoubleClick = "MouseLeftDoubleClick";
 const CStr CGUI::EventNameMouseLeftRelease = "MouseLeftRelease";
 const CStr CGUI::EventNameMouseRightDoubleClick = "MouseRightDoubleClick";
 const CStr CGUI::EventNameMouseRightRelease = "MouseRightRelease";
 
-namespace
-{
-
-struct VisibleObject
-{
-	IGUIObject* object;
-	// Index of the object in a depth-first search inside GUI tree.
-	u32 index;
-	// Cached value of GetBufferedZ to avoid recursive calls in a deep hierarchy.
-	float bufferedZ;
-};
-
-template<class Container>
-void CollectVisibleObjectsRecursively(const std::vector<IGUIObject*>& objects, Container* visibleObjects)
-{
-	for (IGUIObject* const& object : objects)
-	{
-		if (!object->IsHidden())
-		{
-			visibleObjects->emplace_back(VisibleObject{object, static_cast<u32>(visibleObjects->size()), 0.0f});
-			CollectVisibleObjectsRecursively(object->GetChildren(), visibleObjects);
-		}
-	}
-}
-
-} // anonynous namespace
-
-CGUI::CGUI(ScriptContext& context)
+CGUI::CGUI(Script::Context& context)
 	: m_BaseObject(std::make_unique<CGUIDummyObject>(*this)),
 	  m_FocusedObject(nullptr),
 	  m_InternalNameNumber(0),
 	  m_MouseButtons(0)
 {
-	m_ScriptInterface = std::make_shared<ScriptInterface>("Engine", "GUIPage", context);
+	m_ScriptInterface = std::make_shared<Script::Interface>("Engine", "GUIPage", context,
+		[](const VfsPath& path){
+			return path.string8().find("gui/") == 0;
+		});
 	m_ScriptInterface->SetCallbackData(this);
 
 	GuiScriptingInit(*m_ScriptInterface);
@@ -110,29 +106,29 @@ CGUI::CGUI(ScriptContext& context)
 
 CGUI::~CGUI()
 {
-	for (const std::pair<const CStr, IGUIObject*>& p : m_pAllObjects)
-		delete p.second;
+	if (g_NetClient)
+		g_NetClient->Unregister(m_ScriptInterface.get());
 }
 
-InReaction CGUI::HandleEvent(const SDL_Event_* ev)
+Input::Reaction CGUI::HandleEvent(const SDL_Event& ev)
 {
-	InReaction ret = IN_PASS;
+	Input::Reaction ret = Input::Reaction::PASS;
 
-	if (ev->ev.type == SDL_HOTKEYDOWN || ev->ev.type == SDL_HOTKEYPRESS || ev->ev.type == SDL_HOTKEYUP)
+	if (ev.type == SDL_HOTKEYDOWN || ev.type == SDL_HOTKEYPRESS || ev.type == SDL_HOTKEYUP)
 	{
-		const char* hotkey = static_cast<const char*>(ev->ev.user.data1);
+		const char* hotkey = static_cast<const char*>(ev.user.data1);
 
-		const CStr& eventName = ev->ev.type == SDL_HOTKEYPRESS ? EventNamePress : ev->ev.type == SDL_HOTKEYDOWN ? EventNameKeyDown : EventNameRelease;
+		const CStr& eventName = ev.type == SDL_HOTKEYPRESS ? EventNamePress : ev.type == SDL_HOTKEYDOWN ? EventNameKeyDown : EventNameRelease;
 
 		if (m_GlobalHotkeys.find(hotkey) != m_GlobalHotkeys.end() && m_GlobalHotkeys[hotkey].find(eventName) != m_GlobalHotkeys[hotkey].end())
 		{
-			ret = IN_HANDLED;
+			ret = Input::Reaction::HANDLED;
 
-			ScriptRequest rq(m_ScriptInterface);
+			Script::Request rq(m_ScriptInterface);
 			JS::RootedObject globalObj(rq.cx, rq.glob);
 			JS::RootedValue result(rq.cx);
 			if (!JS_CallFunctionValue(rq.cx, globalObj, m_GlobalHotkeys[hotkey][eventName], JS::HandleValueArray::empty(), &result))
-				ScriptException::CatchPending(rq);
+				Script::Exception::CatchPending(rq);
 		}
 
 		std::map<CStr, std::vector<IGUIObject*> >::iterator it = m_HotkeyObjects.find(hotkey);
@@ -141,35 +137,35 @@ InReaction CGUI::HandleEvent(const SDL_Event_* ev)
 			{
 				if (!obj->IsEnabled())
 					continue;
-				if (ev->ev.type == SDL_HOTKEYPRESS)
+				if (ev.type == SDL_HOTKEYPRESS)
 					ret = obj->SendEvent(GUIM_PRESSED, EventNamePress);
-				else if (ev->ev.type == SDL_HOTKEYDOWN)
+				else if (ev.type == SDL_HOTKEYDOWN)
 					ret = obj->SendEvent(GUIM_KEYDOWN, EventNameKeyDown);
 				else
 					ret = obj->SendEvent(GUIM_RELEASED, EventNameRelease);
 			}
 	}
 
-	else if (ev->ev.type == SDL_MOUSEMOTION)
+	else if (ev.type == SDL_MOUSEMOTION)
 	{
 		// Yes the mouse position is stored as float to avoid
 		//  constant conversions when operating in a
 		//  float-based environment.
-		m_MousePos = CVector2D((float)ev->ev.motion.x / g_VideoMode.GetScale(), (float)ev->ev.motion.y / g_VideoMode.GetScale());
+		m_MousePos = CVector2D(static_cast<float>(ev.motion.x) / g_VideoMode.GetScale(), static_cast<float>(ev.motion.y) / g_VideoMode.GetScale());
 
 		SGUIMessage msg(GUIM_MOUSE_MOTION);
-		m_BaseObject->RecurseObject(&IGUIObject::IsHiddenOrGhost, &IGUIObject::HandleMessage, msg);
+		m_BaseObject->RecurseObject(&IGUIObject::IsHiddenOrGhostOrOutOfBoundaries, &IGUIObject::HandleMessage, msg);
 	}
 
 	// Update m_MouseButtons. (BUTTONUP is handled later.)
-	else if (ev->ev.type == SDL_MOUSEBUTTONDOWN)
+	else if (ev.type == SDL_MOUSEBUTTONDOWN)
 	{
-		switch (ev->ev.button.button)
+		switch (ev.button.button)
 		{
 		case SDL_BUTTON_LEFT:
 		case SDL_BUTTON_RIGHT:
 		case SDL_BUTTON_MIDDLE:
-			m_MouseButtons |= Bit<unsigned int>(ev->ev.button.button);
+			m_MouseButtons |= Bit<unsigned int>(ev.button.button);
 			break;
 		default:
 			break;
@@ -178,9 +174,9 @@ InReaction CGUI::HandleEvent(const SDL_Event_* ev)
 
 	// Update m_MousePos (for delayed mouse button events)
 	CVector2D oldMousePos = m_MousePos;
-	if (ev->ev.type == SDL_MOUSEBUTTONDOWN || ev->ev.type == SDL_MOUSEBUTTONUP)
+	if (ev.type == SDL_MOUSEBUTTONDOWN || ev.type == SDL_MOUSEBUTTONUP)
 	{
-		m_MousePos = CVector2D((float)ev->ev.button.x / g_VideoMode.GetScale(), (float)ev->ev.button.y / g_VideoMode.GetScale());
+		m_MousePos = CVector2D(static_cast<float>(ev.button.x) / g_VideoMode.GetScale(), static_cast<float>(ev.button.y) / g_VideoMode.GetScale());
 	}
 
 	// Allow the focused object to pre-empt regular GUI events.
@@ -191,16 +187,16 @@ InReaction CGUI::HandleEvent(const SDL_Event_* ev)
 	// pNearest will after this point at the hovered object, possibly nullptr
 	IGUIObject* pNearest = FindObjectUnderMouse();
 
-	if (ret == IN_PASS)
+	if (ret == Input::Reaction::PASS)
 	{
 		// Now we'll call UpdateMouseOver on *all* objects,
 		// we'll input the one hovered, and they will each
 		// update their own data and send messages accordingly
-		m_BaseObject->RecurseObject(&IGUIObject::IsHiddenOrGhost, &IGUIObject::UpdateMouseOver, static_cast<IGUIObject* const&>(pNearest));
+		m_BaseObject->RecurseObject(&IGUIObject::IsHiddenOrGhostOrOutOfBoundaries, &IGUIObject::UpdateMouseOver, static_cast<IGUIObject* const&>(pNearest));
 
-		if (ev->ev.type == SDL_MOUSEBUTTONDOWN)
+		if (ev.type == SDL_MOUSEBUTTONDOWN)
 		{
-			switch (ev->ev.button.button)
+			switch (ev.button.button)
 			{
 			case SDL_BUTTON_LEFT:
 				// Focus the clicked object (or focus none if nothing clicked on)
@@ -219,16 +215,21 @@ InReaction CGUI::HandleEvent(const SDL_Event_* ev)
 				break;
 			}
 		}
-		else if (ev->ev.type == SDL_MOUSEWHEEL && pNearest)
+		else if (ev.type == SDL_MOUSEWHEEL && pNearest)
 		{
-			if (ev->ev.wheel.y < 0)
+			if (ev.wheel.y < 0)
 				ret = pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_DOWN, EventNameMouseWheelDown);
-			else if (ev->ev.wheel.y > 0)
+			else if (ev.wheel.y > 0)
 				ret = pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_UP, EventNameMouseWheelUp);
+
+			if (ev.wheel.x < 0)
+				ret = pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_LEFT, EventNameMouseWheelLeft);
+			else if (ev.wheel.x > 0)
+				ret = pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_RIGHT, EventNameMouseWheelRight);
 		}
-		else if (ev->ev.type == SDL_MOUSEBUTTONUP)
+		else if (ev.type == SDL_MOUSEBUTTONUP)
 		{
-			switch (ev->ev.button.button)
+			switch (ev.button.button)
 			{
 			case SDL_BUTTON_LEFT:
 				if (pNearest)
@@ -258,21 +259,21 @@ InReaction CGUI::HandleEvent(const SDL_Event_* ev)
 			m_BaseObject->RecurseObject(&IGUIObject::IsHidden, &IGUIObject::ResetStates);
 
 			// Since the hover state will have been reset, we reload it.
-			m_BaseObject->RecurseObject(&IGUIObject::IsHiddenOrGhost, &IGUIObject::UpdateMouseOver, static_cast<IGUIObject* const&>(pNearest));
+			m_BaseObject->RecurseObject(&IGUIObject::IsHiddenOrGhostOrOutOfBoundaries, &IGUIObject::UpdateMouseOver, static_cast<IGUIObject* const&>(pNearest));
 		}
 	}
 
 	// BUTTONUP's effect on m_MouseButtons is handled after
 	// everything else, so that e.g. 'press' handlers (activated
 	// on button up) see which mouse button had been pressed.
-	if (ev->ev.type == SDL_MOUSEBUTTONUP)
+	if (ev.type == SDL_MOUSEBUTTONUP)
 	{
-		switch (ev->ev.button.button)
+		switch (ev.button.button)
 		{
 		case SDL_BUTTON_LEFT:
 		case SDL_BUTTON_RIGHT:
 		case SDL_BUTTON_MIDDLE:
-			m_MouseButtons &= ~Bit<unsigned int>(ev->ev.button.button);
+			m_MouseButtons &= ~Bit<unsigned int>(ev.button.button);
 			break;
 		default:
 			break;
@@ -280,15 +281,15 @@ InReaction CGUI::HandleEvent(const SDL_Event_* ev)
 	}
 
 	// Restore m_MousePos (for delayed mouse button events)
-	if (ev->ev.type == SDL_MOUSEBUTTONDOWN || ev->ev.type == SDL_MOUSEBUTTONUP)
+	if (ev.type == SDL_MOUSEBUTTONDOWN || ev.type == SDL_MOUSEBUTTONUP)
 		m_MousePos = oldMousePos;
 
 	// Let GUI items handle keys after everything else, e.g. for input boxes.
-	if (ret == IN_PASS && GetFocusedObject())
+	if (ret == Input::Reaction::PASS && GetFocusedObject())
 	{
-		if (ev->ev.type == SDL_KEYUP || ev->ev.type == SDL_KEYDOWN ||
-			ev->ev.type == SDL_HOTKEYUP || ev->ev.type == SDL_HOTKEYDOWN ||
-			ev->ev.type == SDL_TEXTINPUT || ev->ev.type == SDL_TEXTEDITING)
+		if (ev.type == SDL_KEYUP || ev.type == SDL_KEYDOWN ||
+			ev.type == SDL_HOTKEYUP || ev.type == SDL_HOTKEYDOWN ||
+			ev.type == SDL_TEXTINPUT || ev.type == SDL_TEXTEDITING)
 			ret = GetFocusedObject()->ManuallyHandleKeys(ev);
 		// else will return IN_PASS because we never used the button.
 	}
@@ -296,25 +297,71 @@ InReaction CGUI::HandleEvent(const SDL_Event_* ev)
 	return ret;
 }
 
-void CGUI::TickObjects()
+JS::Value CGUI::GetHotloadData(const Script::Request& rq)
 {
-	m_BaseObject->RecurseObject(&IGUIObject::IsHiddenOrGhost, &IGUIObject::Tick);
+	JS::RootedValue oldNamespace{rq.cx, m_LoadModuleResult.has_value() ?
+		JS::ObjectValue(*m_LoadModuleResult->moduleNamespace) : rq.globalValue()};
+	JS::RootedValue hotloadDataVal(rq.cx);
+	Script::Function::Call(rq, oldNamespace, "getHotloadData", &hotloadDataVal);
+	return hotloadDataVal;
+}
+
+JSObject* CGUI::CallPageInit(const Script::Request& rq, Script::StructuredClone initData,
+	JS::HandleValue hotloadDataVal, const std::string_view scriptName)
+{
+	JS::RootedValue initDataVal{rq.cx};
+	if (initData)
+		Script::ReadStructuredClone(rq, initData, &initDataVal);
+	JS::RootedValue newNamespace{rq.cx, m_LoadModuleResult.has_value() ?
+		JS::ObjectValue(*m_LoadModuleResult->moduleNamespace) : rq.globalValue()};
+
+	if (!Script::HasProperty(rq, newNamespace, "init"))
+		return nullptr;
+
+	JS::RootedValue returnValue{rq.cx};
+	if (!Script::Function::Call(rq, newNamespace, "init", &returnValue, initDataVal, hotloadDataVal))
+	{
+		LOGERROR("GUI page '%s': Failed to call init() function", scriptName);
+		return nullptr;
+	}
+
+	if (!returnValue.isObject())
+		return nullptr;
+
+	JS::RootedObject returnObject{rq.cx, &returnValue.toObject()};
+	if (!JS::IsPromiseObject(returnObject))
+		return nullptr;
+
+	return returnObject;
+}
+
+JSObject* CGUI::TickObjects(const Script::Request& rq, Script::StructuredClone initData,
+	const std::string_view scriptName)
+{
+	JS::RootedObject sendingPromise{rq.cx};
+	if (m_LoadModuleResult.has_value() && m_LoadModuleResult->iterator->IsDone())
+	{
+		JS::RootedValue hotloadData{rq.cx, GetHotloadData(rq)};
+		try
+		{
+		      m_LoadModuleResult->moduleNamespace = m_LoadModuleResult->iterator->Get();
+		}
+		catch(const std::exception& e)
+		{
+		      LOGERROR("%s", e.what());
+		}
+		++m_LoadModuleResult->iterator;
+		sendingPromise = CallPageInit(rq, initData, hotloadData, scriptName);
+	}
+
+	m_BaseObject->RecurseObject(&IGUIObject::IsHiddenOrGhostOrOutOfBoundaries, &IGUIObject::Tick);
 	SendEventToAll(EventNameTick);
 	m_Tooltip.Update(FindObjectUnderMouse(), m_MousePos, *this);
+	return sendingPromise;
 }
 
-void CGUI::SendEventToAll(const CStr& eventName)
-{
-	std::unordered_map<CStr, std::vector<IGUIObject*>>::iterator it = m_EventObjects.find(eventName);
-	if (it == m_EventObjects.end())
-		return;
-
-	std::vector<IGUIObject*> copy = it->second;
-	for (IGUIObject* object : copy)
-		object->ScriptEvent(eventName);
-}
-
-void CGUI::SendEventToAll(const CStr& eventName, const JS::HandleValueArray& paramData)
+void CGUI::SendEventToAll(const CStr& eventName,
+	const JS::HandleValueArray paramData /* = JS::HandleValueArray::empty() */)
 {
 	std::unordered_map<CStr, std::vector<IGUIObject*>>::iterator it = m_EventObjects.find(eventName);
 	if (it == m_EventObjects.end())
@@ -327,42 +374,28 @@ void CGUI::SendEventToAll(const CStr& eventName, const JS::HandleValueArray& par
 
 void CGUI::Draw(CCanvas2D& canvas)
 {
-	using Arena = Allocators::DynamicArena<128 * KiB>;
-	using ObjectListAllocator = ProxyAllocator<VisibleObject, Arena>;
-	Arena arena;
-
-	std::vector<VisibleObject, ObjectListAllocator> visibleObjects((ObjectListAllocator(arena)));
-	CollectVisibleObjectsRecursively(m_BaseObject->GetChildren(), &visibleObjects);
-	for (VisibleObject& visibleObject : visibleObjects)
-		visibleObject.bufferedZ = visibleObject.object->GetBufferedZ();
-
-	std::sort(visibleObjects.begin(), visibleObjects.end(), [](const VisibleObject& visibleObject1, const VisibleObject& visibleObject2) -> bool {
-		if (visibleObject1.bufferedZ != visibleObject2.bufferedZ)
-			return visibleObject1.bufferedZ < visibleObject2.bufferedZ;
-		return visibleObject1.index < visibleObject2.index;
-	});
-
-	for (const VisibleObject& visibleObject : visibleObjects)
-		visibleObject.object->Draw(canvas);
+	CGUIObjectEventBroadcaster::RecurseVisibleObject(m_BaseObject.get(), &IGUIObject::Draw, canvas);
 }
 
-void CGUI::DrawSprite(const CGUISpriteInstance& Sprite, CCanvas2D& canvas, const CRect& Rect, const CRect& UNUSED(Clipping))
+void CGUI::DrawSprite(const CGUISpriteInstance& Sprite, CCanvas2D& canvas, const CRect& Rect, const CRect& Clipping)
 {
 	// If the sprite doesn't exist (name == ""), don't bother drawing anything
 	if (!Sprite)
 		return;
 
-	// TODO: Clipping?
+	std::optional<CCanvas2D::ScopedScissor> scopedScissor;
+	if (Clipping != CRect())
+		scopedScissor.emplace(canvas, Clipping);
 
 	Sprite.Draw(*this, canvas, Rect, m_Sprites);
 }
 
 void CGUI::UpdateResolution()
 {
-	m_BaseObject->RecurseObject(nullptr, &IGUIObject::UpdateCachedSize);
+	m_BaseObject->RecurseObject(nullptr, &IGUIObject::HandleSizeChanged);
 }
 
-IGUIObject* CGUI::ConstructObject(const CStr& str)
+std::unique_ptr<IGUIObject> CGUI::ConstructObject(const CStr& str)
 {
 	std::map<CStr, ConstructObjectFunction>::iterator it = m_ObjectTypes.find(str);
 
@@ -372,23 +405,22 @@ IGUIObject* CGUI::ConstructObject(const CStr& str)
 	return (*it->second)(*this);
 }
 
-bool CGUI::AddObject(IGUIObject& parent, IGUIObject& child)
+void CGUI::AddObject(IGUIObject& parent, std::unique_ptr<IGUIObject> child)
 {
-	if (child.m_Name.empty())
+	if (child->m_Name.empty())
 	{
 		LOGERROR("Can't register an object without name!");
-		return false;
+		return;
 	}
 
-	if (m_pAllObjects.find(child.m_Name) != m_pAllObjects.end())
+	if (m_pAllObjects.find(child->m_Name) != m_pAllObjects.end())
 	{
-		LOGERROR("Can't register more than one object of the name %s", child.m_Name.c_str());
-		return false;
+		LOGERROR("Can't register more than one object of the name %s", child->m_Name.c_str());
+		return;
 	}
 
-	m_pAllObjects[child.m_Name] = &child;
-	parent.RegisterChild(&child);
-	return true;
+	parent.RegisterChild(child.get());
+	m_pAllObjects[child->m_Name] = std::move(child);
 }
 
 IGUIObject* CGUI::GetBaseObject()
@@ -401,26 +433,35 @@ bool CGUI::ObjectExists(const CStr& Name) const
 	return m_pAllObjects.find(Name) != m_pAllObjects.end();
 }
 
-IGUIObject* CGUI::FindObjectByName(const CStr& Name) const
+IGUIObject* CGUI::TryFindObjectByName(const CStr& Name) const
 {
 	map_pObjects::const_iterator it = m_pAllObjects.find(Name);
 
 	if (it == m_pAllObjects.end())
 		return nullptr;
 
-	return it->second;
+	return it->second.get();
+}
+
+IGUIObject* CGUI::FindObjectByName(const CStr& Name) const
+{
+	IGUIObject* obj = TryFindObjectByName(Name);
+	if (obj == nullptr)
+		LOGERROR("Failed to get GUI object by name: object '%s' not found. Note: Use 'Engine.TryGetGUIObjectByName' to query for potentially non-existent objects instead.", Name);
+
+	return obj;
 }
 
 IGUIObject* CGUI::FindObjectUnderMouse()
 {
 	IGUIObject* pNearest = nullptr;
-	m_BaseObject->RecurseObject(&IGUIObject::IsHiddenOrGhost, &IGUIObject::ChooseMouseOverAndClosest, pNearest);
+	m_BaseObject->RecurseObject(&IGUIObject::IsHiddenOrGhostOrOutOfBoundaries, &IGUIObject::ChooseMouseOverAndClosest, pNearest);
 	return pNearest;
 }
 
 CSize2D CGUI::GetWindowSize() const
 {
-	return CSize2D{static_cast<float>(g_xres) / g_VideoMode.GetScale(), static_cast<float>(g_yres) / g_VideoMode.GetScale() };
+	return CSize2D{static_cast<float>(g_VideoMode.GetWindowWidth()) / g_VideoMode.GetScale(), static_cast<float>(g_VideoMode.GetWindowHeight()) / g_VideoMode.GetScale() };
 }
 
 void CGUI::SendFocusMessage(EGUIMessageType msgType)
@@ -452,25 +493,25 @@ void CGUI::SetFocusedObject(IGUIObject* pObject)
 	}
 }
 
-void CGUI::SetObjectStyle(IGUIObject* pObject, const CStr& styleName)
+void CGUI::SetObjectStyle(IGUIObject& object, const CStr& styleName)
 {
 	// If the style is not recognised (or an empty string) then ApplyStyle will
 	// emit an error message. Thus we don't need to handle it here.
-	pObject->ApplyStyle(styleName);
+	object.ApplyStyle(styleName);
 }
 
-void CGUI::UnsetObjectStyle(IGUIObject* pObject)
+void CGUI::UnsetObjectStyle(IGUIObject& object)
 {
-	SetObjectStyle(pObject, "default");
+	SetObjectStyle(object, "default");
 }
 
-void CGUI::SetObjectHotkey(IGUIObject* pObject, const CStr& hotkeyTag)
+void CGUI::SetObjectHotkey(IGUIObject& object, const CStr& hotkeyTag)
 {
 	if (!hotkeyTag.empty())
-		m_HotkeyObjects[hotkeyTag].push_back(pObject);
+		m_HotkeyObjects[hotkeyTag].push_back(&object);
 }
 
-void CGUI::UnsetObjectHotkey(IGUIObject* pObject, const CStr& hotkeyTag)
+void CGUI::UnsetObjectHotkey(IGUIObject& object, const CStr& hotkeyTag)
 {
 	if (hotkeyTag.empty())
 		return;
@@ -481,32 +522,26 @@ void CGUI::UnsetObjectHotkey(IGUIObject* pObject, const CStr& hotkeyTag)
 		std::remove_if(
 			assignment.begin(),
 			assignment.end(),
-			[&pObject](const IGUIObject* hotkeyObject)
-				{ return pObject == hotkeyObject; }),
+			[&object](const IGUIObject* hotkeyObject)
+				{ return &object == hotkeyObject; }),
 		assignment.end());
 }
 
 void CGUI::SetGlobalHotkey(const CStr& hotkeyTag, const CStr& eventName, JS::HandleValue function)
 {
-	ScriptRequest rq(*m_ScriptInterface);
+	Script::Request rq(*m_ScriptInterface);
 
 	if (hotkeyTag.empty())
-	{
-		ScriptException::Raise(rq, "Cannot assign a function to an empty hotkey identifier!");
-		return;
-	}
+		throw std::invalid_argument{"Cannot assign a function to an empty hotkey identifier!"};
 
 	// Only support "Press", "Keydown" and "Release" events.
 	if (eventName != EventNamePress && eventName != EventNameKeyDown && eventName != EventNameRelease)
-	{
-		ScriptException::Raise(rq, "Cannot assign a function to an unsupported event!");
-		return;
-	}
+		throw std::invalid_argument{"Cannot assign a function to an unsupported event!"};
 
-	if (!function.isObject() || !JS_ObjectIsFunction(&function.toObject()))
+	if (!function.isObject() || !JS::IsCallable(&function.toObject()))
 	{
-		ScriptException::Raise(rq, "Cannot assign non-function value to global hotkey '%s'", hotkeyTag.c_str());
-		return;
+		throw std::invalid_argument{fmt::format(
+			"Cannot assign non-function value to global hotkey '{}'", hotkeyTag.c_str())};
 	}
 
 	UnsetGlobalHotkey(hotkeyTag, eventName);
@@ -563,7 +598,7 @@ void CGUI::LoadXmlFile(const VfsPath& Filename, std::unordered_set<VfsPath>& Pat
 
 void CGUI::LoadedXmlFiles()
 {
-	m_BaseObject->RecurseObject(nullptr, &IGUIObject::UpdateCachedSize);
+	m_BaseObject->RecurseObject(nullptr, &IGUIObject::HandleSizeChanged);
 
 	SGUIMessage msg(GUIM_LOAD);
 	m_BaseObject->RecurseObject(nullptr, &IGUIObject::HandleMessage, msg);
@@ -590,7 +625,7 @@ void CGUI::Xeromyces_ReadRootObjects(const XMBData& xmb, XMBElement element, std
 			Xeromyces_ReadScript(xmb, child, Paths);
 		else
 			// Read in this whole object into the GUI
-			Xeromyces_ReadObject(xmb, child, m_BaseObject.get(), subst, Paths, 0);
+			Xeromyces_ReadObject(xmb, child, *m_BaseObject, subst, Paths, 0);
 	}
 }
 
@@ -624,10 +659,10 @@ void CGUI::Xeromyces_ReadRootSetup(const XMBData& xmb, XMBElement element)
 	}
 }
 
-IGUIObject* CGUI::Xeromyces_ReadObject(const XMBData& xmb, XMBElement element, IGUIObject* pParent, std::vector<std::pair<CStr, CStr> >& NameSubst, std::unordered_set<VfsPath>& Paths, u32 nesting_depth)
+void CGUI::Xeromyces_ReadObject(const XMBData& xmb, XMBElement element, IGUIObject& parent,
+	std::vector<std::pair<CStr, CStr> >& NameSubst, std::unordered_set<VfsPath>& Paths,
+	u32 nesting_depth)
 {
-	ENSURE(pParent);
-
 	XMBAttributeList attributes = element.GetAttributes();
 
 	CStr type(attributes.GetNamedItem(xmb.GetAttributeID("type")));
@@ -637,12 +672,12 @@ IGUIObject* CGUI::Xeromyces_ReadObject(const XMBData& xmb, XMBElement element, I
 	// Construct object from specified type
 	//  henceforth, we need to do a rollback before aborting.
 	//  i.e. releasing this object
-	IGUIObject* object = ConstructObject(type);
+	std::unique_ptr<IGUIObject> object = ConstructObject(type);
 
 	if (!object)
 	{
 		LOGERROR("GUI: Unrecognized object type \"%s\"", type.c_str());
-		return nullptr;
+		return;
 	}
 
 	// Cache some IDs for element attribute names, to avoid string comparisons
@@ -674,11 +709,11 @@ IGUIObject* CGUI::Xeromyces_ReadObject(const XMBData& xmb, XMBElement element, I
 	//
 	//	Always load default (if it's available) first!
 	//
-	SetObjectStyle(object, "default");
+	SetObjectStyle(*object, "default");
 
 	CStr argStyle(attributes.GetNamedItem(attr_style));
 	if (!argStyle.empty())
-		SetObjectStyle(object, argStyle);
+		SetObjectStyle(*object, argStyle);
 
 	bool NameSet = false;
 	bool ManuallySetZ = false;
@@ -736,7 +771,7 @@ IGUIObject* CGUI::Xeromyces_ReadObject(const XMBData& xmb, XMBElement element, I
 		if (element_name == elmt_object)
 		{
 			// Call this function on the child
-			Xeromyces_ReadObject(xmb, child, object, NameSubst, Paths, nesting_depth);
+			Xeromyces_ReadObject(xmb, child, *object, NameSubst, Paths, nesting_depth);
 		}
 		else if (element_name == elmt_action)
 		{
@@ -783,7 +818,7 @@ IGUIObject* CGUI::Xeromyces_ReadObject(const XMBData& xmb, XMBElement element, I
 		}
 		else if (element_name == elmt_repeat)
 		{
-			Xeromyces_ReadRepeat(xmb, child, object, NameSubst, Paths, nesting_depth);
+			Xeromyces_ReadRepeat(xmb, child, *object, NameSubst, Paths, nesting_depth);
 		}
 		else if (element_name == elmt_translatableAttribute)
 		{
@@ -860,7 +895,8 @@ IGUIObject* CGUI::Xeromyces_ReadObject(const XMBData& xmb, XMBElement element, I
 					continue;
 				}
 
-				Xeromyces_ReadObject(xeroIncluded, node, object, NameSubst, Paths, nesting_depth+1);
+				Xeromyces_ReadObject(xeroIncluded, node, *object, NameSubst, Paths,
+					nesting_depth + 1);
 			}
 			else if (!directory.empty())
 			{
@@ -890,7 +926,8 @@ IGUIObject* CGUI::Xeromyces_ReadObject(const XMBData& xmb, XMBElement element, I
 						LOGERROR("GUI: Error reading included XML: '%s', root element must have be of type 'object'.", path.string8());
 						continue;
 					}
-					Xeromyces_ReadObject(xeroIncluded, node, object, NameSubst, Paths, nesting_depth+1);
+					Xeromyces_ReadObject(xeroIncluded, node, *object, NameSubst, Paths,
+						nesting_depth + 1);
 				}
 
 			}
@@ -913,21 +950,17 @@ IGUIObject* CGUI::Xeromyces_ReadObject(const XMBData& xmb, XMBElement element, I
 		if (object->m_Absolute)
 			// If the object is absolute, we'll have to get the parent's Z buffered,
 			// and add to that!
-			object->m_Z.Set(pParent->GetBufferedZ() + 10.f, false);
+			object->m_Z.Set(parent.GetBufferedZ() + 10.f, false);
 		else
 			// If the object is relative, then we'll just store Z as "10"
 			object->m_Z.Set(10.f, false);
 	}
 
-	if (!AddObject(*pParent, *object))
-	{
-		delete object;
-		return nullptr;
-	}
-	return object;
+	AddObject(parent, std::move(object));
 }
 
-void CGUI::Xeromyces_ReadRepeat(const XMBData& xmb, XMBElement element, IGUIObject* pParent, std::vector<std::pair<CStr, CStr> >& NameSubst, std::unordered_set<VfsPath>& Paths, u32 nesting_depth)
+void CGUI::Xeromyces_ReadRepeat(const XMBData& xmb, XMBElement element, IGUIObject& parent,
+	std::vector<std::pair<CStr, CStr>>& NameSubst, std::unordered_set<VfsPath>& Paths, u32 nesting_depth)
 {
 	#define ELMT(x) int elmt_##x = xmb.GetElementID(#x)
 	#define ATTR(x) int attr_##x = xmb.GetAttributeID(#x)
@@ -949,7 +982,7 @@ void CGUI::Xeromyces_ReadRepeat(const XMBData& xmb, XMBElement element, IGUIObje
 		XERO_ITER_EL(element, child)
 		{
 			if (child.GetNodeName() == elmt_object)
-				Xeromyces_ReadObject(xmb, child, pParent, NameSubst, Paths, nesting_depth);
+				Xeromyces_ReadObject(xmb, child, parent, NameSubst, Paths, nesting_depth);
 		}
 		NameSubst.pop_back();
 	}
@@ -957,10 +990,20 @@ void CGUI::Xeromyces_ReadRepeat(const XMBData& xmb, XMBElement element, IGUIObje
 
 void CGUI::Xeromyces_ReadScript(const XMBData& xmb, XMBElement element, std::unordered_set<VfsPath>& Paths)
 {
-	// Check for a 'file' parameter
-	CStrW fileAttr(element.GetAttributes().GetNamedItem(xmb.GetAttributeID("file")).FromUTF8());
+	// If there is a "module" attribute, save it so it can be loaded at the end. It isn't saved to `Path`
+	// because modules automatically get reloaded.
+	const std::string moduleAttribute{element.GetAttributes().GetNamedItem(xmb.GetAttributeID("module"))};
+	if (!moduleAttribute.empty())
+	{
+		if (m_LoadModuleResult.has_value())
+			throw std::logic_error{"There can only be one root module per page."};
 
-	// If there is a file specified, open and execute it
+		const Script::Request rq{m_ScriptInterface};
+		m_LoadModuleResult.emplace(rq, moduleAttribute);
+	}
+
+	// If there is a "file" attribute, open and execute it
+	CStrW fileAttr(element.GetAttributes().GetNamedItem(xmb.GetAttributeID("file")).FromUTF8());
 	if (!fileAttr.empty())
 	{
 		if (!VfsPath(fileAttr).IsDirectory())
@@ -972,7 +1015,7 @@ void CGUI::Xeromyces_ReadScript(const XMBData& xmb, XMBElement element, std::uno
 			LOGERROR("GUI: Script path %s is not a file path", fileAttr.ToUTF8().c_str());
 	}
 
-	// If it has a directory attribute, read all JS files in that directory
+	// If there is a "directory" attribute, read all JS files in that directory
 	CStrW directoryAttr(element.GetAttributes().GetNamedItem(xmb.GetAttributeID("directory")).FromUTF8());
 	if (!directoryAttr.empty())
 	{
@@ -1237,12 +1280,20 @@ void CGUI::Xeromyces_ReadScrollBarStyle(const XMBData& xmb, XMBElement element)
 			scrollbar.m_SpriteButtonBottomOver = attr_value;
 		else if (attr_name == "sprite_back_vertical")
 			scrollbar.m_SpriteBackVertical = attr_value;
-		else if (attr_name == "sprite_bar_vertical")
-			scrollbar.m_SpriteBarVertical = attr_value;
-		else if (attr_name == "sprite_bar_vertical_over")
-			scrollbar.m_SpriteBarVerticalOver = attr_value;
-		else if (attr_name == "sprite_bar_vertical_pressed")
-			scrollbar.m_SpriteBarVerticalPressed = attr_value;
+		else if (attr_name == "sprite_slider_vertical")
+			scrollbar.m_SpriteSliderVertical = attr_value;
+		else if (attr_name == "sprite_slider_vertical_over")
+			scrollbar.m_SpriteSliderVerticalOver = attr_value;
+		else if (attr_name == "sprite_slider_vertical_pressed")
+			scrollbar.m_SpriteSliderVerticalPressed = attr_value;
+		else if (attr_name == "sprite_back_horizontal")
+			scrollbar.m_SpriteBackHorizontal = attr_value;
+		else if (attr_name == "sprite_slider_horizontal")
+			scrollbar.m_SpriteSliderHorizontal = attr_value;
+		else if (attr_name == "sprite_slider_horizontal_over")
+			scrollbar.m_SpriteSliderHorizontalOver = attr_value;
+		else if (attr_name == "sprite_slider_horizontal_pressed")
+			scrollbar.m_SpriteSliderHorizontalPressed = attr_value;
 	}
 
 	m_ScrollBarStyles.erase(name);
@@ -1284,7 +1335,7 @@ void CGUI::Xeromyces_ReadIcon(const XMBData& xmb, XMBElement element)
 
 void CGUI::Xeromyces_ReadTooltip(const XMBData& xmb, XMBElement element)
 {
-	IGUIObject* object = new CTooltip(*this);
+	std::unique_ptr<IGUIObject> object{std::make_unique<CTooltip>(*this)};
 
 	for (XMBAttribute attr : element.GetAttributes())
 	{
@@ -1297,8 +1348,7 @@ void CGUI::Xeromyces_ReadTooltip(const XMBData& xmb, XMBElement element)
 			object->SetSettingFromString(std::string(attr_name), attr_value.FromUTF8(), true);
 	}
 
-	if (!AddObject(*m_BaseObject, *object))
-		delete object;
+	AddObject(*m_BaseObject, std::move(object));
 }
 
 void CGUI::Xeromyces_ReadColor(const XMBData& xmb, XMBElement element)
@@ -1323,3 +1373,8 @@ void CGUI::Xeromyces_ReadColor(const XMBData& xmb, XMBElement element)
 	else
 		LOGERROR("GUI: Unable to create custom color '%s'. Invalid color syntax.", name.c_str());
 }
+
+CGUI::ModuleArtifact::ModuleArtifact(const Script::Request& rq, VfsPath filename):
+	result{rq, std::move(filename)},
+	moduleNamespace{rq.cx}
+{}

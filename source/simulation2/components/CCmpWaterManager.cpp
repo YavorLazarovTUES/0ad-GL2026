@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,7 +17,6 @@
 
 #include "precompiled.h"
 
-#include "simulation2/system/Component.h"
 #include "ICmpWaterManager.h"
 
 #include "graphics/RenderableObject.h"
@@ -26,7 +25,11 @@
 #include "renderer/SceneRenderer.h"
 #include "renderer/WaterManager.h"
 #include "simulation2/MessageTypes.h"
-#include "tools/atlas/GameInterface/GameLoop.h"
+#include "simulation2/helpers/Position.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Message.h"
+
+#include <string>
 
 class CCmpWaterManager final : public ICmpWaterManager
 {
@@ -49,7 +52,7 @@ public:
 		return "<a:component type='system'/><empty/>";
 	}
 
-	void Init(const CParamNode& UNUSED(paramNode)) override
+	void Init(const CParamNode&) override
 	{
 	}
 
@@ -77,7 +80,7 @@ public:
 		RecomputeWaterData();
 	}
 
-	void HandleMessage(const CMessage& msg, bool UNUSED(global)) override
+	void HandleMessage(const CMessage& msg, bool /*global*/) override
 	{
 		switch (msg.GetType())
 		{
@@ -126,12 +129,12 @@ public:
 		GetSimContext().GetComponentManager().BroadcastMessage(msg);
 	}
 
-	entity_pos_t GetWaterLevel(entity_pos_t UNUSED(x), entity_pos_t UNUSED(z)) const override
+	entity_pos_t GetWaterLevel(entity_pos_t /*x*/, entity_pos_t /*z*/) const override
 	{
 		return m_WaterHeight;
 	}
 
-	float GetExactWaterLevel(float UNUSED(x), float UNUSED(z)) const override
+	float GetExactWaterLevel(float /*x*/, float /*z*/) const override
 	{
 		return m_WaterHeight.ToFloat();
 	}

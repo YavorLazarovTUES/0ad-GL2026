@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,25 +19,42 @@
 
 #include "TerrainOverlay.h"
 
+#include "graphics/Camera.h"
 #include "graphics/Color.h"
+#include "graphics/SColor.h"
+#include "graphics/ShaderDefines.h"
 #include "graphics/ShaderManager.h"
-#include "graphics/ShaderProgram.h"
+#include "graphics/ShaderTechnique.h"
 #include "graphics/Terrain.h"
 #include "lib/bits.h"
 #include "maths/MathUtil.h"
+#include "maths/Matrix3D.h"
 #include "maths/Vector2D.h"
+#include "maths/Vector3D.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
 #include "ps/Game.h"
 #include "ps/Profile.h"
 #include "ps/World.h"
-#include "renderer/backend/IDevice.h"
-#include "renderer/backend/IDeviceCommandContext.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
 #include "renderer/TerrainRenderer.h"
-#include "simulation2/system/SimContext.h"
+#include "renderer/backend/Format.h"
+#include "renderer/backend/IDevice.h"
+#include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/IShaderProgram.h"
+#include "renderer/backend/ITexture.h"
+#include "renderer/backend/PipelineState.h"
+#include "renderer/backend/Sampler.h"
+#include "simulation2/system/Component.h"
 
 #include <algorithm>
+#include <array>
+#include <cstdint>
+#include <cstdlib>
+#include <iterator>
+#include <utility>
+#include <vector>
 
 namespace
 {
@@ -117,7 +134,7 @@ void ITerrainOverlay::RenderOverlaysBeforeWater(
 	if (g_TerrainOverlayList.empty())
 		return;
 
-	PROFILE3_GPU("terrain overlays (before)");
+	PROFILE3("terrain overlays (before)");
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render terrain overlays before water");
 
 	for (size_t i = 0; i < g_TerrainOverlayList.size(); ++i)
@@ -130,7 +147,7 @@ void ITerrainOverlay::RenderOverlaysAfterWater(
 	if (g_TerrainOverlayList.empty())
 		return;
 
-	PROFILE3_GPU("terrain overlays (after)");
+	PROFILE3("terrain overlays (after)");
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render terrain overlays after water");
 
 	for (size_t i = 0; i < g_TerrainOverlayList.size(); ++i)

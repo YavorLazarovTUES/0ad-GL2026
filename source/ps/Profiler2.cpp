@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -24,22 +24,32 @@
 
 #include "Profiler2.h"
 
-#include "lib/allocators/shared_ptr.h"
+#include "lib/code_generation.h"
 #include "lib/os_path.h"
+#include "lib/path.h"
+#include "network/HttpServer.h"
 #include "ps/CLogger.h"
-#include "ps/ConfigDB.h"
 #include "ps/CStr.h"
+#include "ps/ConfigDB.h"
+#include "ps/Future.h"
 #include "ps/Profiler2GPU.h"
 #include "ps/Pyrogenesis.h"
-#include "third_party/mongoose/mongoose.h"
+#include "ps/TaskManager.h"
 
+#include <algorithm>
+#include <cstdio>
 #include <fmt/format.h>
 #include <fstream>
+#include <functional>
+#include <httplib.h>
 #include <iomanip>
 #include <map>
 #include <set>
+#include <sstream>
 #include <tuple>
 #include <unordered_map>
+#include <utility>
+#include <variant>
 
 CProfiler2 g_Profiler2;
 
@@ -47,7 +57,6 @@ const size_t CProfiler2::MAX_ATTRIBUTE_LENGTH = 256;
 
 // TODO: what's a good size?
 const size_t CProfiler2::BUFFER_SIZE = 4 * 1024 * 1024;
-const size_t CProfiler2::HOLD_BUFFER_SIZE = 128 * 1024;
 
 // A human-recognisable pattern (for debugging) followed by random bytes (for uniqueness)
 const u8 CProfiler2::RESYNC_MAGIC[8] = {0x11, 0x22, 0x33, 0x44, 0xf4, 0x93, 0xbe, 0x15};
@@ -55,7 +64,7 @@ const u8 CProfiler2::RESYNC_MAGIC[8] = {0x11, 0x22, 0x33, 0x44, 0xf4, 0x93, 0xbe
 thread_local CProfiler2::ThreadStorage* CProfiler2::m_CurrentStorage = nullptr;
 
 CProfiler2::CProfiler2() :
-	m_Initialised(false), m_FrameNumber(0), m_MgContext(NULL), m_GPU(NULL)
+	m_Initialised{false}, m_FrameNumber{0}, m_HttpServer{nullptr}, m_HttpServerThread{}, m_GPU{nullptr}
 {
 }
 
@@ -64,101 +73,6 @@ CProfiler2::~CProfiler2()
 	if (m_Initialised)
 		Shutdown();
 }
-
-/**
- * Mongoose callback. Run in an arbitrary thread (possibly concurrently with other requests).
- */
-static void* MgCallback(mg_event event, struct mg_connection *conn, const struct mg_request_info *request_info)
-{
-	CProfiler2* profiler = (CProfiler2*)request_info->user_data;
-	ENSURE(profiler);
-
-	void* handled = (void*)""; // arbitrary non-NULL pointer to indicate successful handling
-
-	const char* header200 =
-		"HTTP/1.1 200 OK\r\n"
-		"Access-Control-Allow-Origin: *\r\n" // TODO: not great for security
-		"Content-Type: text/plain; charset=utf-8\r\n\r\n";
-
-	const char* header404 =
-		"HTTP/1.1 404 Not Found\r\n"
-		"Content-Type: text/plain; charset=utf-8\r\n\r\n"
-		"Unrecognised URI";
-
-	const char* header400 =
-		"HTTP/1.1 400 Bad Request\r\n"
-		"Content-Type: text/plain; charset=utf-8\r\n\r\n"
-		"Invalid request";
-
-	switch (event)
-	{
-	case MG_NEW_REQUEST:
-	{
-		std::stringstream stream;
-
-		std::string uri = request_info->uri;
-
-		if (uri == "/download")
-		{
-			profiler->SaveToFile();
-		}
-		else if (uri == "/overview")
-		{
-			profiler->ConstructJSONOverview(stream);
-		}
-		else if (uri == "/query")
-		{
-			if (!request_info->query_string)
-			{
-				mg_printf(conn, "%s (no query string)", header400);
-				return handled;
-			}
-
-			// Identify the requested thread
-			char buf[256];
-			int len = mg_get_var(request_info->query_string, strlen(request_info->query_string), "thread", buf, ARRAY_SIZE(buf));
-			if (len < 0)
-			{
-				mg_printf(conn, "%s (no 'thread')", header400);
-				return handled;
-			}
-			std::string thread(buf);
-
-			const char* err = profiler->ConstructJSONResponse(stream, thread);
-			if (err)
-			{
-				mg_printf(conn, "%s (%s)", header400, err);
-				return handled;
-			}
-		}
-		else
-		{
-			mg_printf(conn, "%s", header404);
-			return handled;
-		}
-
-		mg_printf(conn, "%s", header200);
-		std::string str = stream.str();
-		mg_write(conn, str.c_str(), str.length());
-		return handled;
-	}
-
-	case MG_HTTP_ERROR:
-		return NULL;
-
-	case MG_EVENT_LOG:
-		// Called by Mongoose's cry()
-		LOGERROR("Mongoose error: %s", request_info->log_message);
-		return NULL;
-
-	case MG_INIT_SSL:
-		return NULL;
-
-	default:
-		debug_warn(L"Invalid Mongoose event type");
-		return NULL;
-	}
-};
 
 void CProfiler2::Initialise()
 {
@@ -179,28 +93,53 @@ void CProfiler2::EnableHTTP()
 	ENSURE(m_Initialised);
 	LOGMESSAGERENDER("Starting profiler2 HTTP server");
 
+	std::lock_guard lock{m_Mutex};
+
 	// Ignore multiple enablings
-	if (m_MgContext)
+	if (m_HttpServer)
 		return;
 
-	CStr listeningPort = "8000";
-	CStr listeningServer = "127.0.0.1";
-	CStr numThreads = "6";
-	if (CConfigDB::IsInitialised())
-	{
-		CFG_GET_VAL("profiler2.server.port", listeningPort);
-		CFG_GET_VAL("profiler2.server", listeningServer);
-		CFG_GET_VAL("profiler2.server.threads", numThreads);
-	}
+	m_HttpServer = PS::Net::createHttpServer();
 
-	std::string listening_ports = fmt::format("{0}:{1}", listeningServer, listeningPort);
-	const char* options[] = {
-		"listening_ports", listening_ports.c_str(),
-		"num_threads", numThreads.c_str(),
-		nullptr
-	};
-	m_MgContext = mg_start(MgCallback, this, options);
-	ENSURE(m_MgContext);
+	m_HttpServer->Get("/download", [this](const httplib::Request &, httplib::Response &) {
+		SaveToFile();
+	});
+
+	m_HttpServer->Get("/overview", [this](const httplib::Request &, httplib::Response &res) {
+		std::stringstream stream;
+		ConstructJSONOverview(stream);
+		res.set_content(stream.str(), "application/json");
+	});
+
+	m_HttpServer->Get("/query", [this](const httplib::Request &req, httplib::Response &res) {
+		if (!req.has_param("thread"))
+		{
+			res.set_content("Request \"query\" needs parameter \"thread\"", "text/plain");
+			res.status = httplib::StatusCode::BadRequest_400;
+			return;
+		}
+
+		std::string thread = req.get_param_value("thread");
+		std::stringstream stream;
+		ConstructJSONResponse(stream, thread);
+		res.set_content(stream.str(), "application/json");
+	});
+
+	m_HttpServer->set_post_routing_handler([](const httplib::Request&, httplib::Response& res) {
+		// TODO: Not ideal for security reasons
+		res.set_header("Access-Control-Allow-Origin", "*");
+	});
+
+	m_HttpServerThread = std::thread([this](){
+		using namespace std::literals;
+		const int listeningPort{CConfigDB::GetIfInitialised("profiler2.server.port", 8000)};
+		const std::string listeningServer{CConfigDB::GetIfInitialised("profiler2.server", "127.0.0.1"s)};
+
+		if (!m_HttpServer->listen(listeningServer, listeningPort))
+		{
+			LOGERROR("Failed to start http server");
+		}
+	});
 }
 
 void CProfiler2::EnableGPU()
@@ -222,25 +161,33 @@ void CProfiler2::ShutdownGPU()
 void CProfiler2::ShutDownHTTP()
 {
 	LOGMESSAGERENDER("Shutting down profiler2 HTTP server");
-	if (m_MgContext)
-	{
-		mg_stop(m_MgContext);
-		m_MgContext = NULL;
-	}
+	std::lock_guard lock{m_Mutex};
+
+	if (!m_HttpServer)
+		return;
+
+	m_HttpServer->stop();
+	if(m_HttpServerThread.joinable())
+		m_HttpServerThread.join();
+	m_HttpServer.reset();
 }
 
 void CProfiler2::Toggle()
 {
-	// TODO: Maybe we can open the browser to the profiler page automatically
-	if (m_GPU && m_MgContext)
+	LOGMESSAGERENDER("Toggle profiler http");
+	if (m_GPU && m_HttpServer)
 	{
 		ShutdownGPU();
 		ShutDownHTTP();
 	}
-	else if (!m_GPU && !m_MgContext)
+	else if (!m_GPU && !m_HttpServer)
 	{
 		EnableGPU();
 		EnableHTTP();
+	}
+	else
+	{
+		LOGMESSAGERENDER("Toggle profile bad state!");
 	}
 }
 
@@ -249,12 +196,7 @@ void CProfiler2::Shutdown()
 	ENSURE(m_Initialised);
 
 	ENSURE(!m_GPU); // must shutdown GPU before profiler
-
-	if (m_MgContext)
-	{
-		mg_stop(m_MgContext);
-		m_MgContext = NULL;
-	}
+	ENSURE(!m_HttpServer); // must shutdown HTTP server before profiler
 
 	// the destructor is not called for the main thread
 	// we have to call it manually to avoid memory leaks
@@ -262,28 +204,28 @@ void CProfiler2::Shutdown()
 	m_Initialised = false;
 }
 
-void CProfiler2::RecordGPUFrameStart()
+void CProfiler2::RecordGPUFrameStart(Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
 	if (m_GPU)
-		m_GPU->FrameStart();
+		m_GPU->FrameStart(deviceCommandContext);
 }
 
-void CProfiler2::RecordGPUFrameEnd()
+void CProfiler2::RecordGPUFrameEnd(Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
 	if (m_GPU)
-		m_GPU->FrameEnd();
+		m_GPU->FrameEnd(deviceCommandContext);
 }
 
-void CProfiler2::RecordGPURegionEnter(const char* id)
+void CProfiler2::RecordGPURegionEnter(Renderer::Backend::IDeviceCommandContext* deviceCommandContext, const char* id)
 {
 	if (m_GPU)
-		m_GPU->RegionEnter(id);
+		m_GPU->RegionEnter(deviceCommandContext, id);
 }
 
-void CProfiler2::RecordGPURegionLeave(const char* id)
+void CProfiler2::RecordGPURegionLeave(Renderer::Backend::IDeviceCommandContext* deviceCommandContext, const char* id)
 {
 	if (m_GPU)
-		m_GPU->RegionLeave(id);
+		m_GPU->RegionLeave(deviceCommandContext, id);
 }
 
 void CProfiler2::RegisterCurrentThread(const std::string& name)
@@ -313,7 +255,7 @@ void CProfiler2::RemoveThreadStorage(ThreadStorage* storage)
 }
 
 CProfiler2::ThreadStorage::ThreadStorage(CProfiler2& profiler, const std::string& name) :
-m_Profiler(profiler), m_Name(name), m_BufferPos0(0), m_BufferPos1(0), m_LastTime(timer_Time()), m_HeldDepth(0)
+m_Profiler(profiler), m_Name(name), m_BufferPos0(0), m_BufferPos1(0), m_LastTime(timer_Time())
 {
 	m_Buffer = new u8[BUFFER_SIZE];
 	memset(m_Buffer, ITEM_NOP, BUFFER_SIZE);
@@ -326,11 +268,6 @@ CProfiler2::ThreadStorage::~ThreadStorage()
 
 void CProfiler2::ThreadStorage::Write(EItem type, const void* item, u32 itemSize)
 {
-	if (m_HeldDepth > 0)
-	{
-		WriteHold(type, item, itemSize);
-		return;
-	}
 	// See m_BufferPos0 etc for comments on synchronisation
 
 	u32 size = 1 + itemSize;
@@ -360,26 +297,13 @@ void CProfiler2::ThreadStorage::Write(EItem type, const void* item, u32 itemSize
 	m_BufferPos1 = start + size;
 }
 
-void CProfiler2::ThreadStorage::WriteHold(EItem type, const void* item, u32 itemSize)
-{
-	u32 size = 1 + itemSize;
-
-	if (m_HoldBuffers[m_HeldDepth - 1].pos + size > CProfiler2::HOLD_BUFFER_SIZE)
-		return;	// we held on too much data, ignore the rest
-
-	m_HoldBuffers[m_HeldDepth - 1].buffer[m_HoldBuffers[m_HeldDepth - 1].pos] = (u8)type;
-	memcpy(&m_HoldBuffers[m_HeldDepth - 1].buffer[m_HoldBuffers[m_HeldDepth - 1].pos + 1], item, itemSize);
-
-	m_HoldBuffers[m_HeldDepth - 1].pos += size;
-}
-
 std::string CProfiler2::ThreadStorage::GetBuffer()
 {
 	// Called from an arbitrary thread (not the one writing to the buffer).
 	//
 	// See comments on m_BufferPos0 etc.
 
-	std::shared_ptr<u8> buffer(new u8[BUFFER_SIZE], ArrayDeleter());
+	std::unique_ptr<u8[]> buffer{std::make_unique<u8[]>(BUFFER_SIZE)};
 
 	u32 pos1 = m_BufferPos1;
 	COMPILER_FENCE; // must read m_BufferPos1 before m_Buffer
@@ -414,24 +338,6 @@ void CProfiler2::ThreadStorage::RecordAttribute(const char* fmt, va_list argp)
 	memcpy(buffer, &len, sizeof(len));
 
 	Write(ITEM_ATTRIBUTE, buffer, 4 + len);
-}
-
-size_t CProfiler2::ThreadStorage::HoldLevel()
-{
-	return m_HeldDepth;
-}
-
-u8 CProfiler2::ThreadStorage::HoldType()
-{
-	ENSURE(m_HeldDepth > 0);
-	return m_HoldBuffers[m_HeldDepth - 1].type;
-}
-
-void CProfiler2::ThreadStorage::PutOnHold(u8 newType)
-{
-	m_HeldDepth++;
-	m_HoldBuffers[m_HeldDepth - 1].clear();
-	m_HoldBuffers[m_HeldDepth - 1].setType(newType);
 }
 
 // this flattens the stack, use it sensibly
@@ -618,7 +524,7 @@ void rewriteBuffer(u8* buffer, u32& bufferSize)
 			if (time_attrib != time_per_attribute.end())
 				basic += " " + CStr::FromInt(1000000*time_attrib->second) + "us";
 
-			u32 length = basic.size();
+			u32 length = static_cast<u32>(basic.size());
 			memcpy(buffer + writePos, &length, sizeof(length));
 			writePos += sizeof(length);
 			memcpy(buffer + writePos, basic.c_str(), length);
@@ -675,59 +581,9 @@ void rewriteBuffer(u8* buffer, u32& bufferSize)
 	bufferSize = writePos;
 }
 
-void CProfiler2::ThreadStorage::HoldToBuffer(bool condensed)
-{
-	ENSURE(m_HeldDepth);
-	if (condensed)
-	{
-		// rewrite the buffer to show aggregated data
-		rewriteBuffer(m_HoldBuffers[m_HeldDepth - 1].buffer, m_HoldBuffers[m_HeldDepth - 1].pos);
-	}
-
-	if (m_HeldDepth > 1)
-	{
-		// copy onto buffer below
-		HoldBuffer& copied = m_HoldBuffers[m_HeldDepth - 1];
-		HoldBuffer& target = m_HoldBuffers[m_HeldDepth - 2];
-		if (target.pos + copied.pos > HOLD_BUFFER_SIZE)
-			return;	// too much data, too bad
-
-		memcpy(&target.buffer[target.pos], copied.buffer, copied.pos);
-
-		target.pos += copied.pos;
-	}
-	else
-	{
-		u32 size = m_HoldBuffers[m_HeldDepth - 1].pos;
-		u32 start = m_BufferPos0;
-		if (start + size > BUFFER_SIZE)
-		{
-			m_BufferPos0 = size;
-			COMPILER_FENCE;
-			memset(m_Buffer + start, 0, BUFFER_SIZE - start);
-			start = 0;
-		}
-		else
-		{
-			m_BufferPos0 = start + size;
-			COMPILER_FENCE; // must write m_BufferPos0 before m_Buffer
-		}
-		memcpy(&m_Buffer[start], m_HoldBuffers[m_HeldDepth - 1].buffer, size);
-		COMPILER_FENCE; // must write m_BufferPos1 after m_Buffer
-		m_BufferPos1 = start + size;
-	}
-	m_HeldDepth--;
-}
-void CProfiler2::ThreadStorage::ThrowawayHoldBuffer()
-{
-	if (!m_HeldDepth)
-		return;
-	m_HeldDepth--;
-}
-
 void CProfiler2::ConstructJSONOverview(std::ostream& stream)
 {
-	TIMER(L"profile2 overview");
+	PROFILE2("CProfiler2::ConstructJSONOverview");
 
 	std::lock_guard<std::mutex> lock(m_Mutex);
 
@@ -750,7 +606,7 @@ void CProfiler2::ConstructJSONOverview(std::ostream& stream)
 template<typename V>
 void RunBufferVisitor(const std::string& buffer, V& visitor)
 {
-	TIMER(L"profile2 visitor");
+	PROFILE2("Profiler2 RunBufferVisitor");
 
 	// The buffer doesn't necessarily start at the beginning of an item
 	// (we just grabbed it from some arbitrary point in the middle),
@@ -868,7 +724,7 @@ public:
 	{
 	}
 
-	void OnSync(double UNUSED(time))
+	void OnSync(double /*time*/)
 	{
 		// Split the array of items into an array of array (arbitrarily splitting
 		// around the sync points) to avoid array-too-large errors in JSON decoders
@@ -902,12 +758,12 @@ public:
 
 const char* CProfiler2::ConstructJSONResponse(std::ostream& stream, const std::string& thread)
 {
-	TIMER(L"profile2 query");
+	PROFILE2("CProfiler2::ConstructJSONResponse");
 
 	std::string buffer;
 
 	{
-		TIMER(L"profile2 get buffer");
+		PROFILE2("Profiler2 get buffer");
 
 		std::lock_guard<std::mutex> lock(m_Mutex); // lock against changes to m_Threads or deletions of ThreadStorage
 
@@ -938,7 +794,7 @@ void CProfiler2::SaveToFile()
 	OsPath path = psLogDir()/"profile2.jsonp";
 	debug_printf("Writing profile data to %s \n", path.string8().c_str());
 	LOGMESSAGERENDER("Writing profile data to %s \n", path.string8().c_str());
-	std::ofstream stream(OsString(path).c_str(), std::ofstream::out | std::ofstream::trunc);
+	std::ofstream stream(OsString(path), std::ofstream::out | std::ofstream::trunc);
 	ENSURE(stream.good());
 
 	stream << "profileDataCB({\"threads\": [\n";
@@ -954,46 +810,4 @@ void CProfiler2::SaveToFile()
 		first_time = false;
 	}
 	stream << "\n]});\n";
-}
-
-CProfile2SpikeRegion::CProfile2SpikeRegion(const char* name, double spikeLimit) :
-	m_Name(name), m_Limit(spikeLimit), m_PushedHold(true)
-{
-	if (g_Profiler2.HoldLevel() < 8 && (g_Profiler2.HoldLevel() == 0 || g_Profiler2.HoldType() != CProfiler2::ThreadStorage::BUFFER_AGGREGATE))
-		g_Profiler2.HoldMessages(CProfiler2::ThreadStorage::BUFFER_SPIKE);
-	else
-		m_PushedHold = false;
-	COMPILER_FENCE;
-	g_Profiler2.RecordRegionEnter(m_Name);
-	m_StartTime = g_Profiler2.GetTime();
-}
-CProfile2SpikeRegion::~CProfile2SpikeRegion()
-{
-	double time = g_Profiler2.GetTime();
-	g_Profiler2.RecordRegionLeave();
-	bool shouldWrite = time - m_StartTime > m_Limit;
-
-	if (m_PushedHold)
-		g_Profiler2.StopHoldingMessages(shouldWrite);
-}
-
-CProfile2AggregatedRegion::CProfile2AggregatedRegion(const char* name, double spikeLimit) :
-	m_Name(name), m_Limit(spikeLimit), m_PushedHold(true)
-{
-	if (g_Profiler2.HoldLevel() < 8 && (g_Profiler2.HoldLevel() == 0 || g_Profiler2.HoldType() != CProfiler2::ThreadStorage::BUFFER_AGGREGATE))
-		g_Profiler2.HoldMessages(CProfiler2::ThreadStorage::BUFFER_AGGREGATE);
-	else
-		m_PushedHold = false;
-	COMPILER_FENCE;
-	g_Profiler2.RecordRegionEnter(m_Name);
-	m_StartTime = g_Profiler2.GetTime();
-}
-CProfile2AggregatedRegion::~CProfile2AggregatedRegion()
-{
-	double time = g_Profiler2.GetTime();
-	g_Profiler2.RecordRegionLeave();
-	bool shouldWrite = time - m_StartTime > m_Limit;
-
-	if (m_PushedHold)
-		g_Profiler2.StopHoldingMessages(shouldWrite, true);
 }

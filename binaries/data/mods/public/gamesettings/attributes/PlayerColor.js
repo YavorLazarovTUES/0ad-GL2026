@@ -21,7 +21,7 @@ GameSettings.prototype.Attributes.PlayerColor = class PlayerColor extends GameSe
 			attribs.settings.PlayerData = [];
 		while (attribs.settings.PlayerData.length < this.values.length)
 			attribs.settings.PlayerData.push({});
-		for (let i in this.values)
+		for (const i in this.values)
 			if (this.values[i])
 				attribs.settings.PlayerData[i].Color = this.values[i];
 	}
@@ -71,13 +71,13 @@ GameSettings.prototype.Attributes.PlayerColor = class PlayerColor extends GameSe
 
 	_set(playerIndex, color)
 	{
-		let inUse = this.values.findIndex((otherColor, i) =>
+		const inUse = this.values.findIndex((otherColor, i) =>
 			color && otherColor &&
 			sameColor(color, otherColor));
 		if (inUse != -1 && inUse != playerIndex)
 		{
 			// Swap colors.
-			let col = this.values[playerIndex];
+			const col = this.values[playerIndex];
 			this.values[playerIndex] = undefined;
 			this._set(inUse, col);
 		}
@@ -113,7 +113,7 @@ GameSettings.prototype.Attributes.PlayerColor = class PlayerColor extends GameSe
 
 	_getMapData(i)
 	{
-		let data = this.settings.map.data;
+		const data = this.settings.map.data;
 		if (!data || !data.settings || !data.settings.PlayerData)
 			return undefined;
 		if (data.settings.PlayerData.length <= i)
@@ -126,11 +126,11 @@ GameSettings.prototype.Attributes.PlayerColor = class PlayerColor extends GameSe
 		// Pick colors that the map specifies, add most unsimilar default colors
 		// Provide the access to all the colors defined in simulation/data/settings/player_defaults.json,
 		// regardless of current playercount.
-		let values = [];
+		const values = [];
 		let mapColors = false;
 		for (let i = 0; i < this.DefaultColors.length; ++i)
 		{
-			let col = this._getMapData(i);
+			const col = this._getMapData(i);
 			if (col)
 				mapColors = true;
 			if (mapColors)
@@ -145,9 +145,9 @@ GameSettings.prototype.Attributes.PlayerColor = class PlayerColor extends GameSe
 	{
 		let closestColor;
 		let closestColorDistance = 0;
-		for (let color of colors)
+		for (const color of colors)
 		{
-			let dist = colorDistance(targetColor, color);
+			const dist = colorDistance(targetColor, color);
 			if (!closestColor || dist < closestColorDistance)
 			{
 				closestColor = color;
@@ -162,12 +162,12 @@ GameSettings.prototype.Attributes.PlayerColor = class PlayerColor extends GameSe
 		let farthestColor;
 		let farthestDistance = 0;
 
-		for (let defaultColor of this.DefaultColors)
+		for (const defaultColor of this.DefaultColors)
 		{
 			let smallestDistance = Infinity;
-			for (let usedColor of values)
+			for (const usedColor of values)
 			{
-				let distance = colorDistance(usedColor, defaultColor);
+				const distance = colorDistance(usedColor, defaultColor);
 				if (distance < smallestDistance)
 					smallestDistance = distance;
 			}
@@ -183,7 +183,8 @@ GameSettings.prototype.Attributes.PlayerColor = class PlayerColor extends GameSe
 
 	_getUnusedColor()
 	{
-		return this.available.find(color => {
+		return this.available.find(color =>
+		{
 			return this.values.every(otherColor => !otherColor || !sameColor(color, otherColor));
 		});
 	}
@@ -192,7 +193,7 @@ GameSettings.prototype.Attributes.PlayerColor = class PlayerColor extends GameSe
 GameSettings.prototype.Attributes.PlayerColor.prototype.DefaultColors = [
 	{ "r": 10, "g": 10, "b": 190 },
 	{ "r": 230, "g": 10, "b": 10 },
-	{ "r": 125 , "g": 235, "b": 15 },
+	{ "r": 125, "g": 235, "b": 15 },
 	{ "r": 255, "g": 255, "b": 55 },
 	{ "r": 130, "g": 0, "b": 230 },
 	{ "r": 255, "g": 130, "b": 0 },

@@ -130,9 +130,9 @@ MountainRangeBuilder.prototype.RemoveInvalidEdges = function()
 		const edge2Equal = this.currentEdgeEnd == comparedEdgeEnd;
 		const edge3Equal = this.currentEdgeEnd == comparedEdgeStart;
 
-		if (!edge0Equal && !edge2Equal && !edge1Equal && !edge3Equal  && testLineIntersection(this.currentEdgeStart, this.currentEdgeEnd, comparedEdgeStart, comparedEdgeEnd, this.minDistance) ||
-		   ( edge0Equal && !edge2Equal || !edge1Equal &&  edge3Equal) && distanceOfPointFromLine(this.currentEdgeStart, this.currentEdgeEnd, comparedEdgeEnd) < this.minDistance ||
-		   (!edge0Equal &&  edge2Equal ||  edge1Equal && !edge3Equal) && distanceOfPointFromLine(this.currentEdgeStart, this.currentEdgeEnd, comparedEdgeStart) < this.minDistance)
+		if (!edge0Equal && !edge2Equal && !edge1Equal && !edge3Equal && testLineIntersection(this.currentEdgeStart, this.currentEdgeEnd, comparedEdgeStart, comparedEdgeEnd, this.minDistance) ||
+		   (edge0Equal && !edge2Equal || !edge1Equal && edge3Equal) && distanceOfPointFromLine(this.currentEdgeStart, this.currentEdgeEnd, comparedEdgeEnd) < this.minDistance ||
+		   (!edge0Equal && edge2Equal || edge1Equal && !edge3Equal) && distanceOfPointFromLine(this.currentEdgeStart, this.currentEdgeEnd, comparedEdgeStart) < this.minDistance)
 		{
 			this.possibleEdges.splice(i, 1);
 			--i;
@@ -234,9 +234,9 @@ MountainRangeBuilder.prototype.CreateMountainRanges = function*(map)
 	}
 };
 
-function* GenerateMap(mapSettings)
+export function* generateMap(mapSettings)
 {
-	setBiome(mapSettings.Biome ?? "alpine/winter");
+	setBiome(mapSettings.Biome);
 
 	const heightLand = 3;
 	const heightOffsetBump = 2;
@@ -259,7 +259,7 @@ function* GenerateMap(mapSettings)
 	const clFood = g_Map.createTileClass();
 	const clBaseResource = g_Map.createTileClass();
 
-	const [playerIDs, playerPosition, playerAngle, startAngle] =
+	const { playerIDs, playerPosition, playerAngle, startAngle } =
 		playerPlacementCircle(fractionToTiles(0.35));
 
 	placePlayerBases({

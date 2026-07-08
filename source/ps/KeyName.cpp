@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,11 +21,15 @@
 
 #include "KeyName.h"
 
-#include "lib/external_libraries/libsdl.h"
 #include "ps/CStr.h"
 
+#include <SDL_keyboard.h>
+#include <SDL_keycode.h>
 #include <algorithm>
+#include <cstring>
+#include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 // Some scancodes <-> names that SDL doesn't recognise.
@@ -90,7 +94,7 @@ SDL_Scancode FindScancode(const CStr8& keyname)
 {
 	// Find (ignoring case) a corresponding scancode, if one exists.
 	std::unordered_map<int, std::vector<CStr>>::const_iterator it =
-		std::find_if(scancodemap.begin(), scancodemap.end(), [&keyname](const std::pair<int, std::vector<CStr>>& names) {
+		std::find_if(scancodemap.begin(), scancodemap.end(), [&keyname](const std::pair<const int, std::vector<CStr>>& names) {
 			return std::find_if(names.second.begin(), names.second.end(), [&keyname](const CStr& t) {
 				return t.LowerCase() == keyname.LowerCase();
 			})!= names.second.end();

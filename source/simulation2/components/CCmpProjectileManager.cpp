@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,26 +17,34 @@
 
 #include "precompiled.h"
 
-#include "simulation2/system/Component.h"
 #include "ICmpProjectileManager.h"
 
-#include "ICmpObstruction.h"
-#include "ICmpObstructionManager.h"
-#include "ICmpPosition.h"
-#include "ICmpRangeManager.h"
-#include "ICmpTerrain.h"
-#include "simulation2/helpers/Los.h"
-#include "simulation2/MessageTypes.h"
-
-#include "graphics/Model.h"
+#include "graphics/ModelAbstract.h"
 #include "graphics/Unit.h"
 #include "graphics/UnitManager.h"
+#include "lib/posix/posix_types.h"
+#include "maths/Fixed.h"
+#include "maths/FixedVector3D.h"
 #include "maths/Frustum.h"
 #include "maths/Matrix3D.h"
 #include "maths/Quaternion.h"
 #include "maths/Vector3D.h"
-#include "ps/CLogger.h"
+#include "ps/CStr.h"
 #include "renderer/Scene.h"
+#include "simulation2/MessageTypes.h"
+#include "simulation2/components/ICmpRangeManager.h"
+#include "simulation2/components/ICmpTerrain.h"
+#include "simulation2/helpers/Los.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+#include "simulation2/system/Message.h"
+
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <utility>
+#include <vector>
 
 // Time (in seconds) before projectiles that stuck in the ground are destroyed
 const static float PROJECTILE_DECAY_TIME = 30.f;
@@ -57,7 +65,7 @@ public:
 		return "<a:component type='system'/><empty/>";
 	}
 
-	void Init(const CParamNode& UNUSED(paramNode)) override
+	void Init(const CParamNode&) override
 	{
 		m_ActorSeed = 0;
 		m_NextId = 1;
@@ -88,7 +96,7 @@ public:
 		deserialize.NumberU32_Unbounded("next id", m_NextId);
 	}
 
-	void HandleMessage(const CMessage& msg, bool UNUSED(global)) override
+	void HandleMessage(const CMessage& msg, bool /*global*/) override
 	{
 		switch (msg.GetType())
 		{
@@ -115,7 +123,7 @@ public:
 	void RemoveProjectile(uint32_t) override;
 
 	void RenderModel(CModelAbstract& model, const CVector3D& position, SceneCollector& collector, const CFrustum& frustum, bool culling,
-		const CLosQuerier& los, bool losRevealAll) const;
+		const CLosQuerier& los, bool losRevealWholeMap) const;
 
 private:
 	struct Projectile
@@ -357,12 +365,12 @@ void CCmpProjectileManager::RemoveProjectile(uint32_t id)
 }
 
 void CCmpProjectileManager::RenderModel(CModelAbstract& model, const CVector3D& position, SceneCollector& collector,
-	const CFrustum& frustum, bool culling, const CLosQuerier& los, bool losRevealAll) const
+	const CFrustum& frustum, bool culling, const CLosQuerier& los, bool losRevealWholeMap) const
 {
 	// Don't display objects outside the visible area
 	ssize_t posi = (ssize_t)(0.5f + position.X / LOS_TILE_SIZE);
 	ssize_t posj = (ssize_t)(0.5f + position.Z / LOS_TILE_SIZE);
-	if (!losRevealAll && !los.IsVisible(posi, posj))
+	if (!losRevealWholeMap && !los.IsVisible(posi, posj))
 		return;
 
 	model.ValidatePosition();
@@ -380,16 +388,16 @@ void CCmpProjectileManager::RenderSubmit(SceneCollector& collector, const CFrust
 	CmpPtr<ICmpRangeManager> cmpRangeManager(GetSystemEntity());
 	int player = GetSimContext().GetCurrentDisplayedPlayer();
 	CLosQuerier los(cmpRangeManager->GetLosQuerier(player));
-	bool losRevealAll = cmpRangeManager->GetLosRevealAll(player);
+	bool losRevealWholeMap = cmpRangeManager->GetLosRevealWholeMap(player);
 
 	for (const Projectile& projectile : m_Projectiles)
 	{
-		RenderModel(projectile.unit->GetModel(), projectile.pos, collector, frustum, culling, los, losRevealAll);
+		RenderModel(projectile.unit->GetModel(), projectile.pos, collector, frustum, culling, los, losRevealWholeMap);
 	}
 
 	for (const ProjectileImpactAnimation& projectileImpactAnimation : m_ProjectileImpactAnimations)
 	{
 		RenderModel(projectileImpactAnimation.unit->GetModel(), projectileImpactAnimation.pos,
-			collector, frustum, culling, los, losRevealAll);
+			collector, frustum, culling, los, losRevealWholeMap);
 	}
 }

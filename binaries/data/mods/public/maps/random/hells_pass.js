@@ -1,11 +1,16 @@
+import { addAnimals, addBerries, addBluffs, addDecoration, addForests, addHills, addLakes,
+	addLayeredPatches, addMetal, addProps, addStone, addStragglerTrees } from
+	"maps/random/rmgen2/gaia.js";
+import { addElements, allAmounts, allMixes, allSizes, createBases, initTileClasses } from
+	"maps/random/rmgen2/setup.js";
+
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
-Engine.LoadLibrary("rmgen2");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
-	setSelectedBiome();
+	setBiome(mapSettings.Biome);
 
 	const heightLand = 1;
 	const heightBarrier = 30;
@@ -25,8 +30,8 @@ function* GenerateMap()
 	const teamsArray = getTeamsArray();
 	const startAngle = randomAngle();
 	createBases(
-		...playerPlacementByPattern(
-			"line",
+		playerPlacementByPattern(
+			"groupedLines",
 			fractionToTiles(0.2),
 			fractionToTiles(0.08),
 			startAngle,
@@ -142,7 +147,7 @@ function* GenerateMap()
 			],
 			"sizes": ["normal"],
 			"mixes": ["same"],
-			"amounts": g_AllAmounts
+			"amounts": allAmounts
 		},
 		{
 			"func": addStone,
@@ -160,7 +165,7 @@ function* GenerateMap()
 			],
 			"sizes": ["normal"],
 			"mixes": ["same"],
-			"amounts": g_AllAmounts
+			"amounts": allAmounts
 		},
 		{
 			"func": addForests,
@@ -176,8 +181,8 @@ function* GenerateMap()
 				g_TileClasses.spine, 5,
 				g_TileClasses.water, 2
 			],
-			"sizes": g_AllSizes,
-			"mixes": g_AllMixes,
+			"sizes": allSizes,
+			"mixes": allMixes,
 			"amounts": ["few", "normal", "many", "tons"]
 		}
 	]));
@@ -198,9 +203,9 @@ function* GenerateMap()
 				g_TileClasses.spine, 2,
 				g_TileClasses.water, 3
 			],
-			"sizes": g_AllSizes,
-			"mixes": g_AllMixes,
-			"amounts": g_AllAmounts
+			"sizes": allSizes,
+			"mixes": allMixes,
+			"amounts": allAmounts
 		},
 		{
 			"func": addAnimals,
@@ -216,9 +221,9 @@ function* GenerateMap()
 				g_TileClasses.spine, 2,
 				g_TileClasses.water, 3
 			],
-			"sizes": g_AllSizes,
-			"mixes": g_AllMixes,
-			"amounts": g_AllAmounts
+			"sizes": allSizes,
+			"mixes": allMixes,
+			"amounts": allAmounts
 		},
 		{
 			"func": addStragglerTrees,
@@ -234,9 +239,9 @@ function* GenerateMap()
 				g_TileClasses.spine, 2,
 				g_TileClasses.water, 5
 			],
-			"sizes": g_AllSizes,
-			"mixes": g_AllMixes,
-			"amounts": g_AllAmounts
+			"sizes": allSizes,
+			"mixes": allMixes,
+			"amounts": allAmounts
 		}
 	]));
 	yield 90;
@@ -269,7 +274,7 @@ function* GenerateMap()
 		if (currentBiome() == "generic/autumn")
 			spineTerrain = g_Terrains.tier4Terrain;
 
-		const spineCount = isNomad() ? randIntInclusive(1, 4) : teamsArray.length;
+		const spineCount = mapSettings.Nomad ? randIntInclusive(1, 4) : teamsArray.length;
 
 		for (let i = 0; i < spineCount; ++i)
 		{

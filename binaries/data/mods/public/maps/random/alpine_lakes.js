@@ -2,10 +2,10 @@ Engine.LoadLibrary("rmbiome");
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 
-function* GenerateMap(mapSettings)
+export function* generateMap(mapSettings)
 {
-	setBiome(mapSettings.Biome ?? "alpine/winter");
-	const isLateSpringBiome = mapSettings.Biome !== "alpine/winter";
+	setBiome(mapSettings.Biome);
+	const isLateSpringBiome = mapSettings.Biome === "alpine/late_spring";
 
 	setFogThickness(isLateSpringBiome ? 0.26 : 0.19);
 	setFogFactor(isLateSpringBiome ? 0.4 : 0.35);
@@ -38,8 +38,16 @@ function* GenerateMap(mapSettings)
 	const clFood = g_Map.createTileClass();
 	const clBaseResource = g_Map.createTileClass();
 
+	const { playerIDs, playerPosition } =
+		playerPlacementByPattern(
+			mapSettings.PlayerPlacement,
+			fractionToTiles(0.35),
+			fractionToTiles(0.1),
+			randomAngle(),
+			undefined);
+
 	placePlayerBases({
-		"PlayerPlacement": playerPlacementCircle(fractionToTiles(0.35)),
+		"PlayerPlacement": [playerIDs, playerPosition],
 		"PlayerTileClass": clPlayer,
 		"BaseResourceClass": clBaseResource,
 		"CityPatch": {
@@ -205,9 +213,9 @@ function* GenerateMap(mapSettings)
 			[new SimpleObject(g_Gaia.fish, 2, 3, 0, 2)]
 		],
 		[
-			15 * numPlayers
+			20 * numPlayers
 		],
-		[avoidClasses(clFood, 20), stayClasses(clWater, 6)],
+		[avoidClasses(clFood, 8), stayClasses(clWater, 2)],
 		clFood);
 
 	yield 85;

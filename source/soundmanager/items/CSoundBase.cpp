@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,10 +21,14 @@
 
 #if CONFIG2_AUDIO
 
+#include "lib/path.h"
 #include "lib/timer.h"
+#include "maths/Vector3D.h"
+#include "soundmanager/ISoundManager.h"
 #include "soundmanager/SoundManager.h"
 #include "soundmanager/data/SoundData.h"
-#include "ps/CLogger.h"
+
+#include <algorithm>
 
 CSoundBase::CSoundBase()
 {
@@ -57,9 +61,8 @@ void CSoundBase::ReleaseOpenAL()
 	}
 }
 
-void CSoundBase::Attach(CSoundData* itemData)
+void CSoundBase::Attach(CSoundData* /*itemData*/)
 {
-	UNUSED2(itemData);
 }
 
 void CSoundBase::ResetVars()

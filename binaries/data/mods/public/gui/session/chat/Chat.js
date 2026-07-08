@@ -32,12 +32,13 @@ class Chat
 		this.ChatMessageHandler.registerMessageFormat("message", this.ChatMessageFormatPlayer);
 		this.ChatMessageHandler.registerMessageHandler(this.ChatOverlay.onChatMessage.bind(this.ChatOverlay));
 		this.ChatMessageHandler.registerMessageHandler(this.ChatHistory.onChatMessage.bind(this.ChatHistory));
-		this.ChatMessageHandler.registerMessageHandler(() => {
+		this.ChatMessageHandler.registerMessageHandler(() =>
+		{
 			if (this.ChatWindow.isOpen() && this.ChatWindow.isExtended())
 				this.ChatHistory.displayChatHistory();
 		});
 
-		let updater = this.onUpdatePlayers.bind(this);
+		const updater = this.onUpdatePlayers.bind(this);
 		registerPlayersFinishedHandler(updater);
 		registerPlayerAssignmentsChangeHandler(updater);
 		playerViewControl.registerViewedPlayerChangeHandler(updater);
@@ -78,22 +79,58 @@ class Chat
 	}
 
 	/**
-	 * Send the given chat message.
+	 * Send the given chat message to the addressees.
 	 */
 	submitChat(text, command = "")
 	{
 		if (command.startsWith("/msg "))
 			Engine.SetGlobalHotkey("privatechat", "Press", () => { this.openPage(command); });
 
-		let msg = command ? command + " " + text : text;
+		const msg = command ? command + " " + text : text;
 
 		if (Engine.HasNetClient())
-			Engine.SendNetworkChat(msg);
+			Engine.SendNetworkChat(msg, this.getReceiverGUIDs(text, command));
 		else
 			this.ChatMessageHandler.handleMessage({
 				"type": "message",
 				"guid": "local",
 				"text": msg
 			});
+	}
+
+	getReceiverGUIDs(text, command)
+	{
+		const senderGUID = Engine.GetPlayerGUID();
+
+		if (command.startsWith("/msg "))
+		{
+			const receiverGUID =
+				this.ChatMessageFormatPlayer.matchUsername(
+					command.substr("/msg ".length));
+
+			if (!receiverGUID)
+			{
+				warn("Unknown chat addressee: " + text);
+				return [];
+			}
+
+			return [senderGUID, receiverGUID];
+		}
+
+		const isAddressee = this.ChatAddressees.AddresseeTypes.find(
+			type => type.command === command)?.isAddressee;
+
+		if (!isAddressee)
+		{
+			warn("Unknown chat command " + command);
+			return [];
+		}
+
+		const senderID = Engine.GetPlayerID();
+		return Object.keys(g_PlayerAssignments).filter(potentialReceiverGUID =>
+		{
+			return potentialReceiverGUID === senderGUID ||
+				isAddressee(senderID, g_PlayerAssignments[potentialReceiverGUID].player);
+		});
 	}
 }

@@ -970,7 +970,7 @@
 			<Actor seed="986"/>
 		</Entity>
 		<Entity uid="160">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="367.34354" z="702.84644"/>
 			<Orientation y="1.21082"/>
@@ -1061,35 +1061,35 @@
 			<Actor seed="52102"/>
 		</Entity>
 		<Entity uid="175">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="178.28016" z="478.67933"/>
 			<Orientation y="-1.27067"/>
 			<Actor seed="20966"/>
 		</Entity>
 		<Entity uid="176">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="619.35499" z="476.45163"/>
 			<Orientation y="-2.28785"/>
 			<Actor seed="4258"/>
 		</Entity>
 		<Entity uid="177">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="837.24811" z="747.54767"/>
 			<Orientation y="0.26166"/>
 			<Actor seed="11854"/>
 		</Entity>
 		<Entity uid="178">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="830.41681" z="286.1691"/>
 			<Orientation y="-2.1921"/>
 			<Actor seed="18316"/>
 		</Entity>
 		<Entity uid="179">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="546.46454" z="201.3108"/>
 			<Orientation y="-2.03739"/>
@@ -1390,28 +1390,28 @@
 			<Actor seed="41438"/>
 		</Entity>
 		<Entity uid="244">
-			<Template>units/maur/support_female_citizen</Template>
+			<Template>units/maur/support_civilian</Template>
 			<Player>2</Player>
 			<Position x="459.4534" z="99.67846"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="36900"/>
 		</Entity>
 		<Entity uid="245">
-			<Template>units/maur/support_female_citizen</Template>
+			<Template>units/maur/support_civilian</Template>
 			<Player>2</Player>
 			<Position x="463.55771" z="103.37818"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="29262"/>
 		</Entity>
 		<Entity uid="246">
-			<Template>units/maur/support_female_citizen</Template>
+			<Template>units/maur/support_civilian</Template>
 			<Player>2</Player>
 			<Position x="468.27402" z="107.57656"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="18834"/>
 		</Entity>
 		<Entity uid="247">
-			<Template>units/maur/support_female_citizen</Template>
+			<Template>units/maur/support_civilian</Template>
 			<Player>2</Player>
 			<Position x="473.1908" z="112.84015"/>
 			<Orientation y="2.35621"/>
@@ -5469,14 +5469,14 @@
 			<Actor seed="44896"/>
 		</Entity>
 		<Entity uid="905">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="324.89194" z="202.50454"/>
 			<Orientation y="2.4318"/>
 			<Actor seed="31236"/>
 		</Entity>
 		<Entity uid="906">
-			<Template>gaia/ore/mediterranean_large</Template>
+			<Template>gaia/ore/aegean_anatolian_01</Template>
 			<Player>0</Player>
 			<Position x="563.0077" z="837.5644"/>
 			<Orientation y="-0.325"/>
@@ -8442,14 +8442,14 @@
 			<Actor seed="39950"/>
 		</Entity>
 		<Entity uid="1401">
-			<Template>gaia/treasure/metal_persian_big</Template>
+			<Template>gaia/treasure/metal_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="642.06684" z="449.28684"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="21882"/>
 		</Entity>
 		<Entity uid="1402">
-			<Template>gaia/treasure/metal_persian_small</Template>
+			<Template>gaia/treasure/metal_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="147.89106" z="438.21833"/>
 			<Orientation y="2.35621"/>
@@ -8519,28 +8519,28 @@
 			<Actor seed="57908"/>
 		</Entity>
 		<Entity uid="1416">
-			<Template>units/ptol/support_female_citizen</Template>
+			<Template>units/ptol/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="500.25532" z="692.62586"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="26088"/>
 		</Entity>
 		<Entity uid="1417">
-			<Template>units/ptol/support_female_citizen</Template>
+			<Template>units/ptol/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="502.53" z="696.00788"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="43942"/>
 		</Entity>
 		<Entity uid="1418">
-			<Template>units/ptol/support_female_citizen</Template>
+			<Template>units/ptol/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="505.15552" z="699.7989"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="54262"/>
 		</Entity>
 		<Entity uid="1419">
-			<Template>units/ptol/support_female_citizen</Template>
+			<Template>units/ptol/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="509.18787" z="702.21814"/>
 			<Orientation y="2.35621"/>

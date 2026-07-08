@@ -1,12 +1,13 @@
 class HotkeysPage
 {
-	constructor(metadata)
+	constructor(metadata, closePageCallback)
 	{
 		this.metadata = metadata;
 
-		Engine.GetGUIObjectByName("hotkeyList").onMouseLeftDoubleClickItem = () => {
-			let idx = Engine.GetGUIObjectByName("hotkeyList").selected;
-			let picker = new HotkeyPicker(
+		Engine.GetGUIObjectByName("hotkeyList").onMouseLeftDoubleClickItem = () =>
+		{
+			const idx = Engine.GetGUIObjectByName("hotkeyList").selected;
+			const picker = new HotkeyPicker(
 				this.metadata,
 				this.onHotkeyPicked.bind(this),
 				Engine.GetGUIObjectByName("hotkeyList").list_data[idx],
@@ -23,9 +24,10 @@ class HotkeysPage
 		this.saveButton = Engine.GetGUIObjectByName("hotkeySave");
 		this.saveButton.enabled = false;
 
-		Engine.GetGUIObjectByName("hotkeyClose").onPress = () => Engine.PopGuiPage();
+		Engine.GetGUIObjectByName("hotkeyClose").onPress = closePageCallback;
 		Engine.GetGUIObjectByName("hotkeyReset").onPress = () => this.resetUserHotkeys();
-		this.saveButton.onPress = () => {
+		this.saveButton.onPress = () =>
+		{
 			this.saveUserHotkeys();
 			this.saveButton.enabled = false;
 		};
@@ -37,30 +39,31 @@ class HotkeysPage
 
 	setupHotkeyData()
 	{
-		let hotkeydata = Engine.GetHotkeyMap();
+		const hotkeydata = Engine.GetHotkeyMap();
 		this.hotkeys = hotkeydata;
-		let categories = clone(this.metadata.categories);
-		for (let name in categories)
+		const categories = clone(this.metadata.categories);
+		for (const name in categories)
 			categories[name].hotkeys = [];
 		// Add hotkeys defined in the metadata but not in the C++ map.
-		for (let hotkeyName in this.metadata.hotkeys)
+		for (const hotkeyName in this.metadata.hotkeys)
 			if (!this.hotkeys[hotkeyName])
 				this.hotkeys[hotkeyName] = [];
-		for (let hotkeyName in this.hotkeys)
+		for (const hotkeyName in this.hotkeys)
 		{
 			if (this.metadata.hotkeys[hotkeyName])
-				for (let cat of this.metadata.hotkeys[hotkeyName].categories)
+				for (const cat of this.metadata.hotkeys[hotkeyName].categories)
 					categories[cat].hotkeys.push(hotkeyName);
 			else
 				categories[this.metadata.DEFAULT_CATEGORY].hotkeys.push(hotkeyName);
 		}
-		for (let cat in categories)
-			categories[cat].hotkeys.sort((a, b) => {
+		for (const cat in categories)
+			categories[cat].hotkeys.sort((a, b) =>
+			{
 				if (!this.metadata.hotkeys[a] || !this.metadata.hotkeys[b])
 					return !this.metadata.hotkeys[a] ? 1 : -1;
 				return this.metadata.hotkeys[a].order - this.metadata.hotkeys[b].order;
 			});
-		for (let cat in categories)
+		for (const cat in categories)
 			if (categories[cat].hotkeys.length === 0)
 				delete categories[cat];
 		this.categories = categories;
@@ -68,9 +71,9 @@ class HotkeysPage
 
 	setupFilters()
 	{
-		let dropdown = Engine.GetGUIObjectByName("hotkeyFilter");
-		let names = [];
-		for (let cat in this.categories)
+		const dropdown = Engine.GetGUIObjectByName("hotkeyFilter");
+		const names = [];
+		for (const cat in this.categories)
 			names.push(translateWithContext("hotkey metadata", this.categories[cat].name));
 		dropdown.list = [translate("All Hotkeys")].concat(names);
 		dropdown.list_data = [-1].concat(Object.keys(this.categories));
@@ -79,17 +82,18 @@ class HotkeysPage
 
 	setupHotkeyList()
 	{
-		let hotkeyList = Engine.GetGUIObjectByName("hotkeyList");
+		const hotkeyList = Engine.GetGUIObjectByName("hotkeyList");
 		hotkeyList.selected = -1;
-		let textFilter = Engine.GetGUIObjectByName("hotkeyTextFilter").caption.toLowerCase();
+		const textFilter = Engine.GetGUIObjectByName("hotkeyTextFilter").caption.toLowerCase();
 
 		let hotkeys;
-		let dropdown = Engine.GetGUIObjectByName("hotkeyFilter");
+		const dropdown = Engine.GetGUIObjectByName("hotkeyFilter");
 		if (dropdown.selected && dropdown.selected !== 0)
 			hotkeys = this.categories[dropdown.list_data[dropdown.selected]].hotkeys;
 		else
 			hotkeys = Object.values(this.categories).map(x => x.hotkeys).flat();
-		hotkeys = hotkeys.filter(x => {
+		hotkeys = hotkeys.filter(x =>
+		{
 			return x.indexOf(textFilter) !== -1 ||
 				translateWithContext("hotkey metadata", this.metadata.hotkeys[x]?.name || x).toLowerCase().indexOf(textFilter) !== -1;
 		});
@@ -102,7 +106,7 @@ class HotkeysPage
 
 	onFilterHover()
 	{
-		let dropdown = Engine.GetGUIObjectByName("hotkeyFilter");
+		const dropdown = Engine.GetGUIObjectByName("hotkeyFilter");
 		if (dropdown.hovered === -1)
 			dropdown.tooltip = "";
 		else if (dropdown.hovered === 0)
@@ -113,15 +117,15 @@ class HotkeysPage
 
 	onHotkeyHover()
 	{
-		let hotkeyList = Engine.GetGUIObjectByName("hotkeyList");
+		const hotkeyList = Engine.GetGUIObjectByName("hotkeyList");
 		if (hotkeyList.hovered === -1)
 			hotkeyList.tooltip = "";
 		else
 		{
-			let hotkey = hotkeyList.list_data[hotkeyList.hovered];
+			const hotkey = hotkeyList.list_data[hotkeyList.hovered];
 			hotkeyList.tooltip = this.metadata.hotkeys[hotkey]?.desc ?
-						translateWithContext("hotkey metadata", this.metadata.hotkeys[hotkey]?.desc) :
-						translate(this.UnavailableTooltipString);
+				translateWithContext("hotkey metadata", this.metadata.hotkeys[hotkey]?.desc) :
+				translate(this.UnavailableTooltipString);
 		}
 	}
 
@@ -135,15 +139,6 @@ class HotkeysPage
 		picker.combinations = picker.combinations.filter(x => x.length);
 
 		this.hotkeys[picker.name] = picker.combinations;
-		// Have to find the correct line.
-		let panel = Engine.GetGUIObjectByName("hotkeyList");
-		for (let cat in this.categories)
-		{
-			let idx = this.categories[cat].hotkeys.findIndex(([name, _]) => name == picker.name);
-			if (idx === -1)
-				continue;
-			this.categories[cat].hotkeys[idx][1] = picker.combinations;
-		}
 
 		this.saveButton.enabled = true;
 		this.setupHotkeyList();
@@ -160,7 +155,8 @@ class HotkeysPage
 			return;
 
 		for (const cat in this.categories)
-			this.categories[cat].hotkeys.forEach(([name, _]) => {
+			this.categories[cat].hotkeys.forEach((name) =>
+			{
 				Engine.ConfigDB_RemoveValue("user", "hotkey." + name);
 			});
 		Engine.ConfigDB_SaveChanges("user");
@@ -172,13 +168,13 @@ class HotkeysPage
 
 	saveUserHotkeys()
 	{
-		for (let hotkey in this.hotkeys)
+		for (const hotkey in this.hotkeys)
 			Engine.ConfigDB_RemoveValue("user", "hotkey." + hotkey);
 		Engine.ReloadHotkeys();
-		let defaultData = Engine.GetHotkeyMap();
-		for (let hotkey in this.hotkeys)
+		const defaultData = Engine.GetHotkeyMap();
+		for (const hotkey in this.hotkeys)
 		{
-			let keymap = formatHotkeyCombinations(this.hotkeys[hotkey], false);
+			const keymap = formatHotkeyCombinations(this.hotkeys[hotkey], false);
 			if (keymap.join("") !== formatHotkeyCombinations(defaultData[hotkey], false).join(""))
 				Engine.ConfigDB_CreateValues("user", "hotkey." + hotkey, keymap);
 		}
@@ -190,7 +186,15 @@ class HotkeysPage
 
 function init()
 {
-	let hotkeyPage = new HotkeysPage(new HotkeyMetadata());
+	return new Promise(closePageCallback =>
+	{
+		// FIXME: There are proposals to remove init and allowing to specify
+		// controller classes in the gui xml, therefore leave it as a class and
+		// suppress the warning.
+		/* eslint-disable-next-line no-new */
+		new HotkeysPage(new HotkeyMetadata(), closePageCallback);
+		Engine.SetGlobalHotkey("hotkeys", "Press", closePageCallback);
+	});
 }
 
 HotkeysPage.prototype.UnavailableTooltipString = markForTranslation("No tooltip available.");

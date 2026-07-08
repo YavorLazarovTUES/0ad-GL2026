@@ -1,7 +1,7 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
 	TILE_CENTERED_HEIGHT_MAP = true;
 
@@ -112,7 +112,7 @@ function* GenerateMap()
 	const bridgeLength = 16;
 	const maxBridges = scaleByMapSize(2, 12);
 
-	const [playerIDs, playerPosition] = playerPlacementRandom(sortAllPlayers());
+	const { playerIDs, playerPosition } = playerPlacementRandom(sortAllPlayers());
 
 	g_Map.log("Creating player islands");
 	for (const position of playerPosition)
@@ -123,7 +123,7 @@ function* GenerateMap()
 				new TerrainPainter(tPrimary),
 				new SmoothElevationPainter(ELEVATION_SET, heightLand, 4),
 				new TileClassPainter(clIsland)
-			].concat(isNomad() ? [] : [new TileClassPainter(clPlayerIsland)]));
+			].concat(mapSettings.Nomad ? [] : [new TileClassPainter(clPlayerIsland)]));
 	yield 10;
 
 	g_Map.log("Creating islands");
@@ -343,9 +343,9 @@ function* GenerateMap()
 			[new SimpleObject(oFish, 2, 3, 0, 2)]
 		],
 		[
-			3 * numPlayers
+			35 * numPlayers
 		],
-		avoidClasses(clIsland, 8, clFood, 10, clVolcano, 4),
+		avoidClasses(clIsland, 2, clFood, 8, clVolcano, 2),
 		clFood);
 
 	createStragglerTrees(

@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,26 +19,39 @@
 
 #include "JSInterface_Network.h"
 
-#include "lib/external_libraries/enet.h"
-#include "lib/external_libraries/libsdl.h"
+#include "lib/code_generation.h"
+#include "lib/debug.h"
 #include "lib/types.h"
-#include "lobby/IXmppClient.h"
+#include "lib/utf8.h"
+#include "lobby/XmppClient.h"
 #include "network/NetClient.h"
 #include "network/NetMessage.h"
 #include "network/NetServer.h"
-#include "network/StunClient.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
-#include "ps/Game.h"
 #include "ps/GUID.h"
+#include "ps/Game.h"
 #include "ps/Hashing.h"
 #include "ps/Pyrogenesis.h"
-#include "ps/Util.h"
+#include "ps/SavedGame.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/StructuredClone.h"
 #include "scriptinterface/JSON.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Request.h"
+#include "scriptinterface/StructuredClone.h"
 
-#include "third_party/encryption/pkcs5_pbkdf2.h"
+#include <fmt/format.h>
+#include <js/PropertyAndElement.h>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <optional>
+#include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace Script { class Interface; }
 
 namespace JSI_Network
 {
@@ -62,102 +75,54 @@ bool HasNetClient()
 	return !!g_NetClient;
 }
 
-void StartNetworkHost(const ScriptRequest& rq, const CStrW& playerName, const u16 serverPort, bool useSTUN, const CStr& password, bool storeReplay)
+void StartNetworkHost(const CStrW& playerName, const u16 serverPort, const CStr& password,
+	const bool continueSavedGame, bool storeReplay)
 {
 	ENSURE(!g_NetClient);
 	ENSURE(!g_NetServer);
 	ENSURE(!g_Game);
 
 	// Always use lobby authentication for lobby matches to prevent impersonation and smurfing, in particular through mods that implemented an UI for arbitrary or other players nicknames.
-	bool hasLobby = !!g_XmppClient;
-	g_NetServer = new CNetServer(hasLobby);
+	const bool hasLobby = !!g_XmppClient;
+	const std::string hostJID{hasLobby ? g_XmppClient->GetJID() : ""};
 
-	if (!g_NetServer->SetupConnection(serverPort))
-	{
-		ScriptException::Raise(rq, "Failed to start server");
-		SAFE_DELETE(g_NetServer);
-		return;
-	}
+	/**
+	 * Password security - we want 0 A.D. to protect players from malicious hosts. We assume that clients
+	 * might mistakenly send a personal password instead of the game password (e.g. enter their mail account's password on autopilot).
+	 * Malicious dedicated servers might be set up to farm these failed logins and possibly obtain user credentials.
+	 * Therefore, we hash the passwords on the client side before sending them to the server.
+	 * This still makes the passwords potentially recoverable, but makes it much harder at scale.
+	 * To prevent the creation of rainbow tables, hash with:
+	 * - the host name
+	 * - the client name (this makes rainbow tables completely unworkable unless a specific user is targeted,
+	 *   but that would require both computing the matching rainbow table _and_ for that specific user to mistype a personal password,
+	 *   at which point we assume the attacker would/could probably just rather use another means of obtaining the password).
+	 * - the password itself
+	 * - the engine version (so that the hashes change periodically)
+	 * TODO: it should be possible to implement SRP or something along those lines to completely protect from this,
+	 * but the cost/benefit ratio is probably not worth it.
+	 */
+	std::string hashedPassword = hasLobby ?
+		HashCryptographically(password, hostJID + password + PS_SERIALIZATION_VERSION) : "";
 
-	// In lobby, we send our public ip and port on request to the players who want to connect.
-	// Thus we need to know our public IP. Use STUN if that's available,
-	// otherwise, the lobby's reponse to the game registration stanza will tell us our public IP.
-	if (hasLobby)
-	{
-		if (!useSTUN)
-			// Don't store IP - the lobby bot will send it later.
-			// (if a client tries to connect before it's setup, they'll be disconnected)
-			g_NetServer->SetConnectionData("", serverPort);
-		else if (!g_NetServer->SetConnectionDataViaSTUN())
-		{
-			ScriptException::Raise(rq, "Failed to host via STUN.");
-			SAFE_DELETE(g_NetServer);
-			return;
-		}
-	}
+	const std::string secret = ps_generate_guid();
+	g_NetServer = new CNetServer(continueSavedGame, serverPort, hasLobby, hashedPassword, secret);
 
 	// Generate a secret to identify the host client.
-	std::string secret = ps_generate_guid();
-	g_NetServer->SetControllerSecret(secret);
 
 	g_Game = new CGame(storeReplay);
-	g_NetClient = new CNetClient(g_Game);
-	g_NetClient->SetUserName(playerName);
-
-	if (hasLobby)
-	{
-		CStr hostJID = g_XmppClient->GetJID();
-
-		/**
-		 * Password security - we want 0 A.D. to protect players from malicious hosts. We assume that clients
-		 * might mistakenly send a personal password instead of the game password (e.g. enter their mail account's password on autopilot).
-		 * Malicious dedicated servers might be set up to farm these failed logins and possibly obtain user credentials.
-		 * Therefore, we hash the passwords on the client side before sending them to the server.
-		 * This still makes the passwords potentially recoverable, but makes it much harder at scale.
-		 * To prevent the creation of rainbow tables, hash with:
-		 * - the host name
-		 * - the client name (this makes rainbow tables completely unworkable unless a specific user is targeted,
-		 *   but that would require both computing the matching rainbow table _and_ for that specific user to mistype a personal password,
-		 *   at which point we assume the attacker would/could probably just rather use another means of obtaining the password).
-		 * - the password itself
-		 * - the engine version (so that the hashes change periodically)
-		 * TODO: it should be possible to implement SRP or something along those lines to completely protect from this,
-		 * but the cost/benefit ratio is probably not worth it.
-		 */
-		CStr hashedPass = HashCryptographically(password, hostJID + password + engine_version);
-		g_NetServer->SetPassword(hashedPass);
-		g_NetClient->SetHostJID(hostJID);
-		g_NetClient->SetGamePassword(hashedPass);
-	}
-
-	g_NetClient->SetupServerData("127.0.0.1", serverPort, false);
-	g_NetClient->SetControllerSecret(secret);
-
-	if (!g_NetClient->SetupConnection(nullptr))
-	{
-		ScriptException::Raise(rq, "Failed to connect to server");
-		SAFE_DELETE(g_NetClient);
-		SAFE_DELETE(g_Game);
-	}
+	g_NetClient = new CNetClient(g_Game, "127.0.0.1", serverPort, playerName, hostJID, hashedPassword,
+		secret);
 }
 
-void StartNetworkJoin(const ScriptRequest& rq, const CStrW& playerName, const CStr& serverAddress, u16 serverPort, bool storeReplay)
+void StartNetworkJoin(const CStrW& playerName, const CStr& serverAddress, u16 serverPort, bool storeReplay)
 {
 	ENSURE(!g_NetClient);
 	ENSURE(!g_NetServer);
 	ENSURE(!g_Game);
 
 	g_Game = new CGame(storeReplay);
-	g_NetClient = new CNetClient(g_Game);
-	g_NetClient->SetUserName(playerName);
-	g_NetClient->SetupServerData(serverAddress, serverPort, false);
-
-	if (!g_NetClient->SetupConnection(nullptr))
-	{
-		ScriptException::Raise(rq, "Failed to connect to server");
-		SAFE_DELETE(g_NetClient);
-		SAFE_DELETE(g_Game);
-	}
+	g_NetClient = new CNetClient(g_Game, serverAddress, serverPort, playerName);
 }
 
 /**
@@ -172,13 +137,9 @@ void StartNetworkJoinLobby(const CStrW& playerName, const CStr& hostJID, const C
 	ENSURE(!g_NetServer);
 	ENSURE(!g_Game);
 
-	CStr hashedPass = HashCryptographically(password, hostJID + password + engine_version);
+	CStr hashedPass = HashCryptographically(password, hostJID + password + PS_SERIALIZATION_VERSION);
 	g_Game = new CGame(true);
-	g_NetClient = new CNetClient(g_Game);
-	g_NetClient->SetUserName(playerName);
-	g_NetClient->SetHostJID(hostJID);
-	g_NetClient->SetGamePassword(hashedPass);
-	g_NetClient->SetupConnectionViaLobby();
+	g_NetClient = new CNetClient(g_Game, playerName, hostJID, hashedPass, *g_XmppClient);
 }
 
 void DisconnectNetworkGame()
@@ -198,24 +159,20 @@ CStr GetPlayerGUID()
 	return g_NetClient->GetGUID();
 }
 
-JS::Value PollNetworkClient(const ScriptInterface& guiInterface)
+JS::Value PollNetworkClient(const Script::Interface& guiInterface)
 {
 	if (!g_NetClient)
-		return JS::UndefinedValue();
+		throw std::logic_error{"Network client not present"};
 
-	// Convert from net client context to GUI script context
-	ScriptRequest rqNet(g_NetClient->GetScriptInterface());
-	JS::RootedValue pollNet(rqNet.cx);
-	g_NetClient->GuiPoll(&pollNet);
-	return Script::CloneValueFromOtherCompartment(guiInterface, g_NetClient->GetScriptInterface(), pollNet);
+	return JS::ObjectValue(*g_NetClient->GetNextGUIMessage(guiInterface));
 }
 
-void SendGameSetupMessage(const ScriptInterface& scriptInterface, JS::HandleValue attribs1)
+void SendGameSetupMessage(const Script::Interface& scriptInterface, JS::HandleValue attribs1)
 {
 	ENSURE(g_NetClient);
 
 	// TODO: This is a workaround because we need to pass a MutableHandle to a JSAPI functions somewhere (with no obvious reason).
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 	JS::RootedValue attribs(rq.cx, attribs1);
 
 	g_NetClient->SendGameSetupMessage(&attribs, scriptInterface);
@@ -230,16 +187,30 @@ void AssignNetworkPlayer(int playerID, const CStr& guid)
 
 void KickPlayer(const CStrW& playerName, bool ban)
 {
-	ENSURE(g_NetClient);
-
+	if (!g_NetClient)
+		throw std::logic_error{"g_NetClient is null."};
 	g_NetClient->SendKickPlayerMessage(playerName, ban);
 }
 
-void SendNetworkChat(const CStrW& message)
+void SendNetworkChat(const Script::Request& rq, const CStrW& message, JS::HandleValue handle)
 {
 	ENSURE(g_NetClient);
 
-	g_NetClient->SendChatMessage(message);
+	if (handle.isNullOrUndefined())
+	{
+		g_NetClient->SendChatMessage(message, std::nullopt);
+		return;
+	}
+
+	auto receivers = std::make_optional<std::vector<std::string>>();
+	if (!Script::FromJSVal(rq, handle, *receivers))
+	{
+		throw std::invalid_argument{"The second argument to `SendNetworkChat` has to be either an "
+			"Array or a nullish value."};
+		return;
+	}
+
+	g_NetClient->SendChatMessage(message, std::move(receivers));
 }
 
 void SendNetworkReady(int message)
@@ -256,14 +227,32 @@ void ClearAllPlayerReady ()
 	g_NetClient->SendClearAllReadyMessage();
 }
 
-void StartNetworkGame(const ScriptInterface& scriptInterface, JS::HandleValue attribs1)
+void StartNetworkGame(const Script::Interface& scriptInterface, JS::HandleValue savegame, JS::HandleValue attribs1)
 {
 	ENSURE(g_NetClient);
 
-	// TODO: This is a workaround because we need to pass a MutableHandle to a JSAPI functions somewhere (with no obvious reason).
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
+
 	JS::RootedValue attribs(rq.cx, attribs1);
-	g_NetClient->SendStartGameMessage(Script::StringifyJSON(rq, &attribs));
+	std::string attributesAsString{Script::StringifyJSON(rq, &attribs)};
+
+	if (savegame.isUndefined())
+	{
+		g_NetClient->SendStartGameMessage(attributesAsString);
+		return;
+	}
+
+	std::wstring savegameID;
+	Script::FromJSVal(rq, savegame, savegameID);
+
+	const std::optional<SavedGames::LoadResult> loadResult{SavedGames::Load(scriptInterface, savegameID)};
+	if (loadResult)
+		g_NetClient->SendStartSavedGameMessage(attributesAsString, loadResult->savedState);
+	else
+	{
+		throw std::runtime_error{fmt::format("Failed to load the saved game: \"{}\"",
+			utf8_from_wstring(savegameID).c_str())};
+	}
 }
 
 void SetTurnLength(int length)
@@ -274,25 +263,49 @@ void SetTurnLength(int length)
 		LOGERROR("Only network host can change turn length");
 }
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void SendNetworkFlare(JS::HandleValue position)
 {
-	ScriptFunction::Register<&GetDefaultPort>(rq, "GetDefaultPort");
-	ScriptFunction::Register<&IsNetController>(rq, "IsNetController");
-	ScriptFunction::Register<&HasNetServer>(rq, "HasNetServer");
-	ScriptFunction::Register<&HasNetClient>(rq, "HasNetClient");
-	ScriptFunction::Register<&StartNetworkHost>(rq, "StartNetworkHost");
-	ScriptFunction::Register<&StartNetworkJoin>(rq, "StartNetworkJoin");
-	ScriptFunction::Register<&StartNetworkJoinLobby>(rq, "StartNetworkJoinLobby");
-	ScriptFunction::Register<&DisconnectNetworkGame>(rq, "DisconnectNetworkGame");
-	ScriptFunction::Register<&GetPlayerGUID>(rq, "GetPlayerGUID");
-	ScriptFunction::Register<&PollNetworkClient>(rq, "PollNetworkClient");
-	ScriptFunction::Register<&SendGameSetupMessage>(rq, "SendGameSetupMessage");
-	ScriptFunction::Register<&AssignNetworkPlayer>(rq, "AssignNetworkPlayer");
-	ScriptFunction::Register<&KickPlayer>(rq, "KickPlayer");
-	ScriptFunction::Register<&SendNetworkChat>(rq, "SendNetworkChat");
-	ScriptFunction::Register<&SendNetworkReady>(rq, "SendNetworkReady");
-	ScriptFunction::Register<&ClearAllPlayerReady>(rq, "ClearAllPlayerReady");
-	ScriptFunction::Register<&StartNetworkGame>(rq, "StartNetworkGame");
-	ScriptFunction::Register<&SetTurnLength>(rq, "SetTurnLength");
+	ENSURE(g_NetClient);
+
+	Script::Request rq(g_NetClient->GetScriptInterface());
+	ENSURE(position.isObject());
+	JS::RootedObject positionObj(rq.cx, &position.toObject());
+	JS::RootedValue positionX(rq.cx);
+	JS::RootedValue positionY(rq.cx);
+	JS::RootedValue positionZ(rq.cx);
+	ENSURE(JS_GetProperty(rq.cx, positionObj, "x", &positionX));
+	ENSURE(JS_GetProperty(rq.cx, positionObj, "y", &positionY));
+	ENSURE(JS_GetProperty(rq.cx, positionObj, "z", &positionZ));
+
+	// (TODO?): Converting the doubles into strings here is a workaround because direct (de)serialisation of floating point numbers is not supported.
+	// It causes somewhat awkward message handling, but the resulting efficiency losses are negligible.
+	g_NetClient->SendFlareMessage(
+		CStr::FromDouble(positionX.toNumber()),
+		CStr::FromDouble(positionY.toNumber()),
+		CStr::FromDouble(positionZ.toNumber())
+	);
+}
+
+void RegisterScriptFunctions(const Script::Request& rq)
+{
+	Script::Function::Register<&GetDefaultPort>(rq, "GetDefaultPort");
+	Script::Function::Register<&IsNetController>(rq, "IsNetController");
+	Script::Function::Register<&HasNetServer>(rq, "HasNetServer");
+	Script::Function::Register<&HasNetClient>(rq, "HasNetClient");
+	Script::Function::Register<&StartNetworkHost>(rq, "StartNetworkHost");
+	Script::Function::Register<&StartNetworkJoin>(rq, "StartNetworkJoin");
+	Script::Function::Register<&StartNetworkJoinLobby>(rq, "StartNetworkJoinLobby");
+	Script::Function::Register<&DisconnectNetworkGame>(rq, "DisconnectNetworkGame");
+	Script::Function::Register<&GetPlayerGUID>(rq, "GetPlayerGUID");
+	Script::Function::Register<&PollNetworkClient>(rq, "PollNetworkClient");
+	Script::Function::Register<&SendGameSetupMessage>(rq, "SendGameSetupMessage");
+	Script::Function::Register<&AssignNetworkPlayer>(rq, "AssignNetworkPlayer");
+	Script::Function::Register<&KickPlayer>(rq, "KickPlayer");
+	Script::Function::Register<&SendNetworkChat>(rq, "SendNetworkChat");
+	Script::Function::Register<&SendNetworkReady>(rq, "SendNetworkReady");
+	Script::Function::Register<&ClearAllPlayerReady>(rq, "ClearAllPlayerReady");
+	Script::Function::Register<&StartNetworkGame>(rq, "StartNetworkGame");
+	Script::Function::Register<&SetTurnLength>(rq, "SetTurnLength");
+	Script::Function::Register<&SendNetworkFlare>(rq, "SendNetworkFlare");
 }
 }

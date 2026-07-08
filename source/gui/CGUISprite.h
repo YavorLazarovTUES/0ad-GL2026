@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,9 +24,11 @@
 #define INCLUDED_CGUISPRITE
 
 #include "gui/GUIRenderer.h"
-#include "gui/SettingTypes/CGUISize.h"
 #include "gui/SettingTypes/CGUIColor.h"
+#include "gui/SettingTypes/CGUISize.h"
+#include "lib/code_annotation.h"
 #include "lib/file/vfs/vfs_path.h"
+#include "maths/Rect.h"
 #include "ps/CStr.h"
 #include "renderer/backend/Sampler.h"
 
@@ -35,6 +37,7 @@
 #include <vector>
 
 class CCanvas2D;
+class CGUI;
 
 struct SGUIImageEffects
 {
@@ -138,6 +141,7 @@ public:
 
 	CGUISpriteInstance();
 	CGUISpriteInstance(const CStr& SpriteName);
+	CGUISpriteInstance(const CStr& SpriteName, const bool RoundCoordinates);
 
 	void Draw(CGUI& pGUI, CCanvas2D& canvas, const CRect& Size, std::map<CStr, std::unique_ptr<const CGUISprite>>& Sprites) const;
 
@@ -157,8 +161,16 @@ public:
 	 */
 	void SetName(const CStr& SpriteName);
 
+	/**
+	 * Sets the coordinates to be rounded to integer pixels.
+	 * This is useful for pixel art, icons in text, to avoid blurry filtering.
+	 * Use as rarely as possible, because it clears the draw cache.
+	 */
+	void SetRoundCoordinates(const bool RoundCoordinates);
 private:
-	CStr m_SpriteName;
+	CStr m_SpriteName{};
+
+	bool m_RoundCoordinates{true};
 
 	// Stored drawing calls, for more efficient rendering
 	mutable GUIRenderer::DrawCalls m_DrawCallCache;

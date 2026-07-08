@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -24,15 +24,17 @@
 
 #include "tex.h"
 
+#include "lib/alignment.h"
+#include "lib/allocators/dynarray.h"
 #include "lib/allocators/shared_ptr.h"
 #include "lib/bits.h"
-#include "lib/sysdep/cpu.h"
+#include "lib/debug.h"
+#include "lib/posix/posix_types.h"
 #include "lib/tex/tex_codec.h"
-#include "lib/timer.h"
 
 #include <algorithm>
-#include <cmath>
-#include <cstdlib>
+#include <cstdint>
+#include <cstring>
 
 static const StatusDefinition texStatusDefinitions[] =
 {
@@ -271,8 +273,6 @@ static Status add_mipmaps(Tex* t, size_t w, size_t h, size_t bpp, void* newData,
 // pixel format conversion (transformation)
 //-----------------------------------------------------------------------------
 
-TIMER_ADD_CLIENT(tc_plain_transform);
-
 // handles BGR and row flipping in "plain" format (see below).
 //
 // called by codecs after they get their format-specific transforms out of
@@ -282,7 +282,6 @@ TIMER_ADD_CLIENT(tc_plain_transform);
 // somewhat optimized (loops are hoisted, cache associativity accounted for)
 static Status plain_transform(Tex* t, size_t transforms)
 {
-	TIMER_ACCRUE(tc_plain_transform);
 	CHECK_TEX(t);
 
 	// extract texture info
@@ -452,14 +451,10 @@ static Status plain_transform(Tex* t, size_t transforms)
 	return INFO::OK;
 }
 
-
-TIMER_ADD_CLIENT(tc_transform);
-
 // change the pixel format by flipping the state of all TEX_* flags
 // that are set in transforms.
 Status Tex::transform(size_t transforms)
 {
-	TIMER_ACCRUE(tc_transform);
 	CHECK_TEX(this);
 
 	const size_t target_flags = m_Flags ^ transforms;
@@ -650,11 +645,11 @@ u32 Tex::get_average_color() const
 	// construct a new texture based on the current one,
 	// but only include the last mipmap level
 	// do this so that we can use the general conversion methods for the pixel data
-	Tex basetex = *this;
-	uint8_t *data = new uint8_t[last_level_size];
-	memcpy(data, m_Data.get() + m_Ofs + size - last_level_size, last_level_size);
-	std::shared_ptr<uint8_t> sdata(data, ArrayDeleter());
-	basetex.wrap(1, 1, m_Bpp, m_Flags, sdata, 0);
+	Tex basetex;
+	std::shared_ptr<uint8_t> data;
+	WARN_IF_ERR(AllocateAligned(data, last_level_size));
+	memcpy(data.get(), m_Data.get() + m_Ofs + size - last_level_size, last_level_size);
+	basetex.wrap(1, 1, m_Bpp, m_Flags, data, 0);
 
 	// convert to BGRA
 	WARN_IF_ERR(basetex.transform_to(TEX_BGR | TEX_ALPHA));
@@ -669,7 +664,8 @@ u32 Tex::get_average_color() const
 }
 
 
-static void add_level_size(size_t UNUSED(level), size_t UNUSED(level_w), size_t UNUSED(level_h), const u8* RESTRICT UNUSED(level_data), size_t level_dataSize, void* RESTRICT cbData)
+static void add_level_size(size_t /*level*/, size_t /*level_w*/, size_t /*level_h*/,
+	const u8* RESTRICT /*level_data*/, size_t level_dataSize, void* RESTRICT cbData)
 {
 	size_t* ptotal_size = (size_t*)cbData;
 	*ptotal_size += level_dataSize;
@@ -789,7 +785,7 @@ void Tex::UpdateMIPLevels()
 
 	const u32 dataPadding = (m_Flags & TEX_DXT) != 0 ? 4 : 1;
 	u32 levelWidth = m_Width, levelHeight = m_Height;
-	for (u32 level = 0; ; ++level)
+	for (;;)
 	{
 		const u32 levelDataSize = round_up(levelWidth, dataPadding) * round_up(levelHeight, dataPadding) * m_Bpp / 8;
 		m_MIPLevels.emplace_back();

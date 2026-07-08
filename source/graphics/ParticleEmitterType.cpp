@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,15 +22,28 @@
 #include "graphics/Color.h"
 #include "graphics/ParticleEmitter.h"
 #include "graphics/ParticleManager.h"
+#include "graphics/SColor.h"
 #include "graphics/TextureManager.h"
+#include "lib/debug.h"
 #include "maths/MathUtil.h"
+#include "maths/Matrix3D.h"
+#include "maths/Quaternion.h"
+#include "maths/Vector3D.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
+#include "ps/Errors.h"
 #include "ps/Filesystem.h"
+#include "ps/XMB/XMBData.h"
+#include "ps/XMB/XMBStorage.h"
 #include "ps/XML/Xeromyces.h"
 #include "renderer/Renderer.h"
+#include "renderer/backend/Sampler.h"
 
-#include <boost/random/uniform_real_distribution.hpp>
-
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <map>
+#include <random>
 
 /**
  * Interface for particle state variables, which get evaluated for each newly
@@ -61,16 +74,16 @@ public:
 	 * Returns the minimum value that Evaluate might ever return,
 	 * for computing bounds.
 	 */
-	virtual float Min(CParticleEmitterType& type) = 0;
+	virtual float Min(const CParticleEmitterType& type) = 0;
 
 	/**
 	 * Returns the maximum value that Evaluate might ever return,
 	 * for computing bounds.
 	 */
-	virtual float Max(CParticleEmitterType& type) = 0;
+	virtual float Max(const CParticleEmitterType& type) = 0;
 
 protected:
-	virtual float Compute(CParticleEmitterType& type, CParticleEmitter& emitter) = 0;
+	virtual float Compute(const CParticleEmitterType& type, const CParticleEmitter& emitter) = 0;
 
 private:
 	float m_LastValue;
@@ -87,17 +100,17 @@ public:
 	{
 	}
 
-	virtual float Compute(CParticleEmitterType& UNUSED(type), CParticleEmitter& UNUSED(emitter))
+	float Compute(const CParticleEmitterType&, const CParticleEmitter&) override
 	{
 		return m_Value;
 	}
 
-	virtual float Min(CParticleEmitterType& UNUSED(type))
+	float Min(const CParticleEmitterType&) override
 	{
 		return m_Value;
 	}
 
-	virtual float Max(CParticleEmitterType& UNUSED(type))
+	float Max(const CParticleEmitterType&) override
 	{
 		return m_Value;
 	}
@@ -117,17 +130,17 @@ public:
 	{
 	}
 
-	virtual float Compute(CParticleEmitterType& type, CParticleEmitter& UNUSED(emitter))
+	float Compute(const CParticleEmitterType& type, const CParticleEmitter&) override
 	{
-		return boost::random::uniform_real_distribution<float>(m_Min, m_Max)(type.m_Manager.m_RNG);
+		return std::uniform_real_distribution<float>(m_Min, m_Max)(type.m_Manager.m_RNG);
 	}
 
-	virtual float Min(CParticleEmitterType& UNUSED(type))
+	float Min(const CParticleEmitterType&) override
 	{
 		return m_Min;
 	}
 
-	virtual float Max(CParticleEmitterType& UNUSED(type))
+	float Max(const CParticleEmitterType&) override
 	{
 		return m_Max;
 	}
@@ -149,17 +162,17 @@ public:
 	{
 	}
 
-	virtual float Compute(CParticleEmitterType& type, CParticleEmitter& UNUSED(emitter))
+	float Compute(const CParticleEmitterType& type, const CParticleEmitter&) override
 	{
 		return type.m_Variables[m_From]->LastValue();
 	}
 
-	virtual float Min(CParticleEmitterType& type)
+	float Min(const CParticleEmitterType& type) override
 	{
 		return type.m_Variables[m_From]->Min(type);
 	}
 
-	virtual float Max(CParticleEmitterType& type)
+	float Max(const CParticleEmitterType& type) override
 	{
 		return type.m_Variables[m_From]->Max(type);
 	}
@@ -180,17 +193,20 @@ public:
 	{
 	}
 
-	virtual float Compute(CParticleEmitterType& UNUSED(type), CParticleEmitter& emitter)
+	float Compute(const CParticleEmitterType&, const CParticleEmitter& emitter) override
 	{
-		return std::min(m_Max, emitter.m_EntityVariables[m_From] * m_Mul);
+		float value{0.0f};
+		if (auto it{emitter.m_EntityVariables.find(m_From)}; it != emitter.m_EntityVariables.end())
+			value = it->second;
+		return std::min(m_Max, value * m_Mul);
 	}
 
-	virtual float Min(CParticleEmitterType& UNUSED(type))
+	float Min(const CParticleEmitterType&) override
 	{
 		return 0.f;
 	}
 
-	virtual float Max(CParticleEmitterType& UNUSED(type))
+	float Max(const CParticleEmitterType&) override
 	{
 		return m_Max;
 	}
@@ -232,7 +248,7 @@ public:
 	{
 	}
 
-	virtual void Evaluate(std::vector<SParticle>& particles, float dt)
+	void Evaluate(std::vector<SParticle>& particles, float dt) override
 	{
 		CVector3D dv = m_Accel * dt;
 
@@ -240,7 +256,7 @@ public:
 			particles[i].velocity += dv;
 	}
 
-	virtual CVector3D Max()
+	CVector3D Max() override
 	{
 		return m_Accel;
 	}
@@ -260,7 +276,18 @@ CParticleEmitterType::CParticleEmitterType(const VfsPath& path, CParticleManager
 
 	// Upper bound on number of particles depends on maximum rate and lifetime
 	m_MaxLifetime = m_Variables[VAR_LIFETIME]->Max(*this);
-	m_MaxParticles = ceil(m_Variables[VAR_EMISSIONRATE]->Max(*this) * m_MaxLifetime);
+	const uint32_t maximumNumberOfParticles{
+		static_cast<uint32_t>(ceil(m_Variables[VAR_EMISSIONRATE]->Max(*this) * m_MaxLifetime))};
+	constexpr uint16_t maximumSupportedNumberOfParticles{
+		std::numeric_limits<uint16_t>::max() / 6};
+	if (maximumNumberOfParticles > maximumSupportedNumberOfParticles)
+	{
+		LOGERROR("Too many particles per particle system: '%s' (%u/%u)",
+			path.string8(), maximumNumberOfParticles, maximumSupportedNumberOfParticles);
+		m_MaxParticles = maximumSupportedNumberOfParticles;
+	}
+	else
+		m_MaxParticles = maximumNumberOfParticles;
 
 
 	// Compute the worst-case bounds of all possible particles,
@@ -353,7 +380,10 @@ bool CParticleEmitterType::LoadXML(const VfsPath& path)
 	m_Variables[VAR_COLOR_G] = IParticleVarPtr(new CParticleVarConstant(1.f));
 	m_Variables[VAR_COLOR_B] = IParticleVarPtr(new CParticleVarConstant(1.f));
 	m_BlendMode = BlendMode::ADD;
+	m_SortMode = SortMode::UNSPECIFIED;
 	m_StartFull = false;
+	m_UseLocalSpace = false;
+	m_UseRelativePosition = false;
 	m_UseRelativeVelocity = false;
 	m_Texture = g_Renderer.GetTextureManager().GetErrorTexture();
 
@@ -365,22 +395,27 @@ bool CParticleEmitterType::LoadXML(const VfsPath& path)
 	// Define all the elements and attributes used in the XML file
 #define EL(x) int el_##x = XeroFile.GetElementID(#x)
 #define AT(x) int at_##x = XeroFile.GetAttributeID(#x)
-	EL(texture);
 	EL(blend);
-	EL(start_full);
-	EL(use_relative_velocity);
 	EL(constant);
-	EL(uniform);
 	EL(copy);
 	EL(expr);
 	EL(force);
+	EL(fixed_orientation);
+	EL(particle);
+	EL(sort);
+	EL(start_full);
+	EL(texture);
+	EL(uniform);
+	EL(use_local_space);
+	EL(use_relative_position);
+	EL(use_relative_velocity);
+	AT(from);
+	AT(max);
+	AT(min);
 	AT(mode);
+	AT(mul);
 	AT(name);
 	AT(value);
-	AT(min);
-	AT(max);
-	AT(mul);
-	AT(from);
 	AT(x);
 	AT(y);
 	AT(z);
@@ -410,9 +445,27 @@ bool CParticleEmitterType::LoadXML(const VfsPath& path)
 			else if (mode == "multiply")
 				m_BlendMode = BlendMode::MULTIPLY;
 		}
+		else if (Child.GetNodeName() == el_sort)
+		{
+			const CStr mode{Child.GetAttributes().GetNamedItem(at_mode)};
+			if (mode == "closest_in_front")
+				m_SortMode = SortMode::CLOSEST_IN_FRONT;
+			else if (mode == "youngest_in_front")
+				m_SortMode = SortMode::YOUNGEST_IN_FRONT;
+			else if (mode == "oldest_in_front")
+				m_SortMode = SortMode::OLDEST_IN_FRONT;
+		}
 		else if (Child.GetNodeName() == el_start_full)
 		{
 			m_StartFull = true;
+		}
+		else if (Child.GetNodeName() == el_use_local_space)
+		{
+			m_UseLocalSpace = true;
+		}
+		else if (Child.GetNodeName() == el_use_relative_position)
+		{
+			m_UseRelativePosition = true;
 		}
 		else if (Child.GetNodeName() == el_use_relative_velocity)
 		{
@@ -465,12 +518,42 @@ bool CParticleEmitterType::LoadXML(const VfsPath& path)
 			float z = Child.GetAttributes().GetNamedItem(at_z).ToFloat();
 			m_Effectors.push_back(IParticleEffectorPtr(new CParticleEffectorForce(x, y, z)));
 		}
+		else if (Child.GetNodeName() == el_particle)
+		{
+			XERO_ITER_EL(Child, particleChild)
+			{
+				if (particleChild.GetNodeName() == el_fixed_orientation)
+				{
+					CVector3D axis{
+						particleChild.GetAttributes().GetNamedItem(at_x).ToFloat(),
+						particleChild.GetAttributes().GetNamedItem(at_y).ToFloat(),
+						particleChild.GetAttributes().GetNamedItem(at_z).ToFloat()};
+					// The axis must be a non-zero vector else it's not valid.
+					const float axisLength{axis.Length()};
+					if (axisLength > 0.0f)
+						axis *= 1.0f / axisLength;
+					else
+						axis = CVector3D{0.0f, 0.0f, 0.0f};
+					if (particleChild.GetAttributes().GetNamedItem(at_name) == "axisX")
+					{
+						m_AxisX = axis;
+						m_UseRelativeAxisX = particleChild.GetAttributes().GetNamedItem(at_mode) == "relative";
+						m_UseVelocityAsAxisX = particleChild.GetAttributes().GetNamedItem(at_mode) == "velocity";
+					}
+					else if (particleChild.GetAttributes().GetNamedItem(at_name) == "axisY")
+					{
+						m_AxisY = axis;
+						m_UseRelativeAxisY = particleChild.GetAttributes().GetNamedItem(at_mode) == "relative";
+					}
+				}
+			}
+		}
 	}
 
 	return true;
 }
 
-void CParticleEmitterType::UpdateEmitter(CParticleEmitter& emitter, float dt)
+void CParticleEmitterType::UpdateEmitter(CParticleEmitter& emitter, float dt) const
 {
 	// If dt is very large, we should do the update in multiple small
 	// steps to prevent all the particles getting clumped together at
@@ -491,7 +574,7 @@ void CParticleEmitterType::UpdateEmitter(CParticleEmitter& emitter, float dt)
 	UpdateEmitterStep(emitter, dt);
 }
 
-void CParticleEmitterType::UpdateEmitterStep(CParticleEmitter& emitter, float dt)
+void CParticleEmitterType::UpdateEmitterStep(CParticleEmitter& emitter, float dt) const
 {
 	ENSURE(emitter.m_Type.get() == this);
 
@@ -508,6 +591,10 @@ void CParticleEmitterType::UpdateEmitterStep(CParticleEmitter& emitter, float dt
 		// we'll immediately overwrite, so clamp it
 		newParticles = std::min(newParticles, (int)m_MaxParticles);
 
+		const CMatrix3D rotationMatrix{emitter.GetRotation().ToMatrix()};
+		const CVector3D axisX{!m_UseLocalSpace && m_UseRelativeAxisX ? rotationMatrix.Transform(m_AxisX) : m_AxisX};
+		const CVector3D axisY{!m_UseLocalSpace && m_UseRelativeAxisY ? rotationMatrix.Transform(m_AxisY) : m_AxisY};
+
 		for (int i = 0; i < newParticles; ++i)
 		{
 			// Compute new particle state based on variables
@@ -516,22 +603,20 @@ void CParticleEmitterType::UpdateEmitterStep(CParticleEmitter& emitter, float dt
 			particle.pos.X = m_Variables[VAR_POSITION_X]->Evaluate(emitter);
 			particle.pos.Y = m_Variables[VAR_POSITION_Y]->Evaluate(emitter);
 			particle.pos.Z = m_Variables[VAR_POSITION_Z]->Evaluate(emitter);
-			particle.pos += emitter.m_Pos;
 
-			if (m_UseRelativeVelocity)
+			particle.velocity.X = m_Variables[VAR_VELOCITY_X]->Evaluate(emitter);
+			particle.velocity.Y = m_Variables[VAR_VELOCITY_Y]->Evaluate(emitter);
+			particle.velocity.Z = m_Variables[VAR_VELOCITY_Z]->Evaluate(emitter);
+
+			if (!m_UseLocalSpace)
 			{
-				float xVel = m_Variables[VAR_VELOCITY_X]->Evaluate(emitter);
-				float yVel = m_Variables[VAR_VELOCITY_Y]->Evaluate(emitter);
-				float zVel = m_Variables[VAR_VELOCITY_Z]->Evaluate(emitter);
-				CVector3D EmitterAngle = emitter.GetRotation().ToMatrix().Transform(CVector3D(xVel,yVel,zVel));
-				particle.velocity.X = EmitterAngle.X;
-				particle.velocity.Y = EmitterAngle.Y;
-				particle.velocity.Z = EmitterAngle.Z;
-			} else {
-				particle.velocity.X = m_Variables[VAR_VELOCITY_X]->Evaluate(emitter);
-				particle.velocity.Y = m_Variables[VAR_VELOCITY_Y]->Evaluate(emitter);
-				particle.velocity.Z = m_Variables[VAR_VELOCITY_Z]->Evaluate(emitter);
+				if (m_UseRelativeVelocity)
+					particle.velocity = rotationMatrix.Transform(particle.velocity);
+				if (m_UseRelativePosition)
+					particle.pos = rotationMatrix.Transform(particle.pos);
+				particle.pos += emitter.m_Pos;
 			}
+
 			particle.angle = m_Variables[VAR_ANGLE]->Evaluate(emitter);
 			particle.angleSpeed = m_Variables[VAR_VELOCITY_ANGLE]->Evaluate(emitter);
 
@@ -546,6 +631,16 @@ void CParticleEmitterType::UpdateEmitterStep(CParticleEmitter& emitter, float dt
 
 			particle.age = 0.f;
 			particle.maxAge = m_Variables[VAR_LIFETIME]->Evaluate(emitter);
+
+			particle.axisX = axisX;
+			particle.axisY = axisY;
+
+			if (m_UseVelocityAsAxisX)
+			{
+				const float velocityLength{particle.velocity.Length()};
+				if (velocityLength > 1e-3f)
+					particle.axisX = particle.velocity * (1.0f / velocityLength);
+			}
 
 			emitter.AddParticle(particle);
 		}
@@ -565,6 +660,13 @@ void CParticleEmitterType::UpdateEmitterStep(CParticleEmitter& emitter, float dt
 		p.age += dt;
 		p.size += p.sizeGrowthRate * dt;
 
+		if (m_UseVelocityAsAxisX)
+		{
+			const float velocityLength{p.velocity.Length()};
+			if (velocityLength > 1e-3f)
+				p.axisX = p.velocity * (1.0f / velocityLength);
+		}
+
 		// Make alpha fade in/out nicely
 		// TODO: this should probably be done as a variable or something,
 		// instead of hardcoding
@@ -579,7 +681,7 @@ void CParticleEmitterType::UpdateEmitterStep(CParticleEmitter& emitter, float dt
 	}
 }
 
-CBoundingBoxAligned CParticleEmitterType::CalculateBounds(CVector3D emitterPos, CBoundingBoxAligned emittedBounds)
+CBoundingBoxAligned CParticleEmitterType::CalculateBounds(CVector3D emitterPos, CBoundingBoxAligned emittedBounds) const
 {
 	CBoundingBoxAligned bounds = m_MaxBounds;
 	bounds[0] += emitterPos;

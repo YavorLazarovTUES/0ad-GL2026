@@ -1,4 +1,4 @@
-/* Copyright (C) 2009 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,27 +18,19 @@
 #include "lib/self_test.h"
 
 #include "ps/CLogger.h"
+#include "ps/Errors.h"
+#include "ps/XMB/XMBData.h"
 #include "ps/XML/Xeromyces.h"
-#include "lib/file/vfs/vfs.h"
 
 class TestXeromyces : public CxxTest::TestSuite
 {
 public:
-	void setUp()
-	{
-		CXeromyces::Startup();
-	}
-
-	void tearDown()
-	{
-		CXeromyces::Terminate();
-	}
-
 	// TODO: Should test the reading/parsing/writing code,
 	// and parse error handling
 
 	void test_LoadString()
 	{
+		CXeromycesEngine xeromycesEngine;
 		CXeromyces xero;
 		TS_ASSERT_EQUALS(xero.LoadString("<test><foo>bar</foo></test>"), PSRETURN_OK);
 		TS_ASSERT_STR_EQUALS(xero.GetElementString(xero.GetRoot().GetNodeName()), "test");
@@ -46,6 +38,7 @@ public:
 
 	void test_LoadString_invalid()
 	{
+		CXeromycesEngine xeromycesEngine;
 		TestLogger logger;
 		CXeromyces xero;
 		TS_ASSERT_EQUALS(xero.LoadString("<test>"), PSRETURN_Xeromyces_XMLParseError);

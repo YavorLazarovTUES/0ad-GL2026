@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,28 +19,24 @@
 #define INCLUDED_RENDERER_SCENERENDERER
 
 #include "graphics/Camera.h"
-#include "graphics/ShaderDefines.h"
-#include "graphics/ShaderProgramPtr.h"
 #include "maths/BoundingBoxAligned.h"
-#include "ps/Singleton.h"
-#include "renderer/backend/IDeviceCommandContext.h"
-#include "renderer/RenderingOptions.h"
 #include "renderer/Scene.h"
 
 #include <memory>
 
 class CCanvas2D;
 class CLightEnv;
-class CMaterial;
 class CMaterialManager;
-class CModel;
 class CParticleManager;
-class CPatch;
+class CShaderDefines;
 class CSimulation2;
+class CVector4D;
 class ShadowMap;
 class SkyManager;
 class TerrainRenderer;
 class WaterManager;
+namespace Renderer::Backend { class IDevice; }
+namespace Renderer::Backend { class IDeviceCommandContext; }
 
 // rendering modes
 enum ERenderMode { WIREFRAME, SOLID, EDGED_FACES };
@@ -234,8 +230,7 @@ protected:
 		const CShaderDefines& context, int cullGroup, ETransparentMode transparentMode);
 
 	void RenderSilhouettes(
-		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-		const CShaderDefines& context);
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
 
 	void RenderParticles(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
@@ -243,8 +238,7 @@ protected:
 
 	// shadow rendering stuff
 	void RenderShadowMap(
-		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-		const CShaderDefines& context);
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
 
 	// render water reflection and refraction textures
 	void RenderReflections(
@@ -258,7 +252,7 @@ protected:
 	void ComputeRefractionCamera(CCamera& camera, const CBoundingBoxAligned& scissor) const;
 
 	// debugging
-	void DisplayFrustum();
+	void DisplayFrustum(Renderer::Backend::IDeviceCommandContext& deviceCommandContext);
 
 	// enable oblique frustum clipping with the given clip plane
 	void SetObliqueFrustumClipping(CCamera& camera, const CVector4D& clipPlane) const;

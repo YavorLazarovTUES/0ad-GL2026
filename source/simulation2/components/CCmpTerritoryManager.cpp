@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,20 +17,32 @@
 
 #include "precompiled.h"
 
-#include "simulation2/system/Component.h"
 #include "ICmpTerritoryManager.h"
 
+#include "graphics/Color.h"
 #include "graphics/Overlay.h"
-#include "graphics/Terrain.h"
-#include "graphics/TextureManager.h"
+#include "graphics/SColor.h"
 #include "graphics/TerritoryBoundary.h"
+#include "graphics/Texture.h"
+#include "graphics/TextureManager.h"
+#include "lib/code_annotation.h"
+#include "lib/code_generation.h"
+#include "lib/debug.h"
+#include "lib/path.h"
+#include "lib/types.h"
+#include "maths/Fixed.h"
+#include "maths/FixedVector2D.h"
 #include "maths/MathUtil.h"
+#include "maths/Vector2D.h"
+#include "ps/Filesystem.h"
 #include "ps/Profile.h"
 #include "ps/XML/Xeromyces.h"
 #include "renderer/Renderer.h"
 #include "renderer/Scene.h"
 #include "renderer/TerrainOverlay.h"
+#include "renderer/backend/Sampler.h"
 #include "simulation2/MessageTypes.h"
+#include "simulation2/components/ICmpObstructionManager.h"
 #include "simulation2/components/ICmpOwnership.h"
 #include "simulation2/components/ICmpPathfinder.h"
 #include "simulation2/components/ICmpPlayer.h"
@@ -39,11 +51,27 @@
 #include "simulation2/components/ICmpTerritoryDecayManager.h"
 #include "simulation2/components/ICmpTerritoryInfluence.h"
 #include "simulation2/helpers/Grid.h"
+#include "simulation2/helpers/Pathfinding.h"
+#include "simulation2/helpers/Player.h"
+#include "simulation2/helpers/Position.h"
 #include "simulation2/helpers/Render.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+#include "simulation2/system/Message.h"
 
+#include <array>
+#include <cmath>
+#include <cstddef>
+#include <map>
+#include <numbers>
 #include <queue>
+#include <string>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 class CCmpTerritoryManager;
+class CFrustum;
 
 class TerritoryOverlay final : public TerrainTextureOverlay
 {
@@ -117,7 +145,7 @@ public:
 	bool m_EnableLineDebugOverlays; ///< Enable node debugging overlays for boundary lines?
 	std::vector<SOverlayLine> m_DebugBoundaryLineNodes;
 
-	void Init(const CParamNode& UNUSED(paramNode)) override
+	void Init(const CParamNode&) override
 	{
 		m_Territories = NULL;
 		m_CostGrid = NULL;
@@ -128,7 +156,6 @@ public:
 		m_EnableLineDebugOverlays = false;
 		m_DirtyID = 1;
 		m_DirtyBlinkingID = 1;
-		m_Visible = true;
 		m_ColorChanged = false;
 
 		m_AnimTime = 0.0;
@@ -136,7 +163,7 @@ public:
 		m_TerritoryTotalPassableCellCount = 0;
 
 		// Register Relax NG validator
-		CXeromyces::AddValidator(g_VFS, "territorymanager", "simulation/data/territorymanager.rng");
+		g_Xeromyces.AddValidator(g_VFS, "territorymanager", "simulation/data/territorymanager.rng");
 
 		CParamNode externalParamNode;
 		CParamNode::LoadXML(externalParamNode, L"simulation/data/territorymanager.xml", "territorymanager");
@@ -144,6 +171,11 @@ public:
 		int impassableCost = externalParamNode.GetChild("TerritoryManager").GetChild("ImpassableCost").ToInt();
 		ENSURE(0 <= impassableCost && impassableCost <= 255);
 		m_ImpassableCost = (u8)impassableCost;
+
+		const std::string& visibilityStatus = externalParamNode.GetChild("TerritoryManager").GetChild("VisibilityStatus").ToString();
+		m_Enabled = visibilityStatus != "off";
+		m_Visible = m_Enabled && visibilityStatus == "visible";
+
 		m_BorderThickness = externalParamNode.GetChild("TerritoryManager").GetChild("BorderThickness").ToFixed().ToFloat();
 		m_BorderSeparation = externalParamNode.GetChild("TerritoryManager").GetChild("BorderSeparation").ToFixed().ToFloat();
 	}
@@ -167,7 +199,7 @@ public:
 		deserialize.Bool("trigger event", m_TriggerEvent);
 	}
 
-	void HandleMessage(const CMessage& msg, bool UNUSED(global)) override
+	void HandleMessage(const CMessage& msg, bool /*global*/) override
 	{
 		switch (msg.GetType())
 		{
@@ -305,14 +337,22 @@ public:
 
 	void SetVisibility(bool visible) override
 	{
+		if (!m_Enabled)
+			return;
+
 		m_Visible = visible;
+	}
+
+	bool IsVisible() const override
+	{
+		return m_Enabled && m_Visible;
 	}
 
 	void UpdateColors() override;
 
 private:
-
 	bool m_Visible;
+	bool m_Enabled;
 };
 
 REGISTER_COMPONENT_TYPE(TerritoryManager)
@@ -693,7 +733,7 @@ void CCmpTerritoryManager::UpdateBoundaryLines()
 	}
 }
 
-void CCmpTerritoryManager::Interpolate(float frameTime, float UNUSED(frameOffset))
+void CCmpTerritoryManager::Interpolate(float frameTime, float /*frameOffset*/)
 {
 	m_AnimTime += frameTime;
 
@@ -708,7 +748,7 @@ void CCmpTerritoryManager::Interpolate(float frameTime, float UNUSED(frameOffset
 		if (m_BoundaryLines[i].blinking)
 		{
 			CColor c = m_BoundaryLines[i].color;
-			c.a *= 0.2f + 0.8f * fabsf((float)cos(m_AnimTime * M_PI)); // TODO: should let artists tweak this
+			c.a *= 0.2f + 0.8f * fabsf(static_cast<float>(cos(m_AnimTime * std::numbers::pi))); // TODO: should let artists tweak this
 			m_BoundaryLines[i].overlay.m_Color = c;
 		}
 	}
@@ -716,7 +756,7 @@ void CCmpTerritoryManager::Interpolate(float frameTime, float UNUSED(frameOffset
 
 void CCmpTerritoryManager::RenderSubmit(SceneCollector& collector, const CFrustum& frustum, bool culling)
 {
-	if (!m_Visible)
+	if (!IsVisible())
 		return;
 
 	for (size_t i = 0; i < m_BoundaryLines.size(); ++i)

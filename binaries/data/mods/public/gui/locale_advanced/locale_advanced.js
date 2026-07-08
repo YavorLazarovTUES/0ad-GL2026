@@ -1,17 +1,17 @@
 function init(initData)
 {
-	let languageList = Engine.GetGUIObjectByName("languageList");
-	let countryList = Engine.GetGUIObjectByName("countryList");
-	let resultingLocaleText = Engine.GetGUIObjectByName("resultingLocale");
-	let scriptInput = Engine.GetGUIObjectByName("scriptInput");
+	const languageList = Engine.GetGUIObjectByName("languageList");
+	const countryList = Engine.GetGUIObjectByName("countryList");
+	const resultingLocaleText = Engine.GetGUIObjectByName("resultingLocale");
+	const scriptInput = Engine.GetGUIObjectByName("scriptInput");
 
 	// get languageList data. Only list languages for which we have a dictionary.
-	let languageListData = [];
-	let languageListTmp = Engine.GetSupportedLocaleBaseNames();
-	let currentLocaleLanguage = Engine.GetLocaleLanguage(initData.locale);
+	const languageListData = [];
+	const languageListTmp = Engine.GetSupportedLocaleBaseNames();
+	const currentLocaleLanguage = Engine.GetLocaleLanguage(initData.locale);
 	for (let i = 0; i < languageListTmp.length; ++i)
 	{
-		let lang = Engine.GetLocaleLanguage(languageListTmp[i]);
+		const lang = Engine.GetLocaleLanguage(languageListTmp[i]);
 		if (lang != "" && languageListData.indexOf(lang) == -1)
 			languageListData.push(lang);
 	}
@@ -19,16 +19,16 @@ function init(initData)
 
 	// get countryList data (we get all countries and not only the ones we have dictionaries for)
 	var countryListData = [];
-	countryListData.push(translateWithContext("localeCountry", "None"));
 	var countryListTmp = Engine.GetAllLocales();
 	var currentLocaleCountry = Engine.GetLocaleCountry(initData.locale);
 	for (let i = 0; i < countryListTmp.length; ++i)
 	{
-		let country = Engine.GetLocaleCountry(countryListTmp[i]);
+		const country = Engine.GetLocaleCountry(countryListTmp[i]);
 		if (country != "" && countryListData.indexOf(country) == -1)
 			countryListData.push(country);
 	}
 	countryListData.sort();
+	countryListData.unshift(translateWithContext("localeCountry", "None"));
 
 	// fill the languageList
 	languageList.list = languageListData;
@@ -46,17 +46,21 @@ function init(initData)
 
 	// fill the script
 	scriptInput.caption = Engine.GetLocaleScript(initData.locale);
+
+	return new Promise(closePageCallback =>
+	{
+		Engine.GetGUIObjectByName("cancelButton").onPress = closePageCallback;
+		Engine.GetGUIObjectByName("acceptButton").onPress = () =>
+		{
+			closePageCallback(applySelectedLocale());
+		};
+	});
 }
 
 // TODO: an onChanged event for input boxes would be useful and would allow us to avoid a tick event here.
 function onTick()
 {
 	updateResultingLocale();
-}
-
-function cancelSetup()
-{
-	Engine.PopGuiPage();
 }
 
 function updateResultingLocale()
@@ -76,11 +80,11 @@ function updateResultingLocale()
 	if (countryList.selected != -1 && countryList.list_data[countryList.selected] != translateWithContext("localeCountry", "None"))
 		resultingLocaleTmp = resultingLocaleTmp + "_" + countryList.list_data[countryList.selected];
 
-	let acceptButton = Engine.GetGUIObjectByName("acceptButton");
+	const acceptButton = Engine.GetGUIObjectByName("acceptButton");
 	if (Engine.ValidateLocale(resultingLocaleTmp))
 	{
 		resultingLocaleText.caption = resultingLocaleTmp;
-		let dictionaryFileList = Engine.GetDictionariesForLocale(Engine.GetDictionaryLocale(resultingLocaleTmp));
+		const dictionaryFileList = Engine.GetDictionariesForLocale(Engine.GetDictionaryLocale(resultingLocaleTmp));
 		let dictionaryFileString = "";
 		dictionaryFileList.forEach(entry => { dictionaryFileString = dictionaryFileString + entry + "\n"; });
 		dictionaryFile.caption = dictionaryFileString;
@@ -113,6 +117,5 @@ function autoDetectLocale()
 
 function applySelectedLocale()
 {
-	var resultingLocaleText = Engine.GetGUIObjectByName("resultingLocale");
-	Engine.PopGuiPage(resultingLocaleText.caption);
+	return Engine.GetGUIObjectByName("resultingLocale").caption;
 }

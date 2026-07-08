@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,10 +18,14 @@
 #ifndef INCLUDED_ICMPPLAYER
 #define INCLUDED_ICMPPLAYER
 
+#include "simulation2/system/Component.h"
 #include "simulation2/system/Interface.h"
 
-struct CColor;
+#include <js/Value.h>
+#include <string>
+
 class CFixedVector3D;
+struct CColor;
 
 /**
  * Player data.
@@ -37,7 +41,11 @@ public:
 	virtual CFixedVector3D GetStartingCameraRot() = 0;
 
 	virtual bool HasStartingCamera() = 0;
+	virtual bool IsRemoved() = 0;
 	virtual std::string GetState() = 0;
+
+	// See the cpp file for why this is implemented in C++.
+	virtual bool IsActive() = 0;
 
 	DECLARE_INTERFACE_TYPE(Player)
 };

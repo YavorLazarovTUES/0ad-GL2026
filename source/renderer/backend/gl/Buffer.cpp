@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,12 +19,9 @@
 
 #include "Buffer.h"
 
-#include "lib/code_annotation.h"
 #include "lib/config2.h"
-#include "ps/CLogger.h"
-#include "ps/ConfigDB.h"
+#include "lib/debug.h"
 #include "renderer/backend/gl/Device.h"
-#include "renderer/backend/gl/Texture.h"
 
 namespace Renderer
 {
@@ -35,30 +32,53 @@ namespace Backend
 namespace GL
 {
 
+namespace
+{
+
+GLenum GetTargetFromBufferType(const IBuffer::Type type)
+{
+	GLenum target{GL_ARRAY_BUFFER};
+	switch (type)
+	{
+	case IBuffer::Type::INDEX:
+		target = GL_ELEMENT_ARRAY_BUFFER;
+		break;
+#if !CONFIG2_GLES
+	case IBuffer::Type::UNIFORM:
+		target = GL_UNIFORM_BUFFER;
+		break;
+#endif
+	default:
+		target = GL_ARRAY_BUFFER;
+		break;
+	}
+	return target;
+}
+
+} // anonymous namespace
+
 // static
 std::unique_ptr<CBuffer> CBuffer::Create(
-	CDevice* device, const char* name,
+	CDevice* device, [[maybe_unused]] const char* name,
 	const Type type, const uint32_t size, const uint32_t usage)
 {
-	ENSURE(type == Type::VERTEX || type == Type::INDEX);
+	ENSURE(type == Type::VERTEX || type == Type::INDEX || type == Type::UNIFORM);
 	std::unique_ptr<CBuffer> buffer(new CBuffer());
 	buffer->m_Device = device;
 	buffer->m_Type = type;
 	buffer->m_Size = size;
 	buffer->m_Usage = usage;
-	glGenBuffersARB(1, &buffer->m_Handle);
-	const GLenum target = type == Type::INDEX ? GL_ELEMENT_ARRAY_BUFFER : GL_ARRAY_BUFFER;
-	glBindBufferARB(target, buffer->m_Handle);
-	glBufferDataARB(target, size, nullptr, (usage & IBuffer::Usage::DYNAMIC) ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+	glGenBuffers(1, &buffer->m_Handle);
+	const GLenum target{GetTargetFromBufferType(type)};
+	glBindBuffer(target, buffer->m_Handle);
+	glBufferData(target, size, nullptr, (usage & IBuffer::Usage::DYNAMIC) ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
 #if !CONFIG2_GLES
 	if (buffer->m_Device->GetCapabilities().debugLabels)
 	{
 		glObjectLabel(GL_BUFFER, buffer->m_Handle, -1, name);
 	}
-#else
-	UNUSED2(name);
 #endif
-	glBindBufferARB(target, 0);
+	glBindBuffer(target, 0);
 	return buffer;
 }
 
@@ -67,7 +87,7 @@ CBuffer::CBuffer() = default;
 CBuffer::~CBuffer()
 {
 	if (m_Handle)
-		glDeleteBuffersARB(1, &m_Handle);
+		glDeleteBuffers(1, &m_Handle);
 }
 
 IDevice* CBuffer::GetDevice()

@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,33 +18,35 @@
 #include "precompiled.h"
 
 #include "PSAConvert.h"
+
 #include "CommonConvert.h"
-
-#include "FCollada.h"
-#include "FCDocument/FCDocument.h"
-#include "FCDocument/FCDocumentTools.h"
-#include "FCDocument/FCDAnimated.h"
-#include "FCDocument/FCDAnimationCurve.h"
-#include "FCDocument/FCDAnimationKey.h"
-#include "FCDocument/FCDController.h"
-#include "FCDocument/FCDControllerInstance.h"
-#include "FCDocument/FCDExtra.h"
-#include "FCDocument/FCDGeometry.h"
-#include "FCDocument/FCDGeometryMesh.h"
-#include "FCDocument/FCDGeometryPolygons.h"
-#include "FCDocument/FCDGeometrySource.h"
-#include "FCDocument/FCDSceneNode.h"
-
-#include "StdSkeletons.h"
 #include "Decompose.h"
 #include "Maths.h"
-#include "GeomReindex.h"
+#include "StdSkeletons.h"
+#include "DLL.h"
 
-#include <cassert>
-#include <vector>
-#include <limits>
-#include <iterator>
+#include <FCDocument/FCDAnimated.h>
+#include <FCDocument/FCDAnimationCurve.h>
+#include <FCDocument/FCDAnimationKey.h>
+#include <FCDocument/FCDController.h>
+#include <FCDocument/FCDControllerInstance.h>
+#include <FCDocument/FCDEntityInstance.h>
+#include <FCDocument/FCDExtra.h>
+#include <FCDocument/FCDSceneNode.h>
+#include <FCDocument/FCDSkinController.h>
+#include <FCDocument/FCDTransform.h>
+#include <FCDocument/FCDocument.h>
+#include <FMath/FMMatrix44.h>
+#include <FUtils/FUString.h>
+#include <FUtils/FUStringConversion.h>
+#include <FUtils/Platforms.h>
 #include <algorithm>
+#include <cassert>
+#include <cfloat>
+#include <cstring>
+#include <iterator>
+#include <limits>
+#include <vector>
 
 class PSAConvert
 {
@@ -91,8 +93,8 @@ public:
 			// (TODO: sort out the timing/looping problems)
 
 			const size_t boneCount = skeleton.GetBoneCount();
-			if (boneCount > 64)
-				Log(LOG_ERROR, "Skeleton has too many bones %zu/64", boneCount);
+			if (boneCount > 192)
+				Log(LOG_ERROR, "Skeleton has too many bones %zu/192", boneCount);
 
 			std::vector<BoneTransform> boneTransforms;
 
@@ -146,7 +148,7 @@ public:
 		}
 		else
 		{
-			throw ColladaException("Unrecognised object type");
+			throw ColladaException("Unrecognized object type");
 		}
 	}
 

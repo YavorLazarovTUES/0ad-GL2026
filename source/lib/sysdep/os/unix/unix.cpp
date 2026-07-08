@@ -1,4 +1,4 @@
-/* Copyright (c) 2021 Wildfire Games.
+/* Copyright (c) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -22,19 +22,25 @@
 
 #include "precompiled.h"
 
-#include <unistd.h>
-#include <stdio.h>
-#include <wchar.h>
-
 #include "lib/code_annotation.h"
-#include "lib/utf8.h"
+#include "lib/debug.h"
+#include "lib/os_path.h"
+#include "lib/posix/posix_types.h"
+#include "lib/secure_crt.h"
+#include "lib/status.h"
+#include "lib/sysdep/os.h"
 #include "lib/sysdep/os/unix/udbg.h"
 #include "lib/sysdep/sysdep.h"
+#include "lib/types.h"
+#include "lib/utf8.h"
 
 #include <boost/algorithm/string/replace.hpp>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <string>
 
 #define GNU_SOURCE
-#include <dlfcn.h>
 
 #include <sys/wait.h>
 
@@ -64,7 +70,8 @@ void sys_display_msg(const wchar_t* caption, const wchar_t* msg)
 }
 
 #if OS_MACOSX || OS_ANDROID
-static ErrorReactionInternal try_gui_display_error(const wchar_t* UNUSED(text), bool UNUSED(manual_break), bool UNUSED(allow_suppress), bool UNUSED(no_continue))
+static ErrorReactionInternal try_gui_display_error(const wchar_t* /*text*/, bool /*manual_break*/,
+	bool /*allow_suppress*/, bool /*no_continue*/)
 {
 	// TODO: implement this, in a way that doesn't rely on X11
 	// and doesn't occasionally cause crazy errors like
@@ -173,7 +180,7 @@ static ErrorReactionInternal try_gui_display_error(const wchar_t* text, bool man
 	{
 	case 103: // Debugger
 		udbg_launch_debugger();
-		FALLTHROUGH;
+		[[fallthrough]];
 
 	case 102: // Break
 		if(manual_break)
@@ -245,7 +252,7 @@ ErrorReactionInternal sys_display_error(const wchar_t* text, size_t flags)
 		case EOF:
 		case 'd': case 'D':
 			udbg_launch_debugger();
-			FALLTHROUGH;
+			[[fallthrough]];
 
 		case 'b': case 'B':
 			if(manual_break)
@@ -273,12 +280,8 @@ ErrorReactionInternal sys_display_error(const wchar_t* text, size_t flags)
 }
 
 
-Status sys_StatusDescription(int err, wchar_t* buf, size_t max_chars)
+Status sys_StatusDescription(int /*err*/, wchar_t* /*buf*/, size_t /*max_chars*/)
 {
-	UNUSED2(err);
-	UNUSED2(buf);
-	UNUSED2(max_chars);
-
 	// don't need to do anything: lib/errors.cpp already queries
 	// libc's strerror(). if we ever end up needing translation of
 	// e.g. Qt or X errors, that'd go here.
@@ -343,7 +346,7 @@ Status sys_generate_random_bytes(u8* buf, size_t count)
 	return INFO::OK;
 }
 
-Status sys_get_proxy_config(const std::wstring& UNUSED(url), std::wstring& UNUSED(proxy))
+Status sys_get_proxy_config(const std::wstring& /*url*/, std::wstring& /*proxy*/)
 {
 	return INFO::SKIPPED;
 }

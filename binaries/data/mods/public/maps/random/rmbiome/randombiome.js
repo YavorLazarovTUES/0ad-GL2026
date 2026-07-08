@@ -11,12 +11,6 @@ function currentBiome()
 	return g_BiomeID;
 }
 
-function setSelectedBiome()
-{
-	// TODO: Replace ugly default for atlas by a dropdown
-	setBiome(g_MapSettings.Biome || "generic/alpine");
-}
-
 function setBiome(biomeID)
 {
 	RandomMapLogger.prototype.printDirectly("Setting biome " + biomeID + ".\n");
@@ -52,10 +46,11 @@ function loadBiomeFile(file)
 
 	const biome = Engine.ReadJSONFile(path);
 
-	const copyProperties = (from, to) => {
+	const copyProperties = (from, to) =>
+	{
 		for (const prop in from)
 		{
-			if (from[prop] !== null && typeof from[prop] == "object" && !Array.isArray(from[prop]))
+			if (from[prop] !== null && typeof from[prop] === "object" && !Array.isArray(from[prop]))
 			{
 				if (!to[prop])
 					to[prop] = {};

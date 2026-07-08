@@ -16,12 +16,15 @@
  * No further changes should be applied to the image to keep it easily interchangeable.
  */
 
+import { addAnimals, addBerries, addDecoration, addFish, addForests, addLayeredPatches, addMetal, addStone,
+	addStragglerTrees } from "maps/random/rmgen2/gaia.js";
+import { addElements, createBases, initTileClasses } from "maps/random/rmgen2/setup.js";
+
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
-Engine.LoadLibrary("rmgen2");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap(mapSettings)
+export function* generateMap(mapSettings)
 {
 	setBiome("generic/sahara");
 	setLandBiome();
@@ -147,11 +150,11 @@ function* GenerateMap(mapSettings)
 		]);
 	yield 45;
 
-	if (!isNomad())
+	if (!mapSettings.Nomad)
 	{
 		g_Map.log("Placing players");
 		const [playerIDs, playerPosition] = createBases(
-			...playerPlacementRandom(
+			playerPlacementRandom(
 				sortAllPlayers(),
 				[
 					avoidClasses(g_TileClasses.island, 5),
@@ -305,7 +308,7 @@ function* GenerateMap(mapSettings)
 			"stay": [g_TileClasses.water, 4],
 			"sizes": ["normal"],
 			"mixes": ["same"],
-			"amounts": ["normal"]
+			"amounts": ["tons"]
 		},
 		{
 			"func": addStragglerTrees,

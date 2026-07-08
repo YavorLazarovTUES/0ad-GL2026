@@ -22,7 +22,8 @@ MapBrowserPageControls.prototype.MapFiltering = class
 	onOpenPage()
 	{
 		// setTimeout avoids having the hotkey key inserted into the input text.
-		setTimeout(() => {
+		setTimeout(() =>
+		{
 			this.searchBox.control.caption = "";
 			this.searchBox.focus();
 		}, 0);
@@ -30,6 +31,7 @@ MapBrowserPageControls.prototype.MapFiltering = class
 
 	onClosePage()
 	{
+		this.searchBox.control.caption = "";
 		this.searchBox.blur();
 	}
 
@@ -57,7 +59,7 @@ MapBrowserPageControls.prototype.MapFiltering = class
 
 	renderMapFilter()
 	{
-		let filters = this.mapFilters.getAvailableMapFilters(this.getSelectedMapType());
+		const filters = this.mapFilters.getAvailableMapFilters(this.getSelectedMapType());
 		this.mapFilter.render(filters.map(f => f.Title), filters.map(f => f.Name));
 	}
 

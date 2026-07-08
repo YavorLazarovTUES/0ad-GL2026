@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,22 +19,37 @@
 
 #include "renderer/PostprocManager.h"
 
-#include "graphics/GameView.h"
+#include "graphics/Color.h"
 #include "graphics/LightEnv.h"
+#include "graphics/ShaderDefines.h"
 #include "graphics/ShaderManager.h"
-#include "lib/bits.h"
-#include "maths/MathUtil.h"
-#include "ps/ConfigDB.h"
+#include "graphics/ShaderTechnique.h"
+#include "lib/debug.h"
+#include "lib/file/vfs/vfs_path.h"
+#include "lib/file/vfs/vfs_util.h"
+#include "lib/lib.h"
+#include "lib/path.h"
 #include "ps/CLogger.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
+#include "ps/ConfigDB.h"
 #include "ps/Filesystem.h"
-#include "ps/Game.h"
+#include "ps/Profile.h"
 #include "ps/World.h"
-#include "renderer/backend/IDevice.h"
 #include "renderer/Renderer.h"
 #include "renderer/RenderingOptions.h"
+#include "renderer/backend/Backend.h"
+#include "renderer/backend/Format.h"
+#include "renderer/backend/IDevice.h"
+#include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/IShaderProgram.h"
+#include "renderer/backend/Sampler.h"
 #include "tools/atlas/GameInterface/GameLoop.h"
 
+#include <algorithm>
+#include <iterator>
+#include <sstream>
+#include <string>
 #include <string_view>
 
 namespace
@@ -100,9 +115,7 @@ bool CPostprocManager::IsEnabled() const
 			Renderer::Backend::ITexture::Usage::DEPTH_STENCIL_ATTACHMENT, true, true)
 				!= Renderer::Backend::Format::UNDEFINED;
 	return
-		g_RenderingOptions.GetPostProc() &&
-		m_Device->GetBackend() != Renderer::Backend::Backend::GL_ARB &&
-		isDepthStencilFormatPresent;
+		g_RenderingOptions.GetPostProc() && isDepthStencilFormatPresent;
 }
 
 void CPostprocManager::Cleanup()
@@ -115,6 +128,7 @@ void CPostprocManager::Cleanup()
 	m_PingFramebuffer.reset();
 	m_PongFramebuffer.reset();
 
+	m_PBROutputTexture.reset();
 	m_ColorTex1.reset();
 	m_ColorTex2.reset();
 	m_DepthTex.reset();
@@ -133,6 +147,9 @@ void CPostprocManager::Initialize()
 {
 	if (m_IsInitialized)
 		return;
+
+	if (g_ConfigDB.Get("pbr", false))
+		InitializePBR();
 
 	const std::array<Renderer::Backend::SVertexAttributeFormat, 2> attributes{{
 		{Renderer::Backend::VertexAttributeStream::POSITION,
@@ -161,15 +178,55 @@ void CPostprocManager::Initialize()
 	UpdateAntiAliasingTechnique();
 	UpdateSharpeningTechnique();
 	UpdateSharpnessFactor();
-	CStr upscaleName;
-	CFG_GET_VAL("renderer.upscale.technique", upscaleName);
-	SetUpscaleTechnique(upscaleName);
+	SetUpscaleTechnique(g_ConfigDB.Get("renderer.upscale.technique", std::string{}));
 
 	// This might happen after the map is loaded and the effect chosen
 	SetPostEffect(m_PostProcEffect);
 
 	if (m_Device->GetCapabilities().computeShaders)
 		m_DownscaleComputeTech = g_Renderer.GetShaderManager().LoadEffect(CStrIntern("compute_downscale"));
+}
+
+void CPostprocManager::InitializePBR()
+{
+	const bool PBRSupported{
+		m_Device->IsFramebufferFormatSupported(Renderer::Backend::Format::R16G16B16A16_SFLOAT)};
+	if (!PBRSupported)
+	{
+		m_PBREnabled = false;
+		LOGWARNING("PBR is unsupported for the current renderer backend");
+		return;
+	}
+
+	m_FramebufferColorFormat = Renderer::Backend::Format::R16G16B16A16_SFLOAT;
+	const std::string framebufferFormatName{g_ConfigDB.Get("pbr.framebufferformat", std::string{})};
+	if (framebufferFormatName == "rgba32")
+	{
+		if (m_Device->IsFramebufferFormatSupported(Renderer::Backend::Format::R32G32B32A32_SFLOAT))
+			m_FramebufferColorFormat = Renderer::Backend::Format::R32G32B32A32_SFLOAT;
+		else
+			LOGWARNING("%s is unsupported", framebufferFormatName);
+	}
+	else if (framebufferFormatName == "r11g11b10")
+	{
+		if (m_Device->IsFramebufferFormatSupported(Renderer::Backend::Format::B10G11R11_UFLOAT))
+			m_FramebufferColorFormat = Renderer::Backend::Format::B10G11R11_UFLOAT;
+		else
+			LOGWARNING("%s is unsupported", framebufferFormatName);
+	}
+
+	if (m_Device->GetCapabilities().computeShaders && m_Device->GetCapabilities().storage)
+	{
+		m_ResolvePBRComputeTech = g_Renderer.GetShaderManager().LoadEffect(str_compute_resolve_pbr);
+		if (m_ResolvePBRComputeTech)
+			m_PBREnabled = true;
+	}
+	else
+	{
+		m_ResolvePBRTech = g_Renderer.GetShaderManager().LoadEffect(str_resolve_pbr);
+		if (m_ResolvePBRTech)
+			m_PBREnabled = true;
+	}
 }
 
 void CPostprocManager::Resize()
@@ -185,21 +242,33 @@ void CPostprocManager::RecreateBuffers()
 {
 	Cleanup();
 
-	#define GEN_BUFFER_RGBA(name, w, h) \
-		name = m_Device->CreateTexture2D( \
-			"PostProc" #name, \
-			Renderer::Backend::ITexture::Usage::SAMPLED | \
-				Renderer::Backend::ITexture::Usage::COLOR_ATTACHMENT | \
-				Renderer::Backend::ITexture::Usage::TRANSFER_SRC | \
-				Renderer::Backend::ITexture::Usage::TRANSFER_DST, \
-			Renderer::Backend::Format::R8G8B8A8_UNORM, w, h, \
-			Renderer::Backend::Sampler::MakeDefaultSampler( \
-				Renderer::Backend::Sampler::Filter::LINEAR, \
-				Renderer::Backend::Sampler::AddressMode::CLAMP_TO_EDGE));
+	const auto defaultSampler{
+		Renderer::Backend::Sampler::MakeDefaultSampler(
+			Renderer::Backend::Sampler::Filter::LINEAR,
+			Renderer::Backend::Sampler::AddressMode::CLAMP_TO_EDGE)};
+	const uint32_t colorTextureUsage{
+			Renderer::Backend::ITexture::Usage::SAMPLED |
+			Renderer::Backend::ITexture::Usage::COLOR_ATTACHMENT |
+			Renderer::Backend::ITexture::Usage::TRANSFER_SRC |
+			Renderer::Backend::ITexture::Usage::TRANSFER_DST};
+
+	if (m_PBREnabled)
+	{
+		m_PBROutputTexture = m_Device->CreateTexture2D(
+			"PostProcPBROutput", colorTextureUsage,
+			m_FramebufferColorFormat,
+			m_Width, m_Height, defaultSampler);
+	}
 
 	// Two fullscreen ping-pong textures.
-	GEN_BUFFER_RGBA(m_ColorTex1, m_Width, m_Height);
-	GEN_BUFFER_RGBA(m_ColorTex2, m_Width, m_Height);
+	m_ColorTex1 = m_Device->CreateTexture2D(
+		"PostProcColor1", colorTextureUsage | (m_PBREnabled ? Renderer::Backend::ITexture::Usage::STORAGE : 0),
+		Renderer::Backend::Format::R8G8B8A8_UNORM,
+		m_Width, m_Height, defaultSampler);
+	m_ColorTex2 = m_Device->CreateTexture2D(
+		"PostProcColor2", colorTextureUsage | (m_PBREnabled ? Renderer::Backend::ITexture::Usage::STORAGE : 0),
+		Renderer::Backend::Format::R8G8B8A8_UNORM,
+		m_Width, m_Height, defaultSampler);
 
 	if (m_UnscaledWidth != m_Width && m_Device->GetCapabilities().computeShaders)
 	{
@@ -246,7 +315,10 @@ void CPostprocManager::RecreateBuffers()
 	{
 		for (BlurScale::Step& step : scale.steps)
 		{
-			GEN_BUFFER_RGBA(step.texture, width, height);
+			step.texture = m_Device->CreateTexture2D(
+				"PostProcBlurStep", colorTextureUsage,
+				Renderer::Backend::Format::R8G8B8A8_UNORM,
+				width, height, defaultSampler);
 			Renderer::Backend::SColorAttachment colorAttachment{};
 			colorAttachment.texture = step.texture.get();
 			colorAttachment.loadOp = Renderer::Backend::AttachmentLoadOp::LOAD;
@@ -258,8 +330,6 @@ void CPostprocManager::RecreateBuffers()
 		width = std::max(1u, width / 2);
 		height = std::max(1u, height / 2);
 	}
-
-	#undef GEN_BUFFER_RGBA
 
 	// Allocate the Depth/Stencil texture.
 	m_DepthTex = m_Device->CreateTexture2D("PostProcDepthTexture",
@@ -274,24 +344,14 @@ void CPostprocManager::RecreateBuffers()
 			Renderer::Backend::Sampler::Filter::LINEAR,
 			Renderer::Backend::Sampler::AddressMode::CLAMP_TO_EDGE));
 
+	RecreateCaptureFramebuffer();
+
 	// Set up the framebuffers with some initial textures.
 	Renderer::Backend::SColorAttachment colorAttachment{};
 	colorAttachment.texture = m_ColorTex1.get();
-	colorAttachment.loadOp = Renderer::Backend::AttachmentLoadOp::DONT_CARE;
-	colorAttachment.storeOp = Renderer::Backend::AttachmentStoreOp::STORE;
-	colorAttachment.clearColor = CColor{0.0f, 0.0f, 0.0f, 0.0f};
-
-	Renderer::Backend::SDepthStencilAttachment depthStencilAttachment{};
-	depthStencilAttachment.texture = m_DepthTex.get();
-	depthStencilAttachment.loadOp = Renderer::Backend::AttachmentLoadOp::CLEAR;
-	depthStencilAttachment.storeOp = Renderer::Backend::AttachmentStoreOp::STORE;
-
-	m_CaptureFramebuffer = m_Device->CreateFramebuffer("PostprocCaptureFramebuffer",
-		&colorAttachment, &depthStencilAttachment);
-
-	colorAttachment.texture = m_ColorTex1.get();
 	colorAttachment.loadOp = Renderer::Backend::AttachmentLoadOp::LOAD;
 	colorAttachment.storeOp = Renderer::Backend::AttachmentStoreOp::STORE;
+	colorAttachment.clearColor = CColor{0.0f, 0.0f, 0.0f, 0.0f};
 	m_PingFramebuffer = m_Device->CreateFramebuffer("PostprocPingFramebuffer",
 		&colorAttachment, nullptr);
 
@@ -299,7 +359,7 @@ void CPostprocManager::RecreateBuffers()
 	m_PongFramebuffer = m_Device->CreateFramebuffer("PostprocPongFramebuffer",
 		&colorAttachment, nullptr);
 
-	if (!m_CaptureFramebuffer || !m_PingFramebuffer || !m_PongFramebuffer)
+	if (!m_PingFramebuffer || !m_PongFramebuffer)
 	{
 		LOGWARNING("Failed to create postproc framebuffers");
 		g_RenderingOptions.SetPostProc(false);
@@ -312,6 +372,28 @@ void CPostprocManager::RecreateBuffers()
 	}
 }
 
+void CPostprocManager::RecreateCaptureFramebuffer()
+{
+	Renderer::Backend::SColorAttachment colorAttachment{};
+	colorAttachment.texture = m_PBREnabled ? m_PBROutputTexture.get() : m_ColorTex1.get();
+	colorAttachment.loadOp = Renderer::Backend::AttachmentLoadOp::DONT_CARE;
+	colorAttachment.storeOp = Renderer::Backend::AttachmentStoreOp::STORE;
+	colorAttachment.clearColor = CColor{0.0f, 0.0f, 0.0f, 0.0f};
+
+	Renderer::Backend::SDepthStencilAttachment depthStencilAttachment{};
+	depthStencilAttachment.texture = m_DepthTex.get();
+	depthStencilAttachment.loadOp = Renderer::Backend::AttachmentLoadOp::CLEAR;
+	depthStencilAttachment.storeOp = Renderer::Backend::AttachmentStoreOp::STORE;
+
+	m_CaptureFramebuffer = m_Device->CreateFramebuffer("PostprocCaptureFramebuffer",
+		&colorAttachment, m_UsingMultisampleBuffer ? nullptr : &depthStencilAttachment);
+
+	if (!m_CaptureFramebuffer)
+	{
+		LOGWARNING("Failed to create postproc capture framebuffer");
+		g_RenderingOptions.SetPostProc(false);
+	}
+}
 
 void CPostprocManager::ApplyBlurDownscale2x(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
@@ -687,17 +769,15 @@ void CPostprocManager::ApplyPostproc(
 {
 	ENSURE(m_IsInitialized);
 
-	// Don't do anything if we are using the default effect and no AA.
-	const bool hasEffects = m_PostProcEffect != L"default";
-	const bool hasARB = m_Device->GetBackend() == Renderer::Backend::Backend::GL_ARB;
-	const bool hasAA = m_AATech && !hasARB;
-	const bool hasSharp = m_SharpTech && !hasARB;
-	if (!hasEffects && !hasAA && !hasSharp)
-		return;
-
+	PROFILE3_GPU(deviceCommandContext, "Render postproc");
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render postproc");
 
-	if (hasEffects)
+	if (m_PBREnabled)
+	{
+		ResolvePBR(deviceCommandContext);
+	}
+
+	if (!m_PBREnabled && m_PostProcEffect != L"default")
 	{
 		// First render blur textures. Note that this only happens ONLY ONCE, before any effects are applied!
 		// (This may need to change depending on future usage, however that will have a fps hit)
@@ -706,13 +786,13 @@ void CPostprocManager::ApplyPostproc(
 			ApplyEffect(deviceCommandContext, m_PostProcTech, pass);
 	}
 
-	if (hasAA)
+	if (m_AATech)
 	{
 		for (int pass = 0; pass < m_AATech->GetNumPasses(); ++pass)
 			ApplyEffect(deviceCommandContext, m_AATech, pass);
 	}
 
-	if (hasSharp && !ShouldUpscale())
+	if (m_SharpTech && !ShouldUpscale())
 	{
 		for (int pass = 0; pass < m_SharpTech->GetNumPasses(); ++pass)
 			ApplyEffect(deviceCommandContext, m_SharpTech, pass);
@@ -759,11 +839,10 @@ void CPostprocManager::SetPostEffect(const CStrW& name)
 
 void CPostprocManager::UpdateAntiAliasingTechnique()
 {
-	if (m_Device->GetBackend() == Renderer::Backend::Backend::GL_ARB || !m_IsInitialized)
+	if (!m_IsInitialized)
 		return;
 
-	CStr newAAName;
-	CFG_GET_VAL("antialiasing", newAAName);
+	const std::string newAAName{g_ConfigDB.Get("antialiasing", std::string{})};
 	if (m_AAName == newAAName)
 		return;
 	m_AAName = newAAName;
@@ -805,15 +884,16 @@ void CPostprocManager::UpdateAntiAliasingTechnique()
 		m_UsingMultisampleBuffer = true;
 		CreateMultisampleBuffer();
 	}
+
+	RecreateCaptureFramebuffer();
 }
 
 void CPostprocManager::UpdateSharpeningTechnique()
 {
-	if (m_Device->GetBackend() == Renderer::Backend::Backend::GL_ARB || !m_IsInitialized)
+	if (!m_IsInitialized)
 		return;
 
-	CStr newSharpName;
-	CFG_GET_VAL("sharpening", newSharpName);
+	const std::string newSharpName{g_ConfigDB.Get("sharpening", std::string{})};
 	if (m_SharpName == newSharpName)
 		return;
 	m_SharpName = newSharpName;
@@ -827,7 +907,7 @@ void CPostprocManager::UpdateSharpeningTechnique()
 
 void CPostprocManager::UpdateSharpnessFactor()
 {
-	CFG_GET_VAL("sharpness", m_Sharpness);
+	m_Sharpness = g_ConfigDB.Get("sharpness", m_Sharpness);
 }
 
 void CPostprocManager::SetUpscaleTechnique(const CStr& upscaleName)
@@ -862,7 +942,7 @@ void CPostprocManager::CreateMultisampleBuffer()
 		Renderer::Backend::ITexture::Type::TEXTURE_2D_MULTISAMPLE,
 		Renderer::Backend::ITexture::Usage::COLOR_ATTACHMENT |
 			Renderer::Backend::ITexture::Usage::TRANSFER_SRC,
-		Renderer::Backend::Format::R8G8B8A8_UNORM, m_Width, m_Height,
+		m_FramebufferColorFormat, m_Width, m_Height,
 		Renderer::Backend::Sampler::MakeDefaultSampler(
 			Renderer::Backend::Sampler::Filter::LINEAR,
 			Renderer::Backend::Sampler::AddressMode::CLAMP_TO_EDGE), 1, m_MultisampleCount);
@@ -926,17 +1006,77 @@ void CPostprocManager::ResolveMultisampleFramebuffer(
 
 	GPU_SCOPED_LABEL(deviceCommandContext, "Resolve postproc multisample");
 	deviceCommandContext->ResolveFramebuffer(
-		m_MultisampleFramebuffer.get(), m_PingFramebuffer.get());
+		m_MultisampleFramebuffer.get(),
+		m_PBREnabled ? m_CaptureFramebuffer.get() : m_PingFramebuffer.get());
+}
+
+void CPostprocManager::ResolvePBR(
+	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
+{
+	ENSURE(m_PBREnabled);
+
+	GPU_SCOPED_LABEL(deviceCommandContext, "Resolve PBR");
+
+	const std::array<float, 4> screenSize{{
+		static_cast<float>(m_Width), static_cast<float>(m_Height),
+		1.0f / static_cast<float>(m_Width), 1.0f / static_cast<float>(m_Height)}};
+	// Mapping [0.0, 1.0] to [-2.0, 2.0].
+	const float exposure{
+		std::exp2f((g_RenderingOptions.GetPBRBrightness() - 0.5f) * 4.0f)};
+
+	Renderer::Backend::ITexture* source{m_PBROutputTexture.get()};
+
+	if (m_ResolvePBRComputeTech)
+	{
+		Renderer::Backend::IShaderProgram* shaderProgram{m_ResolvePBRComputeTech->GetShader()};
+
+		Renderer::Backend::ITexture* destination{m_ColorTex1.get()};
+
+		constexpr uint32_t threadGroupWorkRegionDim{8};
+		const uint32_t dispatchGroupCountX{DivideRoundUp(m_Width, threadGroupWorkRegionDim)};
+		const uint32_t dispatchGroupCountY{DivideRoundUp(m_Height, threadGroupWorkRegionDim)};
+
+		deviceCommandContext->BeginComputePass();
+		deviceCommandContext->SetComputePipelineState(
+			m_ResolvePBRComputeTech->GetComputePipelineState());
+		deviceCommandContext->SetUniform(shaderProgram->GetBindingSlot(str_screenSize), screenSize);
+		deviceCommandContext->SetUniform(shaderProgram->GetBindingSlot(str_exposure), exposure);
+		deviceCommandContext->SetTexture(shaderProgram->GetBindingSlot(str_inTex), source);
+		deviceCommandContext->SetStorageTexture(shaderProgram->GetBindingSlot(str_outTex), destination);
+		deviceCommandContext->Dispatch(dispatchGroupCountX, dispatchGroupCountY, 1);
+		deviceCommandContext->EndComputePass();
+	}
+	else
+	{
+		ENSURE(m_ResolvePBRTech);
+		Renderer::Backend::IShaderProgram* shaderProgram{m_ResolvePBRTech->GetShader()};
+
+		Renderer::Backend::IFramebuffer* framebuffer{m_PingFramebuffer.get()};
+		deviceCommandContext->BeginFramebufferPass(framebuffer);
+
+		Renderer::Backend::IDeviceCommandContext::Rect viewportRect{};
+		viewportRect.width = framebuffer->GetWidth();
+		viewportRect.height = framebuffer->GetHeight();
+		deviceCommandContext->SetViewports(1, &viewportRect);
+
+		deviceCommandContext->SetGraphicsPipelineState(
+			m_ResolvePBRTech->GetGraphicsPipelineState());
+		deviceCommandContext->BeginPass();
+
+		deviceCommandContext->SetUniform(shaderProgram->GetBindingSlot(str_screenSize), screenSize);
+		deviceCommandContext->SetUniform(shaderProgram->GetBindingSlot(str_exposure), exposure);
+		deviceCommandContext->SetTexture(shaderProgram->GetBindingSlot(str_inTex), source);
+
+		DrawFullscreenQuad(m_VertexInputLayout, deviceCommandContext);
+
+		deviceCommandContext->EndPass();
+		deviceCommandContext->EndFramebufferPass();
+	}
 }
 
 void CPostprocManager::RecalculateSize(const uint32_t width, const uint32_t height)
 {
-	if (m_Device->GetBackend() == Renderer::Backend::Backend::GL_ARB)
-	{
-		m_Scale = 1.0f;
-		return;
-	}
-	CFG_GET_VAL("renderer.scale", m_Scale);
+	m_Scale = g_ConfigDB.Get("renderer.scale", m_Scale);
 	if (m_Scale < 0.25f || m_Scale > 2.0f)
 	{
 		LOGWARNING("Invalid renderer scale: %0.2f", m_Scale);

@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -22,9 +22,15 @@
 
 #include "lib/self_test.h"
 
+#include "lib/debug.h"
 #include "lib/secure_crt.h"
+#include "lib/status.h"
+#include "lib/sysdep/os.h"
 
+#include <cerrno>
+#include <cstdarg>
 #include <cstring>
+#include <cwchar>
 
 // note: we only test the char version. this avoids having to
 // expose secure_crt.cpp's tchar / tcpy etc. macros in the header and/or
@@ -55,8 +61,8 @@ private:
 	int old_mode;
 	_invalid_parameter_handler old_handler;
 
-	static void invalid_parameter_handler(const wchar_t* UNUSED(expression), const wchar_t* UNUSED(function),
-		const wchar_t* UNUSED(file), unsigned int UNUSED(line), uintptr_t UNUSED(pReserved))
+	static void invalid_parameter_handler(const wchar_t* /*expression*/, const wchar_t* /*function*/,
+		const wchar_t* /*file*/, unsigned int /*line*/, uintptr_t /*pReserved*/)
 	{
 		return;
 	}

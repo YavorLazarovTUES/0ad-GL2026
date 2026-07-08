@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -23,8 +23,12 @@
 #ifndef INCLUDED_ALIGNMENT
 #define INCLUDED_ALIGNMENT
 
+#include "lib/code_annotation.h"
 #include "lib/sysdep/compiler.h"	// MSC_VERSION
 #include "lib/sysdep/arch.h"	// ARCH_AMD64
+
+#include <cstddef>
+#include <cstdint>
 
 template<typename T>
 inline bool IsAligned(T t, uintptr_t multiple)
@@ -62,8 +66,7 @@ static const size_t vectorSize = 16;
 	ASSERT(IsAligned(size, vectorSize))
 
 #define ASSERT_VECTOR_ALIGNED(pointer)\
-	ASSERT_VECTOR_MULTIPLE(pointer);\
-	ASSUME_ALIGNED(pointer, vectorSize)
+	ASSERT_VECTOR_MULTIPLE(pointer)
 
 
 //

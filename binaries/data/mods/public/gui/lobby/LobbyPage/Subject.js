@@ -18,10 +18,7 @@ class Subject
 		xmppMessages.registerXmppMessageHandler("chat", "subject", this.onSubject.bind(this));
 		gameList.registerSelectionChangeHandler(this.onGameListSelectionChange.bind(this));
 
-		let bottom = Engine.GetGUIObjectByName(dialog ? "leaveButton" : "hostButton").size.top - 5;
-		let size = this.subjectPanel.size;
-		size.bottom = bottom;
-		this.subjectPanel.size = size;
+		this.subjectPanel.size.bottom = Engine.GetGUIObjectByName(dialog ? "leaveButton" : "hostButton").size.top - 5;
 	}
 
 	onGameListSelectionChange(game)

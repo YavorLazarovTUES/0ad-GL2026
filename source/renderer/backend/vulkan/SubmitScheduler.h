@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,11 +20,14 @@
 
 #include "renderer/backend/vulkan/Device.h"
 
+#include <array>
+#include <cstdint>
 #include <glad/vulkan.h>
 #include <memory>
 #include <queue>
-#include <utility>
 #include <vector>
+
+namespace Renderer::Backend::Vulkan { class CRingCommandContext; }
 
 namespace Renderer
 {
@@ -34,10 +37,6 @@ namespace Backend
 
 namespace Vulkan
 {
-
-class CDevice;
-class CRingCommandContext;
-class CSwapChain;
 
 /**
  * A helper class to batch VkQueueSubmit calls and track VkCommandBuffer usages
@@ -49,12 +48,9 @@ public:
 	using SubmitHandle = uint32_t;
 	static constexpr SubmitHandle INVALID_SUBMIT_HANDLE = 0;
 
-	CSubmitScheduler(CDevice* device, const uint32_t queueFamilyIndex, VkQueue queue);
+	static std::unique_ptr<CSubmitScheduler> Create(
+		CDevice* device, VkQueue queue);
 	~CSubmitScheduler();
-
-	bool AcquireNextImage(CSwapChain& swapChain);
-
-	void Present(CSwapChain& swapChain);
 
 	SubmitHandle Submit(VkCommandBuffer commandBuffer);
 
@@ -62,9 +58,17 @@ public:
 
 	uint32_t GetFrameID() const { return m_FrameID; }
 
-	void Flush();
+	SubmitHandle Flush();
+
+	/**
+	 * It's a caller responsibility to guarantee a semaphore lifespan.
+	 */
+	void EnqueueWaitOnNextSubmit(VkSemaphore semaphore, const VkPipelineStageFlags stageMask);
+	void EnqueueSignalOnNextSubmit(VkSemaphore semaphore);
 
 private:
+	CSubmitScheduler(CDevice* device, VkQueue queue);
+
 	CDevice* m_Device = nullptr;
 	VkQueue m_Queue = VK_NULL_HANDLE;
 
@@ -87,29 +91,11 @@ private:
 	};
 	std::queue<SubmittedHandle> m_SubmittedHandles;
 
-	// We can't reuse frame data immediately after present because it might
-	// still be processing on GPU.
-	struct FrameObject
-	{
-		// We need to wait for the image on GPU to draw to it.
-		VkSemaphore acquireImageSemaphore = VK_NULL_HANDLE;
-		// We need to present only after all submit work is done.
-		VkSemaphore submitDone = VK_NULL_HANDLE;
-	};
-	std::array<FrameObject, NUMBER_OF_FRAMES_IN_FLIGHT> m_FrameObjects;
-
-	VkSemaphore m_NextWaitSemaphore = VK_NULL_HANDLE;
-	VkPipelineStageFlags m_NextWaitDstStageMask = 0;
-	VkSemaphore m_NextSubmitSignalSemaphore = VK_NULL_HANDLE;
+	std::vector<VkSemaphore> m_NextWaitSemaphores;
+	std::vector<VkPipelineStageFlags> m_NextWaitDstStageMasks;
+	std::vector<VkSemaphore> m_NextSubmitSignalSemaphores;
 
 	std::vector<VkCommandBuffer> m_SubmittedCommandBuffers;
-
-	std::unique_ptr<CRingCommandContext> m_AcquireCommandContext;
-	std::unique_ptr<CRingCommandContext> m_PresentCommandContext;
-
-	bool m_DebugWaitIdleBeforeAcquire = false;
-	bool m_DebugWaitIdleBeforePresent = false;
-	bool m_DebugWaitIdleAfterPresent = false;
 };
 
 } // namespace Vulkan

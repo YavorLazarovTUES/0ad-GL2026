@@ -1,7 +1,7 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
 	const tHillDark = "cliff volcanic light";
 	const tHillMedium1 = "ocean_rock_a";
@@ -79,10 +79,16 @@ function* GenerateMap()
 
 	const playerMountainSize = defaultPlayerBaseRadius();
 
-	const [playerIDs, playerPosition] = playerPlacementCircle(fractionToTiles(0.35));
+	const { playerIDs, playerPosition } =
+		playerPlacementByPattern(
+			mapSettings.PlayerPlacement,
+			fractionToTiles(0.35),
+			fractionToTiles(0.1),
+			randomAngle(),
+			undefined);
 
 	g_Map.log("Creating CC mountains");
-	if (!isNomad())
+	if (!mapSettings.Nomad)
 		for (let i = 0; i < numPlayers; ++i)
 		{
 			// This one consists of many bumps, creating an omnidirectional ramp
@@ -293,7 +299,7 @@ function* GenerateMap()
 		100);
 	yield 65;
 
-	if (!isNomad())
+	if (!mapSettings.Nomad)
 	{
 		g_Map.log("Creating towers");
 		createObjectGroupsDeprecated(

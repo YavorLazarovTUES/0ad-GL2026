@@ -4,6 +4,12 @@ class ChatInputPanel
 	{
 		this.chatInputAutocomplete = chatInputAutocomplete;
 
+		this.chatSubmitButton = Engine.GetGUIObjectByName("chatSubmitButton");
+		resizeGUIObjectToCaption(this.chatSubmitButton, { "horizontal": "left" }, { "horizontal": 8 });
+
+		this.chatInput = Engine.GetGUIObjectByName("chatInput");
+		this.chatInput.size.right = this.chatSubmitButton.size.left;
+
 		this.chatInput = Engine.GetGUIObjectByName("chatInput");
 		this.chatInput.tooltip = colorizeAutocompleteHotkey(this.Tooltip);
 		this.chatInput.onPress = this.onPress.bind(this);
@@ -20,7 +26,7 @@ class ChatInputPanel
 	{
 		if (message.status == "disconnected")
 		{
-			reportDisconnect(message.reason, true);
+			reportDisconnect(message, true);
 			this.chatInput.hidden = true;
 			this.chatSubmitButton.hidden = true;
 		}
@@ -38,7 +44,7 @@ class ChatInputPanel
 		if (!g_IsNetworked)
 			return;
 
-		let text = this.chatInput.caption;
+		const text = this.chatInput.caption;
 		if (!text.length)
 			return;
 

@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,7 +25,9 @@
 
 #include "maths/Vector3D.h"
 #include "maths/Vector4D.h"
-#include "ps/containers/Span.h"
+
+#include <cstddef>
+#include <span>
 
 class CQuaternion;
 
@@ -70,6 +72,14 @@ public:
 	}
 
 	CMatrix3D(float data[]) :
+		_11(data[0]), _21(data[1]), _31(data[2]), _41(data[3]),
+		_12(data[4]), _22(data[5]), _32(data[6]), _42(data[7]),
+		_13(data[8]), _23(data[9]), _33(data[10]), _43(data[11]),
+		_14(data[12]), _24(data[13]), _34(data[14]), _44(data[15])
+	{
+	}
+
+	CMatrix3D(const float data[]) :
 		_11(data[0]), _21(data[1]), _31(data[2]), _41(data[3]),
 		_12(data[4]), _22(data[5]), _32(data[6]), _42(data[7]),
 		_13(data[8]), _23(data[9]), _33(data[10]), _43(data[11]),
@@ -128,7 +138,7 @@ public:
 	// matrix multiplication/assignment
 	CMatrix3D& operator*=(const CMatrix3D &matrix)
 	{
-		Concatenate(matrix);
+		*this = *this * matrix;
 		return *this;
 	}
 
@@ -324,7 +334,7 @@ public:
 	CVector3D RotateTransposed(const CVector3D& vector) const;
 
 	// Returns 16 element array of floats, e.g. for mat4 uniforms.
-	PS::span<const float> AsFloatArray() const
+	std::span<const float, 16> AsFloatArray() const
 	{
 		// Additional check to prevent a weird compiler has a different
 		// alignement for an array and a class members.
@@ -334,7 +344,7 @@ public:
 			offsetof(CMatrix3D, _11) == 0 &&
 			offsetof(CMatrix3D, _44) == sizeof(float) * 15u,
 			"CMatrix3D should be properly layouted to use AsFloatArray");
-		return PS::span<const float>(_data, 16);
+		return std::span<const float, 16>(_data);
 	}
 };
 

@@ -23,7 +23,7 @@ function RandomMap(baseHeight, baseTerrain)
 
 		for (let z = 0; z < this.size; ++z)
 			this.texture[x][z] = this.getTextureID(
-				typeof baseTerrain == "string" ? baseTerrain : pickRandom(baseTerrain));
+				typeof baseTerrain === "string" ? baseTerrain : pickRandom(baseTerrain));
 	}
 
 	// Create 2D arrays for terrain objects and areas
@@ -496,9 +496,4 @@ RandomMap.prototype.MakeExportable = function()
 		"Camera": g_Camera,
 		"Environment": g_Environment
 	};
-};
-
-RandomMap.prototype.ExportMap = function()
-{
-	Engine.ExportMap(this.MakeExportable());
 };

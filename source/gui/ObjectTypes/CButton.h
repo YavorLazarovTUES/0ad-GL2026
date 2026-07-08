@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,20 +18,25 @@
 #ifndef INCLUDED_CBUTTON
 #define INCLUDED_CBUTTON
 
+#include "gui/CGUISetting.h"
 #include "gui/CGUISprite.h"
 #include "gui/ObjectBases/IGUIButtonBehavior.h"
 #include "gui/ObjectBases/IGUIObject.h"
 #include "gui/ObjectBases/IGUITextOwner.h"
+#include "gui/SettingTypes/CGUIColor.h"
 #include "gui/SettingTypes/CGUIString.h"
 #include "gui/SettingTypes/MouseEventMask.h"
 #include "maths/Vector2D.h"
+#include "ps/CStr.h"
+
+class CGUI;
+class CSize2D;
 
 class CButton : public IGUIObject, public IGUITextOwner, public IGUIButtonBehavior
 {
 	GUI_OBJECT(CButton)
 public:
 	CButton(CGUI& pGUI);
-	virtual ~CButton();
 
 	/**
 	 * @see IGUIObject#ResetStates()
@@ -39,14 +44,16 @@ public:
 	virtual void ResetStates();
 
 	/**
-	 * @see IGUIObject#UpdateCachedSize()
+	 * @see IGUIObject#HandleSizeChanged()
 	 */
-	virtual void UpdateCachedSize();
+	virtual void HandleSizeChanged();
 
 	/**
 	 * @return the object text size.
 	 */
 	CSize2D GetTextSize();
+
+	CSize2D GetPreferredTextSize();
 
 	/**
 	 * @see IGUIObject#HandleMessage()

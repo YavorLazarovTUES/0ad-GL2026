@@ -1,4 +1,4 @@
-/* Copyright (C) 2017 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,9 +18,15 @@
 #ifndef INCLUDED_ICMPAIMANAGER
 #define INCLUDED_ICMPAIMANAGER
 
+#include "simulation2/helpers/Player.h"
+#include "simulation2/system/Component.h"
 #include "simulation2/system/Interface.h"
 
-#include "simulation2/helpers/Player.h"
+#include <cstdint>
+#include <js/Value.h>
+#include <string>
+
+namespace Script { class Interface; }
 
 class ICmpAIManager : public IComponent
 {
@@ -51,7 +57,7 @@ public:
 	 * Returns a vector of {"id":"value-for-AddPlayer", "name":"Human readable name"}
 	 * objects, based on all the available AI scripts.
 	 */
-	static JS::Value GetAIs(const ScriptInterface& scriptInterface);
+	static JS::Value GetAIs(const Script::Interface& scriptInterface);
 
 	DECLARE_INTERFACE_TYPE(AIManager)
 };

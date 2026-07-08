@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -25,21 +25,38 @@
  */
 
 #include "precompiled.h"
-#include "lib/file/archive/archive_zip.h"
 
-#include <time.h>
-#include <limits>
+#include "archive_zip.h"
 
-#include "lib/utf8.h"
+#include "lib/alignment.h"
+#include "lib/allocators/dynarray.h"
+#include "lib/allocators/pool.h"
 #include "lib/bits.h"
 #include "lib/byte_order.h"
-#include "lib/allocators/pool.h"
-#include "lib/sysdep/filesystem.h"
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
 #include "lib/file/archive/archive.h"
+#include "lib/file/archive/codec.h"
 #include "lib/file/archive/codec_zlib.h"
 #include "lib/file/archive/stream.h"
 #include "lib/file/file.h"
+#include "lib/file/file_system.h"
 #include "lib/file/io/io.h"
+#include "lib/lib.h"
+#include "lib/path.h"
+#include "lib/posix/posix_types.h"
+#include "lib/status.h"
+#include "lib/types.h"
+#include "lib/utf8.h"
+
+#include <algorithm>
+#include <cstdint>
+#include <cstring>
+#include <ctime>
+#include <exception>
+#include <fcntl.h>
+#include <memory>
+#include <string>
 
 //-----------------------------------------------------------------------------
 // timestamp conversion: DOS FAT <-> Unix time_t
@@ -294,7 +311,7 @@ cassert(sizeof(ECDR) == 22);
 // ArchiveFile_Zip
 //-----------------------------------------------------------------------------
 
-class ArchiveFile_Zip : public IArchiveFile
+class ArchiveFile_Zip final : public IArchiveFile
 {
 public:
 	ArchiveFile_Zip(const PFile& file, off_t ofs, off_t csize, u32 checksum, ZipMethod method)
@@ -304,22 +321,22 @@ public:
 	{
 	}
 
-	virtual size_t Precedence() const
+	size_t Precedence() const override
 	{
 		return 2u;
 	}
 
-	virtual wchar_t LocationCode() const
+	wchar_t LocationCode() const override
 	{
 		return 'A';
 	}
 
-	virtual OsPath Path() const
+	const OsPath& Path() const override
 	{
 		return m_file->Pathname();
 	}
 
-	virtual Status Load(const OsPath& UNUSED(name), const std::shared_ptr<u8>& buf, size_t size) const
+	Status Load(const OsPath& /*name*/, const std::shared_ptr<u8>& buf, size_t size) const override
 	{
 		AdjustOffset();
 

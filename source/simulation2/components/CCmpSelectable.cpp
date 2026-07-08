@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,29 +19,44 @@
 
 #include "ICmpSelectable.h"
 
+#include "graphics/Color.h"
 #include "graphics/Overlay.h"
 #include "graphics/Terrain.h"
 #include "graphics/TextureManager.h"
+#include "lib/code_generation.h"
+#include "lib/debug.h"
+#include "lib/path.h"
+#include "maths/BoundingBoxAligned.h"
 #include "maths/Ease.h"
-#include "maths/MathUtil.h"
-#include "maths/Matrix3D.h"
-#include "maths/Vector3D.h"
+#include "maths/Frustum.h"
 #include "maths/Vector2D.h"
+#include "maths/Vector3D.h"
 #include "ps/CLogger.h"
+#include "ps/CStrIntern.h"
 #include "ps/Profile.h"
-#include "renderer/Scene.h"
 #include "renderer/Renderer.h"
+#include "renderer/Scene.h"
+#include "renderer/backend/Sampler.h"
 #include "simulation2/MessageTypes.h"
-#include "simulation2/components/ICmpPosition.h"
 #include "simulation2/components/ICmpFootprint.h"
-#include "simulation2/components/ICmpVisual.h"
-#include "simulation2/components/ICmpTerrain.h"
 #include "simulation2/components/ICmpOwnership.h"
 #include "simulation2/components/ICmpPlayer.h"
 #include "simulation2/components/ICmpPlayerManager.h"
+#include "simulation2/components/ICmpPosition.h"
+#include "simulation2/components/ICmpTerrain.h"
+#include "simulation2/components/ICmpVisual.h"
 #include "simulation2/components/ICmpWaterManager.h"
+#include "simulation2/helpers/Player.h"
+#include "simulation2/helpers/Position.h"
 #include "simulation2/helpers/Render.h"
 #include "simulation2/system/Component.h"
+#include "simulation2/system/Message.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <string>
+#include <vector>
 
 // Minimum alpha value for always visible overlays [0 fully transparent, 1 fully opaque]
 static const float MIN_ALPHA_ALWAYS_VISIBLE = 0.65f;
@@ -104,19 +119,19 @@ public:
 						"<element name='Shape' a:help='Specifies shape of overlay. If not specified, footprint shape will be used.'>"
 							"<choice>"
 								"<element name='Square' a:help='Set the overlay to a square of the given size'>"
-									"<attribute name='width' a:help='Size of the overlay along the left/right direction (in metres)'>"
+									"<attribute name='width' a:help='Size of the overlay along the left/right direction (in meters)'>"
 										"<data type='decimal'>"
 											"<param name='minExclusive'>0.0</param>"
 										"</data>"
 									"</attribute>"
-									"<attribute name='depth' a:help='Size of the overlay along the front/back direction (in metres)'>"
+									"<attribute name='depth' a:help='Size of the overlay along the front/back direction (in meters)'>"
 										"<data type='decimal'>"
 											"<param name='minExclusive'>0.0</param>"
 										"</data>"
 									"</attribute>"
 								"</element>"
 								"<element name='Circle' a:help='Set the overlay to a circle of the given size'>"
-									"<attribute name='radius' a:help='Radius of the overlay (in metres)'>"
+									"<attribute name='radius' a:help='Radius of the overlay (in meters)'>"
 										"<data type='decimal'>"
 											"<param name='minExclusive'>0.0</param>"
 										"</data>"
@@ -217,19 +232,19 @@ public:
 
 	void Deinit() override { }
 
-	void Serialize(ISerializer& UNUSED(serialize)) override
+	void Serialize(ISerializer&) override
 	{
 		// Nothing to do here (the overlay object is not worth saving, it'll get
 		// reconstructed by the GUI soon enough, I think)
 	}
 
-	void Deserialize(const CParamNode& paramNode, IDeserializer& UNUSED(deserialize)) override
+	void Deserialize(const CParamNode& paramNode, IDeserializer&) override
 	{
 		// Need to call Init to reload the template properties
 		Init(paramNode);
 	}
 
-	void HandleMessage(const CMessage& msg, bool UNUSED(global)) override;
+	void HandleMessage(const CMessage& msg, bool /*global*/) override;
 
 	void SetSelectionHighlight(const CColor& color, bool selected) override
 	{
@@ -354,7 +369,7 @@ private:
 const float CCmpSelectable::FADE_DURATION = 0.3f;
 const char* CCmpSelectable::TEXTUREBASEPATH = "art/textures/selection/";
 
-void CCmpSelectable::HandleMessage(const CMessage& msg, bool UNUSED(global))
+void CCmpSelectable::HandleMessage(const CMessage& msg, bool /*global*/)
 {
 	switch (msg.GetType())
 	{
@@ -617,10 +632,6 @@ void CCmpSelectable::UpdateDynamicOverlay(float frameOffset)
 
 void CCmpSelectable::RenderSubmit(SceneCollector& collector, const CFrustum& frustum, bool culling)
 {
-	// don't render selection overlay if it's not gonna be visible
-	if (!ICmpSelectable::m_OverrideVisible)
-		return;
-
 	if (m_Visible && m_Color.a > 0)
 	{
 		if (!m_Cached)

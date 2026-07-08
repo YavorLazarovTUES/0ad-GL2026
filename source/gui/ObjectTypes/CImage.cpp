@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,6 +20,7 @@
 #include "CImage.h"
 
 #include "gui/CGUI.h"
+#include "ps/CStr.h"
 
 CImage::CImage(CGUI& pGUI)
 	: IGUIObject(pGUI),
@@ -27,11 +28,7 @@ CImage::CImage(CGUI& pGUI)
 {
 }
 
-CImage::~CImage()
-{
-}
-
 void CImage::Draw(CCanvas2D& canvas)
 {
-	m_pGUI.DrawSprite(m_Sprite, canvas, m_CachedActualSize);
+	m_pGUI.DrawSprite(m_Sprite, canvas, GetActualSize(), m_VisibleArea);
 }

@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,9 +20,13 @@
 #include "JSInterface_Renderer.h"
 
 #include "graphics/TextureManager.h"
-#include "renderer/RenderingOptions.h"
+#include "ps/CStr.h"
+#include "ps/CStrIntern.h"
 #include "renderer/Renderer.h"
+#include "renderer/RenderingOptions.h"
 #include "scriptinterface/FunctionWrapper.h"
+
+#include <string>
 
 namespace JSI_Renderer
 {
@@ -37,15 +41,11 @@ void Set##NAME##Enabled(bool enabled) \
 	g_RenderingOptions.Set##NAME(enabled); \
 }
 
+IMPLEMENT_BOOLEAN_SCRIPT_SETTING(CutsceneMode);
 IMPLEMENT_BOOLEAN_SCRIPT_SETTING(DisplayFrustum);
 IMPLEMENT_BOOLEAN_SCRIPT_SETTING(DisplayShadowsFrustum);
 
 #undef IMPLEMENT_BOOLEAN_SCRIPT_SETTING
-
-std::string GetRenderPath()
-{
-	return RenderPathEnum::ToString(g_RenderingOptions.GetRenderPath());
-}
 
 std::string GetRenderDebugMode()
 {
@@ -62,16 +62,28 @@ bool TextureExists(const std::wstring& filename)
 	return g_Renderer.GetTextureManager().TextureExists(filename);
 }
 
-#define REGISTER_BOOLEAN_SCRIPT_SETTING(NAME) \
-ScriptFunction::Register<&Get##NAME##Enabled>(rq, "Renderer_Get" #NAME "Enabled"); \
-ScriptFunction::Register<&Set##NAME##Enabled>(rq, "Renderer_Set" #NAME "Enabled");
-
-void RegisterScriptFunctions(const ScriptRequest& rq)
+float GetPBRBrightness()
 {
-	ScriptFunction::Register<&GetRenderPath>(rq, "Renderer_GetRenderPath");
-	ScriptFunction::Register<&TextureExists>(rq, "TextureExists");
-	ScriptFunction::Register<&GetRenderDebugMode>(rq, "Renderer_GetRenderDebugMode");
-	ScriptFunction::Register<&SetRenderDebugMode>(rq, "Renderer_SetRenderDebugMode");
+	return g_RenderingOptions.GetPBRBrightness();
+}
+
+void SetPBRBrightness(const float value)
+{
+	g_RenderingOptions.SetPBRBrightness(value);
+}
+
+#define REGISTER_BOOLEAN_SCRIPT_SETTING(NAME) \
+Script::Function::Register<&Get##NAME##Enabled>(rq, "Renderer_Get" #NAME "Enabled"); \
+Script::Function::Register<&Set##NAME##Enabled>(rq, "Renderer_Set" #NAME "Enabled");
+
+void RegisterScriptFunctions(const Script::Request& rq)
+{
+	Script::Function::Register<&TextureExists>(rq, "TextureExists");
+	Script::Function::Register<&GetRenderDebugMode>(rq, "Renderer_GetRenderDebugMode");
+	Script::Function::Register<&SetRenderDebugMode>(rq, "Renderer_SetRenderDebugMode");
+	Script::Function::Register<&GetPBRBrightness>(rq, "Renderer_GetPBRBrightness");
+	Script::Function::Register<&SetPBRBrightness>(rq, "Renderer_SetPBRBrightness");
+	REGISTER_BOOLEAN_SCRIPT_SETTING(CutsceneMode);
 	REGISTER_BOOLEAN_SCRIPT_SETTING(DisplayFrustum);
 	REGISTER_BOOLEAN_SCRIPT_SETTING(DisplayShadowsFrustum);
 }

@@ -8,10 +8,10 @@
  */
 function cubicInterpolation(tension, x, p0, p1, p2, p3)
 {
-	let P = -tension * p0 + (2 - tension) * p1 + (tension - 2) * p2 + tension * p3;
-	let Q = 2 * tension * p0 + (tension - 3) * p1 + (3 - 2 * tension) * p2 - tension * p3;
-	let R = -tension * p0 + tension * p2;
-	let S = p1;
+	const P = -tension * p0 + (2 - tension) * p1 + (tension - 2) * p2 + tension * p3;
+	const Q = 2 * tension * p0 + (tension - 3) * p1 + (3 - 2 * tension) * p2 - tension * p3;
+	const R = -tension * p0 + tension * p2;
+	const S = p1;
 
 	return ((P * x + Q) * x + R) * x + S;
 }
@@ -21,8 +21,7 @@ function cubicInterpolation(tension, x, p0, p1, p2, p3)
  *
  * @param {Vector2D} position - Location of the point to interpolate, relative to p11
  */
-function bicubicInterpolation
-(
+function bicubicInterpolation(
 	position,
 	p00, p01, p02, p03,
 	p10, p11, p12, p13,
@@ -30,7 +29,7 @@ function bicubicInterpolation
 	p30, p31, p32, p33
 )
 {
-	let tension = 0.5;
+	const tension = 0.5;
 	return cubicInterpolation(
 		tension,
 		position.x,

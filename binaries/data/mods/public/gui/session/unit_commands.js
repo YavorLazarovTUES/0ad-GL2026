@@ -22,20 +22,21 @@ var g_unitPanelButtons = {
  * Will wrap around to subsequent rows if the index
  * is larger than rowLength.
  */
-function setPanelObjectPosition(object, index, rowLength, vMargin = 1, hMargin = 1)
+function setPanelObjectPosition(object, index, rowLength, vMargin = 1, hMargin = 1, vOffset = 0, hOffset = 0)
 {
-	var size = object.size;
-	// horizontal position
-	var oWidth = size.right - size.left;
-	var hIndex = index % rowLength;
-	size.left = hIndex * (oWidth + vMargin);
-	size.right = size.left + oWidth;
-	// vertical position
-	var oHeight = size.bottom - size.top;
-	var vIndex = Math.floor(index / rowLength);
-	size.top = vIndex * (oHeight + hMargin);
-	size.bottom = size.top + oHeight;
-	object.size = size;
+	const oWidth = object.size.right - object.size.left;
+	const oHeight = object.size.bottom - object.size.top;
+	const left = (index % rowLength) * (oWidth + hMargin) + hOffset;
+	const top = (Math.floor(index / rowLength)) * (oHeight + vMargin) + vOffset;
+
+	Object.assign(object.size, {
+		// horizontal position
+		"left": left,
+		"right": left + oWidth,
+		// vertical position
+		"top": top,
+		"bottom": top + oHeight
+	});
 }
 
 /**
@@ -54,20 +55,16 @@ function setupUnitPanel(guiName, unitEntStates, playerState)
 		return;
 	}
 
-	let items = g_SelectionPanels[guiName].getItems(unitEntStates);
+	const items = g_SelectionPanels[guiName].getItems(unitEntStates) || [];
+	const numberOfItems = Math.min(items.length, g_SelectionPanels[guiName].getMaxNumberOfItems());
+	const rowLength = g_SelectionPanels[guiName].rowLength || 8;
 
-	if (!items || !items.length)
-		return;
-
-	let numberOfItems = Math.min(items.length, g_SelectionPanels[guiName].getMaxNumberOfItems());
-	let rowLength = g_SelectionPanels[guiName].rowLength || 8;
-
-	if (g_SelectionPanels[guiName].resizePanel)
+	if (numberOfItems && g_SelectionPanels[guiName].resizePanel)
 		g_SelectionPanels[guiName].resizePanel(numberOfItems, rowLength);
 
 	for (let i = 0; i < numberOfItems; ++i)
 	{
-		let data = {
+		const data = {
 			"i": i,
 			"item": items[i],
 			"playerState": playerState,
@@ -76,10 +73,10 @@ function setupUnitPanel(guiName, unitEntStates, playerState)
 			"rowLength": rowLength,
 			"numberOfItems": numberOfItems,
 			// depending on the XML, some of the GUI objects may be undefined
-			"button": Engine.GetGUIObjectByName("unit" + guiName + "Button[" + i + "]"),
-			"icon": Engine.GetGUIObjectByName("unit" + guiName + "Icon[" + i + "]"),
-			"guiSelection": Engine.GetGUIObjectByName("unit" + guiName + "Selection[" + i + "]"),
-			"countDisplay": Engine.GetGUIObjectByName("unit" + guiName + "Count[" + i + "]")
+			"button": Engine.TryGetGUIObjectByName("unit" + guiName + "Button[" + i + "]"),
+			"icon": Engine.TryGetGUIObjectByName("unit" + guiName + "Icon[" + i + "]"),
+			"guiSelection": Engine.TryGetGUIObjectByName("unit" + guiName + "Selection[" + i + "]"),
+			"countDisplay": Engine.TryGetGUIObjectByName("unit" + guiName + "Count[" + i + "]")
 		};
 
 		if (data.button)
@@ -104,10 +101,13 @@ function setupUnitPanel(guiName, unitEntStates, playerState)
 		if (g_SelectionPanels[guiName].hideItem)
 			g_SelectionPanels[guiName].hideItem(i, rowLength);
 		else
-			Engine.GetGUIObjectByName("unit" + guiName + "Button[" + i + "]").hidden = true;
+		{
+			const button = Engine.TryGetGUIObjectByName("unit" + guiName + "Button[" + i + "]");
+			if (button) button.hidden = true;
+		}
 
 	g_unitPanelButtons[guiName] = numberOfItems;
-	g_SelectionPanels[guiName].used = true;
+	g_SelectionPanels[guiName].used = numberOfItems > 0;
 }
 
 /**
@@ -124,55 +124,59 @@ function setupUnitPanel(guiName, unitEntStates, playerState)
  */
 function updateUnitCommands(entStates, supplementalDetailsPanel, commandsPanel)
 {
-	for (let panel in g_SelectionPanels)
+	for (const panel in g_SelectionPanels)
+	{
 		g_SelectionPanels[panel].used = false;
+		g_SelectionPanels[panel].reset?.();
+	}
 
 	// Get player state to check some constraints
 	// e.g. presence of a hero or build limits.
-	let playerStates = GetSimState().players;
-	let playerState = playerStates[Engine.GetPlayerID()];
-
-	setupUnitPanel("Selection", entStates, playerStates[entStates[0].player]);
-
-	// Command panel always shown for it can contain commands
-	// for which the entity does not need to be owned.
-	setupUnitPanel("Command", entStates, playerState);
+	const playerStates = GetSimState().players;
+	const playerState = playerStates[Engine.GetPlayerID()];
 
 	if (g_IsObserver || entStates.every(entState =>
 		controlsPlayer(entState.player) &&
 		(!entState.identity || entState.identity.controllable)) ||
 		playerState.controlsAll)
 	{
-		for (let guiName of g_PanelsOrder)
+		for (const guiName of g_PanelsOrder)
 		{
-			if (g_SelectionPanels[guiName].conflictsWith &&
-			    g_SelectionPanels[guiName].conflictsWith.some(p => g_SelectionPanels[p].used))
-				continue;
-
-			setupUnitPanel(guiName, entStates, playerStates[entStates[0].player]);
+			if (!g_SelectionPanels[guiName].conflictsWith ||
+			    g_SelectionPanels[guiName].conflictsWith.every(p => !g_SelectionPanels[p].used))
+				setupUnitPanel(guiName, entStates, playerStates[entStates[0].player]);
 		}
 
 		supplementalDetailsPanel.hidden = false;
 		commandsPanel.hidden = false;
 	}
-	else if (playerState.isMutualAlly[entStates[0].player])
-	{
-		// TODO if there's a second panel needed for a different player
-		// we should consider adding the players list to g_SelectionPanels
-		setupUnitPanel("Garrison", entStates, playerState);
-
-		supplementalDetailsPanel.hidden = !g_SelectionPanels.Garrison.used;
-
-		commandsPanel.hidden = true;
-	}
 	else
 	{
-		supplementalDetailsPanel.hidden = true;
-		commandsPanel.hidden = true;
+		// Always show what entities are selected, no matter if they can be controlled.
+		setupUnitPanel("Selection", entStates, playerStates[entStates[0].player]);
+		// Always show the commands since they might not require the entities to be owned.
+		// TODO: This panel here is NOT related to the commandsPanel GUI object. The naming should be improved.
+		setupUnitPanel("Command", entStates, playerState);
+
+		if (playerState.isMutualAlly[entStates[0].player])
+		{
+			// TODO if there's a second panel needed for a different player
+			// we should consider adding the players list to g_SelectionPanels
+			setupUnitPanel("Garrison", entStates, playerState);
+
+			supplementalDetailsPanel.hidden = !g_SelectionPanels.Garrison.used;
+
+			commandsPanel.hidden = true;
+		}
+		else
+		{
+			supplementalDetailsPanel.hidden = true;
+			commandsPanel.hidden = true;
+		}
 	}
 
 	// Hides / unhides Unit Panels (panels should be grouped by type, not by order, but we will leave that for another time)
-	for (let panelName in g_SelectionPanels)
+	for (const panelName in g_SelectionPanels)
 		Engine.GetGUIObjectByName("unit" + panelName + "Panel").hidden = !g_SelectionPanels[panelName].used;
 }
 
@@ -188,9 +192,9 @@ function getAllTrainableEntities(selection)
 {
 	let trainableEnts = [];
 	// Get all buildable and trainable entities
-	for (let ent of selection)
+	for (const ent of selection)
 	{
-		let state = GetEntityState(ent);
+		const state = GetEntityState(ent);
 		if (state?.trainer?.entities?.length)
 		{
 			if (!state.production)
@@ -230,7 +234,7 @@ function getNumberOfRightPanelButtons()
 {
 	var sum = 0;
 
-	for (let prop of ["Construction", "Training", "Pack", "Gate", "Upgrade"])
+	for (const prop of ["Construction", "Training", "Pack", "Gate", "Upgrade"])
 		if (g_SelectionPanels[prop].used)
 			sum += g_unitPanelButtons[prop];
 

@@ -1,11 +1,16 @@
+import { addAnimals, addBerries, addBluffs, addDecoration, addFish, addForests, addHills, addLayeredPatches,
+	addMetal, addMountains, addPlateaus, addProps, addStone, addStragglerTrees } from
+	"maps/random/rmgen2/gaia.js";
+import { addElements, allAmounts, allMixes, allSizes, createBases, initTileClasses } from
+	"maps/random/rmgen2/setup.js";
+
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
-Engine.LoadLibrary("rmgen2");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
-	setSelectedBiome();
+	setBiome(mapSettings.Biome);
 
 	const heightSeaGround = -18;
 	const heightLand = 2;
@@ -29,8 +34,8 @@ function* GenerateMap()
 	const startAngle = randomAngle();
 	const [playerIDs, playerPosition] =
 		createBases(
-			...playerPlacementByPattern(
-				"radial",
+			playerPlacementByPattern(
+				"circle",
 				fractionToTiles(0.38),
 				fractionToTiles(0.05),
 				startAngle,
@@ -61,9 +66,9 @@ function* GenerateMap()
 				g_TileClasses.spine, 4
 			],
 			"stay": [g_TileClasses.water, 7],
-			"sizes": g_AllSizes,
-			"mixes": g_AllMixes,
-			"amounts": ["many"]
+			"sizes": allSizes,
+			"mixes": allMixes,
+			"amounts": ["tons"]
 		}
 	]);
 
@@ -81,8 +86,8 @@ function* GenerateMap()
 				g_TileClasses.water, 2
 			],
 			"sizes": ["tiny", "small"],
-			"mixes": g_AllMixes,
-			"amounts": g_AllAmounts
+			"mixes": allMixes,
+			"amounts": allAmounts
 		},
 		{
 			"func": addMountains,
@@ -96,8 +101,8 @@ function* GenerateMap()
 				g_TileClasses.water, 15
 			],
 			"sizes": ["small"],
-			"mixes": g_AllMixes,
-			"amounts": g_AllAmounts
+			"mixes": allMixes,
+			"amounts": allAmounts
 		},
 		{
 			"func": addPlateaus,
@@ -111,8 +116,8 @@ function* GenerateMap()
 				g_TileClasses.water, 15
 			],
 			"sizes": ["small"],
-			"mixes": g_AllMixes,
-			"amounts": g_AllAmounts
+			"mixes": allMixes,
+			"amounts": allAmounts
 		},
 		{
 			"func": addBluffs,
@@ -127,8 +132,8 @@ function* GenerateMap()
 				g_TileClasses.water, 15
 			],
 			"sizes": ["normal"],
-			"mixes": g_AllMixes,
-			"amounts": g_AllAmounts
+			"mixes": allMixes,
+			"amounts": allAmounts
 		}
 	]));
 	yield 60;
@@ -207,9 +212,9 @@ function* GenerateMap()
 				g_TileClasses.spine, 2,
 				g_TileClasses.water, 3
 			],
-			"sizes": g_AllSizes,
-			"mixes": g_AllMixes,
-			"amounts": g_AllAmounts
+			"sizes": allSizes,
+			"mixes": allMixes,
+			"amounts": allAmounts
 		},
 		{
 			"func": addAnimals,
@@ -224,10 +229,10 @@ function* GenerateMap()
 				g_TileClasses.rock, 2,
 				g_TileClasses.spine, 2,
 				g_TileClasses.water, 3
-			 ],
-			"sizes": g_AllSizes,
-			"mixes": g_AllMixes,
-			"amounts": g_AllAmounts
+			],
+			"sizes": allSizes,
+			"mixes": allMixes,
+			"amounts": allAmounts
 		},
 		{
 			"func": addStragglerTrees,
@@ -242,10 +247,10 @@ function* GenerateMap()
 				g_TileClasses.rock, 2,
 				g_TileClasses.spine, 2,
 				g_TileClasses.water, 5
-			 ],
-			"sizes": g_AllSizes,
-			"mixes": g_AllMixes,
-			"amounts": g_AllAmounts
+			],
+			"sizes": allSizes,
+			"mixes": allMixes,
+			"amounts": allAmounts
 		}
 	]));
 

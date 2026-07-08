@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,15 +18,15 @@
 #ifndef INCLUDED_UNITANIMATION
 #define INCLUDED_UNITANIMATION
 
+#include "lib/code_annotation.h"
 #include "ps/CStr.h"
 #include "simulation2/system/Entity.h"
 
 #include <vector>
 
-class CUnit;
 class CModel;
-class CSkeletonAnim;
 class CObjectEntry;
+class CSkeletonAnim;
 
 /**
  * Deals with synchronisation issues between raw animation data (CModel, CSkeletonAnim)

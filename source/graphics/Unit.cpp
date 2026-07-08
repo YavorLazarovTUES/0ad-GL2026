@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,13 +20,17 @@
 #include "Unit.h"
 
 #include "graphics/Model.h"
+#include "graphics/ModelAbstract.h"
 #include "graphics/ObjectBase.h"
 #include "graphics/ObjectEntry.h"
 #include "graphics/ObjectManager.h"
-#include "graphics/SkeletonAnim.h"
-#include "graphics/SkeletonAnimDef.h"
 #include "graphics/UnitAnimation.h"
+#include "lib/code_generation.h"
 #include "ps/CLogger.h"
+
+#include <string>
+#include <utility>
+#include <vector>
 
 CUnit::CUnit(CObjectManager& objectManager, const CActorDef& actor, const entity_id_t id, const uint32_t seed)
 	: m_ObjectManager(objectManager), m_Actor(actor), m_ID(id), m_Seed(seed), m_Animation(nullptr)
@@ -49,9 +53,7 @@ CUnit::~CUnit()
 
 std::unique_ptr<CUnit> CUnit::Create(const CStrW& actorName, const entity_id_t id, const uint32_t seed, CObjectManager& objectManager)
 {
-	auto [success, actor] = objectManager.FindActorDef(actorName);
-
-	UNUSED2(success);
+	const CActorDef& actor{std::get<1>(objectManager.FindActorDef(actorName))};
 
 	std::unique_ptr<CUnit> unit{new CUnit(objectManager, actor, id, seed)};
 	if (!unit->m_Model)
@@ -103,7 +105,7 @@ void CUnit::ReloadObject()
 	// randomly select any remain selections necessary to completely identify a variation (e.g., the new selection
 	// made might define some additional props that require a random variant choice). Also, FindObjectVariation
 	// expects the selectors passed to it to be complete.
-	// see http://trac.wildfiregames.com/ticket/979
+	// see https://gitea.wildfiregames.com/0ad/0ad/issues/979
 
 	// If these selections give a different object, change this unit to use it
 	// Use the entity ID as randomization seed (same as when the unit was first created)

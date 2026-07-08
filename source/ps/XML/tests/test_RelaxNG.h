@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,20 +18,24 @@
 #include "lib/self_test.h"
 
 #include "ps/CLogger.h"
-#include "ps/XML/Xeromyces.h"
 #include "ps/XML/RelaxNG.h"
+#include "ps/XML/Xeromyces.h"
+
+#include <optional>
+#include <string>
 
 class TestRelaxNG : public CxxTest::TestSuite
 {
+	std::optional<CXeromycesEngine> xeromycesEngine;
 public:
 	void setUp()
 	{
-		CXeromyces::Startup();
+		xeromycesEngine.emplace();
 	}
 
 	void tearDown()
 	{
-		CXeromyces::Terminate();
+		xeromycesEngine.reset();
 	}
 
 	void test_basic()

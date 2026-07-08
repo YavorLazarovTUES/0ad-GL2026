@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,17 +19,18 @@
 
 #include "DebugSerializer.h"
 
-#include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptRequest.h"
-#include "scriptinterface/JSON.h"
-
+#include "lib/debug.h"
 #include "lib/secure_crt.h"
-#include "lib/utf8.h"
 #include "ps/CStr.h"
+#include "scriptinterface/FunctionWrapper.h"
+#include "scriptinterface/JSON.h"
+#include "scriptinterface/Object.h"
+#include "scriptinterface/Request.h"
 
-#include <sstream>
 #include <iomanip>
+#include <js/RootingAPI.h>
+#include <js/Value.h>
+#include <sstream>
 
 /*
  * The output format here is intended to be compatible with YAML,
@@ -55,7 +56,7 @@ std::string canonfloat(T value, int prec)
 	return r;
 }
 
-CDebugSerializer::CDebugSerializer(const ScriptInterface& scriptInterface, std::ostream& stream, bool includeDebugInfo) :
+CDebugSerializer::CDebugSerializer(const Script::Interface& scriptInterface, std::ostream& stream, bool includeDebugInfo) :
 	m_ScriptInterface(scriptInterface), m_Stream(stream), m_IsDebug(includeDebugInfo), m_Indent(0)
 {
 }
@@ -152,18 +153,19 @@ void CDebugSerializer::PutString(const char* name, const std::string& value)
 
 void CDebugSerializer::PutScriptVal(const char* name, JS::MutableHandleValue value)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 
 	JS::RootedValue serialize(rq.cx);
 	if (Script::GetProperty(rq, value, "Serialize", &serialize) && !serialize.isNullOrUndefined())
 	{
 		// If the value has a Serialize property, pretty-parse that instead.
 		// (this gives more accurate OOS reports).
-		ScriptFunction::Call(rq, value, "Serialize", &serialize);
+		Script::Function::Call(rq, value, "Serialize", &serialize);
 		std::string serialized_source = Script::ToString(rq, &serialize, true);
 		m_Stream << INDENT << name << ": " << serialized_source << "\n";
 	}
-	else
+	// null is used explicitly as "nothing to serialize" so skip it even in debug
+	else if (serialize.isUndefined())
 	{
 		std::string source = Script::ToString(rq, value, true);
 		m_Stream << INDENT << name << ": " << source << "\n";

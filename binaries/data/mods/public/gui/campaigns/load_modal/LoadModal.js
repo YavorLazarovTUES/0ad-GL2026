@@ -32,22 +32,26 @@ class BrokenRun
  */
 class LoadModal extends AutoWatcher
 {
-	constructor(campaignTemplate)
+	constructor(closePageCallback)
 	{
 		super("render");
 
 		// _watch so render() is called anytime currentRuns are modified.
 		this.currentRuns = _watch(this.getRuns(), () => this.render());
 
-		Engine.GetGUIObjectByName('cancelButton').onPress = () => Engine.SwitchGuiPage("page_pregame.xml", {});
+		Engine.GetGUIObjectByName('cancelButton').onPress = closePageCallback.bind(undefined, {
+			[Engine.openRequest]: { "page": "page_pregame.xml" }
+		});
 		Engine.GetGUIObjectByName('deleteGameButton').onPress = () => this.deleteSelectedRun();
-		Engine.GetGUIObjectByName('startButton').onPress = () => this.startSelectedRun();
+		Engine.GetGUIObjectByName('startButton').onPress = () =>
+			this.startSelectedRun(closePageCallback);
 
 		this.noCampaignsText = Engine.GetGUIObjectByName("noCampaignsText");
 
 		this.selectedRun = -1;
 		this.runSelection = Engine.GetGUIObjectByName("runSelection");
-		this.runSelection.onSelectionChange = () => {
+		this.runSelection.onSelectionChange = () =>
+		{
 			this.selectedRun = this.runSelection.selected;
 			if (this.selectedRun === -1)
 				Engine.GetGUIObjectByName('runDescription').caption = "";
@@ -55,18 +59,19 @@ class LoadModal extends AutoWatcher
 				Engine.GetGUIObjectByName('runDescription').caption = this.currentRuns[this.selectedRun].getLabel();
 		};
 
-		this.runSelection.onMouseLeftDoubleClickItem = () => this.startSelectedRun();
+		this.runSelection.onMouseLeftDoubleClickItem = () =>
+			this.startSelectedRun(closePageCallback);
 
 		this._ready = true;
 	}
 
 	getRuns()
 	{
-		let out = [];
-		let files = Engine.ListDirectoryFiles("saves/campaigns/", "*.0adcampaign", false);
-		for (let file of files)
+		const out = [];
+		const files = Engine.ListDirectoryFiles("saves/campaigns/", "*.0adcampaign", false);
+		for (const file of files)
 		{
-			let name = file.replace("saves/campaigns/", "").replace(".0adcampaign", "");
+			const name = file.replace("saves/campaigns/", "").replace(".0adcampaign", "");
 			try
 			{
 				out.push(new CampaignRun(name).load());
@@ -80,16 +85,19 @@ class LoadModal extends AutoWatcher
 		return out;
 	}
 
-	loadCampaign()
+	loadCampaign(closePageCallback)
 	{
-		let filename = this.currentRuns[this.selectedRun].filename;
-		let run = new CampaignRun(filename)
+		const filename = this.currentRuns[this.selectedRun].filename;
+		const run = new CampaignRun(filename)
 			.load()
 			.setCurrent();
 
-		Engine.SwitchGuiPage(run.getMenuPath(), {
-			"filename": run.filename
-		});
+		closePageCallback({ [Engine.openRequest]: {
+			"page": run.getMenuPath(),
+			"argument": {
+				"filename": run.filename
+			}
+		} });
 	}
 
 	async deleteSelectedRun()
@@ -97,7 +105,7 @@ class LoadModal extends AutoWatcher
 		if (this.selectedRun === -1)
 			return;
 
-		let run = this.currentRuns[this.selectedRun];
+		const run = this.currentRuns[this.selectedRun];
 
 		const buttonIndex = await messageBox(
 			400, 200,
@@ -111,10 +119,10 @@ class LoadModal extends AutoWatcher
 		this.selectedRun = -1;
 	}
 
-	startSelectedRun()
+	startSelectedRun(closePageCallback)
 	{
 		if (this.currentRuns[this.selectedRun] instanceof CampaignRun)
-			this.loadCampaign();
+			this.loadCampaign(closePageCallback);
 	}
 
 	displayCurrentRuns()
@@ -137,5 +145,6 @@ var g_LoadModal;
 
 function init()
 {
-	g_LoadModal = new LoadModal();
+	registerGlobalGuiPageHotkeys(["options", "hotkeys", "civinfo", "structree", "catafalque", "mapbrowser", "manual", "tips"]);
+	return new Promise(closePageCallback => { g_LoadModal = new LoadModal(closePageCallback); });
 }

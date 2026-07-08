@@ -63,7 +63,7 @@ SmoothElevationPainter.prototype.paint = function(area)
 			}
 		}
 
-	const withinArea = (area, position) => g_TileVertices.some(vertexPos => area.contains(Vector2D.sub(position, vertexPos)));
+	const withinArea = (bounds, position) => g_TileVertices.some(vertexPos => bounds.contains(Vector2D.sub(position, vertexPos)));
 
 	// Change height inside the area depending on the distance to the border
 	breadthFirstSearchPaint({
@@ -71,7 +71,8 @@ SmoothElevationPainter.prototype.paint = function(area)
 		"brushSize": brushSize,
 		"gridSize": heightmapSize,
 		"withinArea": withinArea,
-		"paintTile": (point, distance) => {
+		"paintTile": (point, distance) =>
+		{
 			let a = 1;
 			if (distance <= this.blendRadius)
 				a = (distance - 1) / this.blendRadius;

@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
 * This file is part of 0 A.D.
 *
 * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,27 +18,26 @@
 #ifndef INCLUDED_CCMPRALLYPOINTRENDERER
 #define INCLUDED_CCMPRALLYPOINTRENDERER
 
-#include "ICmpRallyPointRenderer.h"
-
+#include "graphics/Color.h"
 #include "graphics/Overlay.h"
-#include "graphics/TextureManager.h"
-#include "ps/CLogger.h"
-#include "renderer/Renderer.h"
-#include "simulation2/MessageTypes.h"
-#include "simulation2/components/ICmpFootprint.h"
-#include "simulation2/components/ICmpIdentity.h"
-#include "simulation2/components/ICmpObstructionManager.h"
-#include "simulation2/components/ICmpOwnership.h"
-#include "simulation2/components/ICmpPathfinder.h"
-#include "simulation2/components/ICmpPlayer.h"
-#include "simulation2/components/ICmpPlayerManager.h"
-#include "simulation2/components/ICmpPosition.h"
-#include "simulation2/components/ICmpTerrain.h"
-#include "simulation2/components/ICmpVisual.h"
-#include "simulation2/components/ICmpWaterManager.h"
-#include "simulation2/helpers/Render.h"
-#include "simulation2/helpers/Geometry.h"
+#include "graphics/Texture.h"
+#include "lib/types.h"
+#include "maths/FixedVector2D.h"
+#include "maths/Vector2D.h"
+#include "simulation2/components/ICmpRallyPointRenderer.h"
+#include "simulation2/helpers/Player.h"
 #include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+
+#include <cstddef>
+#include <string>
+#include <vector>
+
+class CFrustum;
+class ICmpFootprint;
+class ICmpPathfinder;
+class ICmpPosition;
+class SceneCollector;
 
 struct SVisibilitySegment
 {
@@ -75,16 +74,16 @@ public:
 	void Init(const CParamNode& paramNode) override;
 	void Deinit() override;
 
-	void Serialize(ISerializer& UNUSED(serialize)) override;
-	void Deserialize(const CParamNode& paramNode, IDeserializer& UNUSED(deserialize)) override;
+	void Serialize(ISerializer&) override;
+	void Deserialize(const CParamNode& paramNode, IDeserializer&) override;
 
-	void HandleMessage(const CMessage& msg, bool UNUSED(global)) override;
+	void HandleMessage(const CMessage& msg, bool /*global*/) override;
 
 	/*
 	 * Must be called whenever m_Displayed or the size of m_RallyPoints change,
 	 * to determine whether we need to respond to render messages.
 	 */
-	virtual void UpdateMessageSubscriptions();
+	void UpdateMessageSubscriptions();
 
 	void AddPosition_wrapper(const CFixedVector2D& pos) override;
 
@@ -193,6 +192,14 @@ private:
 	 * flag changes, or the ownership of the entity changes.
 	 */
 	void UpdateMarkers();
+
+	/**
+	 * @brief Creates a rally point marker entity for the specified index and owner.
+	 *
+	 * @param index The index in the rally point list for which to create a marker.
+	 * @param ownerId The ID of the player who currently owns the entity.
+	 */
+	void CreateMarkerEntity(size_t index, player_id_t ownerId);
 
 	/**
 	 * Recomputes all the full paths from this entity to the rally point and from the rally point to the next, and does all the necessary

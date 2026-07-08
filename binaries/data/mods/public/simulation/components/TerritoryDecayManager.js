@@ -1,7 +1,7 @@
 function TerritoryDecayManager() {}
 
 TerritoryDecayManager.prototype.Schema =
-        "<a:component type='system'/><empty/>";
+	"<a:component type='system'/><empty/>";
 
 TerritoryDecayManager.prototype.Init = function()
 {
@@ -20,7 +20,7 @@ TerritoryDecayManager.prototype.Remove = function(ent)
 
 TerritoryDecayManager.prototype.SetBlinkingEntities = function()
 {
-	for (let ent of this.list.values())
+	for (const ent of this.list.values())
 		Engine.QueryInterface(ent, IID_TerritoryDecay).IsConnected();
 };
 

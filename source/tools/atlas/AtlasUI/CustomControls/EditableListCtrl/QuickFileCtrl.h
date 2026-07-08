@@ -1,4 +1,4 @@
-/* Copyright (C) 2009 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -15,7 +15,15 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "wx/panel.h"
+#include <wx/object.h>
+#include <wx/panel.h>
+#include <wx/validate.h>
+
+class wxButton;
+class wxRect;
+class wxString;
+class wxTextCtrl;
+class wxWindow;
 
 class QuickFileCtrl : public wxPanel
 {

@@ -1,4 +1,4 @@
-/* Copyright (C) 2019 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -28,13 +28,5 @@
 #define INCLUDED_VORBIS
 
 #include <vorbis/vorbisfile.h>
-
-#if MSC_VERSION
-# ifdef NDEBUG
-#  pragma comment(lib, "libvorbisfile.lib")
-# else
-#  pragma comment(lib, "libvorbisfiled.lib")
-# endif
-#endif
 
 #endif	// #ifndef INCLUDED_VORBIS

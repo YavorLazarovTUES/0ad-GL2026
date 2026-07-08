@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -28,10 +28,14 @@ DEFINE_INTERFACE_METHOD("MoveToTargetRange", ICmpUnitMotion, MoveToTargetRange)
 DEFINE_INTERFACE_METHOD("MoveToFormationOffset", ICmpUnitMotion, MoveToFormationOffset)
 DEFINE_INTERFACE_METHOD("SetMemberOfFormation", ICmpUnitMotion, SetMemberOfFormation)
 DEFINE_INTERFACE_METHOD("IsTargetRangeReachable", ICmpUnitMotion, IsTargetRangeReachable)
+DEFINE_INTERFACE_METHOD("PossiblyAtDestination", ICmpUnitMotion, PossiblyAtDestination)
 DEFINE_INTERFACE_METHOD("FaceTowardsPoint", ICmpUnitMotion, FaceTowardsPoint)
 DEFINE_INTERFACE_METHOD("StopMoving", ICmpUnitMotion, StopMoving)
 DEFINE_INTERFACE_METHOD("GetCurrentSpeed", ICmpUnitMotion, GetCurrentSpeed)
+DEFINE_INTERFACE_METHOD("GetFormationOffset", ICmpUnitMotion, GetFormationOffset)
+DEFINE_INTERFACE_METHOD("SetCurrentSpeed", ICmpUnitMotion, SetCurrentSpeed)
 DEFINE_INTERFACE_METHOD("IsMoveRequested", ICmpUnitMotion, IsMoveRequested)
+DEFINE_INTERFACE_METHOD("IsMovingAsFormation", ICmpUnitMotion, IsMovingAsFormation)
 DEFINE_INTERFACE_METHOD("GetSpeed", ICmpUnitMotion, GetSpeed)
 DEFINE_INTERFACE_METHOD("GetWalkSpeed", ICmpUnitMotion, GetWalkSpeed)
 DEFINE_INTERFACE_METHOD("GetRunMultiplier", ICmpUnitMotion, GetRunMultiplier)
@@ -77,6 +81,11 @@ public:
 		return m_Script.Call<bool>("IsTargetRangeReachable", target, minRange, maxRange);
 	}
 
+	bool PossiblyAtDestination() const override
+	{
+		return m_Script.Call<bool>("PossiblyAtDestination");
+	}
+
 	void FaceTowardsPoint(entity_pos_t x, entity_pos_t z) override
 	{
 		m_Script.CallVoid("FaceTowardsPoint", x, z);
@@ -92,9 +101,24 @@ public:
 		return m_Script.Call<fixed>("GetCurrentSpeed");
 	}
 
+	void SetCurrentSpeed(const fixed& speed) override
+	{
+		m_Script.CallVoid("SetCurrentSpeed", speed);
+	}
+
+	std::optional<CFixedVector2D> GetFormationOffset() const override
+	{
+		return m_Script.Call<std::optional<CFixedVector2D>>("GetFormationOffset");
+	}
+
 	bool IsMoveRequested() const override
 	{
 		return m_Script.Call<bool>("IsMoveRequested");
+	}
+
+	bool IsMovingAsFormation() const override
+	{
+		return m_Script.Call<bool>("IsMovingAsFormation");
 	}
 
 	fixed GetSpeed() const override

@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,11 +19,19 @@
 #define INCLUDED_VERTEXPATHFINDER
 
 #include "graphics/Overlay.h"
+#include "lib/types.h"
+#include "maths/Fixed.h"
+#include "maths/FixedVector2D.h"
 #include "simulation2/helpers/Pathfinding.h"
-#include "simulation2/system/CmpPtr.h"
+#include "simulation2/system/Component.h"
 
 #include <atomic>
 #include <vector>
+
+class ICmpObstructionManager;
+class PathGoal;
+class SceneCollector;
+template <typename T> class Grid;
 
 // A vertex around the corners of an obstruction
 // (paths will be sequences of these vertexes)
@@ -38,7 +46,7 @@ struct Vertex
 
 	CFixedVector2D p;
 	fixed g, h;
-	u16 pred;
+	u16 pred = 0;
 	u8 status;
 	u8 quadInward : 4; // the quadrant which is inside the shape (or NONE)
 	u8 quadOutward : 4; // the quadrants of the next point on the path which this vertex must be in, given 'pred'
@@ -49,6 +57,9 @@ struct Vertex
 struct Edge
 {
 	CFixedVector2D p0, p1;
+
+	Edge() = default;
+	Edge(const CFixedVector2D& p0, const CFixedVector2D& p1) : p0(p0), p1(p1) {}
 };
 
 // Axis-aligned obstruction squares (paths will not cross any of these).
@@ -57,6 +68,9 @@ struct Edge
 struct Square
 {
 	CFixedVector2D p0, p1;
+
+	Square() = default;
+	Square(const CFixedVector2D& p0, const CFixedVector2D& p1) : p0(p0), p1(p1) {}
 };
 
 // Axis-aligned obstruction edges.
@@ -66,11 +80,10 @@ struct EdgeAA
 {
 	CFixedVector2D p0;
 	fixed c1;
-};
 
-class ICmpObstructionManager;
-class CSimContext;
-class SceneCollector;
+	EdgeAA() = default;
+	EdgeAA(const CFixedVector2D& p0, const fixed& c1) : p0(p0), c1(c1) {}
+};
 
 class VertexPathfinder
 {
@@ -97,7 +110,6 @@ private:
 	// These vectors are expensive to recreate on every call, so we cache them here.
 	// They are made mutable to allow using them in the otherwise const ComputeShortPath.
 
-	mutable std::vector<Edge> m_EdgesUnaligned;
 	mutable std::vector<EdgeAA> m_EdgesLeft;
 	mutable std::vector<EdgeAA> m_EdgesRight;
 	mutable std::vector<EdgeAA> m_EdgesBottom;
@@ -108,7 +120,8 @@ private:
 	mutable std::vector<Vertex> m_Vertexes;
 	// List of collision edges - paths must never cross these.
 	// (Edges are one-sided so intersections are fine in one direction, but not the other direction.)
-	mutable std::vector<Edge> m_Edges;
+	mutable std::vector<Edge> m_EdgesAligned;
+	mutable std::vector<Edge> m_EdgesUnaligned;
 	mutable std::vector<Square> m_EdgeSquares; // Axis-aligned squares; equivalent to 4 edges.
 };
 

@@ -1,4 +1,4 @@
-/* Copyright (C) 2020 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -21,27 +21,28 @@
  */
 
 #include "precompiled.h"
-#include "lib/file/archive/codec_zlib.h"
+
+#include "codec_zlib.h"
 
 #include "lib/alignment.h"
-#include "lib/file/archive/codec.h"
+#include "lib/debug.h"
 #include "lib/external_libraries/zlib.h"
+#include "lib/file/archive/codec.h"
+#include "lib/status.h"
+#include "lib/types.h"
 
-#include "lib/sysdep/cpu.h"
-
+#include <algorithm>
 #include <cstring>
 
 class Codec_ZLib : public ICodec
 {
 public:
-	u32 UpdateChecksum(u32 checksum, const u8* in, size_t inSize) const
+	u32 UpdateChecksum([[maybe_unused]] u32 checksum, [[maybe_unused]] const u8* in,
+		[[maybe_unused]] size_t inSize) const
 	{
 #if CODEC_COMPUTE_CHECKSUM
 		return (u32)crc32(checksum, in, (uInt)inSize);
 #else
-		UNUSED2(checksum);
-		UNUSED2(in);
-		UNUSED2(inSize);
 		return 0;
 #endif
 	}

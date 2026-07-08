@@ -7,8 +7,8 @@
     <BuildTime>200</BuildTime>
     <Resources>
       <wood>0</wood>
-      <stone>300</stone>
-      <metal>300</metal>
+      <stone>150</stone>
+      <metal>150</metal>
     </Resources>
   </Cost>
   <Footprint>
@@ -25,9 +25,9 @@
   <Identity>
     <Civ>han</Civ>
     <GenericName>Imperial Academy</GenericName>
-    <SpecificName>Dìguó Xuéyuàn</SpecificName>
+    <SpecificName>Tàixué</SpecificName>
     <SelectionGroupName>structures/han/academy</SelectionGroupName>
-    <Tooltip>Train Champions and research their technologies.</Tooltip>
+    <Tooltip>Train Champions.</Tooltip>
     <VisibleClasses datatype="tokens">-Village City Academy</VisibleClasses>
     <Icon>structures/embassy_italic.png</Icon>
     <Requirements>
@@ -36,8 +36,8 @@
   </Identity>
   <Loot>
     <wood>0</wood>
-    <stone>60</stone>
-    <metal>60</metal>
+    <stone>30</stone>
+    <metal>30</metal>
   </Loot>
   <Obstruction>
     <Static depth="22.0" width="22.0"/>

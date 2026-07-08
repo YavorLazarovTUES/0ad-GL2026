@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,23 +17,43 @@
 
 #include "precompiled.h"
 
-#include "simulation2/system/Component.h"
 #include "ICmpObstruction.h"
 
+#include "lib/debug.h"
+#include "maths/Fixed.h"
+#include "maths/FixedVector2D.h"
+#include "maths/FixedVector3D.h"
+#include "ps/CLogger.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/ICmpObstructionManager.h"
+#include "simulation2/components/ICmpPathfinder.h"
+#include "simulation2/components/ICmpPosition.h"
 #include "simulation2/components/ICmpTerrain.h"
 #include "simulation2/components/ICmpUnitMotion.h"
 #include "simulation2/components/ICmpWaterManager.h"
+#include "simulation2/helpers/Pathfinding.h"
+#include "simulation2/helpers/Position.h"
+#include "simulation2/serialization/SerializeTemplates.h"
 #include "simulation2/serialization/SerializedTypes.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+#include "simulation2/system/Message.h"
 
-#include "ps/CLogger.h"
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <map>
+#include <string>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 template<>
 struct SerializeHelper<ICmpObstructionManager::tag_t>
 {
 	template<typename S>
-	void operator()(S& serialize, const char* UNUSED(name), Serialize::qualify<S, ICmpObstructionManager::tag_t> value)
+	void operator()(S& serialize, const char* /*name*/,
+		Serialize::qualify<S, ICmpObstructionManager::tag_t> value)
 	{
 		serialize.NumberU32_Unbounded("tag", value.n);
 	}
@@ -304,7 +324,7 @@ public:
 		SerializeCommon(deserialize);
 	}
 
-	void HandleMessage(const CMessage& msg, bool UNUSED(global)) override
+	void HandleMessage(const CMessage& msg, bool /*global*/) override
 	{
 		switch (msg.GetType())
 		{
@@ -501,7 +521,7 @@ public:
 		return GetObstructionSquare(out, false);
 	}
 
-	virtual bool GetObstructionSquare(ICmpObstructionManager::ObstructionSquare& out, bool previousPosition) const
+	bool GetObstructionSquare(ICmpObstructionManager::ObstructionSquare& out, bool previousPosition) const
 	{
 		CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
 		if (!cmpPosition)

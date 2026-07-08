@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,14 +18,21 @@
 #ifndef INCLUDED_RENDERER_BACKEND_IDEVICECOMMANDCONTEXT
 #define INCLUDED_RENDERER_BACKEND_IDEVICECOMMANDCONTEXT
 
-#include "ps/containers/Span.h"
-#include "renderer/backend/Format.h"
-#include "renderer/backend/IDeviceObject.h"
-#include "renderer/backend/PipelineState.h"
-#include "renderer/backend/Sampler.h"
+#include "lib/types.h"
 
+#include "renderer/backend/IDeviceObject.h"
+
+#include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <span>
+
+namespace Renderer::Backend { class IComputePipelineState; }
+namespace Renderer::Backend { class IGraphicsPipelineState; }
+namespace Renderer::Backend { class ISwapChain; }
+namespace Renderer::Backend { class IVertexInputLayout; }
+namespace Renderer::Backend { enum class Format; }
+namespace Renderer::Backend::Sampler { enum class Filter; }
 
 namespace Renderer
 {
@@ -34,7 +41,6 @@ namespace Backend
 {
 
 class IBuffer;
-class IDevice;
 class IFramebuffer;
 class ITexture;
 
@@ -107,7 +113,8 @@ public:
 	 * but a client doesn't support that yet.
 	 */
 	virtual void ReadbackFramebufferSync(
-		const uint32_t x, const uint32_t y, const uint32_t width, const uint32_t height,
+		ISwapChain& swapChain, const uint32_t x, const uint32_t y,
+		const uint32_t width, const uint32_t height,
 		void* data) = 0;
 
 	virtual void UploadTexture(ITexture* texture, const Format dataFormat,
@@ -185,6 +192,15 @@ public:
 		const uint32_t groupCountZ) = 0;
 
 	/**
+	 * Inserts a memory barrier which guarantees that all memory accesses
+	 * matched by `srcAccessMask` in src are completed before all memory accesses
+	 * described by `dstAccessMask` in dst.
+	 */
+	virtual void InsertMemoryBarrier(
+		const uint32_t srcStageMask, const uint32_t dstStageMask,
+		const uint32_t srcAccessMask, const uint32_t dstAccessMask) = 0;
+
+	/**
 	 * Sets a read-only texture to the binding slot.
 	 */
 	virtual void SetTexture(const int32_t bindingSlot, ITexture* texture) = 0;
@@ -193,6 +209,7 @@ public:
 	 * Sets a read & write resource to the binding slot.
 	 */
 	virtual void SetStorageTexture(const int32_t bindingSlot, ITexture* texture) = 0;
+	virtual void SetStorageBuffer(const int32_t bindingSlot, IBuffer* buffer) = 0;
 
 	virtual void SetUniform(
 		const int32_t bindingSlot,
@@ -209,7 +226,18 @@ public:
 		const float valueX, const float valueY,
 		const float valueZ, const float valueW) = 0;
 	virtual void SetUniform(
-		const int32_t bindingSlot, PS::span<const float> values) = 0;
+		const int32_t bindingSlot, std::span<const float> values) = 0;
+
+	/**
+	 * Insert a timestamp query which can be later requested via IDevice.
+	 * @see IDevice::IsQueryResultAvailable
+	 * It can be used only outside of a framebuffer pass. The query must
+	 * not be used till Flush.
+	 *
+	 * @param handle Must be a valid handle to a query.
+	 * @param isScopeBegin True if it's a scope start.
+	 */
+	virtual void InsertTimestampQuery(const uint32_t handle, const bool isScopeBegin) = 0;
 
 	virtual void BeginScopedLabel(const char* name) = 0;
 	virtual void EndScopedLabel() = 0;

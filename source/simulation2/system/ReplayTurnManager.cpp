@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,13 +19,25 @@
 
 #include "ReplayTurnManager.h"
 
-#include "gui/GUIManager.h"
+#include "lib/debug.h"
 #include "ps/CLogger.h"
 #include "ps/Util.h"
-#include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptRequest.h"
 #include "scriptinterface/JSON.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/Simulation2.h"
+#include "simulation2/system/LocalTurnManager.h"
+
+#include <js/GCVector.h>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <js/ValueArray.h>
+#include <tuple>
+#include <utility>
+
+class IReplayLogger;
+namespace Script { class Interface; }
 
 const CStr CReplayTurnManager::EventNameReplayFinished = "ReplayFinished";
 const CStr CReplayTurnManager::EventNameReplayOutOfSync = "ReplayOutOfSync";
@@ -60,15 +72,15 @@ void CReplayTurnManager::StoreFinalReplayTurn(u32 turn)
 	m_FinalTurn = turn;
 }
 
-void CReplayTurnManager::NotifyFinishedUpdate(u32 turn)
+void CReplayTurnManager::NotifyFinishedUpdate(u32 turn, const UpdateCallback& sendEventToAll)
 {
 	if (turn == 1 && m_FinalTurn == 0)
-		g_GUI->SendEventToAll(EventNameReplayFinished);
+		sendEventToAll(EventNameReplayFinished, std::nullopt);
 
 	if (turn > m_FinalTurn)
 		return;
 
-	DoTurn(turn);
+	DoTurn(turn, sendEventToAll);
 
 	// Compare hash if it exists in the replay and if we didn't have an OOS already
 	std::map<u32, std::pair<std::string, bool>>::iterator turnHashIt = m_ReplayHash.find(turn);
@@ -89,31 +101,31 @@ void CReplayTurnManager::NotifyFinishedUpdate(u32 turn)
 	m_HasSyncError = true;
 	LOGERROR("Replay out of sync on turn %d", turn);
 
-	const ScriptInterface& scriptInterface = m_Simulation2.GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	const Script::Interface& scriptInterface = m_Simulation2.GetScriptInterface();
+	Script::Request rq(scriptInterface);
 
 	JS::RootedValueVector paramData(rq.cx);
 
-	ignore_result(paramData.append(JS::NumberValue(turn)));
+	std::ignore = paramData.append(JS::NumberValue(turn));
 
 	JS::RootedValue hashVal(rq.cx);
 	Script::ToJSVal(rq, &hashVal, hash);
-	ignore_result(paramData.append(hashVal));
+	std::ignore = paramData.append(hashVal);
 
 	JS::RootedValue expectedHashVal(rq.cx);
 	Script::ToJSVal(rq, &expectedHashVal, expectedHash);
-	ignore_result(paramData.append(expectedHashVal));
+	std::ignore = paramData.append(expectedHashVal);
 
-	g_GUI->SendEventToAll(EventNameReplayOutOfSync, paramData);
+	sendEventToAll(EventNameReplayOutOfSync, paramData);
 }
 
-void CReplayTurnManager::DoTurn(u32 turn)
+void CReplayTurnManager::DoTurn(u32 turn, const UpdateCallback& sendEventToAll)
 {
 	debug_printf("Executing turn %u of %u\n", turn, m_FinalTurn);
 
 	m_TurnLength = m_ReplayTurnLengths[turn];
 
-	ScriptRequest rq(m_Simulation2.GetScriptInterface());
+	Script::Request rq(m_Simulation2.GetScriptInterface());
 
 	// Simulate commands for that turn
 	for (const std::pair<player_id_t, std::string>& p : m_ReplayCommands[turn])
@@ -124,5 +136,5 @@ void CReplayTurnManager::DoTurn(u32 turn)
 	}
 
 	if (turn == m_FinalTurn)
-		g_GUI->SendEventToAll(EventNameReplayFinished);
+		sendEventToAll(EventNameReplayFinished, std::nullopt);
 }

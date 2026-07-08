@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,25 +17,43 @@
 
 #include "precompiled.h"
 
-#include "simulation2/system/Component.h"
 #include "ICmpObstructionManager.h"
 
-#include "ICmpPosition.h"
-#include "ICmpRangeManager.h"
-
-#include "simulation2/MessageTypes.h"
-#include "simulation2/helpers/Geometry.h"
-#include "simulation2/helpers/Grid.h"
-#include "simulation2/helpers/Rasterize.h"
-#include "simulation2/helpers/Render.h"
-#include "simulation2/helpers/Spatial.h"
-#include "simulation2/serialization/SerializedTypes.h"
-
+#include "graphics/Color.h"
 #include "graphics/Overlay.h"
+#include "lib/debug.h"
+#include "lib/types.h"
+#include "maths/Fixed.h"
+#include "maths/FixedVector2D.h"
 #include "maths/MathUtil.h"
 #include "ps/Profile.h"
 #include "renderer/Scene.h"
-#include "ps/CLogger.h"
+#include "simulation2/MessageTypes.h"
+#include "simulation2/components/ICmpObstruction.h"
+#include "simulation2/components/ICmpPathfinder.h"
+#include "simulation2/components/ICmpPosition.h"
+#include "simulation2/components/ICmpRangeManager.h"
+#include "simulation2/helpers/Geometry.h"
+#include "simulation2/helpers/Grid.h"
+#include "simulation2/helpers/Pathfinding.h"
+#include "simulation2/helpers/Position.h"
+#include "simulation2/helpers/Rasterize.h"
+#include "simulation2/helpers/Render.h"
+#include "simulation2/helpers/Spatial.h"
+#include "simulation2/serialization/SerializeTemplates.h"
+#include "simulation2/serialization/SerializedTypes.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+#include "simulation2/system/Message.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <map>
+#include <string>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 // Externally, tags are opaque non-zero positive integers.
 // Internally, they are tagged (by shape) indexes into shape lists.
@@ -88,7 +106,7 @@ template<>
 struct SerializeHelper<UnitShape>
 {
 	template<typename S>
-	void operator()(S& serialize, const char* UNUSED(name), Serialize::qualify<S, UnitShape> value) const
+	void operator()(S& serialize, const char* /*name*/, Serialize::qualify<S, UnitShape> value) const
 	{
 		serialize.NumberU32_Unbounded("entity", value.entity);
 		serialize.NumberFixed_Unbounded("x", value.x);
@@ -106,7 +124,7 @@ template<>
 struct SerializeHelper<StaticShape>
 {
 	template<typename S>
-	void operator()(S& serialize, const char* UNUSED(name), Serialize::qualify<S, StaticShape> value) const
+	void operator()(S& serialize, const char* /*name*/, Serialize::qualify<S, StaticShape> value) const
 	{
 		serialize.NumberU32_Unbounded("entity", value.entity);
 		serialize.NumberFixed_Unbounded("x", value.x);
@@ -160,7 +178,7 @@ public:
 		return "<a:component type='system'/><empty/>";
 	}
 
-	void Init(const CParamNode& UNUSED(paramNode)) override
+	void Init(const CParamNode&) override
 	{
 		m_DebugOverlayEnabled = false;
 		m_DebugOverlayDirty = true;
@@ -223,7 +241,7 @@ public:
 		m_UpdateInformations.dirtinessGrid = Grid<u8>(size, size);
 	}
 
-	void HandleMessage(const CMessage& msg, bool UNUSED(global)) override
+	void HandleMessage(const CMessage& msg, bool /*global*/) override
 	{
 		switch (msg.GetType())
 		{
@@ -481,6 +499,7 @@ public:
 	bool AreShapesInRange(const ObstructionSquare& source, const ObstructionSquare& target, entity_pos_t minRange, entity_pos_t maxRange, bool opposite) const override;
 
 	bool TestLine(const IObstructionTestFilter& filter, entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, entity_pos_t r, bool relaxClearanceForUnits = false) const override;
+	bool TestUnitLine(const IObstructionTestFilter& filter, entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, entity_pos_t r, bool relaxClearanceForUnits) const override;
 	bool TestStaticShape(const IObstructionTestFilter& filter, entity_pos_t x, entity_pos_t z, entity_pos_t a, entity_pos_t w, entity_pos_t h, std::vector<entity_id_t>* out) const override;
 	bool TestUnitShape(const IObstructionTestFilter& filter, entity_pos_t x, entity_pos_t z, entity_pos_t r, std::vector<entity_id_t>* out) const override;
 
@@ -577,6 +596,10 @@ private:
 	{
 		m_DebugOverlayDirty = true;
 
+		// Early exit to speed up the map initialisation.
+		if (m_UpdateInformations.globallyDirty)
+			return;
+
 		if (flags & (FLAG_BLOCK_PATHFINDING | FLAG_BLOCK_FOUNDATION))
 		{
 			m_UpdateInformations.dirty = true;
@@ -616,6 +639,10 @@ private:
 	void MakeDirtyUnit(flags_t flags, u32 index, const UnitShape& shape)
 	{
 		m_DebugOverlayDirty = true;
+
+		// Early exit to speed up the map initialisation.
+		if (m_UpdateInformations.globallyDirty)
+			return;
 
 		if (flags & (FLAG_BLOCK_PATHFINDING | FLAG_BLOCK_FOUNDATION))
 		{
@@ -860,8 +887,6 @@ bool CCmpObstructionManager::AreShapesInRange(const ObstructionSquare& source, c
 
 bool CCmpObstructionManager::TestLine(const IObstructionTestFilter& filter, entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, entity_pos_t r, bool relaxClearanceForUnits) const
 {
-	PROFILE("TestLine");
-
 	// Check that both end points are within the world (which means the whole line must be)
 	if (!IsInWorld(x0, z0, r) || !IsInWorld(x1, z1, r))
 		return true;
@@ -908,6 +933,39 @@ bool CCmpObstructionManager::TestLine(const IObstructionTestFilter& filter, enti
 
 	return false;
 }
+
+bool CCmpObstructionManager::TestUnitLine(const IObstructionTestFilter& filter, entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, entity_pos_t r, bool relaxClearanceForUnits) const
+{
+	// Check that both end points are within the world (which means the whole line must be)
+	if (!IsInWorld(x0, z0, r) || !IsInWorld(x1, z1, r))
+		return true;
+
+	CFixedVector2D posMin (std::min(x0, x1) - r, std::min(z0, z1) - r);
+	CFixedVector2D posMax (std::max(x0, x1) + r, std::max(z0, z1) + r);
+
+	// actual radius used for unit-unit collisions. If relaxClearanceForUnits, will be smaller to allow more overlap.
+	entity_pos_t unitUnitRadius = r;
+	if (relaxClearanceForUnits)
+		unitUnitRadius -= entity_pos_t::FromInt(1)/2;
+
+	std::vector<entity_id_t> unitShapes;
+	m_UnitSubdivision.GetInRange(unitShapes, posMin, posMax);
+	for (const entity_id_t& shape : unitShapes)
+	{
+		std::map<u32, UnitShape>::const_iterator it = m_UnitShapes.find(shape);
+		ENSURE(it != m_UnitShapes.end());
+
+		if (!filter.TestShape(UNIT_INDEX_TO_TAG(it->first), it->second.flags, it->second.group, INVALID_ENTITY))
+			continue;
+
+		CFixedVector2D center(it->second.x, it->second.z);
+		CFixedVector2D halfSize(it->second.clearance + unitUnitRadius, it->second.clearance + unitUnitRadius);
+		if (Geometry::TestRayAASquare(CFixedVector2D(x0, z0) - center, CFixedVector2D(x1, z1) - center, halfSize))
+			return true;
+	}
+	return false;
+}
+
 
 bool CCmpObstructionManager::TestStaticShape(const IObstructionTestFilter& filter,
 	entity_pos_t x, entity_pos_t z, entity_pos_t a, entity_pos_t w, entity_pos_t h,

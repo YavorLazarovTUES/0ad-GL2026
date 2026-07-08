@@ -41,10 +41,10 @@ function loadSettingsValues()
 		"GameSpeeds": loadSettingValuesFile("game_speeds.json"),
 		"MapTypes": loadMapTypes(),
 		"MapSizes": loadSettingValuesFile("map_sizes.json"),
+		"PlayerPlacements": loadSettingValuesFile("player_placements.json"),
 		"Biomes": loadBiomes(),
 		"PlayerDefaults": loadPlayerDefaults(),
-		"PopulationCapacities": loadPopulationCapacities(),
-		"WorldPopulationCapacities": loadWorldPopulationCapacities(),
+		"PopulationCapacities": loadSettingValuesFile("population_capacities.json"),
 		"StartingResources": loadSettingValuesFile("starting_resources.json"),
 		"VictoryConditions": loadVictoryConditions(),
 		"TriggerDifficulties": loadSettingValuesFile("trigger_difficulties.json")
@@ -80,8 +80,8 @@ function loadSettingValuesFile(filename)
 		if (json.TranslationContext)
 		{
 			keyContext = {};
-			for (let key of json.TranslatedKeys)
-				 keyContext[key] = json.TranslationContext;
+			for (const key of json.TranslatedKeys)
+				keyContext[key] = json.TranslationContext;
 		}
 
 		translateObjectKeys(json.Data, keyContext);
@@ -201,8 +201,9 @@ function loadMapTypes()
 
 function loadBiomes()
 {
-	return listFiles(g_BiomesDirectory, ".json", true).filter(biomeID => biomeID != "defaultbiome").map(biomeID => {
-		let description = Engine.ReadJSONFile(g_BiomesDirectory + biomeID + ".json").Description;
+	return listFiles(g_BiomesDirectory, ".json", true).filter(biomeID => biomeID != "defaultbiome").map(biomeID =>
+	{
+		const description = Engine.ReadJSONFile(g_BiomesDirectory + biomeID + ".json").Description;
 		return {
 			"Id": biomeID,
 			"Title": translateWithContext("biome definition", description.Title),
@@ -219,10 +220,11 @@ function loadBiomes()
  */
 function loadVictoryConditions()
 {
-	let subdir = "victory_conditions/";
+	const subdir = "victory_conditions/";
 
-	let victoryConditions = listFiles(g_SettingsDirectory + subdir, ".json", false).map(victoryScriptName => {
-		let victoryCondition = loadSettingValuesFile(subdir + victoryScriptName + ".json");
+	const victoryConditions = listFiles(g_SettingsDirectory + subdir, ".json", false).map(victoryScriptName =>
+	{
+		const victoryCondition = loadSettingValuesFile(subdir + victoryScriptName + ".json");
 		if (victoryCondition)
 			victoryCondition.Name = victoryScriptName;
 		return victoryCondition;
@@ -251,51 +253,6 @@ function loadPlayerDefaults()
 }
 
 /**
- * Loads available population capacities.
- *
- * @returns {Array|undefined}
- */
-function loadPopulationCapacities()
-{
-	var json = Engine.ReadJSONFile(g_SettingsDirectory + "population_capacities.json");
-
-	if (!json || json.Default === undefined || !json.PopulationCapacities || !Array.isArray(json.PopulationCapacities))
-	{
-		error("Could not load population_capacities.json");
-		return undefined;
-	}
-
-	return json.PopulationCapacities.map(population => ({
-		"Population": population,
-		"Default": population == json.Default,
-		"Title": population < 10000 ? population : translate("Unlimited")
-	}));
-}
-
-/**
- * Loads available world population capacities.
- *
- * @returns {Object[]|undefined} - An array of the world population capacities in the form:
- *	{ "Population": number, "Default": number, "Title": number|String }.
- */
-function loadWorldPopulationCapacities()
-{
-	let json = Engine.ReadJSONFile(g_SettingsDirectory + "world_population_capacities.json");
-
-	if (!json || json.Default === undefined || !json.WorldPopulationCapacities || !Array.isArray(json.WorldPopulationCapacities))
-	{
-		error("Could not load population_capacities.json");
-		return undefined;
-	}
-
-	return json.WorldPopulationCapacities.map(population => ({
-		"Population": population,
-		"Default": population == json.Default,
-		"Title": population < 10000 ? population : translate("Unlimited")
-	}));
-}
-
-/**
  * Creates an object with all values of that property of the given setting and
  * finds the index of the default value.
  *
@@ -309,10 +266,10 @@ function prepareForDropdown(settingValues)
 	if (!settingValues)
 		return undefined;
 
-	let settings = { "Default": 0 };
-	for (let index in settingValues)
+	const settings = { "Default": 0 };
+	for (const index in settingValues)
 	{
-		for (let property in settingValues[index])
+		for (const property in settingValues[index])
 		{
 			if (property == "Default")
 				continue;
@@ -338,7 +295,7 @@ function prepareForDropdown(settingValues)
  */
 function translateAIName(aiName)
 {
-	let description = g_Settings.AIDescriptions.find(ai => ai.id == aiName);
+	const description = g_Settings.AIDescriptions.find(ai => ai.id == aiName);
 	return description ? translate(description.data.name) : translateWithContext("AI name", "Unknown");
 }
 
@@ -349,7 +306,7 @@ function translateAIName(aiName)
  */
 function translateAIDifficulty(index)
 {
-	let difficulty = g_Settings.AIDifficulties[index];
+	const difficulty = g_Settings.AIDifficulties[index];
 	return difficulty ? difficulty.Title : translateWithContext("AI difficulty", "Unknown");
 }
 
@@ -360,7 +317,7 @@ function translateAIDifficulty(index)
  */
 function translateAIBehavior(aiBehavior)
 {
-	let behavior = g_Settings.AIBehaviors.find(b => b.Name == aiBehavior);
+	const behavior = g_Settings.AIBehaviors.find(b => b.Name == aiBehavior);
 	return behavior ? behavior.Title : translateWithContext("AI behavior", "Default");
 }
 
@@ -372,7 +329,7 @@ function translateAIBehavior(aiBehavior)
  */
 function translateMapType(mapType)
 {
-	let type = g_Settings.MapTypes.find(t => t.Name == mapType);
+	const type = g_Settings.MapTypes.find(t => t.Name == mapType);
 	return type ? type.Title : translateWithContext("map type", "Unknown");
 }
 
@@ -384,28 +341,29 @@ function translateMapType(mapType)
  */
 function translateMapSize(tiles)
 {
-	let mapSize = g_Settings.MapSizes.find(size => size.Tiles == +tiles);
+	const mapSize = g_Settings.MapSizes.find(size => size.Tiles == +tiles);
 	return mapSize ? mapSize.Name : translateWithContext("map size", "Default");
 }
 
 /**
  * Returns title or placeholder.
  *
- * @param {number} population
- * @param {boolean} world - Whether the entry has world population enabled.
+ * @param {number} popCap
+ * @param {string} popCapType - "player", "team", or "world"
  * @returns {string}
  */
-function translatePopulationCapacity(population, world)
+function translatePopulationCapacity(popCap, popCapType)
 {
-	if (world)
-	{
-		let popCap = g_Settings.WorldPopulationCapacities.find(p => p.Population == population);
-		return popCap ? popCap.Title + " " + translateWithContext("population capacity addendum", "(world)") :
-			translateWithContext("population capacity", "Unknown");
-	}
+	const popCapTypeData = g_Settings.PopulationCapacities.find(type => type.Name == popCapType);
+	if (!popCapTypeData)
+		return translateWithContext("population capacity", "Unknown");
 
-	let popCap = g_Settings.PopulationCapacities.find(p => p.Population == population);
-	return popCap ? popCap.Title : translateWithContext("population capacity", "Unknown");
+	return popCap === Infinity ?
+		translateWithContext("population capacity", "Unlimited") :
+		sprintf(translate("%(populationCapacity)s (%(populationCapacityType)s)"), {
+			"populationCapacity": popCap,
+			"populationCapacityType": popCapType
+		});
 }
 
 /**
@@ -416,6 +374,6 @@ function translatePopulationCapacity(population, world)
  */
 function translateVictoryCondition(victoryConditionName)
 {
-	let victoryCondition = g_Settings.VictoryConditions.find(condition => condition.Name == victoryConditionName);
+	const victoryCondition = g_Settings.VictoryConditions.find(condition => condition.Name == victoryConditionName);
 	return victoryCondition ? victoryCondition.Title : translate("Unknown Victory Condition");
 }

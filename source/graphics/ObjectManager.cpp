@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,15 +21,24 @@
 
 #include "graphics/ObjectBase.h"
 #include "graphics/ObjectEntry.h"
+#include "lib/debug.h"
+#include "lib/path.h"
+#include "lib/utf8.h"
 #include "ps/CLogger.h"
 #include "ps/ConfigDB.h"
-#include "ps/Game.h"
-#include "ps/Profile.h"
 #include "ps/Filesystem.h"
+#include "ps/Profiler2.h"
 #include "ps/XML/Xeromyces.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpTerrain.h"
 #include "simulation2/components/ICmpVisual.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+
+#include <cstddef>
+#include <functional>
+#include <string>
 
 bool CObjectManager::ObjectKey::operator< (const CObjectManager::ObjectKey& a) const
 {
@@ -54,7 +63,7 @@ CObjectManager::CObjectManager(CMeshManager& meshManager, CSkeletonAnimManager& 
 	m_QualityHook = std::make_unique<CConfigDBHook>(g_ConfigDB.RegisterHookAndCall("max_actor_quality", [this]() { ActorQualityChanged(); }));
 	m_VariantDiversityHook = std::make_unique<CConfigDBHook>(g_ConfigDB.RegisterHookAndCall("variant_diversity", [this]() { VariantDiversityChanged(); }));
 
-	if (!CXeromyces::AddValidator(g_VFS, "actor", "art/actors/actor.rng"))
+	if (!g_Xeromyces.AddValidator(g_VFS, "actor", "art/actors/actor.rng"))
 		LOGERROR("CObjectManager: failed to load actor grammar file 'art/actors/actor.rng'");
 }
 
@@ -195,8 +204,7 @@ Status CObjectManager::ReloadChangedFile(const VfsPath& path)
 
 void CObjectManager::ActorQualityChanged()
 {
-	int quality;
-	CFG_GET_VAL("max_actor_quality", quality);
+	const int quality{g_ConfigDB.Get("max_actor_quality", 0)};
 	if (quality == m_QualityLevel)
 		return;
 
@@ -213,8 +221,7 @@ void CObjectManager::ActorQualityChanged()
 
 void CObjectManager::VariantDiversityChanged()
 {
-	CStr value;
-	CFG_GET_VAL("variant_diversity", value);
+	const std::string value{g_ConfigDB.Get("variant_diversity", std::string{})};
 	VariantDiversity variantDiversity = VariantDiversity::FULL;
 	if (value == "none")
 		variantDiversity = VariantDiversity::NONE;

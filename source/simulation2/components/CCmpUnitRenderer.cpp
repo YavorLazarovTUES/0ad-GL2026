@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,30 +17,37 @@
 
 #include "precompiled.h"
 
-#include "simulation2/system/Component.h"
 #include "ICmpUnitRenderer.h"
 
-#include "simulation2/MessageTypes.h"
-
-#include "ICmpPosition.h"
-#include "ICmpRangeManager.h"
-#include "ICmpSelectable.h"
-#include "ICmpVisibility.h"
-#include "ICmpVisual.h"
-
+#include "graphics/Color.h"
 #include "graphics/ModelAbstract.h"
-#include "graphics/ObjectEntry.h"
 #include "graphics/Overlay.h"
 #include "graphics/Unit.h"
+#include "lib/debug.h"
+#include "maths/BoundingBoxAligned.h"
+#include "maths/BoundingBoxOriented.h"
 #include "maths/BoundingSphere.h"
 #include "maths/Frustum.h"
 #include "maths/Matrix3D.h"
-#include "ps/GameSetup/Config.h"
+#include "maths/Vector3D.h"
 #include "ps/Profile.h"
 #include "renderer/RenderingOptions.h"
 #include "renderer/Scene.h"
-
+#include "simulation2/MessageTypes.h"
+#include "simulation2/components/ICmpPosition.h"
+#include "simulation2/components/ICmpRangeManager.h"
+#include "simulation2/components/ICmpSelectable.h"
+#include "simulation2/components/ICmpVisibility.h"
+#include "simulation2/components/ICmpVisual.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+#include "simulation2/system/Message.h"
 #include "tools/atlas/GameInterface/GameLoop.h"
+
+#include <cstddef>
+#include <string>
+#include <utility>
+#include <vector>
 
 /**
  * Efficiently(ish) renders all the units in the world.
@@ -138,7 +145,7 @@ public:
 		return "<a:component type='system'/><empty/>";
 	}
 
-	void Init(const CParamNode& UNUSED(paramNode)) override
+	void Init(const CParamNode&) override
 	{
 		m_FrameNumber = 0;
 		m_FrameOffset = 0.0f;
@@ -149,16 +156,16 @@ public:
 	{
 	}
 
-	void Serialize(ISerializer& UNUSED(serialize)) override
+	void Serialize(ISerializer&) override
 	{
 	}
 
-	void Deserialize(const CParamNode& paramNode, IDeserializer& UNUSED(deserialize)) override
+	void Deserialize(const CParamNode& paramNode, IDeserializer&) override
 	{
 		Init(paramNode);
 	}
 
-	void HandleMessage(const CMessage& msg, bool UNUSED(global)) override
+	void HandleMessage(const CMessage& msg, bool /*global*/) override
 	{
 		switch (msg.GetType())
 		{
@@ -300,7 +307,7 @@ public:
 					continue;
 
 				// Fall back to using old AABB selection method for decals
-				//	see: http://trac.wildfiregames.com/ticket/1032
+				//	see: https://gitea.wildfiregames.com/0ad/0ad/issues/1032
 				// Decals are flat objects without a selectionShape defined,
 				// but they should still be selectable in the editor to move them
 				// around or delete them after they are placed.

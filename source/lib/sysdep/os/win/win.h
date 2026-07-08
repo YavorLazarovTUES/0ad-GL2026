@@ -1,4 +1,4 @@
-/* Copyright (C) 2010 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -27,6 +27,8 @@
 #ifndef INCLUDED_WIN
 #define INCLUDED_WIN
 
+#include "lib/sysdep/os.h"
+
 #if !OS_WIN
 #error "win.h: do not include if not compiling for Windows"
 #endif
@@ -42,14 +44,6 @@
 // other headers may have defined <windows.h>'s include guard to prevent
 // external libraries from pulling it in (which would cause conflicts).
 #undef _WINDOWS_
-
-// set version; needed for EnumDisplayDevices
-#ifndef NTDDI_VERSION
-# define NTDDI_VERSION NTDDI_LONGHORN
-#endif
-#ifndef _WIN32_WINNT
-# define _WIN32_WINNT 0x600
-#endif
 
 #define NOGDICAPMASKS       // CC_*, LC_*, PC_*, CP_*, TC_*, RC_
 //#define NOVIRTUALKEYCODES // VK_*

@@ -1,4 +1,4 @@
-/* Copyright (C) 2019 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -16,15 +16,15 @@
  */
 
 #include "lib/self_test.h"
+
 #include "lib/timer.h"
-
-#include "simulation2/serialization/ISerializer.h"
-#include "simulation2/serialization/IDeserializer.h"
-
 #include "simulation2/system/EntityMap.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <random>
+#include <utility>
+#include <vector>
 
 class TestEntityMap : public CxxTest::TestSuite
 {
@@ -103,6 +103,10 @@ public:
 		for (EntityMap<int>::value_type& v : test)
 		{
 			++iter;
+			// Reading `second` on the end of the range is undefined behavior. Here invoking
+			// `test.find` never evaluates to the past the end iterator. GCC doesn't know that and
+			// issues a "maybe-uninitialized" warning.
+			TS_ASSERT_DIFFERS(test.find(iter), test.end());
 			TS_ASSERT(test.find(iter)->second == (int)iter);
 			TS_ASSERT(test.find(iter)->second == v.second);
 		}
@@ -190,7 +194,7 @@ public:
 		TS_ASSERT(test.find(30) == test.end());
 	}
 
-	void test_perf_DISABLED()
+	void DISABLE_test_perf()
 	{
 		EntityMap<int> test;
 		printf("Testing performance of EntityMap\n");

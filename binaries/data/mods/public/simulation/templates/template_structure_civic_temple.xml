@@ -3,6 +3,9 @@
   <Auras datatype="tokens">
     structures/temple_heal
   </Auras>
+  <Capturable>
+    <RegenRate>15.0</RegenRate>
+  </Capturable>
   <Cost>
     <BuildTime>200</BuildTime>
     <Resources>
@@ -51,6 +54,7 @@
       heal_rate_2
       garrison_heal
       health_regen_units
+      grove_of_fetters
     </Technologies>
   </Researcher>
   <Sound>

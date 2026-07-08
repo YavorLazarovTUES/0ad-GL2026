@@ -1,4 +1,4 @@
-/* Copyright (C) 2015 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,8 +18,13 @@
 #ifndef INCLUDED_SIMULATIONCOMMAND
 #define INCLUDED_SIMULATIONCOMMAND
 
-#include "scriptinterface/ScriptTypes.h"
 #include "simulation2/helpers/Player.h"
+
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+
+struct JSContext;
 
 /**
  * Simulation command, typically received over the network in multiplayer games.

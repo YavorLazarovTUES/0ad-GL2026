@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,17 +20,29 @@
 #include "JSInterface_Lobby.h"
 
 #include "gui/GUIManager.h"
+#include "lib/code_annotation.h"
+#include "lib/code_generation.h"
+#include "lib/config2.h"
+#include "lib/debug.h"
 #include "lib/utf8.h"
-#include "lobby/IXmppClient.h"
+#include "lobby/XmppClient.h"
 #include "network/NetServer.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
 #include "ps/Util.h"
 #include "scriptinterface/FunctionWrapper.h"
-
+#include "scriptinterface/Exceptions.h"
 #include "third_party/encryption/pkcs5_pbkdf2.h"
 
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <sodium.h>
+#include <stdexcept>
 #include <string>
+
+namespace JS { class CallArgs; }
+namespace Script { class Interface; }
 
 namespace JSI_Lobby
 {
@@ -46,52 +58,47 @@ void SetRankedGame(bool isRanked)
 
 #if CONFIG2_LOBBY
 
-void StartXmppClient(const ScriptRequest& rq, const std::wstring& username, const std::wstring& password, const std::wstring& room, const std::wstring& nick, int historyRequestSize)
+void StartXmppClient(const std::wstring& username, const std::wstring& password, const std::wstring& room,
+	const std::wstring& nick, int historyRequestSize)
 {
 	if (g_XmppClient)
-	{
-		ScriptException::Raise(rq, "Cannot call StartXmppClient with an already initialized XmppClient!");
-		return;
-	}
+		throw std::logic_error{"Cannot call StartXmppClient with an already initialized XmppClient!"};
 
 	g_XmppClient =
-		IXmppClient::create(
+		new XmppClient{
 			&g_GUI->GetScriptInterface(),
 			utf8_from_wstring(username),
 			utf8_from_wstring(password),
 			utf8_from_wstring(room),
 			utf8_from_wstring(nick),
-			historyRequestSize);
+			historyRequestSize};
 
 	g_rankedGame = true;
 }
 
-void StartRegisterXmppClient(const ScriptRequest& rq, const std::wstring& username, const std::wstring& password)
+void StartRegisterXmppClient(const std::wstring& username, const std::wstring& password)
 {
 	if (g_XmppClient)
 	{
-		ScriptException::Raise(rq, "Cannot call StartRegisterXmppClient with an already initialized XmppClient!");
-		return;
+		throw std::logic_error{
+			"Cannot call StartRegisterXmppClient with an already initialized XmppClient!"};
 	}
 
 	g_XmppClient =
-		IXmppClient::create(
+		new XmppClient{
 			&g_GUI->GetScriptInterface(),
 			utf8_from_wstring(username),
 			utf8_from_wstring(password),
 			std::string(),
 			std::string(),
 			0,
-			true);
+			true};
 }
 
-void StopXmppClient(const ScriptRequest& rq)
+void StopXmppClient()
 {
 	if (!g_XmppClient)
-	{
-		ScriptException::Raise(rq, "Cannot call StopXmppClient without an initialized XmppClient!");
-		return;
-	}
+		throw std::logic_error{"Cannot call StopXmppClient without an initialized XmppClient!"};
 
 	SAFE_DELETE(g_XmppClient);
 	g_rankedGame = false;
@@ -100,7 +107,7 @@ void StopXmppClient(const ScriptRequest& rq)
 ////////////////////////////////////////////////
 ////////////////////////////////////////////////
 
-IXmppClient* XmppGetter(const ScriptRequest&, JS::CallArgs&)
+XmppClient* XmppGetter(const Script::Request&, JS::CallArgs&)
 {
 	if (!g_XmppClient)
 	{
@@ -110,14 +117,10 @@ IXmppClient* XmppGetter(const ScriptRequest&, JS::CallArgs&)
 	return g_XmppClient;
 }
 
-void SendRegisterGame(const ScriptInterface& scriptInterface, JS::HandleValue data)
+void SendRegisterGame(const Script::Interface& scriptInterface, JS::HandleValue data)
 {
 	if (!g_XmppClient)
-	{
-		ScriptRequest rq(scriptInterface);
-		ScriptException::Raise(rq, "Cannot call SendRegisterGame without an initialized XmppClient!");
-		return;
-	}
+		throw std::logic_error{"Cannot call SendRegisterGame without an initialized XmppClient!"};
 
 	// Prevent JS mods to register matches in the lobby that were started with lobby authentication disabled
 	if (!g_NetServer || !g_NetServer->UseLobbyAuth())
@@ -130,7 +133,7 @@ void SendRegisterGame(const ScriptInterface& scriptInterface, JS::HandleValue da
 }
 
 // Unlike other functions, this one just returns Undefined if XmppClient isn't initialised.
-JS::Value GuiPollNewMessages(const ScriptInterface& scriptInterface)
+JS::Value GuiPollNewMessages(const Script::Interface& scriptInterface)
 {
 	if (!g_XmppClient)
 		return JS::UndefinedValue();
@@ -183,18 +186,18 @@ std::string EncryptPassword(const std::string& password, const std::string& user
 
 #endif
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
 	// Lobby functions
-	ScriptFunction::Register<&HasXmppClient>(rq, "HasXmppClient");
-	ScriptFunction::Register<&SetRankedGame>(rq, "SetRankedGame");
+	Script::Function::Register<&HasXmppClient>(rq, "HasXmppClient");
+	Script::Function::Register<&SetRankedGame>(rq, "SetRankedGame");
 #if CONFIG2_LOBBY // Allow the lobby to be disabled
-	ScriptFunction::Register<&StartXmppClient>(rq, "StartXmppClient");
-	ScriptFunction::Register<&StartRegisterXmppClient>(rq, "StartRegisterXmppClient");
-	ScriptFunction::Register<&StopXmppClient>(rq, "StopXmppClient");
+	Script::Function::Register<&StartXmppClient>(rq, "StartXmppClient");
+	Script::Function::Register<&StartRegisterXmppClient>(rq, "StartRegisterXmppClient");
+	Script::Function::Register<&StopXmppClient>(rq, "StopXmppClient");
 
 #define REGISTER_XMPP(func, name) \
-	ScriptFunction::Register<&IXmppClient::func, &XmppGetter>(rq, name)
+	Script::Function::Register<&XmppClient::func, &XmppGetter>(rq, name)
 
 	REGISTER_XMPP(connect, "ConnectXmppClient");
 	REGISTER_XMPP(disconnect, "DisconnectXmppClient");
@@ -202,7 +205,7 @@ void RegisterScriptFunctions(const ScriptRequest& rq)
 	REGISTER_XMPP(SendIqGetBoardList, "SendGetBoardList");
 	REGISTER_XMPP(SendIqGetProfile, "SendGetProfile");
 	REGISTER_XMPP(SendIqGameReport, "SendGameReport");
-	ScriptFunction::Register<&SendRegisterGame>(rq, "SendRegisterGame");
+	Script::Function::Register<&SendRegisterGame>(rq, "SendRegisterGame");
 	REGISTER_XMPP(SendIqUnregisterGame, "SendUnregisterGame");
 	REGISTER_XMPP(SendIqChangeStateGame, "SendChangeStateGame");
 	REGISTER_XMPP(GUIGetPlayerList, "GetPlayerList");
@@ -210,7 +213,7 @@ void RegisterScriptFunctions(const ScriptRequest& rq)
 	REGISTER_XMPP(GUIGetBoardList, "GetBoardList");
 	REGISTER_XMPP(GUIGetProfile, "GetProfile");
 
-	ScriptFunction::Register<&GuiPollNewMessages>(rq, "LobbyGuiPollNewMessages");
+	Script::Function::Register<&GuiPollNewMessages>(rq, "LobbyGuiPollNewMessages");
 	REGISTER_XMPP(GuiPollHistoricMessages, "LobbyGuiPollHistoricMessages");
 	REGISTER_XMPP(GuiPollHasPlayerListUpdate, "LobbyGuiPollHasPlayerListUpdate");
 	REGISTER_XMPP(SendMUCMessage, "LobbySendMessage");
@@ -218,6 +221,8 @@ void RegisterScriptFunctions(const ScriptRequest& rq)
 	REGISTER_XMPP(SetNick, "LobbySetNick");
 	REGISTER_XMPP(GetNick, "LobbyGetNick");
 	REGISTER_XMPP(GetJID, "LobbyGetJID");
+	REGISTER_XMPP(GetUsername, "LobbyGetUsername");
+	REGISTER_XMPP(ChangePassword, "LobbyChangePassword");
 	REGISTER_XMPP(kick, "LobbyKick");
 	REGISTER_XMPP(ban, "LobbyBan");
 	REGISTER_XMPP(GetPresence, "LobbyGetPlayerPresence");
@@ -226,7 +231,7 @@ void RegisterScriptFunctions(const ScriptRequest& rq)
 	REGISTER_XMPP(GetSubject, "LobbyGetRoomSubject");
 #undef REGISTER_XMPP
 
-	ScriptFunction::Register<&EncryptPassword>(rq, "EncryptPassword");
+	Script::Function::Register<&EncryptPassword>(rq, "EncryptPassword");
 #endif // CONFIG2_LOBBY
 }
 }

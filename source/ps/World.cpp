@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,23 +17,28 @@
 
 #include "precompiled.h"
 
+#include "World.h"
+
 #include "graphics/GameView.h"
+#include "graphics/HeightMipmap.h"
 #include "graphics/LightEnv.h"
 #include "graphics/MapReader.h"
-#include "graphics/MapWriter.h"
-#include "graphics/Terrain.h"
 #include "graphics/Terrain.h"
 #include "graphics/UnitManager.h"
-#include "lib/timer.h"
+#include "lib/path.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
-#include "ps/Errors.h"
+#include "ps/FileIo.h"
 #include "ps/Game.h"
 #include "ps/Loader.h"
-#include "ps/World.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
 #include "simulation2/Simulation2.h"
+
+#include <js/RootingAPI.h>
+#include <string>
+
+class CTriggerManager;
 
 /**
  * Global light settings.
@@ -61,7 +66,7 @@ CWorld::~CWorld() = default;
 /**
  * Initializes the game world with the attributes provided.
  **/
-void CWorld::RegisterInit(const CStrW& mapFile, const ScriptContext& cx, JS::HandleValue settings, int playerID)
+void CWorld::RegisterInit(const CStrW& mapFile, const Script::Context& cx, JS::HandleValue settings, int playerID)
 {
 	// Load the map, if one was specified
 	if (mapFile.length())
@@ -81,10 +86,10 @@ void CWorld::RegisterInit(const CStrW& mapFile, const ScriptContext& cx, JS::Han
 				m_Game.GetSimulation2(), &m_Game.GetSimulation2()->GetSimContext(), playerID,
 				false);
 				// fails immediately, or registers for delay loading
-			LDR_Register([this](const double)
+			PS::Loader::Register(std::bind_front([](CWorld* world) -> PS::Loader::Task
 			{
-				return DeleteMapReader();
-			}, L"CWorld::DeleteMapReader", 5);
+				co_return world->DeleteMapReader();
+			}, this), L"CWorld::DeleteMapReader", 5);
 		}
 		catch (PSERROR_File& err)
 		{
@@ -95,7 +100,7 @@ void CWorld::RegisterInit(const CStrW& mapFile, const ScriptContext& cx, JS::Han
 	}
 }
 
-void CWorld::RegisterInitRMS(const CStrW& scriptFile, const ScriptContext& cx, JS::HandleValue settings, int playerID)
+void CWorld::RegisterInitRMS(const CStrW& scriptFile, const Script::Context& cx, JS::HandleValue settings, int playerID)
 {
 	// If scriptFile is empty, a blank map will be generated using settings (no RMS run)
 	CTriggerManager* pTriggerManager = nullptr;
@@ -106,10 +111,10 @@ void CWorld::RegisterInitRMS(const CStrW& scriptFile, const ScriptContext& cx, J
 		pTriggerManager, CRenderer::IsInitialised() ? &g_Renderer.GetPostprocManager() : nullptr,
 		m_Game.GetSimulation2(), playerID);
 		// registers for delay loading
-	LDR_Register([this](const double)
+	PS::Loader::Register(std::bind_front([](CWorld* world) -> PS::Loader::Task
 	{
-		return DeleteMapReader();
-	}, L"CWorld::DeleteMapReader", 5);
+		co_return world->DeleteMapReader();
+	}, this), L"CWorld::DeleteMapReader", 5);
 }
 
 int CWorld::DeleteMapReader()

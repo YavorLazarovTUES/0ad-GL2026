@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,13 +24,20 @@
 #ifndef INCLUDED_MODELRENDERER
 #define INCLUDED_MODELRENDERER
 
-#include <memory>
-
 #include "graphics/MeshManager.h"
 #include "graphics/RenderableObject.h"
-#include "graphics/SColor.h"
-#include "renderer/backend/IDeviceCommandContext.h"
-#include "renderer/VertexArray.h"
+#include "renderer/SceneRenderer.h"
+#include "lib/types.h"
+
+#include <memory>
+#include <vector>
+
+class CModel;
+class CShaderDefines;
+class CVector3D;
+namespace Renderer::Backend { class IDeviceCommandContext; }
+struct SColor4ub;
+template <typename T> class VertexArrayIterator;
 
 class RenderModifier;
 typedef std::shared_ptr<RenderModifier> RenderModifierPtr;
@@ -44,9 +51,6 @@ typedef std::shared_ptr<ModelVertexRenderer> ModelVertexRendererPtr;
 class ModelRenderer;
 typedef std::shared_ptr<ModelRenderer> ModelRendererPtr;
 
-class CModel;
-class CShaderDefines;
-
 /**
  * Class CModelRData: Render data that is maintained per CModel.
  * ModelRenderer implementations may derive from this class to store
@@ -55,7 +59,7 @@ class CShaderDefines;
  * The main purpose of this class over CRenderData is to track which
  * ModelRenderer the render data belongs to (via the key that is passed
  * to the constructor). When a model changes the renderer it uses
- * (e.g. via run-time modification of the renderpath configuration),
+ * (e.g. via run-time modification of the gpu skinning configuration),
  * the old ModelRenderer's render data is supposed to be replaced by
  * the new data.
  */
@@ -133,7 +137,8 @@ public:
 	 * Must be called before any rendering calls and after all models
 	 * for this frame have been submitted.
 	 */
-	virtual void PrepareModels() = 0;
+	virtual void PrepareModels(
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext) = 0;
 
 	/**
 	 * Upload renderer data for all previously submitted models to backend.
@@ -169,7 +174,8 @@ public:
 	 */
 	virtual void Render(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-		const RenderModifierPtr& modifier, const CShaderDefines& context, int cullGroup, int flags) = 0;
+		const RenderModifierPtr& modifier, const CShaderDefines& context,
+		int cullGroup, int flags, const ERenderMode renderMode) = 0;
 
 	/**
 	 * CopyPositionAndNormals: Copy unanimated object-space vertices and
@@ -271,13 +277,15 @@ public:
 
 	// Batching implementations
 	void Submit(int cullGroup, CModel* model) override;
-	void PrepareModels() override;
+	void PrepareModels(
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext) override;
 	void UploadModels(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext) override;
 	void EndFrame() override;
 	void Render(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-		const RenderModifierPtr& modifier, const CShaderDefines& context, int cullGroup, int flags) override;
+		const RenderModifierPtr& modifier, const CShaderDefines& context,
+		int cullGroup, int flags, const ERenderMode renderMode) override;
 
 private:
 	struct ShaderModelRendererInternals;

@@ -2,12 +2,9 @@ Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap(mapSettings)
+export function* generateMap(mapSettings)
 {
-	if (mapSettings.Biome)
-		setSelectedBiome();
-	else
-		setBiome("fields_of_meroe/dry");
+	setBiome(mapSettings.Biome);
 
 	const tMainDirt = g_Terrains.mainDirt;
 	const tSecondaryDirt = g_Terrains.secondaryDirt;
@@ -40,8 +37,8 @@ function* GenerateMap(mapSettings)
 	const oField = "structures/kush/field";
 	const oPyramid = "structures/kush/pyramid_small";
 	const oPyramidLarge = "structures/kush/pyramid_large";
-	const oKushUnits = isNomad() ?
-		"units/kush/support_female_citizen" :
+	const oKushUnits = mapSettings.Nomad ?
+		"units/kush/support_civilian" :
 		"units/kush/infantry_javelineer_merc_e";
 
 	const aRain = g_Decoratives.rain;
@@ -122,11 +119,13 @@ function* GenerateMap(mapSettings)
 		"heightLand": heightShore,
 		"meanderShort": 14,
 		"meanderLong": 18,
-		"waterFunc": (position, height, z) => {
+		"waterFunc": (position, height, z) =>
+		{
 			clRiver.add(position);
 			createTerrain(tRiverBank).place(position);
 		},
-		"landFunc": (position, shoreDist1, shoreDist2) => {
+		"landFunc": (position, shoreDist1, shoreDist2) =>
+		{
 			for (const riv of riverTextures)
 				if (riv.left < +shoreDist1 && +shoreDist1 < riv.right ||
 					riv.left < -shoreDist2 && -shoreDist2 < riv.right)
@@ -177,7 +176,8 @@ function* GenerateMap(mapSettings)
 			[areaPassage]);
 	}
 
-	const [playerIDs, playerPosition] = playerPlacementRandom(sortAllPlayers(), avoidClasses(clRiver, 15, clPlayer, 30));
+	const { playerIDs, playerPosition } =
+		playerPlacementRandom(sortAllPlayers(), avoidClasses(clRiver, 15, clPlayer, 30));
 	placePlayerBases({
 		"PlayerPlacement": [playerIDs, playerPosition],
 		"BaseResourceClass": clBaseResource,
@@ -398,7 +398,7 @@ function* GenerateMap(mapSettings)
 		50);
 
 	g_Map.log("Creating lions");
-	if (!isNomad())
+	if (!mapSettings.Nomad)
 		createObjectGroups(
 			new SimpleGroup([new SimpleObject(oLion, 2, 3, 0, 2)], true, clFood),
 			0,
@@ -453,7 +453,7 @@ function* GenerateMap(mapSettings)
 			clRiver, 15,
 			clKushiteVillages, 15),
 		clForest,
-		stragglerTrees * (isNomad() ? 3 : 1));
+		stragglerTrees * (mapSettings.Nomad ? 3 : 1));
 
 	createStragglerTrees(
 		[oDatePalm, oSDatePalm],

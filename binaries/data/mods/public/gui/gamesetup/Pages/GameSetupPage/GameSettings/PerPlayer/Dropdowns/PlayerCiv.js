@@ -27,7 +27,7 @@ PlayerSettingControls.PlayerCiv = class PlayerCiv extends GameSettingControlDrop
 
 	rebuild()
 	{
-		const isLocked = g_GameSettings.playerCiv.locked[this.playerIndex];
+		const isLocked = g_GameSettings.playerCiv.locked[this.playerIndex] || this.isSavedGame;
 		if (this.wasLocked !== isLocked)
 		{
 			this.wasLocked = isLocked;
@@ -51,9 +51,9 @@ PlayerSettingControls.PlayerCiv = class PlayerCiv extends GameSettingControlDrop
 
 	getItems(allItems)
 	{
-		let values = [];
+		const values = [];
 
-		for (let civ in g_CivData)
+		for (const civ in g_CivData)
 			if (allItems || g_CivData[civ].SelectableInGameSetup)
 				values.push({
 					"name": g_CivData[civ].Name,

@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,7 +22,7 @@
 #include "Message.h"
 #include "Entity.h"
 #include "SimContext.h"
-#include "scriptinterface/ScriptForward.h"
+#include "scriptinterface/ForwardDeclarations.h"
 
 class CParamNode;
 class CMessage;
@@ -33,15 +33,18 @@ class IComponent
 {
 public:
 	// Component allocation types
-	using AllocFunc = IComponent* (*)(const ScriptInterface& scriptInterface, JS::HandleValue ctor);
+	using AllocFunc = IComponent* (*)(const Script::Interface& scriptInterface, JS::HandleValue ctor);
 	using DeallocFunc = void (*)(IComponent*);
+	using ClassInitFunc = void (*)(CComponentManager& componentManager);
 
 	virtual ~IComponent();
 
 	static std::string GetSchema();
 
 	static void RegisterComponentType(CComponentManager& mgr, EInterfaceId iid, EComponentTypeId cid, AllocFunc alloc, DeallocFunc dealloc, const char* name, const std::string& schema);
-	static void RegisterComponentTypeScriptWrapper(CComponentManager& mgr, EInterfaceId iid, EComponentTypeId cid, AllocFunc alloc, DeallocFunc dealloc, const char* name, const std::string& schema);
+	static void RegisterComponentTypeScriptWrapper(CComponentManager& mgr, EInterfaceId iid,
+		EComponentTypeId cid, AllocFunc alloc, DeallocFunc dealloc, const char* name,
+		const std::string& schema, ClassInitFunc classInit);
 
 	virtual void Init(const CParamNode& paramNode) = 0;
 	virtual void Deinit() = 0;
@@ -63,14 +66,18 @@ public:
 	virtual void Deserialize(const CParamNode& paramNode, IDeserializer& deserialize) = 0;
 
 	/**
-	 * Returns false by default, indicating that a scripted wrapper of this IComponent is not supported.
-	 * Derrived classes should return true if they implement such a wrapper.
+	 * @Returns JS::NullHandleValue if a scripted wrapper of this IComponent is not supported, the wrapper otherwise.
 	 */
-	virtual bool NewJSObject(const ScriptInterface& scriptInterface, JS::MutableHandleObject out) const;
-	virtual JS::Value GetJSInstance() const;
+	virtual JS::HandleValue GetJSInstance() const = 0;
 	virtual int GetComponentTypeId() const = 0;
 
 private:
+	/**
+	 * @Returns whether a scripted wrapper of this IComponent is not supported.
+	 * Derrived classes should return true if they implement such a wrapper.
+	 */
+	virtual bool NewJSObject(const Script::Interface& scriptInterface, JS::MutableHandleObject out) const = 0;
+
 	CEntityHandle m_EntityHandle;
 	const CSimContext* m_SimContext;
 };

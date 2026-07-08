@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,26 +20,53 @@
 #include "GUIManager.h"
 
 #include "gui/CGUI.h"
-#include "lib/timer.h"
-#include "lobby/IXmppClient.h"
+#include "gui/SGUIMessage.h"
+#include "lib/debug.h"
+#include "lib/file/vfs/vfs_path.h"
+#include "lib/file/vfs/vfs_util.h"
+#include "lib/utf8.h"
 #include "ps/CLogger.h"
+#include "ps/Errors.h"
 #include "ps/Filesystem.h"
-#include "ps/GameSetup/Config.h"
 #include "ps/Profile.h"
+#include "ps/Profiler2.h"
 #include "ps/VideoMode.h"
+#include "ps/XMB/XMBData.h"
+#include "ps/XMB/XMBStorage.h"
 #include "ps/XML/Xeromyces.h"
+#include "ps/containers/StaticVector.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/Promises.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "scriptinterface/StructuredClone.h"
+#include "simulation2/system/Component.h"
+
+#include <SDL_events.h>
+#include <algorithm>
+#include <iterator>
+#include <js/Equality.h>
+#include <js/GCVector.h>
+#include <js/Promise.h>
+#include <js/RootingAPI.h>
+#include <js/String.h>
+#include <js/Symbol.h>
+#include <js/Value.h>
+#include <js/ValueArray.h>
+#include <stdexcept>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 namespace
 {
 
 const CStr EVENT_NAME_GAME_LOAD_PROGRESS = "GameLoadProgress";
 const CStr EVENT_NAME_WINDOW_RESIZED = "WindowResized";
+constexpr const char* START_ATLAS{"startAtlas"};
+constexpr const char* OPEN_REQUEST{"openRequest"};
 
 } // anonymous namespace
 
@@ -51,17 +78,11 @@ CGUIManager* g_GUI = nullptr;
 // multiple pages, instead of treating them as completely independent, to save
 // memory and loading time.
 
-
-// called from main loop when (input) events are received.
-// event is passed to other handlers if false is returned.
 // trampoline: we don't want to make the HandleEvent implementation static
-InReaction gui_handler(const SDL_Event_* ev)
+Input::Reaction CGUIManager::InputHandler::operator()(const SDL_Event& ev)
 {
-	if (!g_GUI)
-		return IN_PASS;
-
 	PROFILE("GUI event handler");
-	return g_GUI->HandleEvent(ev);
+	return gui.HandleEvent(ev);
 }
 
 static Status ReloadChangedFileCB(void* param, const VfsPath& path)
@@ -69,16 +90,17 @@ static Status ReloadChangedFileCB(void* param, const VfsPath& path)
 	return static_cast<CGUIManager*>(param)->ReloadChangedFile(path);
 }
 
-CGUIManager::CGUIManager(ScriptContext& scriptContext, ScriptInterface& scriptInterface) :
+CGUIManager::CGUIManager(Script::Context& scriptContext, Script::Interface& scriptInterface) :
 	m_ScriptContext{scriptContext},
-	m_ScriptInterface{scriptInterface}
+	m_ScriptInterface{scriptInterface},
+	m_InputHandler{g_VideoMode.m_InputManager, Input::Slot::GUI, {*this}}
 {
 	m_ScriptInterface.SetCallbackData(this);
 	m_ScriptInterface.LoadGlobalScripts();
 
-	if (!CXeromyces::AddValidator(g_VFS, "gui_page", "gui/gui_page.rng"))
+	if (!g_Xeromyces.AddValidator(g_VFS, "gui_page", "gui/gui_page.rng"))
 		LOGERROR("CGUIManager: failed to load GUI page grammar file 'gui/gui_page.rng'");
-	if (!CXeromyces::AddValidator(g_VFS, "gui", "gui/gui.rng"))
+	if (!g_Xeromyces.AddValidator(g_VFS, "gui", "gui/gui.rng"))
 		LOGERROR("CGUIManager: failed to load GUI XML grammar file 'gui/gui.rng'");
 
 	RegisterFileReloadFunc(ReloadChangedFileCB, this);
@@ -94,7 +116,7 @@ size_t CGUIManager::GetPageCount() const
 	return m_PageStack.size();
 }
 
-void CGUIManager::SwitchPage(const CStrW& pageName, const ScriptInterface* srcScriptInterface, JS::HandleValue initData)
+void CGUIManager::SwitchPage(const CStrW& pageName, const Script::Interface* srcScriptInterface, JS::HandleValue initData)
 {
 	// The page stack is cleared (including the script context where initData came from),
 	// therefore we have to clone initData.
@@ -102,7 +124,7 @@ void CGUIManager::SwitchPage(const CStrW& pageName, const ScriptInterface* srcSc
 	Script::StructuredClone initDataClone;
 	if (!initData.isUndefined())
 	{
-		ScriptRequest rq(srcScriptInterface);
+		Script::Request rq(srcScriptInterface);
 		initDataClone = Script::WriteStructuredClone(rq, initData);
 	}
 
@@ -113,10 +135,10 @@ void CGUIManager::SwitchPage(const CStrW& pageName, const ScriptInterface* srcSc
 		m_PageStack.clear();
 	}
 
-	PushPage(pageName, initDataClone);
+	OpenChildPage(pageName, initDataClone);
 }
 
-JS::Value CGUIManager::PushPage(const CStrW& pageName, Script::StructuredClone initData)
+JS::Value CGUIManager::OpenChildPage(const CStrW& pageName, Script::StructuredClone initData)
 {
 	// Store the callback handler in the current GUI page before opening the new one
 	JS::RootedValue promise{m_ScriptInterface.GetGeneralJSContext(), [&]
@@ -124,61 +146,49 @@ JS::Value CGUIManager::PushPage(const CStrW& pageName, Script::StructuredClone i
 			if (m_PageStack.empty())
 				return JS::UndefinedValue();
 
+			CGUI& currentPage = *m_PageStack.back().gui;
 			// Make sure we unfocus anything on the current page.
-			m_PageStack.back().gui->SendFocusMessage(GUIM_LOST_FOCUS);
-			return m_PageStack.back().ReplacePromise(m_ScriptInterface);
+			currentPage.SendFocusMessage(GUIM_LOST_FOCUS);
+			return m_PageStack.back().GetPromise();
 		}()};
 
-	// Push the page prior to loading its contents, because that may push
-	// another GUI page on init which should be pushed on top of this new page.
+	// Emplace the page prior to loading its contents, because that may open
+	// another GUI page on init which should be emplaced on top of this new page.
 	m_PageStack.emplace_back(pageName, initData);
 	m_PageStack.back().LoadPage(m_ScriptContext);
 
 	return promise;
 }
 
-void CGUIManager::PopPage(Script::StructuredClone args)
-{
-	if (m_PageStack.size() < 2)
-	{
-		debug_warn(L"Tried to pop GUI page when there's < 2 in the stack");
-		return;
-	}
-
-	// Make sure we unfocus anything on the current page.
-	m_PageStack.back().gui->SendFocusMessage(GUIM_LOST_FOCUS);
-
-	m_PageStack.pop_back();
-	m_PageStack.back().ResolvePromise(args);
-
-	// We return to a page where some object might have been focused.
-	m_PageStack.back().gui->SendFocusMessage(GUIM_GOT_FOCUS);
-}
-
 CGUIManager::SGUIPage::SGUIPage(const CStrW& pageName, const Script::StructuredClone initData)
-	: m_Name(pageName), initData(initData), inputs(), gui(), callbackFunction()
+	: m_Name(pageName), initData(initData)
 {
 }
 
-void CGUIManager::SGUIPage::LoadPage(ScriptContext& scriptContext)
+void CGUIManager::SGUIPage::LoadPage(Script::Context& scriptContext)
 {
 	// If we're hotloading then try to grab some data from the previous page
 	Script::StructuredClone hotloadData;
 	if (gui)
 	{
-		std::shared_ptr<ScriptInterface> scriptInterface = gui->GetScriptInterface();
-		ScriptRequest rq(scriptInterface);
-
-		JS::RootedValue global(rq.cx, rq.globalValue());
-		JS::RootedValue hotloadDataVal(rq.cx);
-		ScriptFunction::Call(rq, global, "getHotloadData", &hotloadDataVal);
+		std::shared_ptr<Script::Interface> scriptInterface = gui->GetScriptInterface();
+		Script::Request rq(scriptInterface);
+		JS::RootedValue hotloadDataVal(rq.cx, gui->GetHotloadData(rq));
 		hotloadData = Script::WriteStructuredClone(rq, hotloadDataVal);
 	}
 
 	g_VideoMode.ResetCursor();
 	inputs.clear();
 	gui.reset(new CGUI(scriptContext));
+	const Script::Request rq{gui->GetScriptInterface()};
 
+	for (const char* name : {START_ATLAS, OPEN_REQUEST})
+	{
+		JS::RootedString jsName{rq.cx, JS_NewStringCopyZ(rq.cx, name)};
+		JS::RootedValue symbol{rq.cx, JS::SymbolValue(JS::NewSymbol(rq.cx, jsName))};
+		JS::RootedValue nativeScope{rq.cx, JS::ObjectValue(*rq.nativeScope)};
+		Script::SetProperty(rq, nativeScope, name, symbol, true);
+	}
 	gui->AddObjectTypes();
 
 	VfsPath path = VfsPath("gui") / m_Name;
@@ -200,6 +210,7 @@ void CGUIManager::SGUIPage::LoadPage(ScriptContext& scriptContext)
 		return;
 	}
 
+	VfsPath rootModule;
 	XERO_ITER_EL(root, node)
 	{
 		if (node.GetNodeName() != elmt_include)
@@ -214,7 +225,6 @@ void CGUIManager::SGUIPage::LoadPage(ScriptContext& scriptContext)
 		PROFILE2("load gui xml");
 		PROFILE2_ATTR("name: %s", name.c_str());
 
-		TIMER(nameW.c_str());
 		if (name.back() == '/')
 		{
 			VfsPath currentDirectory = VfsPath("gui") / nameW;
@@ -232,53 +242,106 @@ void CGUIManager::SGUIPage::LoadPage(ScriptContext& scriptContext)
 
 	gui->LoadedXmlFiles();
 
-	std::shared_ptr<ScriptInterface> scriptInterface = gui->GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	scriptContext.RunJobs();
+	if (gui->m_LoadModuleResult.has_value())
+	{
+		gui->m_LoadModuleResult->moduleNamespace = gui->m_LoadModuleResult->iterator->Get();
+		++gui->m_LoadModuleResult->iterator;
+	}
 
-	JS::RootedValue initDataVal(rq.cx);
 	JS::RootedValue hotloadDataVal(rq.cx);
-	JS::RootedValue global(rq.cx, rq.globalValue());
-
-	if (initData)
-		Script::ReadStructuredClone(rq, initData, &initDataVal);
 
 	if (hotloadData)
 		Script::ReadStructuredClone(rq, hotloadData, &hotloadDataVal);
 
-	if (Script::HasProperty(rq, global, "init") &&
-	    !ScriptFunction::CallVoid(rq, global, "init", initDataVal, hotloadDataVal))
-		LOGERROR("GUI page '%s': Failed to call init() function", utf8_from_wstring(m_Name));
+	sendingPromise = std::make_shared<JS::PersistentRootedObject>(rq.cx);
+	// Assigning to `sendingPromise` isn't possible after `init` has been called because `init` might
+	// replace this page. So a local copy has to be made.
+	const std::shared_ptr<JS::PersistentRootedObject> localPromise{sendingPromise};
+
+	JS::RootedObject returnObject{rq.cx, gui->CallPageInit(rq, initData, hotloadDataVal,
+		utf8_from_wstring(m_Name))};
+
+	*localPromise = returnObject ? returnObject : JS::NewPromiseObject(rq.cx, nullptr);
 }
 
-JS::Value CGUIManager::SGUIPage::ReplacePromise(ScriptInterface& scriptInterface)
+JS::Value CGUIManager::SGUIPage::GetPromise()
 {
-	JSContext* generalContext{scriptInterface.GetGeneralJSContext()};
-	callbackFunction = std::make_shared<JS::PersistentRootedObject>(generalContext,
-		JS::NewPromiseObject(generalContext, nullptr));
-	return JS::ObjectValue(**callbackFunction);
+	const Script::Request rq{gui->GetScriptInterface()};
+	if (receivingPromise == nullptr)
+	{
+		receivingPromise = std::make_shared<JS::PersistentRootedObject>(rq.cx,
+			JS::NewPromiseObject(rq.cx, nullptr));
+	}
+
+	return JS::ObjectValue(**receivingPromise);
 }
 
-void CGUIManager::SGUIPage::ResolvePromise(Script::StructuredClone args)
+std::optional<CGUIManager::SGUIPage::CloseResult> CGUIManager::SGUIPage::MaybeClose(const bool isRootPage)
 {
-	if (!callbackFunction)
-		return;
+	if (JS::GetPromiseState(*sendingPromise) == JS::PromiseState::Pending)
+		return std::nullopt;
 
-	std::shared_ptr<ScriptInterface> scriptInterface = gui->GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	// Make sure we unfocus anything on the current page.
+	gui->SendFocusMessage(GUIM_LOST_FOCUS);
+
+	const Script::Request rq{gui->GetScriptInterface()};
+	JS::RootedValue arg{rq.cx, JS::GetPromiseResult(*sendingPromise)};
+	const bool rejected{JS::GetPromiseState(*sendingPromise) == JS::PromiseState::Rejected};
+
+	JS::RootedValue nativeScope{rq.cx, JS::ObjectValue(*rq.nativeScope)};
+	if (arg.isObject())
+	{
+		JS::RootedObject argObject{rq.cx, &arg.toObject()};
+		JS::RootedValue symbol{rq.cx};
+		Script::GetProperty(rq, nativeScope, OPEN_REQUEST, &symbol);
+		JS::RootedId key{rq.cx, JS::PropertyKey::Symbol(symbol.toSymbol())};
+		JS::RootedValue openRequest{rq.cx};
+		if (JS_GetPropertyById(rq.cx, argObject, key, &openRequest) &&
+			Script::HasProperty(rq, openRequest, "page"))
+		{
+			std::wstring page;
+			Script::GetProperty(rq, openRequest, "page", page);
+			JS::RootedValue openArg{rq.cx};
+			Script::GetProperty(rq, openRequest, "argument", &openArg);
+			return CGUIManager::SGUIPage::OpenRequest{page,
+				Script::WriteStructuredClone(rq, openArg)};
+		}
+	}
+
+	if (isRootPage)
+	{
+		JS::RootedValue symbol{rq.cx};
+		Script::GetProperty(rq, nativeScope, START_ATLAS, &symbol);
+		bool equals;
+		if (!JS::StrictlyEqual(rq.cx, arg, symbol, &equals))
+			throw std::runtime_error{"Error while comparing return value to a symbol."};
+
+		if (equals)
+			return CGUIManager::SGUIPage::Close{nullptr, rejected};
+	}
+	return CGUIManager::SGUIPage::Close{Script::WriteStructuredClone(rq, arg), rejected};
+}
+
+void CGUIManager::SGUIPage::Refocus(const Close& result)
+{
+	ENSURE(receivingPromise);
+
+	std::shared_ptr<Script::Interface> scriptInterface = gui->GetScriptInterface();
+	Script::Request rq(scriptInterface);
 
 	JS::RootedObject globalObj(rq.cx, rq.glob);
 
-	JS::RootedObject funcVal(rq.cx, *callbackFunction);
-
-	// Delete the callback function, so that it is not called again
-	callbackFunction.reset();
+	JS::RootedObject recv(rq.cx, *std::exchange(receivingPromise, nullptr));
 
 	JS::RootedValue argVal(rq.cx);
-	if (args)
-		Script::ReadStructuredClone(rq, args, &argVal);
+	Script::ReadStructuredClone(rq, result.arg, &argVal);
 
 	// This only resolves the promise, it doesn't call the continuation.
-	JS::ResolvePromise(rq.cx, funcVal, argVal);
+	(result.rejected ? JS::RejectPromise : JS::ResolvePromise)(rq.cx, recv, argVal);
+
+	// We return to a page where some object might have been focused.
+	gui->SendFocusMessage(GUIM_GOT_FOCUS);
 }
 
 Status CGUIManager::ReloadChangedFile(const VfsPath& path)
@@ -303,7 +366,7 @@ Status CGUIManager::ReloadAllPages()
 	return INFO::OK;
 }
 
-InReaction CGUIManager::HandleEvent(const SDL_Event_* ev)
+Input::Reaction CGUIManager::HandleEvent(const SDL_Event& ev)
 {
 	// We want scripts to have access to the raw input events, so they can do complex
 	// processing when necessary (e.g. for unit selection and camera movement).
@@ -316,74 +379,98 @@ InReaction CGUIManager::HandleEvent(const SDL_Event_* ev)
 
 	{
 		PROFILE("handleInputBeforeGui");
-		ScriptRequest rq(*top()->GetScriptInterface());
+		Script::Request rq(*top()->GetScriptInterface());
 
 		JS::RootedValue global(rq.cx, rq.globalValue());
-		if (ScriptFunction::Call(rq, global, "handleInputBeforeGui", handled, *ev, top()->FindObjectUnderMouse()))
+		if (Script::Function::Call(rq, global, "handleInputBeforeGui", handled, ev, top()->FindObjectUnderMouse()))
 			if (handled)
-				return IN_HANDLED;
+				return Input::Reaction::HANDLED;
 	}
 
 	{
 		PROFILE("handle event in native GUI");
-		InReaction r = top()->HandleEvent(ev);
-		if (r != IN_PASS)
+		Input::Reaction r = top()->HandleEvent(ev);
+		if (r != Input::Reaction::PASS)
 			return r;
 	}
 
 	{
 		// We can't take the following lines out of this scope because top() may be another gui page than it was when calling handleInputBeforeGui!
-		ScriptRequest rq(*top()->GetScriptInterface());
+		Script::Request rq(*top()->GetScriptInterface());
 		JS::RootedValue global(rq.cx, rq.globalValue());
 
 		PROFILE("handleInputAfterGui");
-		if (ScriptFunction::Call(rq, global, "handleInputAfterGui", handled, *ev))
+		if (Script::Function::Call(rq, global, "handleInputAfterGui", handled, ev))
 			if (handled)
-				return IN_HANDLED;
+				return Input::Reaction::HANDLED;
 	}
 
-	return IN_PASS;
+	return Input::Reaction::PASS;
 }
 
-void CGUIManager::SendEventToAll(const CStr& eventName) const
+
+void CGUIManager::SendEventToAll(const CStr& eventName,
+	std::optional<JS::HandleValueArray> paramData) const
 {
-	// Save an immutable copy so iterators aren't invalidated by handlers
-	PageStackType pageStack = m_PageStack;
+	const auto pageStack = GetCopyOfFrozenStack();
 
 	for (const SGUIPage& p : pageStack)
-		p.gui->SendEventToAll(eventName);
-
+	{
+		if (paramData.has_value())
+			p.gui->SendEventToAll(eventName, paramData.value());
+		else
+			p.gui->SendEventToAll(eventName);
+	}
 }
 
-void CGUIManager::SendEventToAll(const CStr& eventName, JS::HandleValueArray paramData) const
-{
-	// Save an immutable copy so iterators aren't invalidated by handlers
-	PageStackType pageStack = m_PageStack;
-
-	for (const SGUIPage& p : pageStack)
-		p.gui->SendEventToAll(eventName, paramData);
-}
-
-void CGUIManager::TickObjects()
+std::optional<bool> CGUIManager::TickObjects()
 {
 	PROFILE3("gui tick");
 
 	// We share the script context with everything else that runs in the same thread.
 	// This call makes sure we trigger GC regularly even if the simulation is not running.
-	m_ScriptContext.MaybeIncrementalGC(1.0f);
+	m_ScriptContext.MaybeIncrementalGC();
 
-	// Save an immutable copy so iterators aren't invalidated by tick handlers
-	PageStackType pageStack = m_PageStack;
+	const auto pageStack = GetCopyOfFrozenStack();
 
 	for (const SGUIPage& p : pageStack)
-		p.gui->TickObjects();
+	{
+		const Script::Request rq{p.gui->GetScriptInterface()};
+		JS::RootedObject newSendingPromise{rq.cx, p.gui->TickObjects(rq, p.initData,
+			utf8_from_wstring(p.m_Name))};
+		if (newSendingPromise)
+			(*p.sendingPromise) = newSendingPromise;
+	}
 
 	m_ScriptContext.RunJobs();
+
+	while (!m_PageStack.empty())
+	{
+		const size_t stackSize{m_PageStack.size()};
+		const std::optional<SGUIPage::CloseResult> result{
+			m_PageStack.back().MaybeClose(stackSize == 1)};
+		if (!result.has_value())
+			break;
+		ENSURE(m_PageStack.size() == stackSize);
+		m_PageStack.pop_back();
+		if (const SGUIPage::OpenRequest* request{std::get_if<SGUIPage::OpenRequest>(&result.value())})
+			OpenChildPage(request->path, request->arg);
+		else if (const SGUIPage::Close& ret{std::get<SGUIPage::Close>(result.value())};
+			m_PageStack.empty())
+		{
+			return !ret.arg;
+		}
+		else
+			m_PageStack.back().Refocus(ret);
+
+		m_ScriptContext.RunJobs();
+	}
+	return std::nullopt;
 }
 
 void CGUIManager::Draw(CCanvas2D& canvas) const
 {
-	PROFILE3_GPU("gui");
+	PROFILE3("gui");
 
 	for (const SGUIPage& p : m_PageStack)
 		p.gui->Draw(canvas);
@@ -391,8 +478,7 @@ void CGUIManager::Draw(CCanvas2D& canvas) const
 
 void CGUIManager::UpdateResolution()
 {
-	// Save an immutable copy so iterators aren't invalidated by event handlers
-	PageStackType pageStack = m_PageStack;
+	const auto pageStack = GetCopyOfFrozenStack();
 
 	for (const SGUIPage& p : pageStack)
 	{
@@ -417,16 +503,16 @@ const CParamNode& CGUIManager::GetTemplate(const std::string& templateName)
 
 void CGUIManager::DisplayLoadProgress(int percent, const wchar_t* pending_task)
 {
-	const ScriptInterface& scriptInterface = *(GetActiveGUI()->GetScriptInterface());
-	ScriptRequest rq(scriptInterface);
+	const Script::Interface& scriptInterface = *(GetActiveGUI()->GetScriptInterface());
+	Script::Request rq(scriptInterface);
 
 	JS::RootedValueVector paramData(rq.cx);
 
-	ignore_result(paramData.append(JS::NumberValue(percent)));
+	std::ignore = paramData.append(JS::NumberValue(percent));
 
 	JS::RootedValue valPendingTask(rq.cx);
 	Script::ToJSVal(rq, &valPendingTask, pending_task);
-	ignore_result(paramData.append(valPendingTask));
+	std::ignore = paramData.append(valPendingTask);
 
 	SendEventToAll(EVENT_NAME_GAME_LOAD_PROGRESS, paramData);
 }
@@ -438,4 +524,11 @@ std::shared_ptr<CGUI> CGUIManager::top() const
 {
 	ENSURE(m_PageStack.size());
 	return m_PageStack.back().gui;
+}
+
+PS::StaticVector<CGUIManager::SGUIPage, 16> CGUIManager::GetCopyOfFrozenStack() const
+{
+	PS::StaticVector<CGUIManager::SGUIPage, 16> stack;
+	std::copy(m_PageStack.begin(), m_PageStack.end(), std::back_inserter(stack));
+	return stack;
 }

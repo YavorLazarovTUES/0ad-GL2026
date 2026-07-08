@@ -10,7 +10,9 @@ Engine.LoadComponentScript("interfaces/Foundation.js");
 Engine.LoadComponentScript("interfaces/StatisticsTracker.js");
 Engine.LoadComponentScript("interfaces/Trainer.js");
 Engine.LoadComponentScript("interfaces/TrainingRestrictions.js");
+Engine.LoadComponentScript("interfaces/ProductionQueue.js");
 Engine.LoadComponentScript("interfaces/Trigger.js");
+Engine.LoadComponentScript("ProductionQueue.js");
 Engine.LoadComponentScript("EntityLimits.js");
 Engine.LoadComponentScript("Trainer.js");
 Engine.LoadComponentScript("TrainingRestrictions.js");
@@ -30,9 +32,30 @@ AddMock(SYSTEM_ENTITY, IID_TemplateManager, {
 let cmpTrainer = ConstructComponent(entityID, "Trainer", {
 	"Entities": { "_string": "units/{civ}/cavalry_javelineer_b " +
 	                         "units/{civ}/infantry_swordsman_b " +
-	                         "units/{native}/support_female_citizen" }
+	                         "units/{native}/support_civilian" }
 });
 cmpTrainer.GetUpgradedTemplate = (template) => template;
+
+// ProductionQueue mock that just delegates to Trainer's queue
+AddMock(entityID, IID_ProductionQueue, {
+	"GetQueue": () =>
+	{
+		// Convert Trainer's internal queue to ProductionQueue format
+		const queue = [];
+		for (const [id, item] of cmpTrainer.queue)
+			queue.push({
+				"id": id,
+				"unitTemplate": item.templateName,
+				"batchID": id  // In this mock, batchID = ProductionQueue ID
+			});
+		return queue;
+	},
+	"RemoveItem": (id) =>
+	{
+		// Simply call StopBatch on the Trainer
+		cmpTrainer.StopBatch(id);
+	}
+});
 
 AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
 	"GetPlayerByID": id => playerEntityID
@@ -60,7 +83,7 @@ Engine.RegisterGlobal("GetUpgradedTemplate", GetUpgradedTemplate);
 cmpTrainer.CalculateEntitiesMap();
 TS_ASSERT_UNEVAL_EQUALS(
 	cmpTrainer.GetEntitiesList(),
-	["units/iber/cavalry_javelineer_a", "units/iber/infantry_swordsman_b", "units/iber/support_female_citizen"]
+	["units/iber/cavalry_javelineer_a", "units/iber/infantry_swordsman_b", "units/iber/support_civilian"]
 );
 
 GetUpgradedTemplate = (_, template) => template;
@@ -68,16 +91,16 @@ Engine.RegisterGlobal("GetUpgradedTemplate", GetUpgradedTemplate);
 cmpTrainer.CalculateEntitiesMap();
 TS_ASSERT_UNEVAL_EQUALS(
 	cmpTrainer.GetEntitiesList(),
-	["units/iber/cavalry_javelineer_b", "units/iber/infantry_swordsman_b", "units/iber/support_female_citizen"]
+	["units/iber/cavalry_javelineer_b", "units/iber/infantry_swordsman_b", "units/iber/support_civilian"]
 );
 
 AddMock(SYSTEM_ENTITY, IID_TemplateManager, {
-	"TemplateExists": name => name == "units/iber/support_female_citizen",
+	"TemplateExists": name => name == "units/iber/support_civilian",
 	"GetTemplate": name => ({})
 });
 
 cmpTrainer.CalculateEntitiesMap();
-TS_ASSERT_UNEVAL_EQUALS(cmpTrainer.GetEntitiesList(), ["units/iber/support_female_citizen"]);
+TS_ASSERT_UNEVAL_EQUALS(cmpTrainer.GetEntitiesList(), ["units/iber/support_civilian"]);
 
 AddMock(SYSTEM_ENTITY, IID_TemplateManager, {
 	"TemplateExists": () => true,
@@ -92,7 +115,7 @@ AddMock(playerEntityID, IID_Player, {
 cmpTrainer.CalculateEntitiesMap();
 TS_ASSERT_UNEVAL_EQUALS(
 	cmpTrainer.GetEntitiesList(),
-	["units/iber/cavalry_javelineer_b", "units/iber/infantry_swordsman_b", "units/iber/support_female_citizen"]
+	["units/iber/cavalry_javelineer_b", "units/iber/infantry_swordsman_b", "units/iber/support_civilian"]
 );
 
 AddMock(playerEntityID, IID_Player, {
@@ -103,7 +126,7 @@ AddMock(playerEntityID, IID_Player, {
 cmpTrainer.CalculateEntitiesMap();
 TS_ASSERT_UNEVAL_EQUALS(
 	cmpTrainer.GetEntitiesList(),
-	["units/iber/cavalry_javelineer_b", "units/iber/support_female_citizen"]
+	["units/iber/cavalry_javelineer_b", "units/iber/support_civilian"]
 );
 
 AddMock(playerEntityID, IID_Player, {
@@ -118,7 +141,7 @@ AddMock(playerEntityID, IID_Identity, {
 cmpTrainer.CalculateEntitiesMap();
 TS_ASSERT_UNEVAL_EQUALS(
 	cmpTrainer.GetEntitiesList(),
-	["units/athen/cavalry_javelineer_b", "units/iber/support_female_citizen"]
+	["units/athen/cavalry_javelineer_b", "units/iber/support_civilian"]
 );
 
 AddMock(playerEntityID, IID_Player, {
@@ -133,7 +156,7 @@ AddMock(playerEntityID, IID_Identity, {
 cmpTrainer.CalculateEntitiesMap();
 TS_ASSERT_UNEVAL_EQUALS(
 	cmpTrainer.GetEntitiesList(),
-	["units/iber/cavalry_javelineer_b", "units/iber/infantry_swordsman_b", "units/iber/support_female_citizen"]
+	["units/iber/cavalry_javelineer_b", "units/iber/infantry_swordsman_b", "units/iber/support_civilian"]
 );
 
 
@@ -168,10 +191,12 @@ AddMock(SYSTEM_ENTITY, IID_GuiInterface, {
 const cmpPlayer = AddMock(playerEntityID, IID_Player, {
 	"BlockTraining": () => {},
 	"GetPlayerID": () => playerID,
-	"RefundResources": (resources) => {
+	"RefundResources": (resources) =>
+	{
 		TS_ASSERT_UNEVAL_EQUALS(resources, cost);
 	},
-	"TrySubtractResources": (resources) => {
+	"TrySubtractResources": (resources) =>
+	{
 		TS_ASSERT_UNEVAL_EQUALS(resources, cost);
 		// Just have enough resources.
 		return true;
@@ -231,7 +256,8 @@ TS_ASSERT_EQUALS(cmpTrainer.GetBatch(id).progress, 0.5);
 const spawedEntityIDs = [4, 5, 6, 7, 8];
 let spawned = 0;
 
-Engine.AddEntity = () => {
+Engine.AddEntity = () =>
+{
 	const ent = spawedEntityIDs[spawned++];
 
 	ConstructComponent(ent, "TrainingRestrictions", {
@@ -247,7 +273,8 @@ Engine.AddEntity = () => {
 	});
 
 	AddMock(ent, IID_Ownership, {
-		"SetOwner": (pid) => {
+		"SetOwner": (pid) =>
+		{
 			QueryOwnerInterface(ent, IID_EntityLimits).OnGlobalOwnershipChanged({
 				"entity": ent,
 				"from": -1,
@@ -304,7 +331,8 @@ TS_ASSERT_EQUALS(cmpTrainer.GetBatch(id2).unitTemplate, queuedSecondUnit);
 
 // Add a modifier that replaces unit A with unit C,
 // adds a unit D and removes unit B from the roster.
-Engine.RegisterGlobal("ApplyValueModificationsToEntity", (_, val) => {
+Engine.RegisterGlobal("ApplyValueModificationsToEntity", (_, val) =>
+{
 	return typeof val === "string" ? HandleTokens(val, "units/{civ}/cavalry_javelineer_b>units/{civ}/c units/{civ}/d -units/{civ}/infantry_swordsman_b") : val;
 });
 
@@ -315,7 +343,7 @@ cmpTrainer.OnValueModification({
 });
 
 TS_ASSERT_UNEVAL_EQUALS(
-	cmpTrainer.GetEntitiesList(), ["units/iber/c", "units/iber/support_female_citizen", "units/iber/d"]
+	cmpTrainer.GetEntitiesList(), ["units/iber/c", "units/iber/support_civilian", "units/iber/d"]
 );
 TS_ASSERT_EQUALS(cmpTrainer.queue.size, 1);
 TS_ASSERT_EQUALS(cmpTrainer.GetBatch(id1), undefined);
@@ -324,6 +352,11 @@ TS_ASSERT_EQUALS(cmpTrainer.GetBatch(id2).unitTemplate, "units/iber/c");
 
 // Test that we can affect an empty trainer.
 const emptyTrainer = ConstructComponent(entityID, "Trainer", null);
+// Need to add ProductionQueue mock for empty trainer too
+AddMock(entityID, IID_ProductionQueue, {
+	"GetQueue": () => [],
+	"RemoveItem": () => {}
+});
 emptyTrainer.OnValueModification({ "component": "Trainer", "entities": [entityID], "valueNames": ["Trainer/Entities/"] });
 TS_ASSERT_UNEVAL_EQUALS(
 	emptyTrainer.GetEntitiesList(),

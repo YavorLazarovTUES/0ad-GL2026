@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,11 +25,15 @@
 #define INCLUDED_IGUISCROLLBAR
 
 #include "gui/CGUISprite.h"
+#include "lib/code_annotation.h"
 #include "maths/Vector2D.h"
 #include "ps/CStr.h"
 
+#include <algorithm>
+
 class CCanvas2D;
 class CGUI;
+class CRect;
 class IGUIScrollBarOwner;
 struct SGUIMessage;
 
@@ -111,9 +115,9 @@ struct SGUIScrollBarStyle
 	CGUISpriteInstance m_SpriteButtonBottomDisabled;
 	CGUISpriteInstance m_SpriteButtonBottomOver;
 
-	CGUISpriteInstance m_SpriteBarVertical;
-	CGUISpriteInstance m_SpriteBarVerticalOver;
-	CGUISpriteInstance m_SpriteBarVerticalPressed;
+	CGUISpriteInstance m_SpriteSliderVertical;
+	CGUISpriteInstance m_SpriteSliderVerticalOver;
+	CGUISpriteInstance m_SpriteSliderVerticalPressed;
 
 	CGUISpriteInstance m_SpriteBackVertical;
 
@@ -126,13 +130,17 @@ struct SGUIScrollBarStyle
 	CGUISpriteInstance m_SpriteButtonLeft;
 	CGUISpriteInstance m_SpriteButtonLeftPressed;
 	CGUISpriteInstance m_SpriteButtonLeftDisabled;
+	CGUISpriteInstance m_SpriteButtonLeftOver;
 
 	CGUISpriteInstance m_SpriteButtonRight;
 	CGUISpriteInstance m_SpriteButtonRightPressed;
 	CGUISpriteInstance m_SpriteButtonRightDisabled;
+	CGUISpriteInstance m_SpriteButtonRightOver;
 
 	CGUISpriteInstance m_SpriteBackHorizontal;
-	CGUISpriteInstance m_SpriteBarHorizontal;
+	CGUISpriteInstance m_SpriteSliderHorizontal;
+	CGUISpriteInstance m_SpriteSliderHorizontalOver;
+	CGUISpriteInstance m_SpriteSliderHorizontalPressed;
 
 	//@}
 };
@@ -179,13 +187,15 @@ public:
 	 */
 	virtual void SetPosFromMousePos(const CVector2D& mouse) = 0;
 
+	virtual void SetScrollPlentyFromMousePos(const CVector2D& mouse) = 0;
+
 	/**
 	 * Hovering the scroll minus button
 	 *
 	 * @param mouse current mouse position
 	 * @return True if mouse positions are hovering the button
 	 */
-	virtual bool HoveringButtonMinus(const CVector2D& UNUSED(mouse)) { return false; }
+	virtual bool HoveringButtonMinus(const CVector2D& /*mouse*/) { return false; }
 
 	/**
 	 * Hovering the scroll plus button
@@ -193,7 +203,7 @@ public:
 	 * @param mouse current mouse position
 	 * @return True if mouse positions are hovering the button
 	 */
-	virtual bool HoveringButtonPlus(const CVector2D& UNUSED(mouse)) { return false; }
+	virtual bool HoveringButtonPlus(const CVector2D& /*mouse*/) { return false; }
 
 	/**
 	 * Get scroll-position

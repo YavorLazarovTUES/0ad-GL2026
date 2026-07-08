@@ -16,7 +16,7 @@ class CounterResource
 	{
 		this.count.caption = abbreviateLargeNumbers(Math.floor(playerState.resourceCounts[this.resCode]));
 
-		let gatherers = playerState.resourceGatherers[this.resCode];
+		const gatherers = playerState.resourceGatherers[this.resCode];
 		this.stats.caption = coloredText(gatherers, gatherers ? this.DefaultResourceGatherersColor : this.DefaultResourceGatherersColorZero);
 
 
@@ -28,7 +28,7 @@ class CounterResource
 		this.panel.tooltip =
 			setStringTags(resourceNameFirstWord(this.resCode), CounterManager.ResourceTitleTags) +
 			description +
-			getAllyStatTooltip(this.getTooltipData.bind(this)) + "\n" + coloredText(CounterPopulation.prototype.CurrentGatherersTooltip, gatherers ? this.DefaultResourceGatherersColor : this.DefaultResourceGatherersColorZero);
+			getAllyStatTooltip(this.getTooltipData.bind(this));
 	}
 
 	getTooltipData(playerState, playername)
@@ -36,7 +36,7 @@ class CounterResource
 		return {
 			"playername": playername,
 			"statValue": Math.round(playerState.resourceCounts[this.resCode]),
-			"orderValue":  Math.round(playerState.resourceCounts[this.resCode])
+			"orderValue": Math.round(playerState.resourceCounts[this.resCode])
 		};
 	}
 }

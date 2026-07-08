@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+	/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,6 +19,29 @@
 #define INCLUDED_FONT
 
 #include "graphics/Texture.h"
+#include "lib/code_annotation.h"
+#include "lib/os_path.h"
+#include "lib/types.h"
+#include "maths/Rect.h"
+#include "renderer/backend/Format.h"
+
+#include <array>
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include FT_GLYPH_H
+#include FT_IMAGE_H
+#include FT_STROKER_H
+#include <functional>
+#include <memory>
+#include <optional>
+#include <string>
+#include <type_traits>
+#include <vector>
+
+class CVector2D;
+namespace Renderer::Backend { class IDevice; }
+namespace Renderer::Backend { class IDeviceCommandContext; }
+namespace Renderer::Backend::Sampler { struct Desc; }
 
 /**
  * Storage for a bitmap font. Loaded by CFontManager.
@@ -26,12 +49,19 @@
 class CFont
 {
 public:
+	CFont(FT_Library library, const std::array<float, 256>& gammaCorrection) : m_FreeType{library}, m_GammaCorrectionLUT{gammaCorrection} {}
+	~CFont() = default;
+	MOVABLE(CFont);
+	NONCOPYABLE(CFont);
+
 	struct GlyphData
 	{
 		float u0, v0, u1, v1;
-		i16 x0, y0, x1, y1;
-		i16 xadvance;
-		u8 defined;
+		float x0, y0, x1, y1;
+		float xadvance;
+		float yadvance;
+		u8 defined{0};
+		FT_Face face;
 	};
 
 	/**
@@ -39,62 +69,137 @@ public:
 	 * This is stored as a sparse 2D array, exploiting the knowledge that a font
 	 * typically only supports a small number of 256-codepoint blocks, so most
 	 * elements of m_Data will be NULL.
+	 * This implementation expand the store the GlyphData for a given Unicode codepoint (0 ≤ cp ≤ 0x10FFFF)
 	 */
 	class GlyphMap
 	{
-		NONCOPYABLE(GlyphMap);
 	public:
-		GlyphMap();
-		~GlyphMap();
-		void set(u16 i, const GlyphData& val);
+		GlyphMap() = default;
+		~GlyphMap() = default;
+		MOVABLE(GlyphMap);
+		NONCOPYABLE(GlyphMap);
 
-		const GlyphData* get(u16 i) const
-		{
-			if (!m_Data[i >> 8])
-				return NULL;
-			if (!m_Data[i >> 8][i & 0xff].defined)
-				return NULL;
-			return &m_Data[i >> 8][i & 0xff];
-		}
+		/**
+		* @brief Store the GlyphData for a given Unicode codepoint
+		*
+		* @param codepoint The unicode codepoint (0 ≤ cp ≤ 0x10FFFF)
+		* @param glyph The glyphData data to store
+		*/
+		void set(u16 codepoint, const GlyphData& glyph);
 
+		const GlyphData* get(u16 codepoint) const;
 	private:
-		GlyphData* m_Data[256];
+		std::unique_ptr<std::array<GlyphData, 256>> m_Data[256];
 	};
 
 	bool HasRGB() const { return m_HasRGB; }
-	int GetLineSpacing() const { return m_LineSpacing; }
-	int GetHeight() const { return m_Height; }
-	int GetCharacterWidth(wchar_t c) const;
-	void CalculateStringSize(const wchar_t* string, int& w, int& h) const;
+	float GetHeight() const;
+
+	/**
+	* In typography, cap height is the height of a capital letter above the baseline for a particular typeface.
+	* It specifically is the height of capital letters that are flat—such as H or I—as opposed to round letters such as O, or pointed letters like A,
+	* both of which may display overshoot. The height of the small letters is the x-height.
+	* REf: https://en.wikipedia.org/wiki/Cap_height
+	*/
+	float GetCapHeight();
+
+	float GetCharacterWidth(wchar_t c);
+	float GetStrokeWidth() const { return m_StrokeWidth; }
+	void CalculateStringSize(const wchar_t* string, float& w, float& h);
 	void GetGlyphBounds(float& x0, float& y0, float& x1, float& y1) const
 	{
-		x0 = m_BoundsX0;
-		y0 = m_BoundsY0;
-		x1 = m_BoundsX1;
-		y1 = m_BoundsY1;
+		x0 = m_Bounds.left;
+		y0 = m_Bounds.top;
+		x1 = m_Bounds.right;
+		y1 = m_Bounds.bottom;
 	}
-	const GlyphMap& GetGlyphs() const { return m_Glyphs; }
+
 	CTexturePtr GetTexture() const { return m_Texture; }
+	void InitalizeAtlasTextureIfNeeded(
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
+	void UploadAtlasTextureToGPU(
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
+	const GlyphData* GetGlyph(u16 i);
 
 private:
+	static void ftFaceDeleter(FT_Face face)
+	{
+		FT_Done_Face(face);
+	}
+
+	static void ftStrokerDeleter(FT_Stroker stroker)
+	{
+		FT_Stroker_Done(stroker);
+	}
+
+	using UniqueFTFace = std::unique_ptr<std::remove_pointer_t<FT_Face>, decltype(&ftFaceDeleter)>;
+	using UniqueFTStroker = std::unique_ptr<std::remove_pointer_t<FT_Stroker>, decltype(&ftStrokerDeleter)>;
+
 	friend class CFontManager;
 
-	CFont() = default;
+	bool AddFontFromPath(const OsPath& fontPath);
+	bool SetFontParams(
+		Renderer::Backend::IDevice* device, const std::string& fontName,
+		float size, float strokeWidth, float scale);
+
+	void BlendGlyphBitmapToTexture(const FT_Bitmap& bitmap, int targetX, int targetY, u8 r, u8 g, u8 b);
+	void BlendGlyphBitmapToTextureRGBA(const FT_Bitmap& bitmap, int targetX, int targetY, u8 r, u8 g, u8 b);
+	void BlendGlyphBitmapToTextureR8(const FT_Bitmap& bitmap, int targetX, int targetY);
+
+	std::optional<CVector2D> GenerateStrokeGlyphBitmap(const FT_Glyph& glyph, u16 codepoint, FT_Render_Mode renderMode, const float baselineInAtlas);
+	std::optional<CVector2D> GenerateGlyphBitmap(FT_Glyph& glyph, u16 codepoint, FT_Render_Mode renderMode, CVector2D offset, const float baselineInAtlas);
+
+	const GlyphData* ExtractAndGenerateGlyph(u16 codepoint);
+	bool ConstructAtlasTexture(Renderer::Backend::IDevice* device);
+	Renderer::Backend::Sampler::Desc ChooseTextureFormatAndSampler();
 
 	CTexturePtr m_Texture;
 
-	bool m_HasRGB; // true if RGBA, false if ALPHA
+	// True if RGBA, false if ALPHA.
+	bool m_HasRGB{true};
 
 	GlyphMap m_Glyphs;
 
-	int m_LineSpacing;
-	int m_Height; // height of a capital letter, roughly
+	// Height of a capital letter, roughly.
+	float m_Height;
 
 	// Bounding box of all glyphs
-	float m_BoundsX0;
-	float m_BoundsY0;
-	float m_BoundsX1;
-	float m_BoundsY1;
+	CRect m_Bounds;
+
+	// The position for the next glyph in the texture atlas.
+	int m_AtlasX;
+	int m_AtlasY;
+
+	// Size of the texture atlas.
+	int m_AtlasWidth;
+	int m_AtlasHeight;
+
+	int m_AtlasPadding;
+	bool m_IsDirty{false};
+	bool m_IsTextureInitialized{false};
+	float m_StrokeWidth{0.0f};
+	float m_Scale{1.0f};
+
+	std::unique_ptr<u8[]> m_TexData;
+	Renderer::Backend::Format m_TextureFormat{Renderer::Backend::Format::R8G8B8A8_UNORM};
+	int m_TextureFormatStride{4};
+	int m_AtlasSize{0};
+
+	float m_FontSize{0.0f};
+	std::string m_FontName;
+	std::reference_wrapper<const std::array<float, 256>> m_GammaCorrectionLUT;
+
+	FT_Library m_FreeType;
+	std::vector<std::shared_ptr<u8>> m_FontsData;
+	std::vector<UniqueFTFace> m_Faces;
+	UniqueFTStroker m_Stroker{nullptr, &ftStrokerDeleter};
+
+	/**
+	* Some fonts are not rendered well at small sizes, so we set a minimum size.
+	* Because we are using a bitmap blending mode, when a font is using small size,
+	* We need to use a different render mode, one with less antialiasing.
+	*/
+	static constexpr float MINIMAL_FONT_SIZE_ANTIALIASING{12.0f};
 };
 
 #endif // INCLUDED_FONT

@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,6 +20,7 @@
 #include "ScriptFunctions.h"
 
 #include "graphics/scripting/JSInterface_GameView.h"
+#include "gui/Scripting/JSInterface_CGUISize.h"
 #include "gui/Scripting/JSInterface_GUIManager.h"
 #include "gui/Scripting/JSInterface_GUISize.h"
 #include "i18n/scripting/JSInterface_L10n.h"
@@ -38,7 +39,7 @@
 #include "ps/scripting/JSInterface_VFS.h"
 #include "ps/scripting/JSInterface_VisualReplay.h"
 #include "renderer/scripting/JSInterface_Renderer.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/scripting/JSInterface_Simulation.h"
 #include "soundmanager/scripting/JSInterface_Sound.h"
 
@@ -48,11 +49,12 @@
  * Functions are exposed to scripts within the global object 'Engine', so
  * scripts should call "Engine.FunctionName(...)" etc.
  */
-void GuiScriptingInit(ScriptInterface& scriptInterface)
+void GuiScriptingInit(Script::Interface& scriptInterface)
 {
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 
 	JSI_GUISize::RegisterScriptClass(scriptInterface);
+	JSI_CGUISize::RegisterScriptClass(scriptInterface);
 	JSI_ConfigDB::RegisterScriptFunctions(rq);
 	JSI_Console::RegisterScriptFunctions(rq);
 	JSI_Debug::RegisterScriptFunctions(rq);

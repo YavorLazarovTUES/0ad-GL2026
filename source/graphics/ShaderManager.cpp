@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,42 +19,41 @@
 
 #include "ShaderManager.h"
 
+#include "graphics/Color.h"
 #include "graphics/PreprocessorWrapper.h"
+#include "graphics/ShaderProgram.h"
 #include "graphics/ShaderTechnique.h"
-#include "lib/config2.h"
+#include "lib/debug.h"
 #include "lib/hash.h"
-#include "lib/timer.h"
 #include "lib/utf8.h"
+#include "ps/algorithm.h"
 #include "ps/CLogger.h"
+#include "ps/containers/StaticVector.h"
 #include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
+#include "ps/Errors.h"
 #include "ps/Filesystem.h"
-#include "ps/Profile.h"
+#include "ps/Profiler2.h"
+#include "ps/XMB/XMBData.h"
+#include "ps/XMB/XMBStorage.h"
 #include "ps/XML/Xeromyces.h"
+#include "renderer/backend/Backend.h"
+#include "renderer/backend/CompareOp.h"
 #include "renderer/backend/IDevice.h"
-
-#define USE_SHADER_XML_VALIDATION 1
-
-#if USE_SHADER_XML_VALIDATION
-#include "ps/XML/RelaxNG.h"
-#include "ps/XML/XMLWriter.h"
-#endif
+#include "renderer/backend/PipelineState.h"
 
 #include <optional>
+#include <utility>
 #include <vector>
 
-TIMER_ADD_CLIENT(tc_ShaderValidation);
+#define USE_SHADER_XML_VALIDATION 1
 
 CShaderManager::CShaderManager(Renderer::Backend::IDevice* device)
 	: m_Device(device)
 {
 #if USE_SHADER_XML_VALIDATION
-	{
-		TIMER_ACCRUE(tc_ShaderValidation);
-
-		if (!CXeromyces::AddValidator(g_VFS, "shader", "shaders/program.rng"))
-			LOGERROR("CShaderManager: failed to load grammar shaders/program.rng");
-	}
+	if (!g_Xeromyces.AddValidator(g_VFS, "shader", "shaders/program.rng"))
+		LOGERROR("CShaderManager: failed to load grammar shaders/program.rng");
 #endif
 
 	// Allow hotloading of textures
@@ -215,12 +214,19 @@ bool CShaderManager::LoadTechnique(CShaderTechniquePtr& tech)
 
 	XMBElement root = XeroFile.GetRoot();
 
-	// Find all the techniques that we can use, and their preference
+	PS::StaticVector<std::string_view, 3> supportedShaders;
+	if (m_Device->GetBackend() == Renderer::Backend::Backend::GL)
+		supportedShaders.emplace_back("glsl");
+	if (m_Device->GetBackend() == Renderer::Backend::Backend::VULKAN)
+		supportedShaders.emplace_back("spirv");
 
+	// Find a first suitable technique that we can use.
 	std::optional<XMBElement> usableTech;
+	std::optional<std::string_view> usableShader;
 	XERO_ITER_EL(root, technique)
 	{
-		bool isUsable = true;
+		bool isUsable{true};
+		usableShader.reset();
 		XERO_ITER_EL(technique, child)
 		{
 			XMBAttributeList attrs = child.GetAttributes();
@@ -228,23 +234,11 @@ bool CShaderManager::LoadTechnique(CShaderTechniquePtr& tech)
 			// TODO: require should be an attribute of the tech and not its child.
 			if (child.GetNodeName() == el_require)
 			{
-				if (attrs.GetNamedItem(at_shaders) == "arb")
+				if (!attrs.GetNamedItem(at_shaders).empty())
 				{
-					if (m_Device->GetBackend() != Renderer::Backend::Backend::GL_ARB ||
-						!m_Device->GetCapabilities().ARBShaders)
-					{
-						isUsable = false;
-					}
-				}
-				else if (attrs.GetNamedItem(at_shaders) == "glsl")
-				{
-					if (m_Device->GetBackend() != Renderer::Backend::Backend::GL)
-						isUsable = false;
-				}
-				else if (attrs.GetNamedItem(at_shaders) == "spirv")
-				{
-					if (m_Device->GetBackend() != Renderer::Backend::Backend::VULKAN)
-						isUsable = false;
+					auto it = std::find(supportedShaders.begin(), supportedShaders.end(), std::string_view{attrs.GetNamedItem(at_shaders)});
+					if (it != supportedShaders.end())
+						usableShader.emplace(*it);
 				}
 				else if (!attrs.GetNamedItem(at_context).empty())
 				{
@@ -255,7 +249,7 @@ bool CShaderManager::LoadTechnique(CShaderTechniquePtr& tech)
 			}
 		}
 
-		if (isUsable)
+		if (isUsable && usableShader)
 		{
 			usableTech.emplace(technique);
 			break;
@@ -272,7 +266,7 @@ bool CShaderManager::LoadTechnique(CShaderTechniquePtr& tech)
 
 	const auto loadShaderProgramForTech = [&](const CStr& name, const CShaderDefines& defines)
 	{
-		CShaderProgramPtr shaderProgram = LoadProgram(name.c_str(), defines);
+		CShaderProgramPtr shaderProgram = LoadProgram(CStr{usableShader.value()} + "/" + name.c_str(), defines);
 		if (shaderProgram)
 		{
 			for (const VfsPath& shaderProgramPath : shaderProgram->GetFileDependencies())

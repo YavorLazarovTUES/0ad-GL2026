@@ -1,30 +1,25 @@
 LoadModificationTemplates();
 
-var API3 = function(m)
-{
-
 /** Wrapper around a technology template */
-
-m.Technology = function(templateName)
+export function Technology(templateName)
 {
 	this._templateName = templateName;
-	let template = TechnologyTemplates.Get(templateName);
+	const template = TechnologyTemplates.Get(templateName);
 
 	// check if this is one of two paired technologies.
-	this._isPair = template.pair !== undefined;
-	if (this._isPair)
+	if (template.partOfPair)
 	{
-		let pairTech = TechnologyTemplates.Get(template.pair);
-		this._pairedWith = pairTech.top == templateName ? pairTech.bottom : pairTech.top;
+		const parentTech = TechnologyTemplates.Get(template.partOfPair);
+		this._pairedWith = parentTech.pair[0] == templateName ? parentTech.pair[1] : parentTech.pair[0];
 	}
 
 	// check if it only defines a pair:
-	this._definesPair = template.top !== undefined;
+	this._definesPair = !!template.pair;
 	this._template = template;
-};
+}
 
 /** returns generic, or specific if civ provided. */
-m.Technology.prototype.name = function(civ)
+Technology.prototype.name = function(civ)
 {
 	if (civ === undefined)
 		return this._template.genericName;
@@ -34,43 +29,38 @@ m.Technology.prototype.name = function(civ)
 	return this._template.specificName[civ];
 };
 
-m.Technology.prototype.pairDef = function()
+Technology.prototype.pairDef = function()
 {
 	return this._definesPair;
 };
 
 /** in case this defines a pair only, returns the two paired technologies. */
-m.Technology.prototype.getPairedTechs = function()
+Technology.prototype.getPairedTechs = function()
 {
 	if (!this._definesPair)
 		return undefined;
 
-	return [
-		new m.Technology(this._template.top),
-		new m.Technology(this._template.bottom)
-	];
+	return this._template.pair.map(name => new Technology(name));
 };
 
-m.Technology.prototype.pair = function()
+Technology.prototype.pair = function()
 {
-	if (!this._isPair)
-		return undefined;
-	return this._template.pair;
+	return this._template.partOfPair;
 };
 
-m.Technology.prototype.pairedWith = function()
+Technology.prototype.pairedWith = function()
 {
-	if (!this._isPair)
+	if (!this._template.partOfPair)
 		return undefined;
 	return this._pairedWith;
 };
 
-m.Technology.prototype.cost = function(researcher)
+Technology.prototype.cost = function(researcher)
 {
 	if (!this._template.cost)
 		return undefined;
-	let cost = {};
-	for (let type in this._template.cost)
+	const cost = {};
+	for (const type in this._template.cost)
 	{
 		cost[type] = +this._template.cost[type];
 		if (researcher)
@@ -79,60 +69,56 @@ m.Technology.prototype.cost = function(researcher)
 	return cost;
 };
 
-m.Technology.prototype.costSum = function(researcher)
+Technology.prototype.costSum = function(researcher)
 {
 	const cost = this.cost(researcher);
 	if (!cost)
 		return 0;
 	let ret = 0;
-	for (let type in cost)
+	for (const type in cost)
 		ret += cost[type];
 	return ret;
 };
 
-m.Technology.prototype.researchTime = function()
+Technology.prototype.researchTime = function()
 {
 	return this._template.researchTime || 0;
 };
 
-m.Technology.prototype.requirements = function(civ)
+Technology.prototype.requirements = function(civ)
 {
 	return DeriveTechnologyRequirements(this._template, civ);
 };
 
-m.Technology.prototype.autoResearch = function()
+Technology.prototype.autoResearch = function()
 {
 	if (!this._template.autoResearch)
 		return undefined;
 	return this._template.autoResearch;
 };
 
-m.Technology.prototype.supersedes = function()
+Technology.prototype.supersedes = function()
 {
 	if (!this._template.supersedes)
 		return undefined;
 	return this._template.supersedes;
 };
 
-m.Technology.prototype.modifications = function()
+Technology.prototype.modifications = function()
 {
 	if (!this._template.modifications)
 		return undefined;
 	return this._template.modifications;
 };
 
-m.Technology.prototype.affects = function()
+Technology.prototype.affects = function()
 {
 	if (!this._template.affects)
 		return undefined;
 	return this._template.affects;
 };
 
-m.Technology.prototype.isAffected = function(classes)
+Technology.prototype.isAffected = function(classes)
 {
 	return this._template.affects && this._template.affects.some(affect => MatchesClassList(classes, affect));
 };
-
-return m;
-
-}(API3);

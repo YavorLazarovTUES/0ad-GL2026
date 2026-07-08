@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -23,10 +23,17 @@
 #ifndef INCLUDED_REAL_DIRECTORY
 #define INCLUDED_REAL_DIRECTORY
 
+#include "lib/code_annotation.h"
 #include "lib/file/common/file_loader.h"
+#include "lib/os_path.h"
+#include "lib/status.h"
 #include "lib/sysdep/dir_watch.h"
+#include "lib/types.h"
 
-class RealDirectory : public IFileLoader
+#include <cstddef>
+#include <memory>
+
+class RealDirectory final : public IFileLoader
 {
 	NONCOPYABLE(RealDirectory);
 public:
@@ -43,13 +50,13 @@ public:
 	}
 
 	// IFileLoader
-	virtual size_t Precedence() const;
-	virtual wchar_t LocationCode() const;
-	virtual OsPath Path() const
+	size_t Precedence() const override;
+	wchar_t LocationCode() const override;
+	const OsPath& Path() const override
 	{
 		return m_path;
 	}
-	virtual Status Load(const OsPath& name, const std::shared_ptr<u8>& buf, size_t size) const;
+	Status Load(const OsPath& name, const std::shared_ptr<u8>& buf, size_t size) const override;
 
 	Status Store(const OsPath& name, const std::shared_ptr<u8>& fileContents, size_t size);
 

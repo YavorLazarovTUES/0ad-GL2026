@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,17 +18,25 @@
 #include "lib/self_test.h"
 
 #include "graphics/LOSTexture.h"
+
+#include "lib/posix/posix_types.h"
 #include "lib/timer.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "lib/types.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/Simulation2.h"
+#include "simulation2/helpers/Grid.h"
 #include "simulation2/helpers/Los.h"
+
+#include <cstdio>
+#include <memory>
+#include <vector>
 
 class TestLOSTexture : public CxxTest::TestSuite
 {
 public:
 	void test_basic()
 	{
-		CSimulation2 sim{nullptr, *g_ScriptContext, nullptr};
+		CSimulation2 sim{nullptr, *g_ScriptContext, nullptr, {}};
 		CLOSTexture tex(sim);
 
 		const ssize_t size = 8;
@@ -65,9 +73,9 @@ public:
 		TS_ASSERT_EQUALS(losData[0], 104);
 	}
 
-	void test_perf_DISABLED()
+	void DISABLED_test_perf()
 	{
-		CSimulation2 sim{nullptr, *g_ScriptContext, nullptr};
+		CSimulation2 sim{nullptr, *g_ScriptContext, nullptr, {}};
 		CLOSTexture tex(sim);
 
 		const ssize_t size = 257;

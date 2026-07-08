@@ -1,20 +1,34 @@
 function init()
 {
-	if (Engine.ConfigDB_GetValue("user", "lobby.login"))
-		loginButton();
+	return Promise.race([loginButton(), cancelHandler()]);
 }
 
-function loginButton()
+function cancelHandler()
 {
-	Engine.PushGuiPage("page_prelobby_login.xml");
+	return new Promise(closePageCallback =>
+	{
+		Engine.GetGUIObjectByName("cancel").onPress = closePageCallback;
+	});
 }
 
-function registerButton()
+async function loginButton()
 {
-	Engine.PushGuiPage("page_prelobby_register.xml");
+	let skipEntrance = Engine.ConfigDB_GetValue("user", "lobby.login");
+	while (true)
+	{
+		if (!skipEntrance)
+			await new Promise(resolve => { Engine.GetGUIObjectByName("login").onPress = resolve; });
+
+		const ret = await Engine.OpenChildPage("page_prelobby_login.xml");
+		if (ret)
+			return ret;
+
+		skipEntrance = false;
+	}
 }
 
-function cancelButton()
+async function registerButton()
 {
-	Engine.PopGuiPage();
+	if (await Engine.OpenChildPage("page_prelobby_register.xml"))
+		Engine.OpenChildPage("page_prelobby_login.xml");
 }

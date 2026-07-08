@@ -9,13 +9,13 @@ const ATTACKER = 2;
 
 var QuickSpawn = function(x, z, template, owner = 1)
 {
-	let ent = Engine.AddEntity(template);
+	const ent = Engine.AddEntity(template);
 
-	let cmpEntOwnership = Engine.QueryInterface(ent, IID_Ownership);
+	const cmpEntOwnership = Engine.QueryInterface(ent, IID_Ownership);
 	if (cmpEntOwnership)
 		cmpEntOwnership.SetOwner(owner);
 
-	let cmpEntPosition = Engine.QueryInterface(ent, IID_Position);
+	const cmpEntPosition = Engine.QueryInterface(ent, IID_Position);
 	cmpEntPosition.JumpTo(x, z);
 	return ent;
 };
@@ -35,7 +35,7 @@ var WalkTo = function(x, z, queued, ent, owner=1)
 
 var Attack = function(target, ent)
 {
-	let comm = {
+	const comm = {
 		"type": "attack",
 		"entities": Array.isArray(ent) ? ent : [ent],
 		"target": target,
@@ -48,7 +48,7 @@ var Attack = function(target, ent)
 
 var Garrison = function(target, ent)
 {
-	let comm = {
+	const comm = {
 		"type": "garrison",
 		"entities": Array.isArray(ent) ? ent : [ent],
 		"target": target,
@@ -64,7 +64,8 @@ var gy;
 
 var straight_line = function(attacker_first, attacker, target, walk = true)
 {
-	return () => {
+	return () =>
+	{
 		let chaser;
 		let chasee;
 		if (attacker_first)
@@ -86,7 +87,8 @@ var straight_line = function(attacker_first, attacker, target, walk = true)
 
 var straight_line_garrison = function(garrison_first, attacker, target)
 {
-	return () => {
+	return () =>
+	{
 		let chaser;
 		let chasee;
 		if (garrison_first)
@@ -166,20 +168,20 @@ experiments.fast_on_muskox_2 = {
 
 // Women flee
 experiments.fast_on_women_flee = {
-	"spawn": straight_line(false, FAST_UNIT_TEMPLATE, "units/mace/support_female_citizen", false)
+	"spawn": straight_line(false, FAST_UNIT_TEMPLATE, "units/mace/support_civilian", false)
 };
 
 experiments.fast_on_women_flee_2 = {
-	"spawn": straight_line(true, FAST_UNIT_TEMPLATE, "units/mace/support_female_citizen", false)
+	"spawn": straight_line(true, FAST_UNIT_TEMPLATE, "units/mace/support_civilian", false)
 };
 
 // Women flee
 experiments.slow_on_women_flee = {
-	"spawn": straight_line(false, "units/athen/infantry_spearman_b", "units/mace/support_female_citizen", false)
+	"spawn": straight_line(false, "units/athen/infantry_spearman_b", "units/mace/support_civilian", false)
 };
 
 experiments.slow_on_women_flee_2 = {
-	"spawn": straight_line(true, "units/athen/infantry_spearman_b", "units/mace/support_female_citizen", false)
+	"spawn": straight_line(true, "units/athen/infantry_spearman_b", "units/mace/support_civilian", false)
 };
 
 experiments.straight_line_garrison = {
@@ -223,11 +225,11 @@ experiments.fast_on_semi_2 = {
 };
 
 experiments.fast_on_flee = {
-	"spawn": straight_line(false, FAST_UNIT_TEMPLATE_2, "units/mace/support_female_citizen", false)
+	"spawn": straight_line(false, FAST_UNIT_TEMPLATE_2, "units/mace/support_civilian", false)
 };
 
 experiments.fast_on_flee_2 = {
-	"spawn": straight_line(true, FAST_UNIT_TEMPLATE_2, "units/mace/support_female_citizen", false)
+	"spawn": straight_line(true, FAST_UNIT_TEMPLATE_2, "units/mace/support_civilian", false)
 };
 
 
@@ -239,9 +241,9 @@ Trigger.prototype.SetupUnits = function()
 {
 	gx = 130;
 	gy = 150;
-	for (let key in experiments)
+	for (const key in experiments)
 	{
-		let ents = experiments[key].spawn();
+		const ents = experiments[key].spawn();
 		onDelete[ents[0]] = ents;
 		onDelete[ents[1]] = ents;
 		gx += 15;

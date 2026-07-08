@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -15,14 +15,32 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "simulation2/system/ComponentTest.h"
+#include "lib/self_test.h"
+
+#include "lib/debug.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/file/vfs/vfs_path.h"
+#include "lib/file/vfs/vfs_util.h"
+#include "lib/path.h"
+#include "ps/CStr.h"
+#include "ps/Errors.h"
+#include "ps/Filesystem.h"
+#include "ps/XML/Xeromyces.h"
+#include "scriptinterface/FunctionWrapper.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/serialization/StdDeserializer.h"
 #include "simulation2/serialization/StdSerializer.h"
+#include "simulation2/system/Component.h"
 
-#include "ps/Filesystem.h"
-
-#include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptContext.h"
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <memory>
+#include <sstream>
+#include <string>
+#include <vector>
 
 class TestComponentScripts : public CxxTest::TestSuite
 {
@@ -32,16 +50,14 @@ public:
 		g_VFS = CreateVfs();
 		g_VFS->Mount(L"", DataDir() / "mods" / "mod" / "", VFS_MOUNT_MUST_EXIST);
 		g_VFS->Mount(L"", DataDir() / "mods" / "public" / "", VFS_MOUNT_MUST_EXIST, 1); // ignore directory-not-found errors
-		CXeromyces::Startup();
 	}
 
 	void tearDown()
 	{
-		CXeromyces::Terminate();
 		g_VFS.reset();
 	}
 
-	static void load_script(const ScriptInterface& scriptInterface, const VfsPath& pathname)
+	static void load_script(const Script::Interface& scriptInterface, const VfsPath& pathname)
 	{
 		CVFSFile file;
 		TS_ASSERT_EQUALS(file.Load(g_VFS, pathname), PSRETURN_OK);
@@ -49,23 +65,23 @@ public:
 		TSM_ASSERT(L"Running script "+pathname.string(), scriptInterface.LoadScript(pathname, content));
 	}
 
-	static void Script_LoadComponentScript(const ScriptInterface& scriptInterface, const VfsPath& pathname)
+	static void Script_LoadComponentScript(const Script::Interface& scriptInterface, const VfsPath& pathname)
 	{
-		ScriptRequest rq(scriptInterface);
+		Script::Request rq(scriptInterface);
 		CComponentManager* componentManager = scriptInterface.ObjectFromCBData<CComponentManager>(rq);
 		TS_ASSERT(componentManager->LoadScript(VfsPath(L"simulation/components") / pathname));
 	}
 
-	static void Script_LoadHelperScript(const ScriptInterface& scriptInterface, const VfsPath& pathname)
+	static void Script_LoadHelperScript(const Script::Interface& scriptInterface, const VfsPath& pathname)
 	{
-		ScriptRequest rq(scriptInterface);
+		Script::Request rq(scriptInterface);
 		CComponentManager* componentManager = scriptInterface.ObjectFromCBData<CComponentManager>(rq);
 		TS_ASSERT(componentManager->LoadScript(VfsPath(L"simulation/helpers") / pathname));
 	}
 
-	static JS::Value Script_SerializationRoundTrip(const ScriptInterface& scriptInterface, JS::HandleValue value)
+	static JS::Value Script_SerializationRoundTrip(const Script::Interface& scriptInterface, JS::HandleValue value)
 	{
-		ScriptRequest rq(scriptInterface);
+		Script::Request rq(scriptInterface);
 
 		JS::RootedValue val(rq.cx);
 		val = value;
@@ -79,6 +95,7 @@ public:
 
 	void test_global_scripts()
 	{
+		CXeromycesEngine xeromycesEngine;
 		if (!VfsDirectoryExists(L"globalscripts/tests/"))
 		{
 			debug_printf("Skipping globalscripts tests (can't find binaries/data/mods/public/globalscripts/tests/)\n");
@@ -93,8 +110,8 @@ public:
 			CComponentManager componentManager(context, *g_ScriptContext, true);
 			ScriptTestSetup(componentManager.GetScriptInterface());
 
-			ScriptRequest rq(componentManager.GetScriptInterface());
-			ScriptFunction::Register<Script_SerializationRoundTrip>(rq, "SerializationRoundTrip");
+			Script::Request rq(componentManager.GetScriptInterface());
+			Script::Function::Register<Script_SerializationRoundTrip>(rq, "SerializationRoundTrip");
 
 			load_script(componentManager.GetScriptInterface(), path);
 		}
@@ -102,6 +119,7 @@ public:
 
 	void test_scripts()
 	{
+		CXeromycesEngine xeromycesEngine;
 		if (!VfsFileExists(L"simulation/components/tests/setup.js"))
 		{
 			debug_printf("Skipping component scripts tests (can't find binaries/data/mods/public/simulation/components/tests/setup.js)\n");
@@ -121,10 +139,10 @@ public:
 
 			ScriptTestSetup(componentManager.GetScriptInterface());
 
-			ScriptRequest rq(componentManager.GetScriptInterface());
-			ScriptFunction::Register<Script_LoadComponentScript>(rq, "LoadComponentScript");
-			ScriptFunction::Register<Script_LoadHelperScript>(rq, "LoadHelperScript");
-			ScriptFunction::Register<Script_SerializationRoundTrip>(rq, "SerializationRoundTrip");
+			Script::Request rq(componentManager.GetScriptInterface());
+			Script::Function::Register<Script_LoadComponentScript>(rq, "LoadComponentScript");
+			Script::Function::Register<Script_LoadHelperScript>(rq, "LoadHelperScript");
+			Script::Function::Register<Script_SerializationRoundTrip>(rq, "SerializationRoundTrip");
 
 			componentManager.LoadComponentTypes();
 

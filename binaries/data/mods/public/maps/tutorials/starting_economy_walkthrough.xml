@@ -168,7 +168,7 @@
 			<Orientation y="-4.04499"/>
 		</Entity>
 		<Entity uid="175">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="358" z="198"/>
 			<Orientation y="-0.6626"/>
@@ -313,7 +313,7 @@
 			<Orientation y="-3.09791"/>
 		</Entity>
 		<Entity uid="236">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="814" z="422"/>
 			<Orientation y="-2.90003"/>
@@ -379,25 +379,25 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="248">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="604.5882" z="841.91709"/>
 			<Orientation y="3.927"/>
 		</Entity>
 		<Entity uid="249">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="610.24506" z="836.26024"/>
 			<Orientation y="3.927"/>
 		</Entity>
 		<Entity uid="250">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="615.90191" z="830.60338"/>
 			<Orientation y="3.927"/>
 		</Entity>
 		<Entity uid="251">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="621.55877" z="824.94652"/>
 			<Orientation y="3.927"/>
@@ -517,7 +517,7 @@
 			<Orientation y="0.90407"/>
 		</Entity>
 		<Entity uid="272">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="594" z="874"/>
 			<Orientation y="0.77286"/>
@@ -672,7 +672,7 @@
 			<Orientation y="-1.06876"/>
 		</Entity>
 		<Entity uid="309">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="142" z="662"/>
 			<Orientation y="-3.86027"/>
@@ -4742,7 +4742,7 @@
 			<Orientation y="-0.15366"/>
 		</Entity>
 		<Entity uid="992">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="843.43477" z="896.10404"/>
 			<Orientation y="1.04668"/>
@@ -4758,7 +4758,7 @@
 			<Orientation y="-3.9136"/>
 		</Entity>
 		<Entity uid="995">
-			<Template>gaia/ore/desert_large</Template>
+			<Template>gaia/ore/sahara_01</Template>
 			<Player>0</Player>
 			<Position x="61.69407" z="512.50258"/>
 			<Orientation y="-4.03783"/>

@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,17 +20,29 @@
 
 #include "lib/self_test.h"
 
+#include "graphics/Terrain.h"
+#include "lib/types.h"
+#include "maths/Fixed.h"
+#include "maths/FixedVector3D.h"
 #include "maths/Vector3D.h"
-#include "ps/XML/Xeromyces.h"
-#include "simulation2/MessageTypes.h"
-#include "simulation2/system/Component.h"
+#include "ps/Errors.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/components/ICmpTerrain.h"
+#include "simulation2/helpers/Position.h"
 #include "simulation2/serialization/DebugSerializer.h"
 #include "simulation2/serialization/HashSerializer.h"
-#include "simulation2/serialization/StdSerializer.h"
 #include "simulation2/serialization/StdDeserializer.h"
+#include "simulation2/serialization/StdSerializer.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
 
+#include <cstdio>
 #include <iostream>
+#include <sstream>
+#include <string>
+
+class CMessage;
+namespace Script { class Context; }
 
 /**
  * @file
@@ -55,13 +67,13 @@ class ComponentTestHelper
 	bool m_isSystemEntityInit = false;
 
 public:
-	ComponentTestHelper(ScriptContext& scriptContext) :
+	ComponentTestHelper(Script::Context& scriptContext) :
 		m_Context(), m_ComponentManager(m_Context, scriptContext), m_Cmp(NULL)
 	{
 		m_ComponentManager.LoadComponentTypes();
 	}
 
-	const ScriptInterface& GetScriptInterface()
+	const Script::Interface& GetScriptInterface()
 	{
 		return m_ComponentManager.GetScriptInterface();
 	}
@@ -198,22 +210,22 @@ public:
 		return true;
 	}
 
-	CFixedVector3D CalcNormal(entity_pos_t UNUSED(x), entity_pos_t UNUSED(z)) const override
+	CFixedVector3D CalcNormal(entity_pos_t /*x*/, entity_pos_t /*z*/) const override
 	{
 		return CFixedVector3D(fixed::FromInt(0), fixed::FromInt(1), fixed::FromInt(0));
 	}
 
-	CVector3D CalcExactNormal(float UNUSED(x), float UNUSED(z)) const override
+	CVector3D CalcExactNormal(float /*x*/, float /*z*/) const override
 	{
 		return CVector3D(0.f, 1.f, 0.f);
 	}
 
-	entity_pos_t GetGroundLevel(entity_pos_t UNUSED(x), entity_pos_t UNUSED(z)) const override
+	entity_pos_t GetGroundLevel(entity_pos_t /*x*/, entity_pos_t /*z*/) const override
 	{
 		return entity_pos_t::FromInt(50);
 	}
 
-	float GetExactGroundLevel(float UNUSED(x), float UNUSED(z)) const override
+	float GetExactGroundLevel(float /*x*/, float /*z*/) const override
 	{
 		return 50.f;
 	}
@@ -238,11 +250,11 @@ public:
 		return nullptr;
 	}
 
-	void MakeDirty(i32 UNUSED(i0), i32 UNUSED(j0), i32 UNUSED(i1), i32 UNUSED(j1)) override
+	void MakeDirty(i32 /*i0*/, i32 /*j0*/, i32 /*i1*/, i32 /*j1*/) override
 	{
 	}
 
-	void ReloadTerrain(bool UNUSED(ReloadWater)) override
+	void ReloadTerrain(bool /*ReloadWater*/) override
 	{
 	}
 };

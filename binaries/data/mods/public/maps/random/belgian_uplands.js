@@ -2,7 +2,7 @@ Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 Engine.LoadLibrary("heightmap");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
 	const tPrimary = ["temp_grass", "temp_grass_b", "temp_grass_c", "temp_grass_d",
 		"temp_grass_long_b", "temp_grass_clovers_2", "temp_grass_mossy", "temp_grass_plants"];
@@ -200,7 +200,8 @@ function* GenerateMap()
 	const lowerHeightLimit = terrainTypes[3].upperHeightLimit;
 	const upperHeightLimit = terrainTypes[6].upperHeightLimit;
 
-	const [playerIDs, playerPosition] = (() => {
+	const { playerIDs, playerPosition } = (() =>
+	{
 		while (true)
 		{
 			g_Map.log("Randomizing heightmap");
@@ -243,10 +244,16 @@ function* GenerateMap()
 		for (let y = 0; y < mapSize; ++y)
 		{
 			const position = new Vector2D(x, y);
-			if (!g_Map.validHeight(position) || g_Map.getHeight(position) < heightRange.min)
+			if (!g_Map.validHeight(position))
 				continue;
+			const positionHeight = g_Map.getHeight(position);
+			if (positionHeight < heightRange.min ||
+				positionHeight > terrainTypes.at(-1).upperHeightLimit)
+			{
+				continue;
+			}
 
-			const elem = terrainTypes.find(e => g_Map.getHeight(position) <= e.upperHeightLimit);
+			const elem = terrainTypes.find(e => positionHeight <= e.upperHeightLimit);
 			createTerrain(elem.terrain).place(position);
 			const template = elem.actors.find(([propability]) => randBool(propDensity / propability));
 			if (template)
@@ -255,7 +262,7 @@ function* GenerateMap()
 
 	yield 90;
 
-	if (isNomad())
+	if (mapSettings.Nomad)
 		placePlayersNomad(g_Map.createTileClass(),
 			new HeightConstraint(lowerHeightLimit, upperHeightLimit));
 	else
@@ -266,7 +273,8 @@ function* GenerateMap()
 		const resourceSpacing = 1;
 		const resourceCount = 4;
 
-		playerPosition.forEach((position, i) => {
+		playerPosition.forEach((position, i) =>
+		{
 			placeCivDefaultStartingEntities(position, playerIDs[i], false);
 
 			for (let j = 1; j <= 4; ++j)

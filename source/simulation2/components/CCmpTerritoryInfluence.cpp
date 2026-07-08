@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,17 +17,18 @@
 
 #include "precompiled.h"
 
-#include "simulation2/system/Component.h"
 #include "ICmpTerritoryInfluence.h"
 
-#include "simulation2/components/ICmpOwnership.h"
-#include "simulation2/components/ICmpPlayerManager.h"
+#include "lib/types.h"
 #include "simulation2/components/ICmpValueModificationManager.h"
+#include "simulation2/system/Component.h"
+
+#include <string>
 
 class CCmpTerritoryInfluence final : public ICmpTerritoryInfluence
 {
 public:
-	static void ClassInit(CComponentManager& UNUSED(componentManager))
+	static void ClassInit(CComponentManager&)
 	{
 	}
 
@@ -64,11 +65,11 @@ public:
 	{
 	}
 
-	void Serialize(ISerializer& UNUSED(serialize)) override
+	void Serialize(ISerializer&) override
 	{
 	}
 
-	void Deserialize(const CParamNode& paramNode, IDeserializer& UNUSED(deserialize)) override
+	void Deserialize(const CParamNode& paramNode, IDeserializer&) override
 	{
 		Init(paramNode);
 	}

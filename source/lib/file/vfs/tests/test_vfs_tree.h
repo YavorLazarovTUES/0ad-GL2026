@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -22,25 +22,37 @@
 
 #include "lib/self_test.h"
 
+#include "lib/code_annotation.h"
 #include "lib/file/common/file_loader.h"
 #include "lib/file/vfs/vfs.h"
 #include "lib/file/vfs/vfs_lookup.h"
+#include "lib/file/vfs/vfs_path.h"
 #include "lib/file/vfs/vfs_tree.h"
+#include "lib/os_path.h"
+#include "lib/status.h"
+#include "lib/types.h"
+
+#include <cstddef>
 
 class MockLoader : public IFileLoader
 {
-private:
-	size_t m_Precedence;
 public:
 	MockLoader(size_t precedence) :
 		m_Precedence(precedence)
 	{
 	}
 
-	size_t Precedence() const { return m_Precedence; }
-	wchar_t LocationCode() const { return L'\0'; }
-	OsPath Path() const { return L"";}
-	Status Load(const OsPath& UNUSED(name), const std::shared_ptr<u8>& UNUSED(buf), size_t UNUSED(size)) const {return INFO::OK; }
+	size_t Precedence() const override { return m_Precedence; }
+	wchar_t LocationCode() const override { return L'\0'; }
+	const OsPath& Path() const override { return m_Path; }
+	Status Load(const OsPath& /*name*/, const std::shared_ptr<u8>& /*buf*/, size_t /*size*/) const override
+	{
+		return INFO::OK;
+	}
+
+private:
+	size_t m_Precedence;
+	OsPath m_Path;
 };
 
 class TestVfsTree : public CxxTest::TestSuite

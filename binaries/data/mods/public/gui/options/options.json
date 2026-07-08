@@ -1,6 +1,7 @@
 [
 	{
 		"label": "General",
+		"tooltip": "Change general options.",
 		"options":
 		[
 			{
@@ -25,66 +26,8 @@
 			{
 				"type": "boolean",
 				"label": "Enable welcome screen",
-				"tooltip": "If you disable it, the welcome screen will still appear once, each time a new version is available. You can always launch it from the main menu.",
+				"tooltip": "If you disable it, the welcome screen will still appear, each time a new version is available. You can always launch it from the main menu.",
 				"config": "gui.splashscreen.enable"
-			},
-			{
-				"type": "boolean",
-				"label": "FPS overlay",
-				"tooltip": "Show frames per second in top right corner.",
-				"config": "overlay.fps"
-			},
-			{
-				"type": "boolean",
-				"label": "Real time overlay",
-				"tooltip": "Show current system time in top right corner.",
-				"config": "overlay.realtime"
-			},
-			{
-				"type": "boolean",
-				"label": "Game time overlay",
-				"tooltip": "Show current simulation time in top right corner.",
-				"config": "gui.session.timeelapsedcounter"
-			},
-			{
-				"type": "boolean",
-				"label": "Ceasefire time overlay",
-				"tooltip": "Always show the remaining ceasefire time.",
-				"config": "gui.session.ceasefirecounter"
-			},
-			{
-				"type": "boolean",
-				"label": "Chat timestamp",
-				"tooltip": "Display the time at which a chat message was posted.",
-				"config": "chat.timestamp"
-			},
-			{
-				"type": "dropdown",
-				"label": "Naming of entities.",
-				"tooltip": "How to show entity names.",
-				"config": "gui.session.howtoshownames",
-				"list": [
-					{
-						"value": 0,
-						"label": "Specific names first",
-						"tooltip": "Display specific names before generic names."
-					},
-					{
-						"value": 1,
-						"label": "Generic names first",
-						"tooltip": "Display generic names before specific names."
-					},
-					{
-						"value": 2,
-						"label": "Only specific names",
-						"tooltip": "Display only specific names for entities."
-					},
-					{
-						"value": 3,
-						"label": "Only generic names",
-						"tooltip": "Display only generic names for entities."
-					}
-				]
 			}
 		]
 	},
@@ -161,7 +104,7 @@
 			{
 				"type": "boolean",
 				"label": "VSync",
-				"tooltip": "Run vertical sync to fix screen tearing. REQUIRES GAME RESTART",
+				"tooltip": "Run vertical sync to fix screen tearing.",
 				"config": "vsync"
 			},
 			{
@@ -208,6 +151,20 @@
 			},
 			{
 				"type": "boolean",
+				"label": "Mouse pan inverted",
+				"tooltip": "Invert middle-click drag pan direction.",
+				"config": "view.drag.inverted"
+			},
+			{
+				"type": "slider",
+				"label": "Mouse pan speed",
+				"tooltip": "Speed mouse pans the map when holding middle-click and dragging.",
+				"config": "view.drag.speed",
+				"min": 0.01,
+				"max": 0.6
+			},
+			{
+				"type": "boolean",
 				"label": "Mouse grab in fullscreen",
 				"tooltip": "Constrain mouse in the fullscreen mode to the window boundaries. It's used to avoid mouse going out of a display in case of multiple displays.",
 				"config": "window.mousegrabinfullscreen"
@@ -222,7 +179,7 @@
 	},
 	{
 		"label": "Graphics (advanced)",
-		"tooltip": "More specific rendering settings.",
+		"tooltip": "Adjust advanced graphic options.",
 		"options":
 		[
 			{
@@ -232,7 +189,6 @@
 				"config": "rendererbackend",
 				"list": [
 					{ "value": "gl", "label": "OpenGL", "tooltip": "Default OpenGL backend with GLSL. REQUIRES GAME RESTART" },
-					{ "value": "glarb", "label": "OpenGL ARB (Deprecated)", "tooltip": "Legacy OpenGL backend with ARB shaders. It's deprecated and it's going to be removed in future versions of the game. REQUIRES GAME RESTART" },
 					{ "value": "vulkan", "label": "Vulkan", "tooltip": "Modern API, requires up-to-date drivers. REQUIRES GAME RESTART" }
 				]
 			},
@@ -240,8 +196,13 @@
 				"type": "boolean",
 				"label": "Fog",
 				"tooltip": "Enable fog.",
-				"dependencies": [{ "config": "rendererbackend", "op": "!=", "value": "glarb" }],
 				"config": "fog"
+			},
+			{
+				"type": "boolean",
+				"label": "GPU skinning",
+				"tooltip": "Use GPU to update geometry for animated models. It reduces a CPU load during rendering especially on a modern hardware.",
+				"config": "gpuskinning"
 			},
 			{
 				"type": "boolean",
@@ -253,7 +214,7 @@
 				"type": "dropdown",
 				"label": "Antialiasing",
 				"tooltip": "Reduce aliasing effect on edges.",
-				"dependencies": ["postproc", { "config": "rendererbackend", "op": "!=", "value": "glarb" }],
+				"dependencies": ["postproc"],
 				"config": "antialiasing",
 				"list": [
 					{ "value": "disabled", "label": "Disabled", "tooltip": "Do not use antialiasing." },
@@ -268,7 +229,7 @@
 				"type": "dropdown",
 				"label": "Sharpening",
 				"tooltip": "Reduce blurry effects.",
-				"dependencies": ["postproc", { "config": "rendererbackend", "op": "!=", "value": "glarb" }],
+				"dependencies": ["postproc"],
 				"config": "sharpening",
 				"list": [
 					{ "value": "disabled", "label": "Disabled", "tooltip": "Do not use sharpening." },
@@ -278,10 +239,9 @@
 			{
 				"type": "slider",
 				"label": "Sharpness factor",
-				"tooltip": "The sharpness of the choosen pass.",
+				"tooltip": "The sharpness of the chosen pass.",
 				"dependencies": [
 					"postproc",
-					{ "config": "rendererbackend", "op": "!=", "value": "glarb" },
 					{ "config": "sharpening", "op": "!=", "value": "disabled" }
 				],
 				"config": "sharpness",
@@ -345,20 +305,20 @@
 				"config": "shadowpcf"
 			},
 			{
-				"type": "slider",
-				"label": "Cutoff distance",
-				"tooltip": "Hides shadows beyond a certain distance from a camera.",
-				"dependencies": ["shadows"],
-				"config": "shadowscutoffdistance",
-				"min": 100,
-				"max": 1500
-			},
-			{
 				"type": "boolean",
 				"label": "Cover whole map",
 				"tooltip": "When ON shadows cover the whole map and shadows cutoff distance is ignored. Useful for making screenshots of a whole map.",
 				"dependencies": ["shadows"],
 				"config": "shadowscovermap"
+			},
+			{
+				"type": "slider",
+				"label": "Cutoff distance",
+				"tooltip": "Hides shadows beyond a certain distance from a camera.",
+				"dependencies": ["shadows", { "config": "shadowscovermap", "value": "false" }],
+				"config": "shadowscutoffdistance",
+				"min": 100,
+				"max": 1500
 			},
 			{
 				"type": "boolean",
@@ -422,6 +382,7 @@
 	},
 	{
 		"label": "Sound",
+		"tooltip": "Make changes to the sound options.",
 		"options":
 		[
 			{
@@ -485,6 +446,7 @@
 	},
 	{
 		"label": "Game Setup",
+		"tooltip": "Change options relevant on the game setup page.",
 		"options":
 		[
 			{
@@ -558,15 +520,9 @@
 	},
 	{
 		"label": "Networking / Lobby",
-		"tooltip": "These settings only affect the multiplayer.",
+		"tooltip": "Change multiplayer options.",
 		"options":
 		[
-			{
-				"type": "boolean",
-				"label": "TLS encryption",
-				"tooltip": "Protect login and data exchanged with the lobby server using TLS encryption.",
-				"config": "lobby.tls"
-			},
 			{
 				"type": "number",
 				"label": "Chat backlog",
@@ -622,8 +578,210 @@
 		]
 	},
 	{
-		"label": "Game Session",
-		"tooltip": "Change options regarding the in-game settings.",
+		"label": "Chat & Notifications",
+		"tooltip": "Configure the in-game chat.",
+		"options": [
+			{
+				"type": "boolean",
+				"label": "Chat timestamp",
+				"tooltip": "Display the time when a chat message was posted.",
+				"config": "chat.timestamp"
+			},
+			{
+				"type": "boolean",
+				"label": "Chat notification attack",
+				"tooltip": "Show a chat notification if you are attacked by another player.",
+				"config": "gui.session.notifications.attack"
+			},
+			{
+				"type": "boolean",
+				"label": "Chat notification tribute",
+				"tooltip": "Show a chat notification if an ally tributes resources to another team member if teams are locked, and all tributes in observer mode.",
+				"config": "gui.session.notifications.tribute"
+			},
+			{
+				"type": "boolean",
+				"label": "Chat notification barter",
+				"tooltip": "Show a chat notification to observers when a player bartered resources.",
+				"config": "gui.session.notifications.barter"
+			},
+			{
+				"type": "dropdown",
+				"label": "Chat notification flare",
+				"tooltip": "Show a chat notification when a player sends a flare.",
+				"config": "gui.session.notifications.flare",
+				"list": [
+					{ "value": "never", "label": "Never", "tooltip": "Disable flare chat notifications."},
+					{ "value": "observer", "label": "Only as observer", "tooltip": "Only show flare chat notifications when you are observer."},
+					{ "value": "always", "label": "Always", "tooltip": "Always show flare chat notifications – as player and as observer."}
+				]
+			},
+			{
+				"type": "dropdown",
+				"label": "Chat notification phase",
+				"tooltip": "Show a chat notification if you or an ally have started, aborted or completed a new phase, and phases of all players in observer mode.",
+				"config": "gui.session.notifications.phase",
+				"list": [
+					{ "value": "none", "label": "Disable" },
+					{ "value": "completed", "label": "Completed" },
+					{ "value": "all", "label": "All displayed" }
+				]
+			}
+		]
+	},
+	{
+		"label": "Display",
+		"tooltip": "Customize the in-game display.",
+		"options":
+		[
+			{
+				"type": "boolean",
+				"label": "Detailed tooltips",
+				"tooltip": "Show detailed tooltips for trainable units in structures.",
+				"config": "showdetailedtooltips"
+			},
+			{
+				"type": "boolean",
+				"label": "Tech arrows",
+				"tooltip": "Show an arrow above specific techs that points to the unit that they affect or unlock.",
+				"config": "gui.session.techarrows"
+			},
+			{
+				"type": "dropdown",
+				"label": "Naming of entities",
+				"tooltip": "How to show entity names.",
+				"config": "gui.session.howtoshownames",
+				"list": [
+					{
+						"value": 0,
+						"label": "Specific names first",
+						"tooltip": "Display specific names before generic names."
+					},
+					{
+						"value": 1,
+						"label": "Generic names first",
+						"tooltip": "Display generic names before specific names."
+					},
+					{
+						"value": 2,
+						"label": "Only specific names",
+						"tooltip": "Display only specific names for entities."
+					},
+					{
+						"value": 3,
+						"label": "Only generic names",
+						"tooltip": "Display only generic names for entities."
+					}
+				]
+			},
+			{
+				"type": "dropdown",
+				"label": "Sort resources and population tooltip",
+				"tooltip": "Dynamically sort players in the resources and population tooltip by value.",
+				"config": "gui.session.respoptooltipsort",
+				"list": [
+					{ "value": 0, "label": "Unordered" },
+					{ "value": -1, "label": "Ascending" },
+					{ "value": 1, "label": "Descending" }
+				]
+			},
+			{
+				"type": "boolean",
+				"label": "FPS overlay",
+				"tooltip": "Show frames per second in top right corner.",
+				"config": "overlay.fps"
+			},
+			{
+				"type": "boolean",
+				"label": "Real time overlay",
+				"tooltip": "Show current system time in top right corner.",
+				"config": "overlay.realtime"
+			},
+			{
+				"type": "boolean",
+				"label": "Game time overlay",
+				"tooltip": "Show current simulation time in top right corner.",
+				"config": "gui.session.timeelapsedcounter"
+			},
+			{
+				"type": "boolean",
+				"label": "Ceasefire time overlay",
+				"tooltip": "Always show the remaining ceasefire time.",
+				"config": "gui.session.ceasefirecounter"
+			},
+			{
+				"type": "slider",
+				"label": "Flare display duration",
+				"tooltip": "How long the flare markers on the minimap are displayed in seconds.",
+				"config": "gui.session.flarelifetime",
+				"min": 0,
+				"max": 60
+			},
+			{
+				"type": "boolean",
+				"label": "Minimap icons",
+				"tooltip": "Show special icons for some entities on the minimap.",
+				"config": "gui.session.minimap.icons.enabled"
+			},
+			{
+				"type": "boolean",
+				"label": "Rank icon above status bar",
+				"tooltip": "Show rank icons above status bars.",
+				"config": "gui.session.rankabovestatusbar"
+			},
+			{
+				"type": "boolean",
+				"label": "Experience status bar",
+				"tooltip": "Show an experience status bar above each selected unit.",
+				"config": "gui.session.experiencestatusbar"
+			},
+			{
+				"type": "boolean",
+				"label": "Attack range visualization",
+				"tooltip": "Display the attack range of selected defensive structures. (It can also be toggled with the hotkey during a game).",
+				"config": "gui.session.attackrange"
+			},
+			{
+				"type": "boolean",
+				"label": "Aura range visualization",
+				"tooltip": "Display the range of auras of selected units and structures. (It can also be toggled with the hotkey during a game).",
+				"config": "gui.session.aurasrange"
+			},
+			{
+				"type": "boolean",
+				"label": "Heal range visualization",
+				"tooltip": "Display the healing range of selected units. (It can also be toggled with the hotkey during a game).",
+				"config": "gui.session.healrange"
+			},
+			{
+				"type": "color",
+				"label": "Diplomacy colors: self",
+				"tooltip": "Color of your units when diplomacy colors are enabled.",
+				"config": "gui.session.diplomacycolors.self"
+			},
+			{
+				"type": "color",
+				"label": "Diplomacy colors: ally",
+				"tooltip": "Color of allies when diplomacy colors are enabled.",
+				"config": "gui.session.diplomacycolors.ally"
+			},
+			{
+				"type": "color",
+				"label": "Diplomacy colors: neutral",
+				"tooltip": "Color of neutral players when diplomacy colors are enabled.",
+				"config": "gui.session.diplomacycolors.neutral"
+			},
+			{
+				"type": "color",
+				"label": "Diplomacy colors: enemy",
+				"tooltip": "Color of enemies when diplomacy colors are enabled.",
+				"config": "gui.session.diplomacycolors.enemy"
+			}
+		]
+	},
+	{
+		"label": "Gameplay",
+		"tooltip": "Change options affecting the gameplay.",
 		"options":
 		[
 			{
@@ -650,120 +808,7 @@
 				"min": 0.1,
 				"max": 30
 			},
-			{
-				"type": "slider",
-				"label": "Flare display duration",
-				"tooltip": "How long the flare markers on the minimap are displayed in seconds.",
-				"config": "gui.session.flarelifetime",
-				"min": 0,
-				"max": 60
-			},
-			{
-				"type": "boolean",
-				"label": "Minimap icons",
-				"tooltip": "Show special icons for some entities on the minimap.",
-				"config": "gui.session.minimap.icons.enabled"
-			},
-			{
-				"type": "boolean",
-				"label": "Chat notification attack",
-				"tooltip": "Show a chat notification if you are attacked by another player.",
-				"config": "gui.session.notifications.attack"
-			},
-			{
-				"type": "boolean",
-				"label": "Chat notification tribute",
-				"tooltip": "Show a chat notification if an ally tributes resources to another team member if teams are locked, and all tributes in observer mode.",
-				"config": "gui.session.notifications.tribute"
-			},
-			{
-				"type": "boolean",
-				"label": "Chat notification barter",
-				"tooltip": "Show a chat notification to observers when a player bartered resources.",
-				"config": "gui.session.notifications.barter"
-			},
-			{
-				"type": "dropdown",
-				"label": "Chat notification phase",
-				"tooltip": "Show a chat notification if you or an ally have started, aborted or completed a new phase, and phases of all players in observer mode.",
-				"config": "gui.session.notifications.phase",
-				"list": [
-					{ "value": "none", "label": "Disable" },
-					{ "value": "completed", "label": "Completed" },
-					{ "value": "all", "label": "All displayed" }
-				]
-			},
-			{
-				"type": "boolean",
-				"label": "Attack range visualization",
-				"tooltip": "Display the attack range of selected defensive structures. (It can also be toggled with the hotkey during a game).",
-				"config": "gui.session.attackrange"
-			},
-			{
-				"type": "boolean",
-				"label": "Aura range visualization",
-				"tooltip": "Display the range of auras of selected units and structures. (It can also be toggled with the hotkey during a game).",
-				"config": "gui.session.aurasrange"
-			},
-			{
-				"type": "boolean",
-				"label": "Heal range visualization",
-				"tooltip": "Display the healing range of selected units. (It can also be toggled with the hotkey during a game).",
-				"config": "gui.session.healrange"
-			},
-			{
-				"type": "boolean",
-				"label": "Rank icon above status bar",
-				"tooltip": "Show rank icons above status bars.",
-				"config": "gui.session.rankabovestatusbar"
-			},
-			{
-				"type": "boolean",
-				"label": "Experience status bar",
-				"tooltip": "Show an experience status bar above each selected unit.",
-				"config": "gui.session.experiencestatusbar"
-			},
-			{
-				"type": "boolean",
-				"label": "Detailed tooltips",
-				"tooltip": "Show detailed tooltips for trainable units in unit-producing structures.",
-				"config": "showdetailedtooltips"
-			},
-			{
-				"type": "dropdown",
-				"label": "Sort resources and population tooltip",
-				"tooltip": "Dynamically sort players in the resources and population tooltip by value.",
-				"config": "gui.session.respoptooltipsort",
-				"list": [
-					{ "value": 0, "label": "Unordered" },
-					{ "value": -1, "label": "Ascending" },
-					{ "value": 1, "label": "Descending" }
-				]
-			},
-			{
-				"type": "color",
-				"label": "Diplomacy colors: self",
-				"tooltip": "Color of your units when diplomacy colors are enabled.",
-				"config": "gui.session.diplomacycolors.self"
-			},
-			{
-				"type": "color",
-				"label": "Diplomacy colors: ally",
-				"tooltip": "Color of allies when diplomacy colors are enabled.",
-				"config": "gui.session.diplomacycolors.ally"
-			},
-			{
-				"type": "color",
-				"label": "Diplomacy colors: neutral",
-				"tooltip": "Color of neutral players when diplomacy colors are enabled.",
-				"config": "gui.session.diplomacycolors.neutral"
-			},
-			{
-				"type": "color",
-				"label": "Diplomacy colors: enemy",
-				"tooltip": "Color of enemies when diplomacy colors are enabled.",
-				"config": "gui.session.diplomacycolors.enemy"
-			},
+
 			{
 				"type": "dropdown",
 				"label": "Snap to edges",

@@ -1,4 +1,4 @@
-/* Copyright (C) 2019 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -29,17 +29,20 @@ symbol lookups and backtraces)
 
 #include "precompiled.h"
 
-#include <cstdio>
-#include <sys/types.h>
-#include <signal.h>
-
-#include "lib/timer.h"
-#include "lib/sysdep/sysdep.h"
 #include "lib/debug.h"
-#include "lib/utf8.h"
+
+#include "lib/posix/posix_types.h"
+#include "lib/status.h"
+#include "lib/sysdep/os.h"
+
+#include <cstdio>
+
+#ifndef NDEBUG
+# include <signal.h>
+#endif
 
 
-Status debug_CaptureContext(void* UNUSED(context))
+Status debug_CaptureContext(void* /*context*/)
 {
 	// (not needed unless/until we support stack traces)
 	return INFO::SKIPPED;
@@ -109,7 +112,7 @@ void debug_puts(const char* text)
 
 #endif
 
-int debug_IsPointerBogus(const void* UNUSED(p))
+int debug_IsPointerBogus(const void*)
 {
 	// TODO: maybe this should do some checks
 	return false;

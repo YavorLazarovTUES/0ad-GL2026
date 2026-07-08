@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,9 +22,11 @@
 #ifndef INCLUDED_CCONSOLE
 #define INCLUDED_CCONSOLE
 
+#include "lib/code_annotation.h"
 #include "lib/file/vfs/vfs_path.h"
-#include "lib/input.h"
+#include "ps/Input.h"
 
+#include <cstddef>
 #include <deque>
 #include <memory>
 #include <mutex>
@@ -52,7 +54,6 @@ public:
 
 	void UpdateScreenSize(int w, int h);
 
-	void ToggleVisible();
 	void SetVisible(bool visible);
 
 	/**
@@ -62,14 +63,10 @@ public:
 
 	void Render(CCanvas2D& canvas);
 
-	void InsertChar(const int szChar, const wchar_t cooked);
-
 	void InsertMessage(const std::string& message);
 
 	void SetBuffer(const wchar_t* szMessage);
 
-	// Only returns a pointer to the buffer; copy out of here if you want to keep it.
-	const wchar_t* GetBuffer();
 	void FlushBuffer();
 
 	bool IsActive() const { return m_Visible; }
@@ -78,9 +75,9 @@ private:
 	// Lock for all state modified by InsertMessage
 	std::mutex m_Mutex;
 
-	int m_FontHeight;
-	int m_FontWidth;
-	int m_FontOffset; // distance to move up before drawing
+	float m_FontHeight;
+	float m_FontWidth;
+	float m_FontOffset; // distance to move up before drawing
 	size_t m_CharsPerPage;
 
 	float m_X;
@@ -103,6 +100,8 @@ private:
 
 	VfsPath m_HistoryFile;
 	int m_MaxHistoryLines;
+	bool m_HistoryIgnoreDuplicates;
+	std::string m_consoleFont;
 
 	bool m_Visible;	// console is to be drawn
 	bool m_Toggle;		// show/hide animation is currently active
@@ -110,6 +109,8 @@ private:
 	bool m_CursorVisState;	// if the cursor should be drawn or not
 	bool m_QuitHotkeyWasShown;	// show console.toggle hotkey values at first time
 	double m_CursorBlinkRate;	// cursor blink rate in seconds, if greater than 0.0
+
+	void InsertChar(const int szChar, const wchar_t cooked);
 
 	void DrawWindow(CCanvas2D& canvas);
 	void DrawHistory(CTextRenderer& textRenderer);
@@ -127,11 +128,15 @@ private:
 
 	void LoadHistory();
 	void SaveHistory();
-	void ShowQuitHotkeys();
+
+	struct InputHandler
+	{
+		CConsole& console;
+		Input::Reaction operator()(const SDL_Event& ev);
+	};
+	Input::Handler<InputHandler> m_InputHandler;
 };
 
 extern CConsole* g_Console;
-
-extern InReaction conInputHandler(const SDL_Event_* ev);
 
 #endif // INCLUDED_CCONSOLE

@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,21 +19,20 @@
 #define INCLUDED_MAPWRITER
 
 #include "MapIO.h"
+#include "lib/file/vfs/vfs_path.h"
 #include "ps/CStr.h"
-#include "ps/FileIo.h"
 
 #include <vector>
 
-
-class CLightEnv;
-class CTerrain;
 class CCamera;
 class CCinemaManager;
+class CFilePacker;
+class CLightEnv;
 class CPostprocManager;
-class WaterManager;
-class SkyManager;
 class CSimulation2;
-struct MapTrigger;
+class CTerrain;
+class SkyManager;
+class WaterManager;
 
 class CMapWriter : public CMapIO
 {
@@ -43,7 +42,7 @@ public:
 	// SaveMap: try to save the current map to the given file
 	void SaveMap(const VfsPath& pathname, CTerrain* pTerr,
 									WaterManager* pWaterMan, SkyManager* pSkyMan,
-									CLightEnv* pLightEnv, CCamera* pCamera,
+									CLightEnv* pLightEnv, const CCamera& camera,
 									CCinemaManager* pCinema, CPostprocManager* pPostproc,
 									CSimulation2* pSimulation2);
 
@@ -60,7 +59,7 @@ private:
 
 	// WriteXML: output some other data (entities, etc) in XML format
 	void WriteXML(const VfsPath& pathname, WaterManager* pWaterMan,
-								SkyManager* pSkyMan, CLightEnv* pLightEnv, CCamera* pCamera,
+								SkyManager* pSkyMan, CLightEnv* pLightEnv, const CCamera& camera,
 								CPostprocManager* pPostproc,
 								CSimulation2* pSimulation2);
 };

@@ -313,73 +313,73 @@
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="53">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="345.266" z="419.335"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="54">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="365.859" z="404.634"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="55">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="367.241" z="433.763"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="56">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="410.021" z="249.515"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="57">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="400.895" z="232.298"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="58">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="431.033" z="227.64"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="59">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="266.977" z="175.744"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="60">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="238.908" z="190.325"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="61">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="243.054" z="170.619"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="62">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="196.224" z="318.458"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="63">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="203.112" z="349.068"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="64">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="184.736" z="344.952"/>
 			<Orientation y="2.35619"/>
@@ -1105,61 +1105,61 @@
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="205">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="174.473" z="358.04"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="206">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="188.125" z="357.711"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="207">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="196.36" z="353.052"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="208">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="197.042" z="362.742"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="209">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="187.257" z="367.98"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="210">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="184.239" z="364.806"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="211">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="163.74" z="368.269"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="212">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="167.426" z="336.987"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="213">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="163.673" z="347.467"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="214">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="158.226" z="353.625"/>
 			<Orientation y="2.35619"/>
@@ -1285,163 +1285,163 @@
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="235">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="272.103" z="239.991"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="236">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="262.97" z="238.089"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="237">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="256.491" z="161.668"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="238">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="238.745" z="162.481"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="239">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="239.857" z="150.296"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="240">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="253.859" z="152.124"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="241">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="216.039" z="159.101"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="242">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="225.399" z="166.434"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="243">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="223.735" z="181.537"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="244">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="271.147" z="186.869"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="245">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="225.758" z="198.362"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="246">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="244.016" z="205.023"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="247">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="217.96" z="171.664"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="248">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="210.635" z="185.345"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="249">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="227.755" z="154.173"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="250">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="250.184" z="143.009"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="251">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="417.782" z="223.648"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="252">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="420.006" z="231.664"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="253">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="412.264" z="236.153"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="254">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="427.06" z="243.032"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="255">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="408.968" z="219.592"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="256">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="421.401" z="207.879"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="257">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="437.063" z="211.882"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="258">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="446.364" z="219.096"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="259">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="447.833" z="224.966"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="260">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="447.777" z="233.337"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="261">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="393.252" z="220.172"/>
 			<Orientation y="2.35619"/>
@@ -1537,55 +1537,55 @@
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="277">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="318.37" z="358.098"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="278">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="328.326" z="355.71"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="279">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="321.714" z="373.535"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="280">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="327.1" z="399.108"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="281">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="333.279" z="412.816"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="282">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="333.236" z="433.245"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="283">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="345.755" z="437.774"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="284">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="354.667" z="430.424"/>
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="285">
-			<Template>gaia/ore/mediterranean_small</Template>
+			<Template>gaia/ore/aegean_anatolian_small_01</Template>
 			<Player>0</Player>
 			<Position x="344.147" z="364.273"/>
 			<Orientation y="2.35619"/>
@@ -3451,7 +3451,7 @@
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="610">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>1</Player>
 			<Position x="297.512" z="398.81"/>
 			<Orientation y="2.35619"/>
@@ -3487,7 +3487,7 @@
 			<Orientation y="2.35619"/>
 		</Entity>
 		<Entity uid="616">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>8</Player>
 			<Position x="393.216" z="355.858"/>
 			<Orientation y="-2.36382"/>
@@ -3505,7 +3505,7 @@
 			<Orientation y="-1.97899"/>
 		</Entity>
 		<Entity uid="619">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>4</Player>
 			<Position x="411.458" z="270.917"/>
 			<Orientation y="-0.89473"/>
@@ -3535,7 +3535,7 @@
 			<Orientation y="-0.910858"/>
 		</Entity>
 		<Entity uid="624">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>6</Player>
 			<Position x="382.481" z="200.374"/>
 			<Orientation y="-0.452652"/>
@@ -3565,13 +3565,13 @@
 			<Orientation y="0.302246"/>
 		</Entity>
 		<Entity uid="629">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>2</Player>
 			<Position x="279.503" z="161.826"/>
 			<Orientation y="0.960876"/>
 		</Entity>
 		<Entity uid="630">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>7</Player>
 			<Position x="184.353" z="199.951"/>
 			<Orientation y="0.542328"/>
@@ -3601,7 +3601,7 @@
 			<Orientation y="1.51294"/>
 		</Entity>
 		<Entity uid="635">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>3</Player>
 			<Position x="157.261" z="309.15"/>
 			<Orientation y="2.33603"/>
@@ -3631,7 +3631,7 @@
 			<Orientation y="2.16942"/>
 		</Entity>
 		<Entity uid="640">
-			<Template>units/athen/support_female_citizen</Template>
+			<Template>units/athen/support_civilian</Template>
 			<Player>5</Player>
 			<Position x="197.72" z="391.494"/>
 			<Orientation y="2.28786"/>

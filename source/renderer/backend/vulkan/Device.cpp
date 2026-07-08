@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,13 +19,15 @@
 
 #include "Device.h"
 
-#include "lib/external_libraries/libsdl.h"
-#include "lib/hash.h"
+#include "lib/alignment.h"
+#include "lib/build_version.h"
+#include "lib/debug.h"
 #include "lib/sysdep/os.h"
-#include "maths/MathUtil.h"
 #include "ps/CLogger.h"
 #include "ps/ConfigDB.h"
 #include "ps/Profile.h"
+#include "ps/containers/StaticVector.h"
+#include "renderer/backend/Format.h"
 #include "renderer/backend/vulkan/Buffer.h"
 #include "renderer/backend/vulkan/DescriptorManager.h"
 #include "renderer/backend/vulkan/DeviceCommandContext.h"
@@ -41,18 +43,21 @@
 #include "renderer/backend/vulkan/SwapChain.h"
 #include "renderer/backend/vulkan/Texture.h"
 #include "renderer/backend/vulkan/Utilities.h"
-#include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 
+#include <SDL_version.h>
+#include <SDL_video.h>
 #include <algorithm>
+#include <array>
 #include <iterator>
+#include <js/RootingAPI.h>
+#include <js/Value.h>
 #include <limits>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <vector>
+#include <vk_platform.h>
 
 // According to https://wiki.libsdl.org/SDL_Vulkan_LoadLibrary the following
 // functionality is supported since SDL 2.0.6.
@@ -71,6 +76,8 @@ namespace Vulkan
 
 namespace
 {
+
+constexpr size_t QUERY_POOL_SIZE{NUMBER_OF_FRAMES_IN_FLIGHT * 1024};
 
 std::vector<const char*> GetRequiredSDLExtensions(SDL_Window* window)
 {
@@ -129,7 +136,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 	VkDebugUtilsMessageTypeFlagsEXT messageType,
 	const VkDebugUtilsMessengerCallbackDataEXT* callbackData,
-	void* UNUSED(userData))
+	void* /*userData*/)
 {
 	if ((messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) || (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT))
 		LOGMESSAGE("Vulkan: %s", callbackData->pMessage);
@@ -200,12 +207,9 @@ std::unique_ptr<CDevice> CDevice::Create(SDL_Window* window)
 	device->m_Window = window;
 
 #ifdef NDEBUG
-	bool enableDebugMessages = false;
-	CFG_GET_VAL("renderer.backend.debugmessages", enableDebugMessages);
-	bool enableDebugLabels = false;
-	CFG_GET_VAL("renderer.backend.debuglabels", enableDebugLabels);
-	bool enableDebugScopedLabels = false;
-	CFG_GET_VAL("renderer.backend.debugscopedlabels", enableDebugScopedLabels);
+	bool enableDebugMessages{g_ConfigDB.Get("renderer.backend.debugmessages", false)};
+	bool enableDebugLabels{g_ConfigDB.Get("renderer.backend.debuglabels", false)};
+	bool enableDebugScopedLabels{g_ConfigDB.Get("renderer.backend.debugscopedlabels", false)};
 #else
 	bool enableDebugMessages = true;
 	bool enableDebugLabels = true;
@@ -222,7 +226,7 @@ std::unique_ptr<CDevice> CDevice::Create(SDL_Window* window)
 	VkApplicationInfo applicationInfo{};
 	applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	applicationInfo.pApplicationName = "0 A.D.";
-	applicationInfo.applicationVersion = VK_MAKE_VERSION(0, 0, 27);
+	applicationInfo.applicationVersion = VK_MAKE_VERSION(PS_VERSION_MAJOR, PS_VERSION_MINOR, PS_VERSION_PATCH);
 	applicationInfo.pEngineName = "Pyrogenesis";
 	applicationInfo.engineVersion = applicationInfo.applicationVersion;
 	applicationInfo.apiVersion = VK_API_VERSION_1_1;
@@ -241,8 +245,7 @@ std::unique_ptr<CDevice> CDevice::Create(SDL_Window* window)
 	};
 
 #ifdef NDEBUG
-	bool enableDebugContext = false;
-	CFG_GET_VAL("renderer.backend.debugcontext", enableDebugContext);
+	bool enableDebugContext{g_ConfigDB.Get("renderer.backend.debugcontext", false)};
 #else
 	bool enableDebugContext = true;
 #endif
@@ -389,28 +392,36 @@ std::unique_ptr<CDevice> CDevice::Create(SDL_Window* window)
 		return nullptr;
 	}
 
-	int deviceIndexOverride = -1;
-	CFG_GET_VAL("renderer.backend.vulkan.deviceindexoverride", deviceIndexOverride);
-	auto choosedDeviceIt = device->m_AvailablePhysicalDevices.end();
+	const int deviceIndexOverride{g_ConfigDB.Get("renderer.backend.vulkan.deviceindexoverride", -1)};
+	auto chosenDeviceIt = device->m_AvailablePhysicalDevices.end();
 	if (deviceIndexOverride >= 0)
 	{
-		choosedDeviceIt = std::find_if(
+		chosenDeviceIt = std::find_if(
 			device->m_AvailablePhysicalDevices.begin(), device->m_AvailablePhysicalDevices.end(),
 			[deviceIndexOverride](const SAvailablePhysicalDevice& availableDevice)
 			{
 				return availableDevice.index == static_cast<uint32_t>(deviceIndexOverride);
 			});
-		if (choosedDeviceIt == device->m_AvailablePhysicalDevices.end())
+		if (chosenDeviceIt == device->m_AvailablePhysicalDevices.end())
 			LOGWARNING("Device with override index %d not found.", deviceIndexOverride);
 	}
-	if (choosedDeviceIt == device->m_AvailablePhysicalDevices.end())
+	if (chosenDeviceIt == device->m_AvailablePhysicalDevices.end())
 	{
-		// We need to choose the best available device fits our needs.
-		choosedDeviceIt = min_element(
-			availablePhyscialDevices.begin(), availablePhyscialDevices.end(),
-			ComparePhysicalDevices);
+		const bool chooseBestDevice{g_ConfigDB.Get("renderer.backend.vulkan.choosebestdevice", false)};
+		if (chooseBestDevice)
+		{
+			// We need to choose the best available device fits our needs.
+			chosenDeviceIt = min_element(
+				availablePhyscialDevices.begin(), availablePhyscialDevices.end(),
+				ComparePhysicalDevices);
+		}
+		else
+		{
+			// By default we assume that the Vulkan driver provides a decent default.
+			chosenDeviceIt = availablePhyscialDevices.begin();
+		}
 	}
-	device->m_ChoosenDevice = *choosedDeviceIt;
+	device->m_ChoosenDevice = *chosenDeviceIt;
 	const SAvailablePhysicalDevice& choosenDevice = device->m_ChoosenDevice;
 	device->m_AvailablePhysicalDevices.erase(std::remove_if(
 		device->m_AvailablePhysicalDevices.begin(), device->m_AvailablePhysicalDevices.end(),
@@ -577,9 +588,8 @@ std::unique_ptr<CDevice> CDevice::Create(SDL_Window* window)
 	capabilities.debugLabels = enableDebugLabels;
 	capabilities.debugScopedLabels = enableDebugScopedLabels;
 	capabilities.S3TC = choosenDevice.features.textureCompressionBC;
-	capabilities.ARBShaders = false;
-	capabilities.ARBShadersShadow = false;
 	capabilities.computeShaders = true;
+	capabilities.storage = choosenDevice.properties.limits.maxStorageBufferRange >= GiB;
 	capabilities.instancing = true;
 	capabilities.maxSampleCount = 1;
 	const VkSampleCountFlags sampleCountFlags =
@@ -602,21 +612,28 @@ std::unique_ptr<CDevice> CDevice::Create(SDL_Window* window)
 	capabilities.maxAnisotropy = choosenDevice.properties.limits.maxSamplerAnisotropy;
 	capabilities.maxTextureSize =
 		choosenDevice.properties.limits.maxImageDimension2D;
+	capabilities.timestamps =
+		choosenDevice.properties.limits.timestampComputeAndGraphics
+		&& choosenDevice.properties.limits.timestampPeriod > 0;
+	if (capabilities.timestamps)
+	{
+		capabilities.timestampMultiplier =
+			device->m_ChoosenDevice.properties.limits.timestampPeriod / 1e9;
+	}
 
 	device->m_RenderPassManager =
 		std::make_unique<CRenderPassManager>(device.get());
 	device->m_SamplerManager = std::make_unique<CSamplerManager>(device.get());
-	device->m_SubmitScheduler =
-		std::make_unique<CSubmitScheduler>(
-			device.get(), device->m_GraphicsQueueFamilyIndex, device->m_GraphicsQueue);
 
-	bool disableDescriptorIndexing = false;
-	CFG_GET_VAL("renderer.backend.vulkan.disabledescriptorindexing", disableDescriptorIndexing);
-	const bool useDescriptorIndexing = hasNeededDescriptorIndexingFeatures && !disableDescriptorIndexing;
+	device->m_SubmitScheduler = CSubmitScheduler::Create(
+		device.get(), device->m_GraphicsQueue);
+	if (!device->m_SubmitScheduler)
+		return nullptr;
+
+	const bool useDescriptorIndexing{hasNeededDescriptorIndexingFeatures &&
+		!g_ConfigDB.Get("renderer.backend.vulkan.disabledescriptorindexing", false)};
 	device->m_DescriptorManager =
 		std::make_unique<CDescriptorManager>(device.get(), useDescriptorIndexing);
-
-	device->RecreateSwapChain();
 
 	device->m_Name = choosenDevice.properties.deviceName;
 	device->m_Version =
@@ -634,6 +651,19 @@ std::unique_ptr<CDevice> CDevice::Create(SDL_Window* window)
 
 	device->m_Extensions = choosenDevice.extensions;
 
+	if (device->m_Capabilities.timestamps)
+	{
+		VkQueryPoolCreateInfo queryPoolInfo{};
+		queryPoolInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+		queryPoolInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
+		queryPoolInfo.queryCount = QUERY_POOL_SIZE;
+
+		ENSURE_VK_SUCCESS(vkCreateQueryPool(
+			device->GetVkDevice(), &queryPoolInfo, nullptr, &device->m_QueryPool));
+
+		device->m_Queries.resize(QUERY_POOL_SIZE);
+	}
+
 	return device;
 }
 
@@ -641,22 +671,19 @@ CDevice::CDevice() = default;
 
 CDevice::~CDevice()
 {
-	if (m_Device)
-		vkDeviceWaitIdle(m_Device);
-
 	// The order of destroying does matter to avoid use-after-free and validation
 	// layers complaints.
 
-	m_BackbufferReadbackTexture.reset();
-
 	m_SubmitScheduler.reset();
 
-	ProcessTextureToDestroyQueue(true);
+	if (m_QueryPool)
+		vkDestroyQueryPool(GetVkDevice(), m_QueryPool, nullptr);
+
+	ProcessDeviceObjectToDestroyQueue(true);
 
 	m_RenderPassManager.reset();
 	m_SamplerManager.reset();
 	m_DescriptorManager.reset();
-	m_SwapChain.reset();
 
 	ProcessObjectToDestroyQueue(true);
 
@@ -676,7 +703,7 @@ CDevice::~CDevice()
 		vkDestroyInstance(m_Instance, nullptr);
 }
 
-void CDevice::Report(const ScriptRequest& rq, JS::HandleValue settings)
+void CDevice::Report(const Script::Request& rq, JS::HandleValue settings)
 {
 	Script::SetProperty(rq, settings, "name", "vulkan");
 
@@ -687,19 +714,49 @@ void CDevice::Report(const ScriptRequest& rq, JS::HandleValue settings)
 	ReportAvailablePhysicalDevice(m_ChoosenDevice, rq, device);
 	Script::SetProperty(rq, settings, "choosen_device", device);
 
-	JS::RootedValue availableDevices(rq.cx);
-	Script::CreateArray(rq, &availableDevices, m_AvailablePhysicalDevices.size());
-	for (size_t index = 0; index < m_AvailablePhysicalDevices.size(); ++index)
+	JS::RootedValueVector availableDevices{rq.cx};
+	if (!availableDevices.reserve(m_AvailablePhysicalDevices.size()))
+		throw std::runtime_error{"Reserve failed"};
+	for (const SAvailablePhysicalDevice& d : m_AvailablePhysicalDevices)
 	{
 		JS::RootedValue device(rq.cx);
 		Script::CreateObject(rq, &device);
-		ReportAvailablePhysicalDevice(m_AvailablePhysicalDevices[index], rq, device);
-		Script::SetPropertyInt(rq, availableDevices, index, device);
+		ReportAvailablePhysicalDevice(d, rq, device);
+		if (!availableDevices.append(device))
+			throw std::runtime_error{"Append failed"};
 	}
-	Script::SetProperty(rq, settings, "available_devices", availableDevices);
+	Script::SetProperty(rq, settings, "available_devices",
+		JS::RootedValue{rq.cx, JS::ObjectValue(*JS::NewArrayObject(rq.cx, availableDevices))});
 
 	Script::SetProperty(rq, settings, "instance_extensions", m_InstanceExtensions);
 	Script::SetProperty(rq, settings, "validation_layers", m_ValidationLayers);
+}
+
+std::unique_ptr<ISwapChain> CDevice::CreateSwapChain(
+	const char* name, SDL_Window* window,
+	int surfaceDrawableWidth, int surfaceDrawableHeight,
+	const bool vsync, std::unique_ptr<ISwapChain> oldSwapChain)
+{
+	ENSURE(window == m_Window);
+	ENSURE(m_Window);
+	if (window)
+		SDL_Vulkan_GetDrawableSize(window, &surfaceDrawableWidth, &surfaceDrawableHeight);
+	return CSwapChain::Create(
+		this, m_SubmitScheduler.get(),
+		m_GraphicsQueueFamilyIndex, m_GraphicsQueue,
+		name, m_Surface,
+		surfaceDrawableWidth, surfaceDrawableHeight,
+		vsync, std::move(oldSwapChain));
+}
+
+void CDevice::WaitUntilIdle()
+{
+	vkDeviceWaitIdle(m_Device);
+
+	// Since we know there is no GPU work in progress we can free resources
+	// queued for deletion.
+	ProcessDeviceObjectToDestroyQueue(true);
+	ProcessObjectToDestroyQueue(true);
 }
 
 std::unique_ptr<IGraphicsPipelineState> CDevice::CreateGraphicsPipelineState(
@@ -715,7 +772,7 @@ std::unique_ptr<IComputePipelineState> CDevice::CreateComputePipelineState(
 }
 
 std::unique_ptr<IVertexInputLayout> CDevice::CreateVertexInputLayout(
-	const PS::span<const SVertexAttributeFormat> attributes)
+	const std::span<const SVertexAttributeFormat> attributes)
 {
 	return std::make_unique<CVertexInputLayout>(this, attributes);
 }
@@ -771,55 +828,12 @@ std::unique_ptr<IDeviceCommandContext> CDevice::CreateCommandContext()
 	return CDeviceCommandContext::Create(this);
 }
 
-bool CDevice::AcquireNextBackbuffer()
+void CDevice::OnPresent()
 {
-	if (!IsSwapChainValid())
-	{
-		vkDeviceWaitIdle(m_Device);
-
-		RecreateSwapChain();
-		if (!IsSwapChainValid())
-			return false;
-	}
-
-	PROFILE3("AcquireNextBackbuffer");
-	return m_SubmitScheduler->AcquireNextImage(*m_SwapChain);
-}
-
-IFramebuffer* CDevice::GetCurrentBackbuffer(
-	const AttachmentLoadOp colorAttachmentLoadOp,
-	const AttachmentStoreOp colorAttachmentStoreOp,
-	const AttachmentLoadOp depthStencilAttachmentLoadOp,
-	const AttachmentStoreOp depthStencilAttachmentStoreOp)
-{
-	return IsSwapChainValid() ? m_SwapChain->GetCurrentBackbuffer(
-		colorAttachmentLoadOp, colorAttachmentStoreOp,
-		depthStencilAttachmentLoadOp, depthStencilAttachmentStoreOp) : nullptr;
-}
-
-void CDevice::Present()
-{
-	if (!IsSwapChainValid())
-		return;
-
-	PROFILE3("Present");
-
-	m_SubmitScheduler->Present(*m_SwapChain);
-
 	ProcessObjectToDestroyQueue();
-	ProcessTextureToDestroyQueue();
+	ProcessDeviceObjectToDestroyQueue();
 
 	++m_FrameID;
-}
-
-void CDevice::OnWindowResize(const uint32_t width, const uint32_t height)
-{
-	if (!IsSwapChainValid() ||
-	    width != m_SwapChain->GetDepthTexture()->GetWidth() ||
-	    height != m_SwapChain->GetDepthTexture()->GetHeight())
-	{
-		RecreateSwapChain();
-	}
 }
 
 bool CDevice::IsTextureFormatSupported(const Format format) const
@@ -832,11 +846,14 @@ bool CDevice::IsTextureFormatSupported(const Format format) const
 	case Format::R8G8B8_UNORM:
 		return false;
 
-	case Format::BC1_RGB_UNORM: FALLTHROUGH;
-	case Format::BC1_RGBA_UNORM: FALLTHROUGH;
-	case Format::BC2_UNORM: FALLTHROUGH;
+	case Format::BC1_RGB_UNORM:
+	case Format::BC1_RGBA_UNORM:
+	case Format::BC2_UNORM:
 	case Format::BC3_UNORM:
-		return m_Capabilities.S3TC;
+		if (m_Capabilities.S3TC)
+			return true;
+		else
+			break;
 
 	default:
 		break;
@@ -892,6 +909,76 @@ Format CDevice::GetPreferredDepthStencilFormat(
 	return format;
 }
 
+uint32_t CDevice::AllocateQuery()
+{
+	ENSURE(m_Capabilities.timestamps);
+	auto it = std::find_if(
+		m_Queries.begin(), m_Queries.end(), [](const CDevice::Query& query)
+		{
+			return !query.occupied;
+		});
+	ENSURE(it != m_Queries.end());
+	it->occupied = true;
+	return std::distance(m_Queries.begin(), it);
+}
+
+void CDevice::FreeQuery(const uint32_t handle)
+{
+	ENSURE(handle < m_Queries.size());
+	ENSURE(m_Queries[handle].occupied);
+	m_Queries[handle].occupied = false;
+}
+
+bool CDevice::IsQueryResultAvailable(const uint32_t handle) const
+{
+	ENSURE(handle < m_Queries.size());
+	const Query& query{m_Queries[handle]};
+	ENSURE(query.occupied);
+	ENSURE(query.submitted);
+	if (query.lastUsageFrameID + NUMBER_OF_FRAMES_IN_FLIGHT > m_FrameID)
+		return false;
+	uint64_t data{};
+	return vkGetQueryPoolResults(
+		GetVkDevice(), m_QueryPool, handle, 1, sizeof(data), &data, 0, VK_QUERY_RESULT_64_BIT) != VK_NOT_READY;
+}
+
+uint64_t CDevice::GetQueryResult(const uint32_t handle)
+{
+	ENSURE(handle < m_Queries.size());
+	Query& query{m_Queries[handle]};
+	ENSURE(query.occupied);
+	ENSURE(query.submitted);
+	uint64_t data{};
+	ENSURE_VK_SUCCESS(vkGetQueryPoolResults(
+		GetVkDevice(), m_QueryPool, handle, 1, sizeof(data), &data, 0, VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT));
+	query.submitted = false;
+	return data;
+}
+
+void CDevice::CollectStatistics(StatisticsVector& statistics) const
+{
+	VmaBudget heapBudgets[VK_MAX_MEMORY_HEAPS];
+	vmaGetHeapBudgets(m_VMAAllocator, heapBudgets);
+
+	VmaStatistics totalStatistics{};
+	for (uint32_t index{0}; index < m_ChoosenDevice.memoryProperties.memoryHeapCount; ++index)
+	{
+		totalStatistics.blockCount += heapBudgets[index].statistics.blockCount;
+		totalStatistics.allocationCount += heapBudgets[index].statistics.allocationCount;
+		totalStatistics.blockBytes += heapBudgets[index].statistics.blockBytes;
+		totalStatistics.allocationBytes += heapBudgets[index].statistics.allocationBytes;
+	}
+
+	statistics.emplace_back("VMA total blockCount", "", totalStatistics.blockCount);
+	statistics.emplace_back("VMA total allocationCount", "", totalStatistics.allocationCount);
+	statistics.emplace_back("VMA total blockBytes", "MiB", static_cast<uint32_t>(totalStatistics.blockBytes / MiB));
+	statistics.emplace_back("VMA total allocationBytes", "MiB", static_cast<uint32_t>(totalStatistics.allocationBytes / MiB));
+
+	m_DescriptorManager->CollectStatistics(statistics);
+	m_SamplerManager->CollectStatistics(statistics);
+	m_RenderPassManager->CollectStatistics(statistics);
+}
+
 bool CDevice::IsFormatSupportedForUsage(const Format format, const uint32_t usage) const
 {
 	VkFormatProperties formatProperties{};
@@ -911,6 +998,17 @@ bool CDevice::IsFormatSupportedForUsage(const Format format, const uint32_t usag
 	return (formatProperties.optimalTilingFeatures & expectedFeatures) == expectedFeatures;
 }
 
+void CDevice::InsertTimestampQuery(VkCommandBuffer commandBuffer, const uint32_t handle, const bool isScopeBegin)
+{
+	ENSURE(handle < m_Queries.size());
+	vkCmdResetQueryPool(
+		commandBuffer, m_QueryPool, handle, 1);
+	vkCmdWriteTimestamp(
+		commandBuffer, isScopeBegin ? VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT : VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_QueryPool, handle);
+	m_Queries[handle].lastUsageFrameID = m_FrameID;
+	m_Queries[handle].submitted = true;
+}
+
 void CDevice::ScheduleObjectToDestroy(
 	VkObjectType type, const uint64_t handle, const VmaAllocation allocation)
 {
@@ -920,6 +1018,11 @@ void CDevice::ScheduleObjectToDestroy(
 void CDevice::ScheduleTextureToDestroy(const DeviceObjectUID uid)
 {
 	m_TextureToDestroyQueue.push({m_FrameID, uid});
+}
+
+void CDevice::ScheduleBufferToDestroy(const DeviceObjectUID uid)
+{
+	m_BufferToDestroyQueue.push({m_FrameID, uid});
 }
 
 void CDevice::SetObjectName(VkObjectType type, const uint64_t handle, const char* name)
@@ -936,22 +1039,8 @@ void CDevice::SetObjectName(VkObjectType type, const uint64_t handle, const char
 
 std::unique_ptr<CRingCommandContext> CDevice::CreateRingCommandContext(const size_t size)
 {
-	return std::make_unique<CRingCommandContext>(
+	return CRingCommandContext::Create(
 		this, size, m_GraphicsQueueFamilyIndex, *m_SubmitScheduler);
-}
-
-void CDevice::RecreateSwapChain()
-{
-	m_BackbufferReadbackTexture.reset();
-	int surfaceDrawableWidth = 0, surfaceDrawableHeight = 0;
-	SDL_Vulkan_GetDrawableSize(m_Window, &surfaceDrawableWidth, &surfaceDrawableHeight);
-	m_SwapChain = CSwapChain::Create(
-		this, m_Surface, surfaceDrawableWidth, surfaceDrawableHeight, std::move(m_SwapChain));
-}
-
-bool CDevice::IsSwapChainValid()
-{
-	return m_SwapChain && m_SwapChain->IsValid();
 }
 
 void CDevice::ProcessObjectToDestroyQueue(const bool ignoreFrameID)
@@ -997,6 +1086,9 @@ void CDevice::ProcessObjectToDestroyQueue(const bool ignoreFrameID)
 		case VK_OBJECT_TYPE_PIPELINE:
 			vkDestroyPipeline(m_Device, static_cast<VkPipeline>(handle), nullptr);
 			break;
+		case VK_OBJECT_TYPE_DESCRIPTOR_POOL:
+			vkDestroyDescriptorPool(m_Device, static_cast<VkDescriptorPool>(handle), nullptr);
+			break;
 		default:
 			debug_warn("Unsupported object to destroy type.");
 		}
@@ -1004,7 +1096,7 @@ void CDevice::ProcessObjectToDestroyQueue(const bool ignoreFrameID)
 	}
 }
 
-void CDevice::ProcessTextureToDestroyQueue(const bool ignoreFrameID)
+void CDevice::ProcessDeviceObjectToDestroyQueue(const bool ignoreFrameID)
 {
 	while (!m_TextureToDestroyQueue.empty() &&
 		(ignoreFrameID || m_TextureToDestroyQueue.front().first + NUMBER_OF_FRAMES_IN_FLIGHT < m_FrameID))
@@ -1012,27 +1104,13 @@ void CDevice::ProcessTextureToDestroyQueue(const bool ignoreFrameID)
 		GetDescriptorManager().OnTextureDestroy(m_TextureToDestroyQueue.front().second);
 		m_TextureToDestroyQueue.pop();
 	}
-}
 
-CTexture* CDevice::GetCurrentBackbufferTexture()
-{
-	return IsSwapChainValid() ? m_SwapChain->GetCurrentBackbufferTexture() : nullptr;
-}
-
-CTexture* CDevice::GetOrCreateBackbufferReadbackTexture()
-{
-	if (!IsSwapChainValid())
-		return nullptr;
-	if (!m_BackbufferReadbackTexture)
+	while (!m_BufferToDestroyQueue.empty() &&
+		(ignoreFrameID || m_BufferToDestroyQueue.front().first + NUMBER_OF_FRAMES_IN_FLIGHT < m_FrameID))
 	{
-		CTexture* currentBackbufferTexture = m_SwapChain->GetCurrentBackbufferTexture();
-		m_BackbufferReadbackTexture = CTexture::CreateReadback(
-			this, "BackbufferReadback",
-			currentBackbufferTexture->GetFormat(),
-			currentBackbufferTexture->GetWidth(),
-			currentBackbufferTexture->GetHeight());
+		GetDescriptorManager().OnBufferDestroy(m_BufferToDestroyQueue.front().second);
+		m_BufferToDestroyQueue.pop();
 	}
-	return m_BackbufferReadbackTexture.get();
 }
 
 DeviceObjectUID CDevice::GenerateNextDeviceObjectUID()

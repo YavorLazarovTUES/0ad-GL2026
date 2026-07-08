@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,38 +19,42 @@
 
 #include "Replay.h"
 
-#include "graphics/TerrainTextureManager.h"
-#include "lib/timer.h"
+#include "lib/code_generation.h"
+#include "lib/debug.h"
 #include "lib/file/file_system.h"
-#include "lib/tex/tex.h"
+#include "lib/path.h"
+#include "lib/timer.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
+#include "ps/Errors.h"
 #include "ps/Game.h"
-#include "ps/GameSetup/GameSetup.h"
 #include "ps/GameSetup/CmdLineArgs.h"
+#include "ps/GameSetup/GameSetup.h"
 #include "ps/GameSetup/Paths.h"
 #include "ps/Loader.h"
 #include "ps/Mod.h"
 #include "ps/Profile.h"
 #include "ps/ProfileViewer.h"
+#include "ps/Profiler2.h"
 #include "ps/Pyrogenesis.h"
-#include "ps/Mod.h"
 #include "ps/Util.h"
 #include "ps/VisualReplay.h"
-#include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
-#include "scriptinterface/ScriptStats.h"
 #include "scriptinterface/JSON.h"
+#include "scriptinterface/Object.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
+#include "scriptinterface/Stats.h"
+#include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpGuiInterface.h"
 #include "simulation2/helpers/Player.h"
 #include "simulation2/helpers/SimulationCommand.h"
-#include "simulation2/Simulation2.h"
-#include "simulation2/system/CmpPtr.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
 
 #include <ctime>
 #include <fstream>
+#include <memory>
 
 /**
  * Number of turns between two saved profiler snapshots.
@@ -58,7 +62,7 @@
  */
 static const int PROFILE_TURN_INTERVAL = 20;
 
-CReplayLogger::CReplayLogger(const ScriptInterface& scriptInterface) :
+CReplayLogger::CReplayLogger(const Script::Interface& scriptInterface) :
 	m_ScriptInterface(scriptInterface), m_Stream(NULL)
 {
 }
@@ -70,13 +74,13 @@ CReplayLogger::~CReplayLogger()
 
 void CReplayLogger::StartGame(JS::MutableHandleValue attribs)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 
 	// Add timestamp, since the file-modification-date can change
 	Script::SetProperty(rq, attribs, "timestamp", (double)std::time(nullptr));
 
 	// Add engine version and currently loaded mods for sanity checks when replaying
-	Script::SetProperty(rq, attribs, "engine_version", engine_version);
+	Script::SetProperty(rq, attribs, "engine_serialization_version", PS_SERIALIZATION_VERSION);
 	JS::RootedValue mods(rq.cx);
 	Script::ToJSVal(rq, &mods, g_Mods.GetEnabledModsData());
 	Script::SetProperty(rq, attribs, "mods", mods);
@@ -84,13 +88,13 @@ void CReplayLogger::StartGame(JS::MutableHandleValue attribs)
 	m_Directory = createDateIndexSubdirectory(VisualReplay::GetDirectoryPath());
 	debug_printf("FILES| Replay written to '%s'\n", m_Directory.string8().c_str());
 
-	m_Stream = new std::ofstream(OsString(m_Directory / L"commands.txt").c_str(), std::ofstream::out | std::ofstream::trunc);
+	m_Stream = new std::ofstream(OsString(m_Directory / L"commands.txt"), std::ofstream::out | std::ofstream::trunc);
 	*m_Stream << "start " << Script::StringifyJSON(rq, attribs, false) << "\n";
 }
 
 void CReplayLogger::Turn(u32 n, u32 turnLength, std::vector<SimulationCommand>& commands)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 
 	*m_Stream << "turn " << n << " " << turnLength << "\n";
 
@@ -118,8 +122,8 @@ void CReplayLogger::SaveMetadata(const CSimulation2& simulation)
 		return;
 	}
 
-	ScriptInterface& scriptInterface = simulation.GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	Script::Interface& scriptInterface = simulation.GetScriptInterface();
+	Script::Request rq(scriptInterface);
 
 	JS::RootedValue arg(rq.cx);
 	JS::RootedValue metadata(rq.cx);
@@ -128,7 +132,7 @@ void CReplayLogger::SaveMetadata(const CSimulation2& simulation)
 	const OsPath fileName = g_Game->GetReplayLogger().GetDirectory() / L"metadata.json";
 	CreateDirectories(fileName.Parent(), 0700);
 
-	std::ofstream stream (OsString(fileName).c_str(), std::ofstream::out | std::ofstream::trunc);
+	std::ofstream stream (OsString(fileName), std::ofstream::out | std::ofstream::trunc);
 	if (stream)
 	{
 		stream << Script::StringifyJSON(rq, &metadata, false);
@@ -161,7 +165,7 @@ void CReplayPlayer::Load(const OsPath& path)
 {
 	ENSURE(!m_Stream);
 
-	m_Stream = new std::ifstream(OsString(path).c_str());
+	m_Stream = new std::ifstream(OsString(path));
 	ENSURE(m_Stream->good());
 }
 
@@ -187,18 +191,19 @@ void CheckReplayMods(const std::vector<Mod::ModData>& replayMods)
 }
 } // anonymous namespace
 
-void CReplayPlayer::Replay(const bool serializationtest, const int rejointestturn, const bool ooslog, const bool testHashFull, const bool testHashQuick)
+void CReplayPlayer::Replay(const int serializationtestturn, const int rejointestturn, const bool ooslog,
+	const bool testHashFull, const bool testHashQuick)
 {
 	ENSURE(m_Stream);
 
 	new CProfileViewer;
 	new CProfileManager;
-	g_ScriptStatsTable = new CScriptStatsTable;
+	g_ScriptStatsTable = new Script::CScriptStatsTable;
 	g_ProfileViewer.AddRootTable(g_ScriptStatsTable);
 
 	const int contextSize = 384 * 1024 * 1024;
-	const int heapGrowthBytesGCTrigger = 20 * 1024 * 1024;
-	g_ScriptContext = ScriptContext::CreateContext(contextSize, heapGrowthBytesGCTrigger);
+	const int heapGrowthBytesGCTrigger = 12 * 1024 * 1024;
+	g_ScriptContext = std::make_shared<Script::Context>(contextSize, heapGrowthBytesGCTrigger);
 
 	std::vector<SimulationCommand> commands;
 	u32 turn = 0;
@@ -213,8 +218,8 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 		{
 			std::string attribsStr;
 			{
-				ScriptInterface scriptInterface("Engine", "Replay", g_ScriptContext);
-				ScriptRequest rq(scriptInterface);
+				Script::Interface scriptInterface("Engine", "Replay", g_ScriptContext);
+				Script::Request rq(scriptInterface);
 				std::getline(*m_Stream, attribsStr);
 				JS::RootedValue attribs(rq.cx);
 				if (!Script::ParseJSON(rq, attribsStr, &attribs))
@@ -245,21 +250,29 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 				MountMods(Paths(g_CmdLineArgs), g_Mods.GetEnabledMods());
 			}
 
-			g_Game = new CGame(false);
-			if (serializationtest)
-				g_Game->GetSimulation2()->EnableSerializationTest();
-			if (rejointestturn >= 0)
-				g_Game->GetSimulation2()->EnableRejoinTest(rejointestturn);
-			if (ooslog)
-				g_Game->GetSimulation2()->EnableOOSLog();
+			if (serializationtestturn >= 0 && rejointestturn >= 0)
+				LOGERROR("serializationtest and rejointest can't be activ at the same time.");
 
-			ScriptRequest rq(g_Game->GetSimulation2()->GetScriptInterface());
+			SimulationDebugOptions debugOption{};
+			if (serializationtestturn >= 0)
+			{
+				debugOption.test =
+					SimulationDebugOptions::SerializationTest{serializationtestturn};
+			}
+			if (rejointestturn >= 0)
+				debugOption.test = SimulationDebugOptions::RejoinTest{rejointestturn};
+			if (ooslog)
+				debugOption.oosLog = true;
+
+			g_Game = new CGame(false, debugOption);
+
+			Script::Request rq(g_Game->GetSimulation2()->GetScriptInterface());
 			JS::RootedValue attribs(rq.cx);
 			ENSURE(Script::ParseJSON(rq, attribsStr, &attribs));
 			g_Game->StartGame(&attribs, "");
 
 			// TODO: Non progressive load can fail - need a decent way to handle this
-			LDR_NonprogressiveLoad();
+			PS::Loader::NonprogressiveLoad();
 
 			PSRETURN ret = g_Game->ReallyStartGame();
 			ENSURE(ret == PSRETURN_OK);
@@ -276,10 +289,10 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 
 			std::string line;
 			std::getline(*m_Stream, line);
-			ScriptRequest rq(g_Game->GetSimulation2()->GetScriptInterface());
+			Script::Request rq(g_Game->GetSimulation2()->GetScriptInterface());
 			JS::RootedValue data(rq.cx);
 			Script::ParseJSON(rq, line, &data);
-			Script::FreezeObject(rq, data, true);
+			Script::DeepFreezeObject(rq, data);
 			commands.emplace_back(SimulationCommand(player, rq.cx, data));
 		}
 		else if (type == "hash" || type == "hash-quick")
@@ -306,7 +319,7 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 				g_ProfileViewer.SaveToFile();
 		}
 		else
-			debug_printf("Unrecognised replay token %s\n", type.c_str());
+			debug_printf("Unrecognized replay token %s\n", type.c_str());
 	}
 	}
 
@@ -318,7 +331,6 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 	bool ok = g_Game->GetSimulation2()->ComputeStateHash(hash, false);
 	ENSURE(ok);
 	debug_printf("# Final state: %s\n", Hexify(hash).c_str());
-	timer_DisplayClientTotals();
 
 	SAFE_DELETE(g_Game);
 

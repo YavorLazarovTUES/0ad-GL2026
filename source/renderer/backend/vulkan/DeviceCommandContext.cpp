@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,25 +19,38 @@
 
 #include "DeviceCommandContext.h"
 
+#include "graphics/Color.h"
 #include "lib/bits.h"
-#include "maths/MathUtil.h"
+#include "lib/debug.h"
 #include "ps/CLogger.h"
 #include "ps/ConfigDB.h"
-#include "ps/containers/Span.h"
 #include "ps/containers/StaticVector.h"
+#include "renderer/backend/Format.h"
+#include "renderer/backend/IBuffer.h"
+#include "renderer/backend/IFramebuffer.h"
+#include "renderer/backend/IShaderProgram.h"
+#include "renderer/backend/ITexture.h"
+#include "renderer/backend/PipelineState.h"
+#include "renderer/backend/Sampler.h"
 #include "renderer/backend/vulkan/Buffer.h"
 #include "renderer/backend/vulkan/DescriptorManager.h"
 #include "renderer/backend/vulkan/Device.h"
+#include "renderer/backend/vulkan/DeviceSelection.h"
 #include "renderer/backend/vulkan/Framebuffer.h"
+#include "renderer/backend/vulkan/Mapping.h"
 #include "renderer/backend/vulkan/PipelineState.h"
 #include "renderer/backend/vulkan/RingCommandContext.h"
 #include "renderer/backend/vulkan/ShaderProgram.h"
+#include "renderer/backend/vulkan/SwapChain.h"
 #include "renderer/backend/vulkan/Texture.h"
 #include "renderer/backend/vulkan/Utilities.h"
 
 #include <algorithm>
 #include <cstddef>
+#include <cstring>
+#include <iterator>
 #include <tuple>
+#include <utility>
 
 namespace Renderer
 {
@@ -99,7 +112,7 @@ class ScopedImageLayoutTransition
 {
 public:
 	ScopedImageLayoutTransition(
-		CRingCommandContext& commandContext, const PS::span<CTexture* const> textures,
+		CRingCommandContext& commandContext, const std::span<CTexture* const> textures,
 		const VkImageLayout layout, const VkAccessFlags accessMask, const VkPipelineStageFlags stageMask)
 		: m_CommandContext(commandContext), m_Textures(textures), m_Layout(layout),
 		m_AccessMask(accessMask), m_StageMask(stageMask)
@@ -134,7 +147,7 @@ public:
 
 private:
 	CRingCommandContext& m_CommandContext;
-	const PS::span<CTexture* const> m_Textures;
+	const std::span<CTexture* const> m_Textures;
 	const VkImageLayout m_Layout = VK_IMAGE_LAYOUT_UNDEFINED;
 	const VkAccessFlags m_AccessMask = 0;
 	const VkPipelineStageFlags m_StageMask = 0;
@@ -202,7 +215,7 @@ public:
 	CBuffer* GetBuffer() { return m_Buffer.get(); }
 
 	uint32_t ScheduleUpload(
-		VkCommandBuffer commandBuffer, const PS::span<const std::byte> data,
+		VkCommandBuffer commandBuffer, const std::span<const std::byte> data,
 		const uint32_t alignment);
 
 	void ExecuteUploads(VkCommandBuffer commandBuffer);
@@ -229,7 +242,11 @@ CDeviceCommandContext::CUploadRing::CUploadRing(
 void CDeviceCommandContext::CUploadRing::ResizeIfNeeded(
 	VkCommandBuffer commandBuffer, const uint32_t dataSize)
 {
-	const bool resizeNeeded = !m_Buffer || m_BlockOffset + dataSize > m_Capacity;
+	// We need to pad the data size for uniforms because we use dynamic offsets
+	// with a fixed range.
+	const uint32_t paddedDataSize{
+		m_Type == IBuffer::Type::UNIFORM ? round_up_to_pow2(dataSize) : dataSize};
+	const bool resizeNeeded = !m_Buffer || m_BlockOffset + paddedDataSize > m_Capacity;
 	if (!resizeNeeded)
 		return;
 
@@ -254,7 +271,7 @@ void CDeviceCommandContext::CUploadRing::ResizeIfNeeded(
 }
 
 uint32_t CDeviceCommandContext::CUploadRing::ScheduleUpload(
-	VkCommandBuffer commandBuffer, const PS::span<const std::byte> data,
+	VkCommandBuffer commandBuffer, const std::span<const std::byte> data,
 	const uint32_t alignment)
 {
 	ENSURE(data.size() > 0);
@@ -314,8 +331,10 @@ std::unique_ptr<IDeviceCommandContext> CDeviceCommandContext::Create(CDevice* de
 	deviceCommandContext->m_DebugScopedLabels = device->GetCapabilities().debugScopedLabels;
 	deviceCommandContext->m_PrependCommandContext =
 		device->CreateRingCommandContext(NUMBER_OF_FRAMES_IN_FLIGHT);
+	ENSURE(deviceCommandContext->m_PrependCommandContext);
 	deviceCommandContext->m_CommandContext =
 		device->CreateRingCommandContext(NUMBER_OF_FRAMES_IN_FLIGHT);
+	ENSURE(deviceCommandContext->m_CommandContext);
 
 	deviceCommandContext->m_VertexUploadRing = std::make_unique<CUploadRing>(
 		device, IBuffer::Type::VERTEX, FRAME_INPLACE_BUFFER_INITIAL_SIZE);
@@ -324,50 +343,7 @@ std::unique_ptr<IDeviceCommandContext> CDeviceCommandContext::Create(CDevice* de
 	deviceCommandContext->m_UniformUploadRing = std::make_unique<CUploadRing>(
 		device, IBuffer::Type::UNIFORM, UNIFORM_BUFFER_INITIAL_SIZE);
 
-	// TODO: reduce the code duplication.
-	VkDescriptorPoolSize descriptorPoolSize{};
-	descriptorPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	descriptorPoolSize.descriptorCount = 1;
-
-	VkDescriptorPoolCreateInfo descriptorPoolCreateInfo{};
-	descriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	descriptorPoolCreateInfo.poolSizeCount = 1;
-	descriptorPoolCreateInfo.pPoolSizes = &descriptorPoolSize;
-	descriptorPoolCreateInfo.maxSets = 1;
-	ENSURE_VK_SUCCESS(vkCreateDescriptorPool(
-		device->GetVkDevice(), &descriptorPoolCreateInfo, nullptr, &deviceCommandContext->m_UniformDescriptorPool));
-
-	VkDescriptorSetAllocateInfo descriptorSetAllocateInfo{};
-	descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	descriptorSetAllocateInfo.descriptorPool = deviceCommandContext->m_UniformDescriptorPool;
-	descriptorSetAllocateInfo.descriptorSetCount = 1;
-	descriptorSetAllocateInfo.pSetLayouts = &device->GetDescriptorManager().GetUniformDescriptorSetLayout();
-
-	ENSURE_VK_SUCCESS(vkAllocateDescriptorSets(
-		device->GetVkDevice(), &descriptorSetAllocateInfo, &deviceCommandContext->m_UniformDescriptorSet));
-
-	CBuffer* uniformBuffer = deviceCommandContext->m_UniformUploadRing->GetBuffer();
-	ENSURE(uniformBuffer);
-
-	// TODO: fix the hard-coded size.
-	const VkDescriptorBufferInfo descriptorBufferInfos[1] =
-	{
-		{uniformBuffer->GetVkBuffer(), 0u, 512u}
-	};
-
-	VkWriteDescriptorSet writeDescriptorSet{};
-	writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	writeDescriptorSet.dstSet = deviceCommandContext->m_UniformDescriptorSet;
-	writeDescriptorSet.dstBinding = 0;
-	writeDescriptorSet.dstArrayElement = 0;
-	writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	writeDescriptorSet.descriptorCount = 1;
-	writeDescriptorSet.pBufferInfo = descriptorBufferInfos;
-
-	vkUpdateDescriptorSets(
-		device->GetVkDevice(), 1, &writeDescriptorSet, 0, nullptr);
-
-	CFG_GET_VAL(
+	deviceCommandContext->m_DebugBarrierAfterFramebufferPass = g_ConfigDB.Get(
 		"renderer.backend.vulkan.debugbarrierafterframebufferpass",
 		deviceCommandContext->m_DebugBarrierAfterFramebufferPass);
 
@@ -395,6 +371,8 @@ void CDeviceCommandContext::SetGraphicsPipelineState(
 	IGraphicsPipelineState* pipelineState)
 {
 	ENSURE(pipelineState);
+	if (m_GraphicsPipelineState && m_GraphicsPipelineState->GetUID() == pipelineState->As<CGraphicsPipelineState>()->GetUID())
+		return;
 	m_GraphicsPipelineState = pipelineState->As<CGraphicsPipelineState>();
 
 	CShaderProgram* shaderProgram = m_GraphicsPipelineState->GetShaderProgram()->As<CShaderProgram>();
@@ -410,23 +388,19 @@ void CDeviceCommandContext::SetGraphicsPipelineState(
 void CDeviceCommandContext::SetComputePipelineState(
 	IComputePipelineState* pipelineState)
 {
-	if (m_ShaderProgram)
-		m_ShaderProgram->Unbind();
-
 	ENSURE(pipelineState);
-	CComputePipelineState* computePipelineState = pipelineState->As<CComputePipelineState>();
-	m_ShaderProgram = computePipelineState->GetShaderProgram()->As<CShaderProgram>();
-	m_ShaderProgram->Bind();
-	vkCmdBindPipeline(
-		m_CommandContext->GetCommandBuffer(), m_ShaderProgram->GetPipelineBindPoint(), computePipelineState->GetPipeline());
+	if (m_ComputePipelineState && m_ComputePipelineState->GetUID() == pipelineState->As<CComputePipelineState>()->GetUID())
+		return;
+	m_ComputePipelineState = pipelineState->As<CComputePipelineState>();
 
-	if (m_Device->GetDescriptorManager().UseDescriptorIndexing())
+	CShaderProgram* shaderProgram = m_ComputePipelineState->GetShaderProgram()->As<CShaderProgram>();
+	if (m_ShaderProgram != shaderProgram)
 	{
-		vkCmdBindDescriptorSets(
-			m_CommandContext->GetCommandBuffer(), m_ShaderProgram->GetPipelineBindPoint(),
-			m_ShaderProgram->GetPipelineLayout(), 0,
-			1, &m_Device->GetDescriptorManager().GetDescriptorIndexingSet(), 0, nullptr);
+		if (m_ShaderProgram)
+			m_ShaderProgram->Unbind();
+		m_ShaderProgram = shaderProgram;
 	}
+	m_IsPipelineStateDirty = true;
 }
 
 void CDeviceCommandContext::BlitFramebuffer(
@@ -633,9 +607,9 @@ void CDeviceCommandContext::BeginFramebufferPass(IFramebuffer* framebuffer)
 			m_Framebuffer->GetDepthStencilAttachmentLoadOp() == AttachmentLoadOp::CLEAR);
 	if (needsClearValues)
 	{
-		for (CTexture* colorAttachment : m_Framebuffer->GetColorAttachments())
+		const CFramebuffer::ColorAttachments& colorAttachments{m_Framebuffer->GetColorAttachments()};
+		std::for_each(colorAttachments.begin(), colorAttachments.end(), [&](CTexture*)
 		{
-			UNUSED2(colorAttachment);
 			const CColor& clearColor = m_Framebuffer->GetClearColor();
 			// The four array elements of the clear color map to R, G, B, and A
 			// components of image formats, in order.
@@ -644,7 +618,7 @@ void CDeviceCommandContext::BeginFramebufferPass(IFramebuffer* framebuffer)
 			clearValues.back().color.float32[1] = clearColor.g;
 			clearValues.back().color.float32[2] = clearColor.b;
 			clearValues.back().color.float32[3] = clearColor.a;
-		}
+		});
 		if (m_Framebuffer->GetDepthStencilAttachment())
 		{
 			clearValues.emplace_back();
@@ -697,16 +671,20 @@ void CDeviceCommandContext::EndFramebufferPass()
 	if (m_ShaderProgram)
 		m_ShaderProgram->Unbind();
 	m_ShaderProgram = nullptr;
+	m_GraphicsPipelineState = nullptr;
 
 	if (m_DebugBarrierAfterFramebufferPass)
 		Utilities::SubmitDebugSyncMemoryBarrier(m_CommandContext->GetCommandBuffer());
 }
 
 void CDeviceCommandContext::ReadbackFramebufferSync(
-	const uint32_t x, const uint32_t y, const uint32_t width, const uint32_t height,
+	ISwapChain& swapChain, const uint32_t x, const uint32_t y,
+	const uint32_t width, const uint32_t height,
 	void* data)
 {
-	CTexture* texture = m_Device->GetCurrentBackbufferTexture();
+	CSwapChain* queuedSwapChain{(&swapChain)->As<CSwapChain>()};
+	ENSURE(queuedSwapChain->IsValid());
+	CTexture* texture{queuedSwapChain->GetCurrentBackbufferTexture()};
 	if (!texture)
 	{
 		LOGERROR("Vulkan: backbuffer is unavailable.");
@@ -718,6 +696,8 @@ void CDeviceCommandContext::ReadbackFramebufferSync(
 		return;
 	}
 	m_QueuedReadbacks.emplace_back(x, y, width, height, data);
+	ENSURE(!m_QueuedReadbackSwapChain || m_QueuedReadbackSwapChain == queuedSwapChain);
+	m_QueuedReadbackSwapChain = queuedSwapChain;
 }
 
 void CDeviceCommandContext::UploadTexture(ITexture* texture, const Format dataFormat,
@@ -845,7 +825,7 @@ void CDeviceCommandContext::SetVertexBufferData(
 
 	const uint32_t offset = m_VertexUploadRing->ScheduleUpload(
 		m_PrependCommandContext->GetCommandBuffer(),
-		PS::span<const std::byte>{static_cast<const std::byte*>(data), dataSize}, ALIGNMENT);
+		std::span<const std::byte>{static_cast<const std::byte*>(data), dataSize}, ALIGNMENT);
 	BindVertexBuffer(bindingSlot, m_VertexUploadRing->GetBuffer(), offset);
 }
 
@@ -862,7 +842,7 @@ void CDeviceCommandContext::SetIndexBufferData(
 
 	const uint32_t offset = m_IndexUploadRing->ScheduleUpload(
 		m_PrependCommandContext->GetCommandBuffer(),
-		PS::span<const std::byte>{static_cast<const std::byte*>(data), dataSize}, ALIGNMENT);
+		std::span<const std::byte>{static_cast<const std::byte*>(data), dataSize}, ALIGNMENT);
 	BindIndexBuffer(m_IndexUploadRing->GetBuffer(), offset);
 }
 
@@ -913,7 +893,7 @@ void CDeviceCommandContext::DrawIndexedInstanced(
 
 void CDeviceCommandContext::DrawIndexedInRange(
 	const uint32_t firstIndex, const uint32_t indexCount,
-	const uint32_t UNUSED(start), const uint32_t UNUSED(end))
+	const uint32_t /*start*/, const uint32_t /*end*/)
 {
 	DrawIndexed(firstIndex, indexCount, 0);
 }
@@ -932,6 +912,8 @@ void CDeviceCommandContext::EndComputePass()
 		m_ShaderProgram->Unbind();
 		m_ShaderProgram = nullptr;
 	}
+	m_LastBoundPipeline = VK_NULL_HANDLE;
+	m_ComputePipelineState = nullptr;
 
 	ENSURE(m_InsideComputePass);
 	m_InsideComputePass = false;
@@ -943,11 +925,23 @@ void CDeviceCommandContext::Dispatch(
 	const uint32_t groupCountZ)
 {
 	ENSURE(m_InsideComputePass);
+	ApplyPipelineStateIfDirty();
 	m_ShaderProgram->PreDispatch(*m_CommandContext);
 	UpdateOutdatedConstants();
 	vkCmdDispatch(
 		m_CommandContext->GetCommandBuffer(), groupCountX, groupCountY, groupCountZ);
 	m_ShaderProgram->PostDispatch(*m_CommandContext);
+}
+
+void CDeviceCommandContext::InsertMemoryBarrier(
+	const uint32_t srcStageMask, const uint32_t dstStageMask,
+	const uint32_t srcAccessMask, const uint32_t dstAccessMask)
+{
+	ENSURE(!m_InsideFramebufferPass);
+	Utilities::SubmitMemoryBarrier(
+		m_CommandContext->GetCommandBuffer(),
+		Mapping::FromAccessMask(srcAccessMask), Mapping::FromAccessMask(dstAccessMask),
+		Mapping::FromPipelineStageMask(srcStageMask), Mapping::FromPipelineStageMask(dstStageMask));
 }
 
 void CDeviceCommandContext::SetTexture(const int32_t bindingSlot, ITexture* texture)
@@ -981,6 +975,16 @@ void CDeviceCommandContext::SetStorageTexture(const int32_t bindingSlot, ITextur
 	CTexture* textureToBind = texture->As<CTexture>();
 	ENSURE(textureToBind->GetUsage() & ITexture::Usage::STORAGE);
 	m_ShaderProgram->SetStorageTexture(bindingSlot, textureToBind);
+}
+
+void CDeviceCommandContext::SetStorageBuffer(const int32_t bindingSlot, IBuffer* buffer)
+{
+	ENSURE(m_InsidePass || m_InsideComputePass);
+	ENSURE(buffer);
+	CBuffer* bufferToBind = buffer->As<CBuffer>();
+	ENSURE(bufferToBind->GetType() == IBuffer::Type::VERTEX || bufferToBind->GetType() == IBuffer::Type::INDEX);
+	ENSURE(bufferToBind->GetUsage() & IBuffer::Usage::STORAGE);
+	m_ShaderProgram->SetStorageBuffer(bindingSlot, bufferToBind);
 }
 
 void CDeviceCommandContext::SetUniform(
@@ -1018,10 +1022,16 @@ void CDeviceCommandContext::SetUniform(
 }
 
 void CDeviceCommandContext::SetUniform(
-	const int32_t bindingSlot, PS::span<const float> values)
+	const int32_t bindingSlot, std::span<const float> values)
 {
 	ENSURE(m_InsidePass || m_InsideComputePass);
 	m_ShaderProgram->SetUniform(bindingSlot, values);
+}
+
+void CDeviceCommandContext::InsertTimestampQuery(const uint32_t handle, const bool isScopeBegin)
+{
+	ENSURE(!m_InsideFramebufferPass);
+	m_Device->InsertTimestampQuery(m_CommandContext->GetCommandBuffer(), handle, isScopeBegin);
 }
 
 void CDeviceCommandContext::BeginScopedLabel(const char* name)
@@ -1052,12 +1062,14 @@ void CDeviceCommandContext::Flush()
 
 	m_IsPipelineStateDirty = true;
 
-	CTexture* backbufferReadbackTexture = m_QueuedReadbacks.empty()
-		? nullptr : m_Device->GetOrCreateBackbufferReadbackTexture();
+	CTexture* backbufferReadbackTexture{
+		!m_QueuedReadbacks.empty() && m_QueuedReadbackSwapChain && m_QueuedReadbackSwapChain->IsValid()
+			? m_QueuedReadbackSwapChain->GetOrCreateBackbufferReadbackTexture()
+			: nullptr};
 	const bool needsReadback = backbufferReadbackTexture;
 	if (needsReadback)
 	{
-		CTexture* backbufferTexture = m_Device->GetCurrentBackbufferTexture();
+		CTexture* backbufferTexture{m_QueuedReadbackSwapChain->GetCurrentBackbufferTexture()};
 
 		{
 		// We assume that the readback texture is in linear tiling.
@@ -1135,6 +1147,7 @@ void CDeviceCommandContext::Flush()
 	}
 
 	m_QueuedReadbacks.clear();
+	m_QueuedReadbackSwapChain = nullptr;
 }
 
 void CDeviceCommandContext::PreDraw()
@@ -1153,16 +1166,18 @@ void CDeviceCommandContext::UpdateOutdatedConstants()
 			std::max(static_cast<VkDeviceSize>(16), m_Device->GetChoosenPhysicalDevice().properties.limits.minUniformBufferOffsetAlignment);
 		const uint32_t offset = m_UniformUploadRing->ScheduleUpload(
 			m_PrependCommandContext->GetCommandBuffer(),
-			PS::span<const std::byte>{
+			std::span<const std::byte>{
 				m_ShaderProgram->GetMaterialConstantsData(),
 				m_ShaderProgram->GetMaterialConstantsDataSize()}, alignment);
 		m_ShaderProgram->UpdateMaterialConstantsData();
 
+		const VkDescriptorSet uniformDescriptorSet{GetUniformDescriptorSet(
+			m_UniformUploadRing->GetBuffer(), m_ShaderProgram->GetMaterialConstantsDataSize())};
 		// TODO: maybe move inside shader program to reduce the # of bind calls.
 		vkCmdBindDescriptorSets(
 			m_CommandContext->GetCommandBuffer(), m_ShaderProgram->GetPipelineBindPoint(),
 			m_ShaderProgram->GetPipelineLayout(), m_Device->GetDescriptorManager().GetUniformSet(),
-			1, &m_UniformDescriptorSet, 1, &offset);
+			1, &uniformDescriptorSet, 1, &offset);
 	}
 }
 
@@ -1172,12 +1187,16 @@ void CDeviceCommandContext::ApplyPipelineStateIfDirty()
 		return;
 	m_IsPipelineStateDirty = false;
 
-	ENSURE(m_GraphicsPipelineState);
-	ENSURE(m_VertexInputLayout);
-	ENSURE(m_Framebuffer);
+	ENSURE(m_GraphicsPipelineState || m_ComputePipelineState);
+	if (m_GraphicsPipelineState)
+	{
+		ENSURE(m_VertexInputLayout);
+		ENSURE(m_Framebuffer);
+	}
 
-	VkPipeline pipeline = m_GraphicsPipelineState->GetOrCreatePipeline(
-		m_VertexInputLayout, m_Framebuffer);
+	VkPipeline pipeline{m_GraphicsPipelineState
+		? m_GraphicsPipelineState->GetOrCreatePipeline(m_VertexInputLayout, m_Framebuffer)
+		: m_ComputePipelineState->GetPipeline()};
 	ENSURE(pipeline != VK_NULL_HANDLE);
 
 	if (m_LastBoundPipeline != pipeline)
@@ -1214,6 +1233,85 @@ void CDeviceCommandContext::BindIndexBuffer(CBuffer* buffer, uint32_t offset)
 	m_BoundIndexBufferOffset = offset;
 	vkCmdBindIndexBuffer(
 		m_CommandContext->GetCommandBuffer(), buffer->GetVkBuffer(), offset, VK_INDEX_TYPE_UINT16);
+}
+
+VkDescriptorSet CDeviceCommandContext::GetUniformDescriptorSet(
+	CBuffer* uniformBuffer, const uint32_t dataSize)
+{
+	ENSURE(uniformBuffer);
+
+	if (m_UniformBufferUID == INVALID_DEVICE_OBJECT_UID || m_UniformBufferUID != uniformBuffer->GetUID())
+	{
+		if (m_UniformDescriptorPool != VK_NULL_HANDLE)
+		{
+			m_Device->ScheduleObjectToDestroy(
+				VK_OBJECT_TYPE_DESCRIPTOR_POOL, m_UniformDescriptorPool, VK_NULL_HANDLE);
+			m_UniformDescriptorPool = VK_NULL_HANDLE;
+		}
+
+		m_UniformBufferUID = uniformBuffer->GetUID();
+		m_UniformDescriptorSets.clear();
+
+		constexpr uint32_t initialSize{16};
+		const uint32_t maxUniformBufferRange{m_Device->GetChoosenPhysicalDevice().properties.limits.maxUniformBufferRange};
+		const uint32_t maxSize{std::min(uniformBuffer->GetSize(), 65536u)};
+
+		uint32_t maxSets{0};
+		for (uint32_t size{initialSize}; size <= maxUniformBufferRange && size <= maxSize; size *= 2)
+			++maxSets;
+
+		VkDescriptorPoolSize descriptorPoolSize{};
+		descriptorPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+		descriptorPoolSize.descriptorCount = maxSets;
+
+		VkDescriptorPoolCreateInfo descriptorPoolCreateInfo{};
+		descriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		descriptorPoolCreateInfo.poolSizeCount = 1;
+		descriptorPoolCreateInfo.pPoolSizes = &descriptorPoolSize;
+		descriptorPoolCreateInfo.maxSets = maxSets;
+		ENSURE_VK_SUCCESS(vkCreateDescriptorPool(
+			m_Device->GetVkDevice(), &descriptorPoolCreateInfo, nullptr, &m_UniformDescriptorPool));
+
+		PS::StaticVector<VkDescriptorBufferInfo, 16> descriptorBufferInfos;
+		PS::StaticVector<VkWriteDescriptorSet, 16> writeDescriptorSets;
+		for (uint32_t size{initialSize}; size <= maxUniformBufferRange && size <= maxSize; size *= 2)
+		{
+			VkDescriptorSetAllocateInfo descriptorSetAllocateInfo{};
+			descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+			descriptorSetAllocateInfo.descriptorPool = m_UniformDescriptorPool;
+			descriptorSetAllocateInfo.descriptorSetCount = 1;
+			descriptorSetAllocateInfo.pSetLayouts = &m_Device->GetDescriptorManager().GetUniformDescriptorSetLayout();
+
+			VkDescriptorSet descriptorSet{VK_NULL_HANDLE};
+			ENSURE_VK_SUCCESS(vkAllocateDescriptorSets(
+				m_Device->GetVkDevice(), &descriptorSetAllocateInfo, &descriptorSet));
+
+			m_UniformDescriptorSets.emplace_back(descriptorSet, size);
+			descriptorBufferInfos.emplace_back(uniformBuffer->GetVkBuffer(), 0u, size);
+
+			VkWriteDescriptorSet writeDescriptorSet{};
+			writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			writeDescriptorSet.dstSet = descriptorSet;
+			writeDescriptorSet.dstBinding = 0;
+			writeDescriptorSet.dstArrayElement = 0;
+			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+			writeDescriptorSet.descriptorCount = 1;
+			writeDescriptorSet.pBufferInfo = &descriptorBufferInfos.back();
+			writeDescriptorSets.emplace_back(writeDescriptorSet);
+		}
+
+		vkUpdateDescriptorSets(
+			m_Device->GetVkDevice(), writeDescriptorSets.size(), writeDescriptorSets.data(), 0, nullptr);
+	}
+
+	VkDescriptorSet descriptorSet{VK_NULL_HANDLE};
+	for (const UniformDescriptorSet& uniformDescriptorSet : m_UniformDescriptorSets)
+		if (uniformDescriptorSet.size >= dataSize)
+		{
+			descriptorSet = uniformDescriptorSet.descriptorSet;
+			break;
+		}
+	return descriptorSet;
 }
 
 } // namespace Vulkan

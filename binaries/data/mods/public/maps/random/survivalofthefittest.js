@@ -2,9 +2,9 @@ Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
-	setSelectedBiome();
+	setBiome(mapSettings.Biome);
 
 	const tMainTerrain = g_Terrains.mainTerrain;
 	const tForestFloor1 = g_Terrains.forestFloor1;
@@ -28,7 +28,7 @@ function* GenerateMap()
 	const aRockMedium = g_Decoratives.rockMedium;
 	const aBushMedium = g_Decoratives.bushMedium;
 	const aBushSmall = g_Decoratives.bushSmall;
-	const aWaypointFlag = "actor|props/special/common/waypoint_flag.xml";
+	const aWaypointFlag = "actor|props/special/common/waypoint_flag_factions.xml";
 
 	const pForest1 = [
 		tForestFloor2 + TERRAIN_SEPARATOR + oTree1,
@@ -41,7 +41,8 @@ function* GenerateMap()
 		tForestFloor1
 	];
 
-	const oTreasureSeeker = "nonbuilder|undeletable|skirmish/units/default_support_female_citizen";
+	const oTreasureSeeker = "nonbuilder|undeletable|skirmish/units/default_support_civilian";
+	const oObstruction = "obstructors/placement_24x24";
 
 	const triggerPointAttacker = "trigger/trigger_point_A";
 	const triggerPointTreasures = [
@@ -65,7 +66,7 @@ function* GenerateMap()
 	const clDirt = g_Map.createTileClass();
 	const clBaseResource = g_Map.createTileClass();
 	const clLand = g_Map.createTileClass();
-	const clWomen = g_Map.createTileClass();
+	const clCivilians = g_Map.createTileClass();
 
 	g_Map.log("Creating central area");
 	createArea(
@@ -77,7 +78,7 @@ function* GenerateMap()
 		]);
 	yield 10;
 
-	const [playerIDs, playerPosition, playerAngle, startAngle] =
+	const { playerIDs, playerPosition, playerAngle, startAngle } =
 		playerPlacementCircle(fractionToTiles(0.3));
 	const halfway = distributePointsOnCircle(numPlayers, startAngle, fractionToTiles(0.375), mapCenter)[0]
 		.map(v => v.round());
@@ -109,11 +110,11 @@ function* GenerateMap()
 				new SmoothElevationPainter(ELEVATION_SET, heightLand, 4)
 			]);
 
-		// Treasure seeker woman
-		const femaleLocation = findLocationInDirectionBasedOnHeight(playerPosition[i], mapCenter, -3,
+		// Treasure seeker civilian
+		const civilianLocation = findLocationInDirectionBasedOnHeight(playerPosition[i], mapCenter, -3,
 			3.5, 3).round();
-		clWomen.add(femaleLocation);
-		g_Map.placeEntityPassable(oTreasureSeeker, playerIDs[i], femaleLocation,
+		clCivilians.add(civilianLocation);
+		g_Map.placeEntityPassable(oTreasureSeeker, playerIDs[i], civilianLocation,
 			playerAngle[i] + Math.PI);
 
 		// Attacker spawn point
@@ -137,7 +138,7 @@ function* GenerateMap()
 
 	for (const triggerPointTreasure of triggerPointTreasures)
 		createObjectGroupsDeprecated(
-			new SimpleGroup([new SimpleObject(triggerPointTreasure, 1, 1, 0, 0)], true, clWomen),
+			new SimpleGroup([new SimpleObject(triggerPointTreasure, 1, 1, 0, 0)], true, clCivilians),
 			0,
 			[avoidClasses(clPlayer, 5, clHill, 5), landConstraint],
 			scaleByMapSize(40, 140),
@@ -150,7 +151,7 @@ function* GenerateMap()
 	const hillConstraint = new AndConstraint(
 		[
 			avoidClasses(clHill, 5),
-			new StaticConstraint(avoidClasses(clPlayer, 20, clBaseResource, 3, clWomen, 5))
+			new StaticConstraint(avoidClasses(clPlayer, 20, clBaseResource, 3, clCivilians, 5))
 		]);
 	if (randBool())
 		createHills([tMainTerrain, tCliff, tHill],
@@ -181,7 +182,7 @@ function* GenerateMap()
 		[tMainTerrain, tForestFloor1, tForestFloor2, pForest1, pForest2],
 		[avoidClasses(clForest, 5), new StaticConstraint(
 			[
-				avoidClasses(clPlayer, 20, clHill, 0, clBaseResource, 2, clWomen, 5),
+				avoidClasses(clPlayer, 20, clHill, 0, clBaseResource, 2, clCivilians, 5),
 				stayClasses(clLand, 4)
 			])],
 		clForest,
@@ -194,7 +195,7 @@ function* GenerateMap()
 		[scaleByMapSize(3, 6), scaleByMapSize(5, 10), scaleByMapSize(8, 21)],
 		[[tMainTerrain, tTier1Terrain], [tTier1Terrain, tTier2Terrain], [tTier2Terrain, tTier3Terrain]],
 		[1, 1],
-		[avoidClasses(clForest, 0, clHill, 0, clDirt, 5, clPlayer, 12, clWomen, 5), landConstraint],
+		[avoidClasses(clForest, 0, clHill, 0, clDirt, 5, clPlayer, 12, clCivilians, 5), landConstraint],
 		scaleByMapSize(15, 45),
 		clDirt);
 	yield 70;
@@ -203,7 +204,7 @@ function* GenerateMap()
 	createPatches(
 		[scaleByMapSize(2, 4), scaleByMapSize(3, 7), scaleByMapSize(5, 15)],
 		tTier4Terrain,
-		[avoidClasses(clForest, 0, clHill, 0, clDirt, 5, clPlayer, 12, clWomen, 5), landConstraint],
+		[avoidClasses(clForest, 0, clHill, 0, clDirt, 5, clPlayer, 12, clCivilians, 5), landConstraint],
 		scaleByMapSize(15, 45),
 		clDirt);
 	yield 80;
@@ -237,6 +238,18 @@ function* GenerateMap()
 		stragglerTrees);
 
 	yield 95;
+
+	// Forbid placing foundations at the center
+	const vec = new Vector2D();
+	const maxHeight = (heightHill + heightLand) / 2;
+	for (vec.x = 0; vec.x < mapSize; vec.x += 6)
+	{
+		for (vec.y = 0; vec.y < mapSize; vec.y += 6)
+		{
+			if (g_Map.getHeight(vec) < maxHeight)
+				g_Map.placeEntityAnywhere(oObstruction, 0, vec, Math.PI / 2);
+		}
+	}
 
 	return g_Map;
 }

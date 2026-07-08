@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,20 +21,38 @@
 
 #include "gui/CGUI.h"
 #include "gui/CGUISetting.h"
-#include "gui/ObjectBases/IGUIObject.h"
+#include "gui/SGUIStyle.h"
 #include "gui/Scripting/JSInterface_GUIProxy.h"
 #include "js/Conversions.h"
+#include "lib/debug.h"
+#include "lib/secure_crt.h"
+#include "maths/Size2D.h"
+#include "maths/Vector2D.h"
 #include "ps/CLogger.h"
-#include "ps/Profile.h"
+#include "ps/Profiler2.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptExtraHeaders.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Interface.h"
 #include "soundmanager/ISoundManager.h"
 
 #include <algorithm>
+#include <js/CallAndConstruct.h>
+#include <js/ComparisonOperators.h>
+#include <js/CompilationAndEvaluation.h>
+#include <js/CompileOptions.h>
+#include <js/GCAPI.h>
+#include <js/GCVector.h>
+#include <js/SourceText.h>
+#include <js/TracingAPI.h>
+#include <js/Value.h>
+#include <jsapi.h>
+#include <string>
 #include <string_view>
+#include <tuple>
 #include <unordered_map>
+#include <utility>
+
+class JSObject;
+namespace mozilla { union Utf8Unit; }
 
 const CStr IGUIObject::EventNameMouseEnter = "MouseEnter";
 const CStr IGUIObject::EventNameMouseMove = "MouseMove";
@@ -62,7 +80,7 @@ IGUIObject::IGUIObject(CGUI& pGUI)
 IGUIObject::~IGUIObject()
 {
 	if (!m_ScriptHandlers.empty())
-		JS_RemoveExtraGCRootsTracer(ScriptRequest(m_pGUI.GetScriptInterface()).cx, Trace, this);
+		JS_RemoveExtraGCRootsTracer(m_pGUI.GetScriptInterface()->GetGeneralJSContext(), Trace, this);
 
 	// m_Children is deleted along all other GUI Objects in the CGUI destructor
 }
@@ -119,8 +137,8 @@ void IGUIObject::SettingChanged(const CStr& Setting, const bool SendMessage)
 {
 	if (Setting == "size")
 	{
-		// If setting was "size", we need to re-cache itself and all children
-		RecurseObject(nullptr, &IGUIObject::UpdateCachedSize);
+		// Notify all children that they'll have to re-cache their actual size.
+		RecurseObject(nullptr, &IGUIObject::HandleSizeChanged);
 	}
 	else if (Setting == "hidden")
 	{
@@ -129,18 +147,41 @@ void IGUIObject::SettingChanged(const CStr& Setting, const bool SendMessage)
 			RecurseObject(nullptr, &IGUIObject::ResetStates);
 	}
 	else if (Setting == "style")
-		m_pGUI.SetObjectStyle(this, m_Style);
+		m_pGUI.SetObjectStyle(*this, m_Style);
 
 	if (SendMessage)
 	{
 		SGUIMessage msg(GUIM_SETTINGS_UPDATED, Setting);
 		HandleMessage(msg);
+
+		// inform to parents until get to the root object
+		// for now only size and hidden settings are bubbled up
+		if (GetParent() && (Setting == "size" || Setting == "hidden"))
+		{
+			EGUIMessageType type = Setting == "size" ? GUIM_CHILD_RESIZED : GUIM_CHILD_TOGGLE_VISIBILITY;
+			SGUIMessage msg(type, GetName());
+			msg.Skip(true);
+
+			IGUIObject* parent = GetParent();
+			while (parent)
+			{
+				parent->HandleMessage(msg);
+
+				if (!msg.skipped)
+					break;
+
+				parent = parent->GetParent();
+			}
+		}
 	}
 }
 
 bool IGUIObject::IsMouseOver() const
 {
-	return m_CachedActualSize.PointInside(m_pGUI.GetMousePos());
+	if (m_VisibleArea)
+		return m_VisibleArea.PointInside(m_pGUI.GetMousePos());
+
+	return GetActualSize().PointInside(m_pGUI.GetMousePos());
 }
 
 void IGUIObject::UpdateMouseOver(IGUIObject* const& pMouseOver)
@@ -200,13 +241,25 @@ void IGUIObject::ResetStates()
 	UpdateMouseOver(nullptr);
 }
 
-void IGUIObject::UpdateCachedSize()
+void IGUIObject::HandleSizeChanged()
+{
+	m_CachedActualSizeDirty = true;
+}
+
+const CRect& IGUIObject::GetActualSize() const
+{
+	if (std::exchange(m_CachedActualSizeDirty, false))
+		RecalculateActualSize();
+
+	return m_CachedActualSize;
+}
+
+void IGUIObject::RecalculateActualSize() const
 {
 	// If absolute="false" and the object has got a parent,
-	//  use its cached size instead of the screen. Notice
-	//  it must have just been cached for it to work.
+	//  use its cached size instead of the screen.
 	if (!m_Absolute && m_pParent && !IsRootObject())
-		m_CachedActualSize = m_Size->GetSize(m_pParent->m_CachedActualSize);
+		m_CachedActualSize = m_Size->GetSize(m_pParent->GetActualSize());
 	else
 		m_CachedActualSize = m_Size->GetSize(CRect(m_pGUI.GetWindowSize()));
 
@@ -229,13 +282,6 @@ void IGUIObject::UpdateCachedSize()
 		}
 	}
 }
-
-CRect IGUIObject::GetComputedSize()
-{
-	UpdateCachedSize();
-	return m_CachedActualSize;
-}
-
 
 bool IGUIObject::ApplyStyle(const CStr& StyleName)
 {
@@ -275,7 +321,7 @@ float IGUIObject::GetBufferedZ() const
 
 void IGUIObject::RegisterScriptHandler(const CStr& eventName, const CStr& Code, CGUI& pGUI)
 {
-	ScriptRequest rq(pGUI.GetScriptInterface());
+	Script::Request rq(pGUI.GetScriptInterface());
 
 	const int paramCount = 1;
 	const char* paramNames[paramCount] = { "mouse" };
@@ -288,10 +334,11 @@ void IGUIObject::RegisterScriptHandler(const CStr& eventName, const CStr& Code, 
 	char buf[64];
 	sprintf_s(buf, ARRAY_SIZE(buf), "__eventhandler%d (%s)", x++, eventName.c_str());
 
-	// TODO: this is essentially the same code as ScriptInterface::LoadScript (with a tweak for the argument).
+	// TODO: this is essentially the same code as Script::Interface::LoadScript (with a tweak for the argument).
 	JS::CompileOptions options(rq.cx);
 	options.setFileAndLine(CodeName.c_str(), 0);
 	options.setIsRunOnce(false);
+	options.setForceStrictMode();
 
 	JS::SourceText<mozilla::Utf8Unit> src;
 	ENSURE(src.init(rq.cx, Code.c_str(), Code.length(), JS::SourceOwnership::Borrowed));
@@ -310,7 +357,7 @@ void IGUIObject::RegisterScriptHandler(const CStr& eventName, const CStr& Code, 
 void IGUIObject::SetScriptHandler(const CStr& eventName, JS::HandleObject Function)
 {
 	if (m_ScriptHandlers.empty())
-		JS_AddExtraGCRootsTracer(ScriptRequest(m_pGUI.GetScriptInterface()).cx, Trace, this);
+		JS_AddExtraGCRootsTracer(m_pGUI.GetScriptInterface()->GetGeneralJSContext(), Trace, this);
 
 	m_ScriptHandlers[eventName] = JS::Heap<JSObject*>(Function);
 
@@ -328,7 +375,7 @@ void IGUIObject::UnsetScriptHandler(const CStr& eventName)
 	m_ScriptHandlers.erase(it);
 
 	if (m_ScriptHandlers.empty())
-		JS_RemoveExtraGCRootsTracer(ScriptRequest(m_pGUI.GetScriptInterface()).cx, Trace, this);
+		JS_RemoveExtraGCRootsTracer(m_pGUI.GetScriptInterface()->GetGeneralJSContext(), Trace, this);
 
 	std::unordered_map<CStr, std::vector<IGUIObject*>>::iterator it2 = m_pGUI.m_EventObjects.find(eventName);
 	if (it2 == m_pGUI.m_EventObjects.end())
@@ -341,7 +388,7 @@ void IGUIObject::UnsetScriptHandler(const CStr& eventName)
 		m_pGUI.m_EventObjects.erase(it2);
 }
 
-InReaction IGUIObject::SendEvent(EGUIMessageType type, const CStr& eventName)
+Input::Reaction IGUIObject::SendEvent(EGUIMessageType type, const CStr& eventName)
 {
 	PROFILE2_EVENT("gui event");
 	PROFILE2_ATTR("type: %s", eventName.c_str());
@@ -352,65 +399,65 @@ InReaction IGUIObject::SendEvent(EGUIMessageType type, const CStr& eventName)
 
 	ScriptEvent(eventName);
 
-	return msg.skipped ? IN_PASS : IN_HANDLED;
+	return msg.skipped ? Input::Reaction::PASS : Input::Reaction::HANDLED;
 }
 
-InReaction IGUIObject::SendMouseEvent(EGUIMessageType type, const CStr& eventName)
+Input::Reaction IGUIObject::SendMouseEvent(EGUIMessageType type, const CStr& eventName)
 {
 	PROFILE2_EVENT("gui mouse event");
 	PROFILE2_ATTR("type: %s", eventName.c_str());
 	PROFILE2_ATTR("object: %s", m_Name.c_str());
 
 	SGUIMessage msg(type);
+	if (type == GUIM_MOUSE_WHEEL_UP || type == GUIM_MOUSE_WHEEL_DOWN || type == GUIM_MOUSE_WHEEL_LEFT || type == GUIM_MOUSE_WHEEL_RIGHT)
+		msg.Skip();
 	HandleMessage(msg);
 
-	ScriptRequest rq(m_pGUI.GetScriptInterface());
+	Script::Request rq(m_pGUI.GetScriptInterface());
 
 	// Set up the 'mouse' parameter
 	JS::RootedValue mouse(rq.cx);
 
 	const CVector2D& mousePos = m_pGUI.GetMousePos();
 
-	Script::CreateObject(
-		rq,
-		&mouse,
-		"x", mousePos.X,
-		"y", mousePos.Y,
-		"buttons", m_pGUI.GetMouseButtons());
-	JS::RootedValueVector paramData(rq.cx);
-	ignore_result(paramData.append(mouse));
-	ScriptEvent(eventName, paramData);
+	std::map<CStr, JS::Heap<JSObject*> >::iterator it = m_ScriptHandlers.find(eventName);
+	if (it != m_ScriptHandlers.end())
+	{
+		Script::CreateObject(
+			rq,
+			&mouse,
+			"x", mousePos.X,
+			"y", mousePos.Y,
+			"buttons", m_pGUI.GetMouseButtons());
+		JS::RootedValueVector paramData(rq.cx);
+		std::ignore = paramData.append(mouse);
+		ScriptEvent(eventName, paramData);
 
-	return msg.skipped ? IN_PASS : IN_HANDLED;
+		if (type == GUIM_MOUSE_WHEEL_UP || type == GUIM_MOUSE_WHEEL_DOWN || type == GUIM_MOUSE_WHEEL_LEFT || type == GUIM_MOUSE_WHEEL_RIGHT)
+			msg.Skip(false);
+	}
+
+	// inform to parents until get to the root object
+	// for now only wheel events are inform to parents
+	if ((type == GUIM_MOUSE_WHEEL_UP || type == GUIM_MOUSE_WHEEL_DOWN || type == GUIM_MOUSE_WHEEL_LEFT || type == GUIM_MOUSE_WHEEL_RIGHT) && msg.skipped)
+	{
+		if (GetParent())
+			msg.Skip(GetParent()->SendMouseEvent(type, eventName) == Input::Reaction::PASS);
+		else
+			msg.Skip(false);
+	}
+
+	return msg.skipped ? Input::Reaction::PASS : Input::Reaction::HANDLED;
 }
 
-void IGUIObject::ScriptEvent(const CStr& eventName)
-{
-	ScriptEventWithReturn(eventName);
-}
-
-bool IGUIObject::ScriptEventWithReturn(const CStr& eventName)
-{
-	if (m_ScriptHandlers.find(eventName) == m_ScriptHandlers.end())
-		return false;
-
-	ScriptRequest rq(m_pGUI.GetScriptInterface());
-	JS::RootedValueVector paramData(rq.cx);
-	return ScriptEventWithReturn(eventName, paramData);
-}
-
-void IGUIObject::ScriptEvent(const CStr& eventName, const JS::HandleValueArray& paramData)
-{
-	ScriptEventWithReturn(eventName, paramData);
-}
-
-bool IGUIObject::ScriptEventWithReturn(const CStr& eventName, const JS::HandleValueArray& paramData)
+bool IGUIObject::ScriptEvent(const CStr& eventName,
+	const JS::HandleValueArray& paramData /* = JS::HandleValueArray::empty() */)
 {
 	std::map<CStr, JS::Heap<JSObject*> >::iterator it = m_ScriptHandlers.find(eventName);
 	if (it == m_ScriptHandlers.end())
 		return false;
 
-	ScriptRequest rq(m_pGUI.GetScriptInterface());
+	Script::Request rq(m_pGUI.GetScriptInterface());
 	JS::RootedObject obj(rq.cx, GetJSObject());
 	JS::RootedValue handlerVal(rq.cx, JS::ObjectValue(*it->second));
 	JS::RootedValue result(rq.cx);
@@ -418,7 +465,7 @@ bool IGUIObject::ScriptEventWithReturn(const CStr& eventName, const JS::HandleVa
 	if (!JS_CallFunctionValue(rq.cx, obj, handlerVal, paramData, &result))
 	{
 		LOGERROR("Errors executing script event \"%s\"", eventName.c_str());
-		ScriptException::CatchPending(rq);
+		Script::Exception::CatchPending(rq);
 		return false;
 	}
 	return JS::ToBoolean(result);
@@ -499,4 +546,35 @@ void IGUIObject::TraceMember(JSTracer* trc)
 
 	for (std::pair<const CStr, JS::Heap<JSObject*>>& handler : m_ScriptHandlers)
 		JS::TraceEdge(trc, &handler.second, "IGUIObject::m_ScriptHandlers");
+}
+
+void IGUIObject::DrawInArea(CCanvas2D& canvas, CRect& area)
+{
+	bool isInsideBoundaries = false;
+	RecurseObject(nullptr, &IGUIObject::SetIsInsideBoundaries, isInsideBoundaries);
+	if (!area.IntersectWith(GetActualSize()))
+		return;
+
+	CRect intersection = area.Intersection(GetActualSize());
+
+	m_VisibleArea = intersection;
+
+	Draw(canvas);
+
+	isInsideBoundaries = true;
+	RecurseObject(nullptr, &IGUIObject::SetIsInsideBoundaries, isInsideBoundaries);
+}
+
+bool IGUIObject::IsHiddenOrGhostOrOutOfBoundaries() const {
+	return !m_IsInsideBoundaries || IsHiddenOrGhost();
+}
+
+Input::Reaction IGUIObject::PreemptEvent(const SDL_Event&)
+{
+	return Input::Reaction::PASS;
+}
+
+Input::Reaction IGUIObject::ManuallyHandleKeys(const SDL_Event&)
+{
+	return Input::Reaction::PASS;
 }

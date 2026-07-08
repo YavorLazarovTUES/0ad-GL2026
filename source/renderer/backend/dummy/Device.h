@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,14 +18,20 @@
 #ifndef INCLUDED_RENDERER_BACKEND_DUMMY_DEVICE
 #define INCLUDED_RENDERER_BACKEND_DUMMY_DEVICE
 
-#include "renderer/backend/dummy/DeviceForward.h"
+#include "ps/CStr.h"
+#include "renderer/backend/Backend.h"
+#include "renderer/backend/IBuffer.h"
 #include "renderer/backend/IDevice.h"
+#include "renderer/backend/ITexture.h"
 
+#include <cstdint>
+#include <js/TypeDecls.h>
 #include <memory>
+#include <span>
 #include <string>
 #include <vector>
 
-class CShaderDefines;
+namespace Renderer::Backend { class IFramebuffer; }
 
 namespace Renderer
 {
@@ -35,8 +41,6 @@ namespace Backend
 
 namespace Dummy
 {
-
-class CDeviceCommandContext;
 
 class CDevice : public IDevice
 {
@@ -51,9 +55,16 @@ public:
 	const std::string& GetDriverInformation() const override { return m_DriverInformation; }
 	const std::vector<std::string>& GetExtensions() const override { return m_Extensions; }
 
-	void Report(const ScriptRequest& rq, JS::HandleValue settings) override;
+	void Report(const Script::Request& rq, JS::HandleValue settings) override;
 
 	std::unique_ptr<IDeviceCommandContext> CreateCommandContext() override;
+
+	std::unique_ptr<ISwapChain> CreateSwapChain(
+		const char* name, SDL_Window* window,
+		int surfaceDrawableWidth, int surfaceDrawableHeight,
+		const bool vsync, std::unique_ptr<ISwapChain> oldSwapChain) override;
+
+	void WaitUntilIdle() override;
 
 	std::unique_ptr<IGraphicsPipelineState> CreateGraphicsPipelineState(
 		const SGraphicsPipelineStateDesc& pipelineStateDesc) override;
@@ -62,7 +73,7 @@ public:
 		const SComputePipelineStateDesc& pipelineStateDesc) override;
 
 	std::unique_ptr<IVertexInputLayout> CreateVertexInputLayout(
-		const PS::span<const SVertexAttributeFormat> attributes) override;
+		const std::span<const SVertexAttributeFormat> attributes) override;
 
 	std::unique_ptr<ITexture> CreateTexture(
 		const char* name, const ITexture::Type type, const uint32_t usage,
@@ -84,16 +95,6 @@ public:
 	std::unique_ptr<IShaderProgram> CreateShaderProgram(
 		const CStr& name, const CShaderDefines& defines) override;
 
-	bool AcquireNextBackbuffer() override;
-
-	IFramebuffer* GetCurrentBackbuffer(
-		const AttachmentLoadOp, const AttachmentStoreOp,
-		const AttachmentLoadOp, const AttachmentStoreOp) override;
-
-	void Present() override;
-
-	void OnWindowResize(const uint32_t width, const uint32_t height) override;
-
 	bool IsTextureFormatSupported(const Format format) const override;
 
 	bool IsFramebufferFormatSupported(const Format format) const override;
@@ -101,7 +102,17 @@ public:
 	Format GetPreferredDepthStencilFormat(
 		const uint32_t usage, const bool depth, const bool stencil) const override;
 
+	uint32_t AllocateQuery() override;
+
+	void FreeQuery(const uint32_t handle) override;
+
+	bool IsQueryResultAvailable(const uint32_t handle) const override;
+
+	uint64_t GetQueryResult(const uint32_t handle) override;
+
 	const Capabilities& GetCapabilities() const override { return m_Capabilities; }
+
+	void CollectStatistics(StatisticsVector&) const override {}
 
 protected:
 
@@ -109,8 +120,6 @@ protected:
 	std::string m_Version;
 	std::string m_DriverInformation;
 	std::vector<std::string> m_Extensions;
-
-	std::unique_ptr<IFramebuffer> m_Backbuffer;
 
 	Capabilities m_Capabilities{};
 };

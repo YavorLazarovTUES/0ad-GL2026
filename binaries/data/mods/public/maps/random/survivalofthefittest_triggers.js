@@ -71,6 +71,7 @@ var disabledTemplates = (civ) => [
 
 	// Walls
 	"structures/" + civ + "/wallset_stone",
+	"structures/" + civ + "/wallset_palisade",
 	"structures/rome/wallset_siege",
 	"structures/wallset_palisade",
 
@@ -123,7 +124,7 @@ Trigger.prototype.debugLog = function(txt)
 
 Trigger.prototype.LoadAttackerTemplates = function()
 {
-	for (let civ of ["gaia", ...Object.keys(loadCivFiles(false))])
+	for (const civ of ["gaia", ...Object.keys(loadCivFiles(false))])
 		attackerUnitTemplates[civ] = {
 			"heroes": TriggerHelper.GetTemplateNamesByClasses("Hero", civ, undefined, true),
 			"champions": TriggerHelper.GetTemplateNamesByClasses("Champion+!Elephant", civ, undefined, true),
@@ -141,21 +142,25 @@ Trigger.prototype.SetDisableTemplates = function()
 };
 
 /**
- *  Remember civic centers and make women invincible.
+ *  Remember civic centers and make civilians invincible.
  */
 Trigger.prototype.InitStartingUnits = function()
 {
 	for (let playerID = 1; playerID < TriggerHelper.GetNumberOfPlayers(); ++playerID)
 	{
 		this.playerCivicCenter[playerID] = TriggerHelper.GetPlayerEntitiesByClass(playerID, "CivilCentre")[0];
-		this.treasureFemale[playerID] = TriggerHelper.GetPlayerEntitiesByClass(playerID, "FemaleCitizen")[0];
-		Engine.QueryInterface(this.treasureFemale[playerID], IID_Resistance).SetInvulnerability(true);
+		this.treasureCivilian[playerID] = TriggerHelper.GetPlayerEntitiesByClass(playerID, "Civilian")[0];
+		if (this.treasureCivilian[playerID])
+		{
+			Engine.QueryInterface(this.treasureCivilian[playerID], IID_Resistance)
+				.SetInvulnerability(true);
+		}
 	}
 };
 
 Trigger.prototype.InitializeEnemyWaves = function()
 {
-	let time = firstWaveTime() * 60 * 1000;
+	const time = firstWaveTime() * 60 * 1000;
 	Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface).AddTimeNotification({
 		"message": markForTranslation("The first wave will start in %(time)s!"),
 		"translateMessage": true
@@ -165,20 +170,20 @@ Trigger.prototype.InitializeEnemyWaves = function()
 
 Trigger.prototype.StartAnEnemyWave = function()
 {
-	let currentMin = TriggerHelper.GetMinutes();
-	let nextWaveTime = waveTime();
-	let civ = pickRandom(Object.keys(attackerUnitTemplates));
+	const currentMin = TriggerHelper.GetMinutes();
+	const nextWaveTime = waveTime();
+	const civ = pickRandom(Object.keys(attackerUnitTemplates));
 
 	// Determine total attacker count of the current wave.
 	// Exponential increase with time, capped to the limit and fluctuating proportionally with the current wavetime.
-	let totalAttackers = Math.ceil(Math.min(totalAttackerLimit,
+	const totalAttackers = Math.ceil(Math.min(totalAttackerLimit,
 		initialAttackers * Math.pow(percentPerMinute, currentMin) * nextWaveTime / maxWaveTime));
 
-	let siegeRatio = siegeFraction();
+	const siegeRatio = siegeFraction();
 
 	this.debugLog("Spawning " + totalAttackers + " attackers, siege ratio " + siegeRatio.toFixed(2));
 
-	let attackerCount = TriggerHelper.BalancedTemplateComposition(
+	const attackerCount = TriggerHelper.BalancedTemplateComposition(
 		[
 			{
 				"templates": attackerUnitTemplates[civ].heroes,
@@ -199,7 +204,7 @@ Trigger.prototype.StartAnEnemyWave = function()
 
 	// Spawn the templates
 	let spawned = false;
-	for (let point of this.GetTriggerPoints("A"))
+	for (const point of this.GetTriggerPoints("A"))
 	{
 		if (dryRun)
 		{
@@ -208,28 +213,28 @@ Trigger.prototype.StartAnEnemyWave = function()
 		}
 
 		// Don't spawn attackers for defeated players and players that lost their cc after win
-		let cmpPlayer = QueryOwnerInterface(point, IID_Player);
+		const cmpPlayer = QueryOwnerInterface(point, IID_Player);
 		if (!cmpPlayer)
 			continue;
 
-		let playerID = cmpPlayer.GetPlayerID();
-		let civicCentre = this.playerCivicCenter[playerID];
+		const playerID = cmpPlayer.GetPlayerID();
+		const civicCentre = this.playerCivicCenter[playerID];
 		if (!civicCentre)
 			continue;
 
 		// Check if the cc is garrisoned in another building
-		let targetPos = TriggerHelper.GetEntityPosition2D(civicCentre);
+		const targetPos = TriggerHelper.GetEntityPosition2D(civicCentre);
 		if (!targetPos)
 			continue;
 
-		for (let templateName in attackerCount)
+		for (const templateName in attackerCount)
 		{
-			let isHero = attackerUnitTemplates[civ].heroes.indexOf(templateName) != -1;
+			const isHero = attackerUnitTemplates[civ].heroes.indexOf(templateName) != -1;
 
 			// Don't spawn gaia hero if the previous one is still alive
 			if (this.gaiaHeroes[playerID] && isHero)
 			{
-				let cmpHealth = Engine.QueryInterface(this.gaiaHeroes[playerID], IID_Health);
+				const cmpHealth = Engine.QueryInterface(this.gaiaHeroes[playerID], IID_Health);
 				if (cmpHealth && cmpHealth.GetHitpoints() != 0)
 				{
 					this.debugLog("Not spawning hero for player " + playerID + " as the previous one is still alive");
@@ -240,7 +245,7 @@ Trigger.prototype.StartAnEnemyWave = function()
 			if (dryRun)
 				continue;
 
-			let entities = TriggerHelper.SpawnUnits(point, templateName, attackerCount[templateName], 0);
+			const entities = TriggerHelper.SpawnUnits(point, templateName, attackerCount[templateName], 0);
 
 			ProcessCommand(0, {
 				"type": "attack-walk",
@@ -271,8 +276,8 @@ Trigger.prototype.StartAnEnemyWave = function()
 
 Trigger.prototype.PlaceTreasures = function()
 {
-	let triggerPoints = this.GetTriggerPoints(pickRandom(["B", "C", "D"]));
-	for (let point of triggerPoints)
+	const triggerPoints = this.GetTriggerPoints(pickRandom(["B", "C", "D"]));
+	for (const point of triggerPoints)
 		TriggerHelper.SpawnUnits(point, pickRandom(treasures), 1, 0);
 
 	this.DoAfterDelay(treasureTime() * 60 * 1000, "PlaceTreasures", {});
@@ -288,18 +293,18 @@ Trigger.prototype.OnOwnershipChanged = function(data)
 			data.from,
 			markForTranslation("%(player)s has been defeated (lost civic center)."));
 	}
-	else if (data.entity == this.treasureFemale[data.from])
+	else if (data.entity == this.treasureCivilian[data.from])
 	{
-		this.treasureFemale[data.from] = undefined;
+		this.treasureCivilian[data.from] = undefined;
 		Engine.DestroyEntity(data.entity);
 	}
 };
 
 
 {
-	let cmpTrigger = Engine.QueryInterface(SYSTEM_ENTITY, IID_Trigger);
+	const cmpTrigger = Engine.QueryInterface(SYSTEM_ENTITY, IID_Trigger);
 
-	cmpTrigger.treasureFemale = [];
+	cmpTrigger.treasureCivilian = [];
 	cmpTrigger.playerCivicCenter = [];
 	cmpTrigger.gaiaHeroes = [];
 

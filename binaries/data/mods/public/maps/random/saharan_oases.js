@@ -1,7 +1,7 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 
-function* GenerateMap()
+export function* generateMap()
 {
 	const tPrimary = "desert_sand_dunes_100";
 	const tCity = "desert_city_tile";
@@ -59,7 +59,7 @@ function* GenerateMap()
 	const clBaseResource = g_Map.createTileClass();
 	const clTreasure = g_Map.createTileClass();
 
-	const [playerIDs, playerPosition, playerAngle] = playerPlacementCircle(fractionToTiles(0.35));
+	const { playerIDs, playerPosition, playerAngle } = playerPlacementCircle(fractionToTiles(0.35));
 
 	placePlayerBases({
 		"PlayerPlacement": [playerIDs, playerPosition],

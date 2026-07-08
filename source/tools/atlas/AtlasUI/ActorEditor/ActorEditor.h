@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -15,9 +15,15 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "Windows/AtlasWindow.h"
+#include "tools/atlas/AtlasObject/AtlasObject.h"
+#include "tools/atlas/AtlasUI/CustomControls/Windows/AtlasWindow.h"
+
+#include <wx/event.h>
 
 class ActorEditorListCtrl;
+class wxCheckBox;
+class wxComboBox;
+class wxWindow;
 
 class ActorEditor : public AtlasWindow
 {

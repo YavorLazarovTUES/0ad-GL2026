@@ -39,6 +39,9 @@ ResourceGatherer.prototype.GATHER_AMOUNT = 1;
 
 ResourceGatherer.prototype.Init = function()
 {
+	// Cached. Currently not a target of modifiers.
+	this.range = { "max": +this.template.MaxDistance, "min": 0 };
+
 	this.capacities = {};
 	this.carrying = {}; // { generic type: integer amount currently carried }
 	// (Note that this component supports carrying multiple types of resources,
@@ -55,8 +58,8 @@ ResourceGatherer.prototype.Init = function()
  */
 ResourceGatherer.prototype.GetCarryingStatus = function()
 {
-	let ret = [];
-	for (let type in this.carrying)
+	const ret = [];
+	for (const type in this.carrying)
 	{
 		ret.push({
 			"type": type,
@@ -73,7 +76,7 @@ ResourceGatherer.prototype.GetCarryingStatus = function()
  */
 ResourceGatherer.prototype.GiveResources = function(resources)
 {
-	for (let resource of resources)
+	for (const resource of resources)
 		this.carrying[resource.type] = +resource.amount;
 };
 
@@ -84,7 +87,7 @@ ResourceGatherer.prototype.GiveResources = function(resources)
 ResourceGatherer.prototype.GetMainCarryingType = function()
 {
 	// Return the first key, if any
-	for (let type in this.carrying)
+	for (const type in this.carrying)
 		return type;
 
 	return undefined;
@@ -114,9 +117,9 @@ ResourceGatherer.prototype.RecalculateGatherRates = function()
 	this.baseSpeed = ApplyValueModificationsToEntity("ResourceGatherer/BaseSpeed", +this.template.BaseSpeed, this.entity);
 
 	this.rates = {};
-	for (let r in this.template.Rates)
+	for (const r in this.template.Rates)
 	{
-		let type = r.split(".");
+		const type = r.split(".");
 
 		if (!Resources.GetResource(type[0]).subtypes[type[1]])
 		{
@@ -124,7 +127,7 @@ ResourceGatherer.prototype.RecalculateGatherRates = function()
 			continue;
 		}
 
-		let rate = ApplyValueModificationsToEntity("ResourceGatherer/Rates/" + r, +this.template.Rates[r], this.entity);
+		const rate = ApplyValueModificationsToEntity("ResourceGatherer/Rates/" + r, +this.template.Rates[r], this.entity);
 		this.rates[r] = rate * this.baseSpeed;
 	}
 };
@@ -132,7 +135,7 @@ ResourceGatherer.prototype.RecalculateGatherRates = function()
 ResourceGatherer.prototype.RecalculateCapacities = function()
 {
 	this.capacities = {};
-	for (let r in this.template.Capacities)
+	for (const r in this.template.Capacities)
 		this.capacities[r] = ApplyValueModificationsToEntity("ResourceGatherer/Capacities/" + r, +this.template.Capacities[r], this.entity);
 };
 
@@ -164,7 +167,7 @@ ResourceGatherer.prototype.GetCapacity = function(resourceType)
 
 ResourceGatherer.prototype.GetRange = function()
 {
-	return { "max": +this.template.MaxDistance, "min": 0 };
+	return this.range;
 };
 
 /**
@@ -177,33 +180,33 @@ ResourceGatherer.prototype.StartGathering = function(target, callerIID)
 	if (this.target)
 		this.StopGathering();
 
-	let rate = this.GetTargetGatherRate(target);
+	const rate = this.GetTargetGatherRate(target);
 	if (!rate)
 		return false;
 
-	let cmpResourceSupply = Engine.QueryInterface(target, IID_ResourceSupply);
+	const cmpResourceSupply = Engine.QueryInterface(target, IID_ResourceSupply);
 	if (!cmpResourceSupply || !cmpResourceSupply.AddActiveGatherer(this.entity))
 		return false;
 
-	let resourceType = cmpResourceSupply.GetType();
+	const resourceType = cmpResourceSupply.GetType();
 
 	// If we've already got some resources but they're the wrong type,
 	// drop them first to ensure we're only ever carrying one type.
 	if (this.IsCarryingAnythingExcept(resourceType.generic))
 		this.DropResources();
 
-	let cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
+	const cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
 	if (cmpVisual)
 		cmpVisual.SelectAnimation("gather_" + resourceType.specific, false, 1.0);
 
 	// Calculate timing based on gather rates.
 	// This allows the gather rate to control how often we gather, instead of how much.
-	let timing = 1000 / rate;
+	const timing = 1000 / rate;
 
 	this.target = target;
 	this.callerIID = callerIID;
 
-	let cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
+	const cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
 	this.timer = cmpTimer.SetInterval(this.entity, IID_ResourceGatherer, "PerformGather", timing, timing, null);
 
 	return true;
@@ -217,28 +220,28 @@ ResourceGatherer.prototype.StopGathering = function(reason)
 	if (!this.target)
 		return;
 
-	let cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
+	const cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
 	cmpTimer.CancelTimer(this.timer);
 	delete this.timer;
 
-	let cmpResourceSupply = Engine.QueryInterface(this.target, IID_ResourceSupply);
+	const cmpResourceSupply = Engine.QueryInterface(this.target, IID_ResourceSupply);
 	if (cmpResourceSupply)
 		cmpResourceSupply.RemoveGatherer(this.entity);
 
 	delete this.target;
 
-	let cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
+	const cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
 	if (cmpVisual)
 		cmpVisual.SelectAnimation("idle", false, 1.0);
 
 	// The callerIID component may start again,
 	// replacing the callerIID, hence save that.
-	let callerIID = this.callerIID;
+	const callerIID = this.callerIID;
 	delete this.callerIID;
 
 	if (reason && callerIID)
 	{
-		let component = Engine.QueryInterface(this.entity, callerIID);
+		const component = Engine.QueryInterface(this.entity, callerIID);
 		if (component)
 			component.ProcessMessage(reason, null);
 	}
@@ -250,7 +253,7 @@ ResourceGatherer.prototype.StopGathering = function(reason)
  */
 ResourceGatherer.prototype.PerformGather = function(data, lateness)
 {
-	let cmpResourceSupply = Engine.QueryInterface(this.target, IID_ResourceSupply);
+	const cmpResourceSupply = Engine.QueryInterface(this.target, IID_ResourceSupply);
 	if (!cmpResourceSupply || cmpResourceSupply.GetCurrentAmount() <= 0)
 	{
 		this.StopGathering("TargetInvalidated");
@@ -266,19 +269,19 @@ ResourceGatherer.prototype.PerformGather = function(data, lateness)
 	// ToDo: Enable entities to keep facing a target.
 	Engine.QueryInterface(this.entity, IID_UnitAI)?.FaceTowardsTarget(this.target);
 
-	let type = cmpResourceSupply.GetType();
+	const type = cmpResourceSupply.GetType();
 	if (!this.carrying[type.generic])
 		this.carrying[type.generic] = 0;
 
-	let maxGathered = this.GetCapacity(type.generic) - this.carrying[type.generic];
-	let status = cmpResourceSupply.TakeResources(Math.min(this.GATHER_AMOUNT, maxGathered));
+	const maxGathered = this.GetCapacity(type.generic) - this.carrying[type.generic];
+	const status = cmpResourceSupply.TakeResources(Math.min(this.GATHER_AMOUNT, maxGathered));
 	this.carrying[type.generic] += status.amount;
 	this.lastCarriedType = type;
 
 	// Update stats of how much the player collected.
 	// (We have to do it here rather than at the dropsite, because we
 	// need to know what subtype it was.)
-	let cmpStatisticsTracker = QueryOwnerInterface(this.entity, IID_StatisticsTracker);
+	const cmpStatisticsTracker = QueryOwnerInterface(this.entity, IID_StatisticsTracker);
 	if (cmpStatisticsTracker)
 		cmpStatisticsTracker.IncreaseResourceGatheredCounter(type.generic, status.amount, type.specific);
 
@@ -295,11 +298,11 @@ ResourceGatherer.prototype.PerformGather = function(data, lateness)
  */
 ResourceGatherer.prototype.GetTargetGatherRate = function(target)
 {
-	let cmpResourceSupply = QueryMiragedInterface(target, IID_ResourceSupply);
+	const cmpResourceSupply = QueryMiragedInterface(target, IID_ResourceSupply);
 	if (!cmpResourceSupply || cmpResourceSupply.GetCurrentAmount() <= 0)
 		return 0;
 
-	let type = cmpResourceSupply.GetType();
+	const type = cmpResourceSupply.GetType();
 
 	let rate = 0;
 	if (type.specific)
@@ -307,7 +310,7 @@ ResourceGatherer.prototype.GetTargetGatherRate = function(target)
 	if (rate == 0 && type.generic)
 		rate = this.GetGatherRate(type.generic);
 
-	let diminishingReturns = cmpResourceSupply.GetDiminishingReturns();
+	const diminishingReturns = cmpResourceSupply.GetDiminishingReturns();
 	if (diminishingReturns)
 		rate *= diminishingReturns;
 
@@ -330,14 +333,14 @@ ResourceGatherer.prototype.CanGather = function(target)
  */
 ResourceGatherer.prototype.CanCarryMore = function(type)
 {
-	let amount = this.carrying[type] || 0;
+	const amount = this.carrying[type] || 0;
 	return amount < this.GetCapacity(type);
 };
 
 
 ResourceGatherer.prototype.IsCarrying = function(type)
 {
-	let amount = this.carrying[type] || 0;
+	const amount = this.carrying[type] || 0;
 	return amount > 0;
 };
 
@@ -348,7 +351,7 @@ ResourceGatherer.prototype.IsCarrying = function(type)
  */
 ResourceGatherer.prototype.IsCarryingAnythingExcept = function(exceptedType)
 {
-	for (let type in this.carrying)
+	for (const type in this.carrying)
 		if (type != exceptedType)
 			return true;
 
@@ -362,13 +365,13 @@ ResourceGatherer.prototype.IsCarryingAnythingExcept = function(exceptedType)
  */
 ResourceGatherer.prototype.CanReturnResource = function(target, checkCarriedResource)
 {
-	let cmpResourceDropsite = Engine.QueryInterface(target, IID_ResourceDropsite);
+	const cmpResourceDropsite = Engine.QueryInterface(target, IID_ResourceDropsite);
 	if (!cmpResourceDropsite)
 		return false;
 
 	if (checkCarriedResource)
 	{
-		let type = this.GetMainCarryingType();
+		const type = this.GetMainCarryingType();
 		if (!type || !cmpResourceDropsite.AcceptsType(type))
 			return false;
 	}
@@ -395,12 +398,12 @@ ResourceGatherer.prototype.CanReturnResource = function(target, checkCarriedReso
  */
 ResourceGatherer.prototype.CommitResources = function(target)
 {
-	let cmpResourceDropsite = Engine.QueryInterface(target, IID_ResourceDropsite);
+	const cmpResourceDropsite = Engine.QueryInterface(target, IID_ResourceDropsite);
 	if (!cmpResourceDropsite)
 		return;
 
-	let change = cmpResourceDropsite.ReceiveResources(this.carrying, this.entity);
-	for (let type in change)
+	const change = cmpResourceDropsite.ReceiveResources(this.carrying, this.entity);
+	for (const type in change)
 	{
 		this.carrying[type] -= change[type];
 		if (this.carrying[type] == 0)
@@ -435,7 +438,7 @@ ResourceGatherer.prototype.AddToPlayerCounter = function(type)
 	if (this.taskedResourceType)
 		return;
 
-	let cmpPlayer = QueryOwnerInterface(this.entity, IID_Player);
+	const cmpPlayer = QueryOwnerInterface(this.entity, IID_Player);
 	if (cmpPlayer)
 		cmpPlayer.AddResourceGatherer(type);
 
@@ -450,7 +453,7 @@ ResourceGatherer.prototype.RemoveFromPlayerCounter = function(playerid)
 	if (!this.taskedResourceType)
 		return;
 
-	let cmpPlayer = playerid != undefined ?
+	const cmpPlayer = playerid != undefined ?
 		QueryPlayerIDInterface(playerid) :
 		QueryOwnerInterface(this.entity, IID_Player);
 
@@ -467,7 +470,7 @@ ResourceGatherer.prototype.RemoveFromPlayerCounter = function(playerid)
 ResourceGatherer.prototype.IsTargetInRange = function(target)
 {
 	return Engine.QueryInterface(SYSTEM_ENTITY, IID_ObstructionManager).
-		IsInTargetRange(this.entity, target, 0, +this.template.MaxDistance, false);
+		IsInTargetRange(this.entity, target, this.range.min, this.range.max, false);
 };
 
 // Since we cache gather rates, we need to make sure we update them when tech changes.
@@ -477,6 +480,7 @@ ResourceGatherer.prototype.OnValueModification = function(msg)
 	if (msg.component != "ResourceGatherer")
 		return;
 
+	// eslint-disable-next-line no-irregular-whitespace
 	// NB: at the moment, 0 A.D. always uses the fast path, the other is mod support.
 	if (msg.valueNames.length === 1)
 	{
@@ -518,7 +522,7 @@ ResourceGatherer.prototype.OnGlobalInitGame = function(msg)
 
 ResourceGatherer.prototype.OnMultiplierChanged = function(msg)
 {
-	let cmpPlayer = QueryOwnerInterface(this.entity, IID_Player);
+	const cmpPlayer = QueryOwnerInterface(this.entity, IID_Player);
 	if (cmpPlayer && msg.player == cmpPlayer.GetPlayerID())
 		this.RecalculateGatherRates();
 };

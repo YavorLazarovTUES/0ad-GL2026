@@ -91,6 +91,34 @@ const doublePressTime = 500;
 var doublePressTimer = 0;
 var prevHotkey = 0;
 
+/**
+ * Tracks the selection index per building template to allow cycling
+ * through multiple structures of the same type.
+ */
+const g_BuildingSelectIndex = {};
+/**
+ * Hotkey mappings for building placement, cycling through buildings,
+ * and selecting units by class.
+ */
+const g_PlaceBuildingHotkeys = {};
+const g_SelectBuildingHotkeys = {};
+const g_SelectUnitHotkeys = {};
+function initUnitsAndBuildingsHotkeys()
+{
+	const selectionHotkeys = Engine.ReadJSONFile("gui/hotkeys/spec/selection.json").mapped_hotkeys;
+	const structuresHotkeys = Engine.ReadJSONFile("gui/hotkeys/spec/structures.json").mapped_hotkeys;
+	for (const category in structuresHotkeys)
+		for (const hotkey in structuresHotkeys[category])
+			if (hotkey.startsWith("structures.place."))
+				g_PlaceBuildingHotkeys[hotkey] = hotkey.replace("structures.place.", "");
+			else if (hotkey.startsWith("selection.structures."))
+				g_SelectBuildingHotkeys[hotkey] = hotkey.replace("selection.structures.", "");
+	for (const category in selectionHotkeys)
+		for (const hotkey in selectionHotkeys[category])
+			if (hotkey.startsWith("selection.unit."))
+				g_SelectUnitHotkeys[hotkey] = toPascalCase(hotkey.replace("selection.unit.", ""));
+}
+
 function getMaxDragDelta()
 {
 	return Engine.ConfigDB_GetValue("user", "gui.session.dragdelta");
@@ -100,15 +128,19 @@ function updateCursorAndTooltip()
 {
 	let cursorSet = false;
 	let tooltipSet = false;
-	let informationTooltip = Engine.GetGUIObjectByName("informationTooltip");
-	if (inputState == INPUT_FLARE || inputState == INPUT_NORMAL && Engine.HotkeyIsPressed("session.flare") && !g_IsObserver)
+	const informationTooltip = Engine.GetGUIObjectByName("informationTooltip");
+	if (!g_IsReplay && (inputState == INPUT_FLARE || (inputState == INPUT_NORMAL && Engine.HotkeyIsPressed("session.flare"))))
 	{
-		Engine.SetCursor("action-flare");
+		Engine.SetCursor(
+			g_IsObserver ?
+				"action-observer-flare" :
+				"action-player-flare"
+		);
 		cursorSet = true;
 	}
 	else if (!mouseIsOverObject && (inputState == INPUT_NORMAL || inputState == INPUT_PRESELECTEDACTION) || g_MiniMapPanel.isMouseOverMiniMap())
 	{
-		let action = determineAction(mouseX, mouseY, g_MiniMapPanel.isMouseOverMiniMap());
+		const action = determineAction(mouseX, mouseY, g_MiniMapPanel.isMouseOverMiniMap());
 		if (action)
 		{
 			if (action.cursor)
@@ -131,7 +163,7 @@ function updateCursorAndTooltip()
 	if (!tooltipSet)
 		informationTooltip.hidden = true;
 
-	let placementTooltip = Engine.GetGUIObjectByName("placementTooltip");
+	const placementTooltip = Engine.GetGUIObjectByName("placementTooltip");
 	if (placementSupport.tooltipMessage)
 		placementTooltip.sprite = placementSupport.tooltipError ? "BackgroundErrorTooltip" : "BackgroundInformationTooltip";
 
@@ -149,7 +181,7 @@ function updateBuildingPlacementPreview()
 	{
 		if (placementSupport.template && placementSupport.position)
 		{
-			let result = Engine.GuiInterfaceCall("SetBuildingPlacementPreview", {
+			const result = Engine.GuiInterfaceCall("SetBuildingPlacementPreview", {
 				"template": placementSupport.template,
 				"x": placementSupport.position.x,
 				"z": placementSupport.position.z,
@@ -170,7 +202,7 @@ function updateBuildingPlacementPreview()
 							message = translatePlural(result.message, result.pluralMessage, result.pluralCount);
 						else
 							message = translate(message);
-					let parameters = result.parameters;
+					const parameters = result.parameters;
 					if (result.translateParameters)
 						translateObjectKeys(parameters, result.translateParameters);
 					placementSupport.tooltipMessage = sprintf(message, parameters);
@@ -220,18 +252,18 @@ function updateBuildingPlacementPreview()
  */
 function determineAction(x, y, fromMiniMap)
 {
-	let selection = g_Selection.toList();
+	const selection = g_Selection.toList();
 	if (!selection.length)
 	{
 		preSelectedAction = ACTION_NONE;
 		return undefined;
 	}
 
-	let entState = GetEntityState(selection[0]);
+	const entState = GetEntityState(selection[0]);
 	if (!entState)
 		return undefined;
 
-	if (!selection.every(ownsEntity) &&
+	if (!selection.every(ent => ownsEntity(ent) || isMutualAllyBuilding(ent)) &&
 	    !(g_SimState.players[g_ViewedPlayer] &&
 	      g_SimState.players[g_ViewedPlayer].controlsAll))
 		return undefined;
@@ -239,7 +271,7 @@ function determineAction(x, y, fromMiniMap)
 	let target;
 	if (!fromMiniMap)
 	{
-		let ent = Engine.PickEntityAtPoint(x, y);
+		const ent = Engine.PickEntityAtPoint(x, y);
 		if (ent != INVALID_ENTITY)
 			target = ent;
 	}
@@ -250,10 +282,10 @@ function determineAction(x, y, fromMiniMap)
 
 	if (preSelectedAction != ACTION_NONE)
 	{
-		for (let action of g_UnitActionsSortedKeys)
+		for (const action of g_UnitActionsSortedKeys)
 			if (g_UnitActions[action].preSelectedActionCheck)
 			{
-				let r = g_UnitActions[action].preSelectedActionCheck(target, selection);
+				const r = g_UnitActions[action].preSelectedActionCheck(target, selection);
 				if (r)
 					return r;
 			}
@@ -261,18 +293,18 @@ function determineAction(x, y, fromMiniMap)
 		return { "type": "none", "cursor": "", "target": target };
 	}
 
-	for (let action of g_UnitActionsSortedKeys)
+	for (const action of g_UnitActionsSortedKeys)
 		if (g_UnitActions[action].hotkeyActionCheck)
 		{
-			let r = g_UnitActions[action].hotkeyActionCheck(target, selection);
+			const r = g_UnitActions[action].hotkeyActionCheck(target, selection);
 			if (r)
 				return r;
 		}
 
-	for (let action of g_UnitActionsSortedKeys)
+	for (const action of g_UnitActionsSortedKeys)
 		if (g_UnitActions[action].actionCheck)
 		{
-			let r = g_UnitActions[action].actionCheck(target, selection);
+			const r = g_UnitActions[action].actionCheck(target, selection);
 			if (r)
 				return r;
 		}
@@ -282,8 +314,15 @@ function determineAction(x, y, fromMiniMap)
 
 function ownsEntity(ent)
 {
-	let entState = GetEntityState(ent);
+	const entState = GetEntityState(ent);
 	return entState && entState.player == g_ViewedPlayer;
+}
+
+function isMutualAllyBuilding(ent)
+{
+	const entState = GetEntityState(ent);
+	return entState && entState.rallyPoint &&
+		g_Players[entState.player]?.isMutualAlly[g_ViewedPlayer];
 }
 
 function isAttackMovePressed()
@@ -294,8 +333,8 @@ function isAttackMovePressed()
 
 function isSnapToEdgesEnabled()
 {
-	let config = Engine.ConfigDB_GetValue("user", "gui.session.snaptoedges");
-	let hotkeyPressed = Engine.HotkeyIsPressed("session.snaptoedges");
+	const config = Engine.ConfigDB_GetValue("user", "gui.session.snaptoedges");
+	const hotkeyPressed = Engine.HotkeyIsPressed("session.snaptoedges");
 	return hotkeyPressed == (config == "disabled");
 }
 
@@ -316,7 +355,7 @@ function tryPlaceBuilding(queued, pushFront)
 		return false;
 	}
 
-	let selection = Engine.HotkeyIsPressed("session.orderone") &&
+	const selection = Engine.HotkeyIsPressed("session.orderone") &&
 		popOneFromSelection({ "type": "construct", "target": placementSupport }) || g_Selection.toList();
 
 	Engine.PostNetworkCommand({
@@ -351,7 +390,7 @@ function tryPlaceWall(queued)
 		return false;
 	}
 
-	let wallPlacementInfo = updateBuildingPlacementPreview(); // entities making up the wall (wall segments, towers, ...)
+	const wallPlacementInfo = updateBuildingPlacementPreview(); // entities making up the wall (wall segments, towers, ...)
 	if (!(wallPlacementInfo === false || typeof wallPlacementInfo === "object"))
 	{
 		error("Invalid updateBuildingPlacementPreview return value: " + uneval(wallPlacementInfo));
@@ -361,10 +400,10 @@ function tryPlaceWall(queued)
 	if (!wallPlacementInfo)
 		return false;
 
-	let selection = Engine.HotkeyIsPressed("session.orderone") &&
+	const selection = Engine.HotkeyIsPressed("session.orderone") &&
 		popOneFromSelection({ "type": "construct", "target": placementSupport }) || g_Selection.toList();
 
-	let cmd = {
+	const cmd = {
 		"type": "construct-wall",
 		"autorepair": true,
 		"autocontinue": true,
@@ -381,7 +420,7 @@ function tryPlaceWall(queued)
 	// point are too close together for the algorithm to place a wall segment inbetween, and only the towers are being previewed
 	// (this is somewhat non-ideal and hardcode-ish).
 	let hasWallSegment = false;
-	for (let piece of cmd.pieces)
+	for (const piece of cmd.pieces)
 	{
 		if (piece.template != cmd.wallSet.templates.tower) // TODO: hardcode-ish :(
 		{
@@ -405,11 +444,16 @@ function tryPlaceWall(queued)
  */
 function updateBandbox(bandbox, ev, hidden)
 {
-	let scale = +Engine.ConfigDB_GetValue("user", "gui.scale");
-	let vMin = Vector2D.min(g_DragStart, ev);
-	let vMax = Vector2D.max(g_DragStart, ev);
+	const scale = +Engine.ConfigDB_GetValue("user", "gui.scale");
+	const vMin = Vector2D.min(g_DragStart, ev);
+	const vMax = Vector2D.max(g_DragStart, ev);
 
-	bandbox.size = new GUISize(vMin.x / scale, vMin.y / scale, vMax.x / scale, vMax.y / scale);
+	bandbox.size = {
+		"left": vMin.x / scale,
+		"top": vMin.y / scale,
+		"right": vMax.x / scale,
+		"bottom": vMax.y / scale
+	};
 	bandbox.hidden = hidden;
 
 	return [vMin.x, vMin.y, vMax.x, vMax.y];
@@ -417,41 +461,48 @@ function updateBandbox(bandbox, ev, hidden)
 
 // Define some useful unit filters for getPreferredEntities.
 var unitFilters = {
-	"isUnit": entity => {
-		let entState = GetEntityState(entity);
+	"isUnit": entity =>
+	{
+		const entState = GetEntityState(entity);
 		return entState && hasClass(entState, "Unit");
 	},
-	"isDefensive": entity => {
-		let entState = GetEntityState(entity);
+	"isDefensive": entity =>
+	{
+		const entState = GetEntityState(entity);
 		return entState && hasClass(entState, "Defensive");
 	},
-	"isMilitary": entity => {
-		let entState = GetEntityState(entity);
+	"isMilitary": entity =>
+	{
+		const entState = GetEntityState(entity);
 		return entState &&
 			g_MilitaryTypes.some(c => hasClass(entState, c));
 	},
-	"isNonMilitary": entity => {
-		let entState = GetEntityState(entity);
+	"isNonMilitary": entity =>
+	{
+		const entState = GetEntityState(entity);
 		return entState &&
 			hasClass(entState, "Unit") &&
 			!g_MilitaryTypes.some(c => hasClass(entState, c));
 	},
-	"isIdle": entity => {
-		let entState = GetEntityState(entity);
+	"isIdle": entity =>
+	{
+		const entState = GetEntityState(entity);
 		return entState &&
 			hasClass(entState, "Unit") &&
 			entState.unitAI &&
 			entState.unitAI.isIdle &&
 			!hasClass(entState, "Domestic");
 	},
-	"isWounded": entity => {
-		let entState = GetEntityState(entity);
+	"isWounded": entity =>
+	{
+		const entState = GetEntityState(entity);
 		return entState &&
 			hasClass(entState, "Unit") &&
 			entState.maxHitpoints &&
 			100 * entState.hitpoints <= entState.maxHitpoints * Engine.ConfigDB_GetValue("user", "gui.session.woundedunithotkeythreshold");
 	},
-	"isAnything": entity => {
+	"isAnything": entity =>
+	{
 		return true;
 	}
 };
@@ -483,7 +534,7 @@ function getPreferredEntities(ents)
 
 function handleInputBeforeGui(ev, hoveredObject)
 {
-	if (GetSimState().cinemaPlaying)
+	if (g_CinemaOverlay.isInCutsceneMode())
 		return false;
 
 	// Capture cursor position so we can use it for displaying cursors,
@@ -495,6 +546,8 @@ function handleInputBeforeGui(ev, hoveredObject)
 	case "mousemotion":
 		mouseX = ev.x;
 		mouseY = ev.y;
+		break;
+	default:
 		break;
 	}
 
@@ -517,15 +570,16 @@ function handleInputBeforeGui(ev, hoveredObject)
 	switch (inputState)
 	{
 	case INPUT_BANDBOXING:
-		let bandbox = Engine.GetGUIObjectByName("bandbox");
+	{
+		const bandbox = Engine.GetGUIObjectByName("bandbox");
 		switch (ev.type)
 		{
 		case "mousemotion":
 		{
-			let rect = updateBandbox(bandbox, ev, false);
+			const rect = updateBandbox(bandbox, ev, false);
 
-			let ents = Engine.PickPlayerEntitiesInRect(rect[0], rect[1], rect[2], rect[3], g_ViewedPlayer);
-			let preferredEntities = getPreferredEntities(ents);
+			const ents = Engine.PickPlayerEntitiesInRect(rect[0], rect[1], rect[2], rect[3], g_ViewedPlayer);
+			const preferredEntities = getPreferredEntities(ents);
 			g_Selection.setHighlightList(preferredEntities);
 
 			return false;
@@ -534,8 +588,8 @@ function handleInputBeforeGui(ev, hoveredObject)
 		case "mousebuttonup":
 			if (ev.button == SDL_BUTTON_LEFT)
 			{
-				let rect = updateBandbox(bandbox, ev, true);
-				let ents = getPreferredEntities(Engine.PickPlayerEntitiesInRect(rect[0], rect[1], rect[2], rect[3], g_ViewedPlayer));
+				const rect = updateBandbox(bandbox, ev, true);
+				const ents = getPreferredEntities(Engine.PickPlayerEntitiesInRect(rect[0], rect[1], rect[2], rect[3], g_ViewedPlayer));
 				g_Selection.setHighlightList([]);
 
 				if (Engine.HotkeyIsPressed("selection.add"))
@@ -560,9 +614,11 @@ function handleInputBeforeGui(ev, hoveredObject)
 				inputState = INPUT_NORMAL;
 				return true;
 			}
-			break;
+			return false;
+		default:
+			return false;
 		}
-		break;
+	}
 
 	case INPUT_UNIT_POSITION:
 		switch (ev.type)
@@ -571,8 +627,9 @@ function handleInputBeforeGui(ev, hoveredObject)
 			return positionUnitsFreehandSelectionMouseMove(ev);
 		case "mousebuttonup":
 			return positionUnitsFreehandSelectionMouseUp(ev);
+		default:
+			return false;
 		}
-		break;
 
 	case INPUT_BUILDING_CLICK:
 		switch (ev.type)
@@ -585,13 +642,13 @@ function handleInputBeforeGui(ev, hoveredObject)
 				inputState = INPUT_BUILDING_DRAG;
 				return false;
 			}
-			break;
+			return false;
 
 		case "mousebuttonup":
 			if (ev.button == SDL_BUTTON_LEFT)
 			{
 				// If queued, let the player continue placing another of the same building.
-				let queued = Engine.HotkeyIsPressed("session.queue");
+				const queued = Engine.HotkeyIsPressed("session.queue");
 				if (tryPlaceBuilding(queued, Engine.HotkeyIsPressed("session.pushorderfront")))
 				{
 					if (queued && g_Selection.size())
@@ -603,7 +660,7 @@ function handleInputBeforeGui(ev, hoveredObject)
 					inputState = INPUT_BUILDING_PLACEMENT;
 				return true;
 			}
-			break;
+			return false;
 
 		case "mousebuttondown":
 			if (ev.button == SDL_BUTTON_RIGHT)
@@ -613,9 +670,10 @@ function handleInputBeforeGui(ev, hoveredObject)
 				inputState = INPUT_NORMAL;
 				return true;
 			}
-			break;
+			return false;
+		default:
+			return false;
 		}
-		break;
 
 	case INPUT_BUILDING_WALL_CLICK:
 		// User is mid-click in choosing a starting point for building a wall. The build process can still be cancelled at this point
@@ -628,7 +686,7 @@ function handleInputBeforeGui(ev, hoveredObject)
 				inputState = INPUT_BUILDING_WALL_PATHING;
 				return true;
 			}
-			break;
+			return false;
 
 		case "mousebuttondown":
 			if (ev.button == SDL_BUTTON_RIGHT)
@@ -640,9 +698,10 @@ function handleInputBeforeGui(ev, hoveredObject)
 				inputState = INPUT_NORMAL;
 				return true;
 			}
-			break;
+			return false;
+		default:
+			return false;
 		}
-		break;
 
 	case INPUT_BUILDING_WALL_PATHING:
 		// User has chosen a starting point for constructing the wall, and is now looking to set the endpoint.
@@ -652,6 +711,7 @@ function handleInputBeforeGui(ev, hoveredObject)
 		switch (ev.type)
 		{
 		case "mousemotion":
+		{
 			placementSupport.wallEndPosition = Engine.GetTerrainAtScreenPoint(ev.x, ev.y);
 
 			// Update the structure placement preview, and by extension, the list of snapping candidate entities for both (!)
@@ -665,22 +725,22 @@ function handleInputBeforeGui(ev, hoveredObject)
 			// points.
 
 			placementSupport.wallSnapEntitiesIncludeOffscreen = true;
-			let result = updateBuildingPlacementPreview(); // includes an update of the snap entity candidates
+			const result = updateBuildingPlacementPreview(); // includes an update of the snap entity candidates
 			if (result && result.cost)
 			{
-				let neededResources = Engine.GuiInterfaceCall("GetNeededResources", { "cost": result.cost });
+				const neededResources = Engine.GuiInterfaceCall("GetNeededResources", { "cost": result.cost });
 				placementSupport.tooltipMessage = [
 					getEntityCostTooltip(result),
 					getNeededResourcesTooltip(neededResources)
 				].filter(tip => tip).join("\n");
 			}
 
-			break;
-
+			return false;
+		}
 		case "mousebuttondown":
 			if (ev.button == SDL_BUTTON_LEFT)
 			{
-				let queued = Engine.HotkeyIsPressed("session.queue");
+				const queued = Engine.HotkeyIsPressed("session.queue");
 				if (tryPlaceWall(queued))
 				{
 					if (queued)
@@ -711,14 +771,16 @@ function handleInputBeforeGui(ev, hoveredObject)
 				inputState = INPUT_NORMAL;
 				return true;
 			}
-			break;
+			return false;
+		default:
+			return false;
 		}
-		break;
 
 	case INPUT_BUILDING_DRAG:
 		switch (ev.type)
 		{
 		case "mousemotion":
+		{
 			if (g_DragStart.distanceTo(ev) >= Math.square(getMaxDragDelta()))
 				// Rotate in the direction of the cursor.
 				placementSupport.angle = placementSupport.position.horizAngleTo(Engine.GetTerrainAtScreenPoint(ev.x, ev.y));
@@ -726,7 +788,7 @@ function handleInputBeforeGui(ev, hoveredObject)
 				// If the cursor is near the center, snap back to the default orientation.
 				placementSupport.SetDefaultAngle();
 
-			let snapData = Engine.GuiInterfaceCall("GetFoundationSnapData", {
+			const snapData = Engine.GuiInterfaceCall("GetFoundationSnapData", {
 				"template": placementSupport.template,
 				"x": placementSupport.position.x,
 				"z": placementSupport.position.z,
@@ -742,13 +804,13 @@ function handleInputBeforeGui(ev, hoveredObject)
 			}
 
 			updateBuildingPlacementPreview();
-			break;
-
+			return false;
+		}
 		case "mousebuttonup":
 			if (ev.button == SDL_BUTTON_LEFT)
 			{
 				// If queued, let the player continue placing another of the same structure.
-				let queued = Engine.HotkeyIsPressed("session.queue");
+				const queued = Engine.HotkeyIsPressed("session.queue");
 				if (tryPlaceBuilding(queued, Engine.HotkeyIsPressed("session.pushorderfront")))
 				{
 					if (queued && g_Selection.size())
@@ -760,7 +822,7 @@ function handleInputBeforeGui(ev, hoveredObject)
 					inputState = INPUT_BUILDING_PLACEMENT;
 				return true;
 			}
-			break;
+			return false;
 
 		case "mousebuttondown":
 			if (ev.button == SDL_BUTTON_RIGHT)
@@ -770,9 +832,10 @@ function handleInputBeforeGui(ev, hoveredObject)
 				inputState = INPUT_NORMAL;
 				return true;
 			}
-			break;
+			return false;
+		default:
+			return false;
 		}
-		break;
 
 	case INPUT_BATCHTRAINING:
 		if (ev.type == "hotkeyup" && ev.hotkey == "session.batchtrain")
@@ -780,20 +843,17 @@ function handleInputBeforeGui(ev, hoveredObject)
 			flushTrainingBatch();
 			inputState = INPUT_NORMAL;
 		}
-		break;
+		return false;
+	default:
+		return false;
 	}
-
-	return false;
 }
-
 function handleInputAfterGui(ev)
 {
-	if (GetSimState().cinemaPlaying)
+	if (g_CinemaOverlay.isInCutsceneMode())
 		return false;
-
 	if (ev.hotkey === undefined)
 		ev.hotkey = null;
-
 	if (ev.hotkey == "session.highlightguarding")
 	{
 		g_ShowGuarding = (ev.type == "hotkeypress");
@@ -803,6 +863,65 @@ function handleInputAfterGui(ev)
 	{
 		g_ShowGuarded = (ev.type == "hotkeypress");
 		updateAdditionalHighlight();
+	}
+	// Unit class selection hotkeys
+	if (ev.type == "hotkeydown" && ev.hotkey in g_SelectUnitHotkeys)
+	{
+		const targetClass = g_SelectUnitHotkeys[ev.hotkey];
+		const playerEntities = Engine.GuiInterfaceCall("GetPlayerEntities", {
+			"player": g_ViewedPlayer
+		});
+		if (!playerEntities || !playerEntities.length)
+			return false;
+		const ents = playerEntities.filter(ent =>
+			GetEntityState(ent)?.identity?.classes.includes(targetClass)
+		);
+		if (!ents.length)
+			return false;
+		if (Engine.HotkeyIsPressed("selection.add"))
+			g_Selection.addList(ents);
+		else if (Engine.HotkeyIsPressed("selection.remove"))
+			g_Selection.removeList(ents);
+		else
+		{
+			g_Selection.reset();
+			g_Selection.addList(ents);
+		}
+		return true;
+	}
+	// Building placement hotkeys
+	if (ev.type == "hotkeydown" && ev.hotkey in g_PlaceBuildingHotkeys)
+	{
+		const buildingId = g_PlaceBuildingHotkeys[ev.hotkey];
+		return tryStartBuildingPlacementByBuildingId(buildingId);
+	}
+	// Building template selection hotkeys
+	if (ev.type == "hotkeydown" && ev.hotkey in g_SelectBuildingHotkeys)
+	{
+		const buildingId = g_SelectBuildingHotkeys[ev.hotkey];
+		const playerEntities = Engine.GuiInterfaceCall("GetPlayerEntities", {
+			"player": g_ViewedPlayer
+		});
+		if (!playerEntities || !playerEntities.length)
+			return false;
+		const ents = playerEntities.filter(ent =>
+			GetEntityState(ent)?.template?.endsWith(buildingId)
+		);
+		if (!ents.length)
+			return false;
+		if (!(buildingId in g_BuildingSelectIndex))
+			g_BuildingSelectIndex[buildingId] = 0;
+		const index = g_BuildingSelectIndex[buildingId];
+		const entity = ents[index % ents.length];
+		if (Engine.HotkeyIsPressed("selection.add"))
+			g_Selection.addList([entity]);
+		else
+		{
+			g_Selection.reset();
+			g_Selection.addList([entity]);
+		}
+		g_BuildingSelectIndex[buildingId] = (index + 1) % ents.length;
+		return true;
 	}
 
 	if (inputState != INPUT_NORMAL && inputState != INPUT_SELECTING)
@@ -816,16 +935,17 @@ function handleInputAfterGui(ev)
 		switch (ev.type)
 		{
 		case "mousemotion":
-			let ent = Engine.PickEntityAtPoint(ev.x, ev.y);
+		{
+			const ent = Engine.PickEntityAtPoint(ev.x, ev.y);
 			if (ent != INVALID_ENTITY)
 				g_Selection.setHighlightList([ent]);
 			else
 				g_Selection.setHighlightList([]);
 
 			return false;
-
+		}
 		case "mousebuttondown":
-			if (Engine.HotkeyIsPressed("session.flare") && controlsPlayer(g_ViewedPlayer))
+			if (Engine.HotkeyIsPressed("session.flare") && !g_IsReplay)
 			{
 				triggerFlareAction(Engine.GetTerrainAtScreenPoint(ev.x, ev.y));
 				return true;
@@ -843,55 +963,57 @@ function handleInputAfterGui(ev)
 			else if (ev.button == SDL_BUTTON_RIGHT)
 			{
 				if (!controlsPlayer(g_ViewedPlayer))
-					break;
+					return false;
 				g_DragStart = new Vector2D(ev.x, ev.y);
 				inputState = INPUT_UNIT_POSITION_START;
 			}
-			break;
+			return false;
 
 		case "hotkeypress":
 			if (ev.hotkey.indexOf("selection.group.") == 0)
 			{
-				let now = Date.now();
+				const now = Date.now();
 				if (now - doublePressTimer < doublePressTime && ev.hotkey == prevHotkey)
 				{
 					if (ev.hotkey.indexOf("selection.group.select.") == 0)
 					{
-						let sptr = ev.hotkey.split(".");
+						const sptr = ev.hotkey.split(".");
 						performGroup("snap", sptr[3] - 1);
 					}
 				}
 				else
 				{
-					let sptr = ev.hotkey.split(".");
+					const sptr = ev.hotkey.split(".");
 					performGroup(sptr[2], sptr[3] - 1);
 
 					doublePressTimer = now;
 					prevHotkey = ev.hotkey;
 				}
 			}
-			break;
+			return false;
+		default:
+			return false;
 		}
-		break;
 
 	case INPUT_PRESELECTEDACTION:
 		switch (ev.type)
 		{
 		case "mousemotion":
-			let ent = Engine.PickEntityAtPoint(ev.x, ev.y);
+		{
+			const ent = Engine.PickEntityAtPoint(ev.x, ev.y);
 			if (ent != INVALID_ENTITY)
 				g_Selection.setHighlightList([ent]);
 			else
 				g_Selection.setHighlightList([]);
 
 			return false;
-
+		}
 		case "mousebuttondown":
 			if (ev.button == SDL_BUTTON_LEFT && preSelectedAction != ACTION_NONE)
 			{
-				let action = determineAction(ev.x, ev.y);
+				const action = determineAction(ev.x, ev.y);
 				if (!action)
-					break;
+					return false;
 				if (!Engine.HotkeyIsPressed("session.queue") && !Engine.HotkeyIsPressed("session.orderone"))
 				{
 					preSelectedAction = ACTION_NONE;
@@ -903,36 +1025,36 @@ function handleInputAfterGui(ev)
 			{
 				preSelectedAction = ACTION_NONE;
 				inputState = INPUT_NORMAL;
-				break;
 			}
+			return false;
 		default:
 			// Slight hack: If selection is empty, reset the input state.
 			if (!g_Selection.size())
 			{
 				preSelectedAction = ACTION_NONE;
 				inputState = INPUT_NORMAL;
-				break;
 			}
+			return false;
 		}
-		break;
 
 	case INPUT_SELECTING:
 		switch (ev.type)
 		{
 		case "mousemotion":
+		{
 			if (g_DragStart.distanceTo(ev) >= getMaxDragDelta())
 			{
 				inputState = INPUT_BANDBOXING;
 				return false;
 			}
 
-			let ent = Engine.PickEntityAtPoint(ev.x, ev.y);
+			const ent = Engine.PickEntityAtPoint(ev.x, ev.y);
 			if (ent != INVALID_ENTITY)
 				g_Selection.setHighlightList([ent]);
 			else
 				g_Selection.setHighlightList([]);
 			return false;
-
+		}
 		case "mousebuttonup":
 			if (ev.button == SDL_BUTTON_LEFT)
 			{
@@ -954,12 +1076,12 @@ function handleInputAfterGui(ev)
 				if (Engine.GetFollowedEntity() != clickedEntity)
 					Engine.CameraFollow(0);
 
-				let ents = [];
+				let ents;
 				if (ev.clicks == 1)
 					ents = [clickedEntity];
 				else
 				{
-					let showOffscreen = Engine.HotkeyIsPressed("selection.offscreen");
+					const showOffscreen = Engine.HotkeyIsPressed("selection.offscreen");
 					let matchRank = true;
 					let templateToMatch;
 
@@ -995,31 +1117,30 @@ function handleInputAfterGui(ev)
 				inputState = INPUT_NORMAL;
 				return true;
 			}
-			break;
+			return false;
+		default:
+			return false;
 		}
-		break;
 
 	case INPUT_UNIT_POSITION_START:
 		switch (ev.type)
 		{
 		case "mousemotion":
 			if (g_DragStart.distanceToSquared(ev) >= Math.square(getMaxDragDelta()))
-			{
 				inputState = INPUT_UNIT_POSITION;
-				return false;
-			}
-			break;
+			return false;
 		case "mousebuttonup":
 			inputState = INPUT_NORMAL;
 			if (ev.button == SDL_BUTTON_RIGHT)
 			{
-				let action = determineAction(ev.x, ev.y);
+				const action = determineAction(ev.x, ev.y);
 				if (action)
 					return doAction(action, ev);
 			}
-			break;
+			return false;
+		default:
+			return false;
 		}
-		break;
 
 	case INPUT_BUILDING_PLACEMENT:
 		switch (ev.type)
@@ -1048,7 +1169,7 @@ function handleInputAfterGui(ev)
 					// because we want to get the angle near to the default one.
 					placementSupport.SetDefaultAngle();
 				}
-				let snapData = Engine.GuiInterfaceCall("GetFoundationSnapData", {
+				const snapData = Engine.GuiInterfaceCall("GetFoundationSnapData", {
 					"template": placementSupport.template,
 					"x": placementSupport.position.x,
 					"z": placementSupport.position.z,
@@ -1072,7 +1193,7 @@ function handleInputAfterGui(ev)
 			{
 				if (placementSupport.mode === "wall")
 				{
-					let validPlacement = updateBuildingPlacementPreview();
+					const validPlacement = updateBuildingPlacementPreview();
 					if (validPlacement !== false)
 						inputState = INPUT_BUILDING_WALL_CLICK;
 				}
@@ -1082,7 +1203,7 @@ function handleInputAfterGui(ev)
 
 					if (isSnapToEdgesEnabled())
 					{
-						let snapData = Engine.GuiInterfaceCall("GetFoundationSnapData", {
+						const snapData = Engine.GuiInterfaceCall("GetFoundationSnapData", {
 							"template": placementSupport.template,
 							"x": placementSupport.position.x,
 							"z": placementSupport.position.z,
@@ -1110,31 +1231,34 @@ function handleInputAfterGui(ev)
 				inputState = INPUT_NORMAL;
 				return true;
 			}
-			break;
+			return false;
 
 		case "hotkeydown":
-
-			let rotation_step = Math.PI / 12; // 24 clicks make a full rotation
+		{
+			const rotation_step = Math.PI / 12; // 24 clicks make a full rotation
 
 			switch (ev.hotkey)
 			{
 			case "session.rotate.cw":
 				placementSupport.angle += rotation_step;
 				updateBuildingPlacementPreview();
-				break;
+				return false;
 			case "session.rotate.ccw":
 				placementSupport.angle -= rotation_step;
 				updateBuildingPlacementPreview();
-				break;
+				return false;
+			default:
+				return false;
 			}
-			break;
-
 		}
-		break;
+		default:
+			return false;
+		}
+
 	case INPUT_FLARE:
 		if (ev.type == "mousebuttondown")
 		{
-			if (ev.button == SDL_BUTTON_LEFT && controlsPlayer(g_ViewedPlayer))
+			if (ev.button == SDL_BUTTON_LEFT)
 			{
 				triggerFlareAction(Engine.GetTerrainAtScreenPoint(ev.x, ev.y));
 				inputState = INPUT_NORMAL;
@@ -1146,10 +1270,59 @@ function handleInputAfterGui(ev)
 				return true;
 			}
 		}
+		return false;
+	default:
+		return false;
 	}
-	return false;
 }
-
+/**
+ * Checks whether the given structure is buildable by g_ViewedPlayer,
+ * including civ restrictions, technology requirements and available resources.
+ * If all requirements are met, it initiates the building placement.
+ */
+function tryStartBuildingPlacementByBuildingId(buildingId)
+{
+	if (g_IsObserver)
+		return false;
+	const playerState = GetSimState().players[g_ViewedPlayer];
+	if (!playerState)
+		return false;
+	const buildableEntities = getAllBuildableEntitiesFromSelection();
+	if (!buildableEntities || !buildableEntities.length)
+		return false;
+	const templateName = buildableEntities.find(template =>
+		template.endsWith(buildingId)
+	);
+	if (!templateName)
+		return false;
+	const templateData = GetTemplateData(templateName);
+	if (!templateData)
+		return false;
+	let requirementsMet = true;
+	if (templateData.requirements)
+	{
+		requirementsMet = Engine.GuiInterfaceCall("AreRequirementsMet", {
+			"requirements": templateData.requirements,
+			"player": g_ViewedPlayer
+		});
+	}
+	if (requirementsMet && templateData.cost)
+	{
+		requirementsMet = !Engine.GuiInterfaceCall("GetNeededResources", {
+			"cost": templateData.cost,
+			"player": g_ViewedPlayer
+		});
+	}
+	if (!requirementsMet)
+		return false;
+	startBuildingPlacement(templateName, playerState);
+	if (placementSupport)
+	{
+		placementSupport.position = Engine.GetTerrainAtScreenPoint(mouseX, mouseY);
+		updateBuildingPlacementPreview();
+	}
+	return true;
+}
 function doAction(action, ev)
 {
 	if (!controlsPlayer(g_ViewedPlayer))
@@ -1161,7 +1334,7 @@ function doAction(action, ev)
 function popOneFromSelection(action)
 {
 	// Pick the first unit that can do this order.
-	let unit = action.firstAbleEntity || g_Selection.find(entity =>
+	const unit = action.firstAbleEntity || g_Selection.find(entity =>
 		["preSelectedActionCheck", "hotkeyActionCheck", "actionCheck"].some(method =>
 			g_UnitActions[action.type][method] &&
 			g_UnitActions[action.type][method](action.target || undefined, [entity])
@@ -1178,7 +1351,7 @@ function positionUnitsFreehandSelectionMouseMove(ev)
 {
 	// Converting the input line into a List of points.
 	// For better performance the points must have a minimum distance to each other.
-	let target = Vector2D.from3D(Engine.GetTerrainAtScreenPoint(ev.x, ev.y));
+	const target = Vector2D.from3D(Engine.GetTerrainAtScreenPoint(ev.x, ev.y));
 	if (!g_FreehandSelection_InputLine.length ||
 	    target.distanceToSquared(g_FreehandSelection_InputLine[g_FreehandSelection_InputLine.length - 1]) >=
 	    g_FreehandSelection_ResolutionInputLineSquared)
@@ -1189,7 +1362,7 @@ function positionUnitsFreehandSelectionMouseMove(ev)
 function positionUnitsFreehandSelectionMouseUp(ev)
 {
 	inputState = INPUT_NORMAL;
-	let inputLine = g_FreehandSelection_InputLine;
+	const inputLine = g_FreehandSelection_InputLine;
 	g_FreehandSelection_InputLine = [];
 	if (ev.button != SDL_BUTTON_RIGHT)
 		return true;
@@ -1203,19 +1376,19 @@ function positionUnitsFreehandSelectionMouseUp(ev)
 	// Checking the line for a minimum length to save performance.
 	if (lengthOfLine < g_FreehandSelection_MinLengthOfLine || selection.length < g_FreehandSelection_MinNumberOfUnits)
 	{
-		let action = determineAction(ev.x, ev.y);
+		const action = determineAction(ev.x, ev.y);
 		return !!action && doAction(action, ev);
 	}
 
 	// Even distribution of the units on the line.
 	let p0 = inputLine[0];
 	let entityDistribution = [p0];
-	let distanceBetweenEnts = lengthOfLine / (selection.length - 1);
+	const distanceBetweenEnts = lengthOfLine / (selection.length - 1);
 	let freeDist = -distanceBetweenEnts;
 
 	for (let i = 1; i < inputLine.length; ++i)
 	{
-		let p1 = inputLine[i];
+		const p1 = inputLine[i];
 		freeDist += inputLine[i - 1].distanceTo(p1);
 
 		while (freeDist >= 0)
@@ -1247,7 +1420,7 @@ function positionUnitsFreehandSelectionMouseUp(ev)
 	});
 
 	// Add target markers with a minimum distance of 5 to each other.
-	let entitiesBetweenMarker = Math.ceil(5 / distanceBetweenEnts);
+	const entitiesBetweenMarker = Math.ceil(5 / distanceBetweenEnts);
 	for (let i = 0; i < entityDistribution.length; i += entitiesBetweenMarker)
 		DrawTargetMarker({ "x": entityDistribution[i].x, "z": entityDistribution[i].y });
 
@@ -1261,17 +1434,15 @@ function positionUnitsFreehandSelectionMouseUp(ev)
 
 function triggerFlareAction(position)
 {
-	let now = Date.now();
+	const now = Date.now();
 	if (g_LastFlareTime && now < g_LastFlareTime + g_FlareCooldown)
 		return;
 
 	g_LastFlareTime = now;
-	displayFlare(position, Engine.GetPlayerID());
-	Engine.PlayUISound(g_FlareSound, false);
-	Engine.PostNetworkCommand({
-		"type": "map-flare",
-		"position": position
-	});
+
+	renderAndPlayFlare(position, Engine.GetPlayerGUID());
+	if (Engine.HasNetClient())
+		Engine.SendNetworkFlare(position);
 }
 
 function handleUnitAction(position, action)
@@ -1282,7 +1453,7 @@ function handleUnitAction(position, action)
 		return false;
 	}
 
-	let selection = Engine.HotkeyIsPressed("session.orderone") &&
+	const selection = Engine.HotkeyIsPressed("session.orderone") &&
 		popOneFromSelection(action) || g_Selection.toList();
 	// If the session.queue hotkey is down, add the order to the unit's order queue instead
 	// of running it immediately. If the pushorderfront hotkey is down, execute the order
@@ -1297,7 +1468,7 @@ function handleUnitAction(position, action)
 
 function getEntityLimitAndCount(playerState, entType)
 {
-	let ret = {
+	const ret = {
 		"entLimit": undefined,
 		"entCount": undefined,
 		"entLimitChangers": undefined,
@@ -1308,7 +1479,7 @@ function getEntityLimitAndCount(playerState, entType)
 	};
 	if (!playerState.entityLimits)
 		return ret;
-	let template = GetTemplateData(entType);
+	const template = GetTemplateData(entType);
 	let entCategory;
 	let matchLimit;
 	if (template.trainingRestrictions)
@@ -1356,7 +1527,7 @@ function startBuildingPlacement(buildTemplate, playerState)
 
 	placementSupport.Reset();
 
-	let templateData = GetTemplateData(buildTemplate);
+	const templateData = GetTemplateData(buildTemplate);
 	if (templateData.wallSet)
 	{
 		placementSupport.mode = "wall";
@@ -1399,7 +1570,8 @@ function OnTrainMouseWheel(dir)
 
 function getBuildingsWhichCanTrainEntity(entitiesToCheck, trainEntType)
 {
-	return entitiesToCheck.filter(entity => {
+	return entitiesToCheck.filter(entity =>
+	{
 		const state = GetEntityState(entity);
 		return state?.trainer?.entities?.includes(trainEntType) &&
 			(!state.upgrade || !state.upgrade.isUpgrading);
@@ -1408,7 +1580,8 @@ function getBuildingsWhichCanTrainEntity(entitiesToCheck, trainEntType)
 
 function initBatchTrain()
 {
-	registerConfigChangeHandler(changes => {
+	registerConfigChangeHandler(changes =>
+	{
 		if (changes.has("gui.session.batchtrainingsize"))
 			updateDefaultBatchSize();
 	});
@@ -1416,7 +1589,7 @@ function initBatchTrain()
 
 function getDefaultBatchTrainingSize()
 {
-	let num = +Engine.ConfigDB_GetValue("user", "gui.session.batchtrainingsize");
+	const num = +Engine.ConfigDB_GetValue("user", "gui.session.batchtrainingsize");
 	return Number.isInteger(num) && num > 0 ? num : 5;
 }
 
@@ -1431,19 +1604,47 @@ function updateDefaultBatchSize()
 }
 
 /**
+ * Calculates the total remaining production queue time of a building.
+ */
+function getTotalQueueTime(queue)
+{
+	return queue.reduce((sum, item) => sum + (item.timeRemaining ?? item.timeTotal ?? 0), 0);
+}
+
+/**
+ * Returns the given production building selection sorted by their current
+ * queued training time, from lowest to highest.
+ * Invalid entities or entities without a valid production queue are filtered out.
+ */
+function getBuildingsSortedByQueueTime(entities)
+{
+	return entities.map(entity =>
+	{
+		const state = GetEntityState(entity);
+		const queue = state?.production?.queue;
+		if (!Array.isArray(queue))
+			return null;
+		return {
+			"entity": entity,
+			"totalQueueTime": getTotalQueueTime(queue)
+		};
+	}).filter(data => data !== null).sort((a, b) => a.totalQueueTime - b.totalQueueTime).map(building => building.entity);
+}
+
+/**
  * Add the unit shown at position to the training queue for all entities in the selection.
  * @param {number} position - The position of the template to train.
  */
 function addTrainingByPosition(position)
 {
-	let playerState = GetSimState().players[Engine.GetPlayerID()];
-	let selection = g_Selection.toList();
+	const playerState = GetSimState().players[Engine.GetPlayerID()];
+	const selection = g_Selection.toList();
 
 	if (!playerState || !selection.length)
 		return;
 
-	let trainableEnts = getAllTrainableEntitiesFromSelection();
-	let entToTrain = trainableEnts[position];
+	const trainableEnts = getAllTrainableEntitiesFromSelection();
+	const entToTrain = trainableEnts[position];
 	if (!entToTrain)
 		return;
 
@@ -1453,14 +1654,15 @@ function addTrainingByPosition(position)
 // Called by GUI when user clicks training button
 function addTrainingToQueue(selection, trainEntType, playerState)
 {
-	let appropriateBuildings = getBuildingsWhichCanTrainEntity(selection, trainEntType);
+	const appropriateBuildings = getBuildingsWhichCanTrainEntity(selection, trainEntType);
 
-	let canBeAddedCount = getEntityLimitAndCount(playerState, trainEntType).canBeAddedCount;
+	const canBeAddedCount = getEntityLimitAndCount(playerState, trainEntType).canBeAddedCount;
 
-	let decrement = Engine.HotkeyIsPressed("selection.remove");
+	const decrement = Engine.HotkeyIsPressed("selection.remove");
 	let template;
 	if (!decrement)
 		template = GetTemplateData(trainEntType);
+
 
 	// Batch training only possible if we can train at least 2 units.
 	if (Engine.HotkeyIsPressed("session.batchtrain") && (canBeAddedCount == undefined || canBeAddedCount > 1))
@@ -1500,8 +1702,8 @@ function addTrainingToQueue(selection, trainEntType, playerState)
 		}
 
 		if (decrement || Engine.GuiInterfaceCall("GetNeededResources", {
-				"cost": multiplyEntityCosts(template, getBatchTrainingSize())
-			}))
+			"cost": multiplyEntityCosts(template, getBatchTrainingSize())
+		}))
 			return;
 
 		inputState = INPUT_BATCHTRAINING;
@@ -1512,14 +1714,14 @@ function addTrainingToQueue(selection, trainEntType, playerState)
 	}
 	else
 	{
-		let buildingsForTraining = appropriateBuildings;
+		let sortedBuildingsForTraining = getBuildingsSortedByQueueTime(appropriateBuildings);
 		if (canBeAddedCount !== undefined)
-			buildingsForTraining = buildingsForTraining.slice(0, canBeAddedCount);
+			sortedBuildingsForTraining = sortedBuildingsForTraining.slice(0, canBeAddedCount);
 		Engine.PostNetworkCommand({
 			"type": "train",
 			"template": trainEntType,
 			"count": 1,
-			"entities": buildingsForTraining,
+			"entities": sortedBuildingsForTraining,
 			"pushFront": Engine.HotkeyIsPressed("session.pushorderfront")
 		});
 	}
@@ -1531,7 +1733,7 @@ function addTrainingToQueue(selection, trainEntType, playerState)
  */
 function getTrainingStatus(selection, trainEntType, playerState)
 {
-	let appropriateBuildings = getBuildingsWhichCanTrainEntity(selection, trainEntType);
+	const appropriateBuildings = getBuildingsWhichCanTrainEntity(selection, trainEntType);
 	let nextBatchTrainingCount = 0;
 
 	let canBeAddedCount;
@@ -1566,28 +1768,34 @@ function getTrainingStatus(selection, trainEntType, playerState)
 
 function flushTrainingBatch()
 {
-	let batchedSize = g_NumberOfBatches * getBatchTrainingSize();
-	let appropriateBuildings = getBuildingsWhichCanTrainEntity(g_BatchTrainingEntities, g_BatchTrainingType);
+	const batchedSize = g_NumberOfBatches * getBatchTrainingSize();
+	const appropriateBuildings = getBuildingsWhichCanTrainEntity(g_BatchTrainingEntities, g_BatchTrainingType);
+
+	// Sort buildings by queued training time so that, if some training
+	// commands fail due to resource or entity limits, units are assigned
+	// to the least busy buildings first.
+	const sortedBuildings = getBuildingsSortedByQueueTime(appropriateBuildings);
+
 	// If training limits don't allow us to train batchedSize in each appropriate structure.
 	if (g_BatchTrainingEntityAllowedCount !== undefined &&
 		g_BatchTrainingEntityAllowedCount < batchedSize * appropriateBuildings.length)
 	{
 		// Train as many full batches as we can.
-		let buildingsCountToTrainFullBatch = Math.floor(g_BatchTrainingEntityAllowedCount / batchedSize);
+		const buildingsCountToTrainFullBatch = Math.floor(g_BatchTrainingEntityAllowedCount / batchedSize);
 		Engine.PostNetworkCommand({
 			"type": "train",
-			"entities": appropriateBuildings.slice(0, buildingsCountToTrainFullBatch),
+			"entities": sortedBuildings.slice(0, buildingsCountToTrainFullBatch),
 			"template": g_BatchTrainingType,
 			"count": batchedSize,
 			"pushFront": Engine.HotkeyIsPressed("session.pushorderfront")
 		});
 
 		// Train remainer in one more structure.
-		let remainer = g_BatchTrainingEntityAllowedCount % batchedSize;
+		const remainer = g_BatchTrainingEntityAllowedCount % batchedSize;
 		if (remainer)
 			Engine.PostNetworkCommand({
 				"type": "train",
-				"entities": [appropriateBuildings[buildingsCountToTrainFullBatch]],
+				"entities": [sortedBuildings[buildingsCountToTrainFullBatch]],
 				"template": g_BatchTrainingType,
 				"count": remainer,
 				"pushFront": Engine.HotkeyIsPressed("session.pushorderfront")
@@ -1596,7 +1804,7 @@ function flushTrainingBatch()
 	else
 		Engine.PostNetworkCommand({
 			"type": "train",
-			"entities": appropriateBuildings,
+			"entities": sortedBuildings,
 			"template": g_BatchTrainingType,
 			"count": batchedSize,
 			"pushFront": Engine.HotkeyIsPressed("session.pushorderfront")
@@ -1615,9 +1823,10 @@ function performGroup(action, groupId)
 	case "snap":
 	case "select":
 	case "add":
-		let toSelect = [];
+	{
+		const toSelect = [];
 		g_Groups.update();
-		for (let ent in g_Groups.groups[groupId].ents)
+		for (const ent in g_Groups.groups[groupId].ents)
 			toSelect.push(+ent);
 
 		if (action != "add")
@@ -1627,12 +1836,13 @@ function performGroup(action, groupId)
 
 		if (action == "snap" && toSelect.length)
 		{
-			let entState = GetEntityState(getEntityOrHolder(toSelect[0]));
-			let position = entState.position;
+			const entState = GetEntityState(getEntityOrHolder(toSelect[0]));
+			const position = entState.position;
 			if (position && entState.visibility != "hidden")
 				Engine.CameraMoveTo(position.x, position.z);
 		}
 		break;
+	}
 	case "save":
 	case "breakUp":
 		g_Groups.groups[groupId].reset();
@@ -1642,6 +1852,8 @@ function performGroup(action, groupId)
 
 		updateGroups();
 		break;
+	default:
+		warn("Unknow action in performGroup: " + action);
 	}
 }
 
@@ -1658,15 +1870,15 @@ function resetIdleUnit()
 
 function findIdleUnit(classes)
 {
-	let append = Engine.HotkeyIsPressed("selection.add");
-	let selectall = Engine.HotkeyIsPressed("selection.offscreen");
+	const append = Engine.HotkeyIsPressed("selection.add");
+	const selectall = Engine.HotkeyIsPressed("selection.offscreen");
 
 	// Reset the last idle unit, etc., if the selection type has changed.
 	if (selectall || classes.length != lastIdleClasses.length || !classes.every((v, i) => v === lastIdleClasses[i]))
 		resetIdleUnit();
 	lastIdleClasses = classes;
 
-	let data = {
+	const data = {
 		"viewedPlayer": g_ViewedPlayer,
 		"excludeUnits": append ? g_Selection.toList() : [],
 		// If the current idle class index is not 0, put the class at that index first.
@@ -1678,7 +1890,7 @@ function findIdleUnit(classes)
 		data.prevUnit = lastIdleUnit;
 	}
 
-	let idleUnits = Engine.GuiInterfaceCall("FindIdleUnits", data);
+	const idleUnits = Engine.GuiInterfaceCall("FindIdleUnits", data);
 	if (!idleUnits.length)
 	{
 		// TODO: display a message to indicate no more idle units, or something
@@ -1697,12 +1909,12 @@ function findIdleUnit(classes)
 		return;
 
 	lastIdleUnit = idleUnits[0];
-	let entityState = GetEntityState(lastIdleUnit);
+	const entityState = GetEntityState(lastIdleUnit);
 	if (entityState.position)
 		Engine.CameraMoveTo(entityState.position.x, entityState.position.z);
 
 	// Move the idle class index to the first class an idle unit was found for.
-	let indexChange = data.idleClasses.findIndex(elem => MatchesClassList(entityState.identity.classes, elem));
+	const indexChange = data.idleClasses.findIndex(elem => MatchesClassList(entityState.identity.classes, elem));
 	currIdleClassIndex = (currIdleClassIndex + indexChange) % classes.length;
 }
 

@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,30 +17,45 @@
 
 #include "lib/self_test.h"
 
-#include "simulation2/serialization/DebugSerializer.h"
-#include "simulation2/serialization/HashSerializer.h"
-#include "simulation2/serialization/StdSerializer.h"
-#include "simulation2/serialization/StdDeserializer.h"
-#include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptInterface.h"
-
 #include "graphics/MapReader.h"
 #include "graphics/Terrain.h"
-#include "graphics/TerrainTextureManager.h"
 #include "lib/config2.h"
+#include "lib/debug.h"
+#include "lib/file/file_system.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/path.h"
 #include "lib/timer.h"
+#include "lib/types.h"
+#include "maths/Fixed.h"
 #include "ps/CLogger.h"
 #include "ps/Filesystem.h"
 #include "ps/Loader.h"
 #include "ps/XML/Xeromyces.h"
+#include "scriptinterface/FunctionWrapper.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Object.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/Simulation2.h"
+#include "simulation2/serialization/DebugSerializer.h"
+#include "simulation2/serialization/HashSerializer.h"
+#include "simulation2/serialization/StdDeserializer.h"
+#include "simulation2/serialization/StdSerializer.h"
+#include "simulation2/system/Component.h"
+
+#include <cstdint>
+#include <cstdio>
+#include <iostream>
+#include <js/CallArgs.h>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <memory>
+#include <sstream>
+#include <string>
 
 #if CONFIG2_VALGRIND
 # include "callgrind.h"
 #endif
-
-#include <iostream>
 
 #define TS_ASSERT_STREAM(stream, len, buffer) \
 	TS_ASSERT_EQUALS(stream.str().length(), (size_t)len); \
@@ -79,7 +94,7 @@ public:
 
 	void test_Debug_basic()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 		std::stringstream stream;
 		CDebugSerializer serialize(script, stream);
 		serialize.NumberI32_Unbounded("x", -123);
@@ -90,7 +105,7 @@ public:
 
 	void test_Debug_floats()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 		std::stringstream stream;
 		CDebugSerializer serialize(script, stream);
 		serialize.NumberFloat_Unbounded("x", 1e4f);
@@ -121,7 +136,7 @@ public:
 
 	void test_Debug_types()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 		std::stringstream stream;
 		CDebugSerializer serialize(script, stream);
 
@@ -152,7 +167,7 @@ public:
 
 	void test_Std_basic()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 		std::stringstream stream;
 		CStdSerializer serialize(script, stream);
 
@@ -179,7 +194,7 @@ public:
 
 	void test_Std_types()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 		std::stringstream stream;
 		CStdSerializer serialize(script, stream);
 
@@ -246,7 +261,7 @@ public:
 
 	void test_Hash_basic()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 		CHashSerializer serialize(script);
 
 		serialize.NumberI32_Unbounded("x", -123);
@@ -260,7 +275,7 @@ public:
 
 	void test_Hash_stream()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 		CHashSerializer hashSerialize(script);
 
 		hashSerialize.NumberI32_Unbounded("x", -123);
@@ -283,7 +298,7 @@ public:
 
 	void test_bounds()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 		std::stringstream stream;
 		CDebugSerializer serialize(script, stream);
 		serialize.NumberI32("x", 16, -16, 16);
@@ -296,8 +311,8 @@ public:
 
 	void helper_script_roundtrip(const char* msg, const char* input, const char* expected, size_t expstreamlen = 0, const char* expstream = NULL, const char* debug = NULL)
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
-		ScriptRequest rq(script);
+		Script::Interface script("Test", "Test", g_ScriptContext);
+		Script::Request rq(script);
 
 		JS::RootedValue obj(rq.cx);
 		TSM_ASSERT(msg, script.Eval(input, &obj));
@@ -337,7 +352,7 @@ public:
 		deserialize2.ScriptVal("script2", &newobj);
 
 		std::string source;
-		TSM_ASSERT(msg, ScriptFunction::Call(rq, newobj, "toSource", source));
+		TSM_ASSERT(msg, Script::Function::Call(rq, newobj, "toSource", source));
 		TS_ASSERT_STR_EQUALS(source, expected);
 	}
 
@@ -812,8 +827,8 @@ public:
 
 	void test_script_exceptions()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
-		ScriptRequest rq(script);
+		Script::Interface script("Test", "Test", g_ScriptContext);
+		Script::Request rq(script);
 
 		JS::RootedValue obj(rq.cx);
 
@@ -824,7 +839,7 @@ public:
 
 		TS_ASSERT(script.Eval("([1, 2, function () { }])", &obj));
 		TS_ASSERT_THROWS(serialize.ScriptVal("script", &obj), const PSERROR_Serialize_InvalidScriptValue&);
-		TS_ASSERT_STR_CONTAINS(logger.GetOutput(), "ERROR: Cannot serialise JS objects of type 'function': (unnamed)");
+		TS_ASSERT_STR_CONTAINS(logger.GetOutput(), "ERROR: Cannot serialize JS objects of type 'function': (unnamed)");
 	}
 
 	void test_script_splice()
@@ -843,12 +858,12 @@ public:
 class TestSerializerPerf : public CxxTest::TestSuite
 {
 public:
-	void test_script_props_DISABLED()
+	void DISABLED_test_script_props()
 	{
 		const char* input = "var x = {}; for (var i=0;i<256;++i) x[i]=Math.pow(i, 2); x";
 
-		ScriptInterface script("Test", "Test", g_ScriptContext);
-		ScriptRequest rq(script);
+		Script::Interface script("Test", "Test", g_ScriptContext);
+		Script::Request rq(script);
 
 		JS::RootedValue obj(rq.cx);
 		TS_ASSERT(script.Eval(input, &obj));
@@ -871,36 +886,42 @@ public:
 			if (i == 0)
 			{
 				std::string source;
-				TS_ASSERT(ScriptFunction::Call(rq, newobj, "toSource", source));
+				TS_ASSERT(Script::Function::Call(rq, newobj, "toSource", source));
 				std::cout << source << "\n";
 			}
 		}
 	}
 
-	void test_hash_DISABLED()
+	void DISABLED_test_hash()
 	{
-		CXeromyces::Startup();
+		CXeromycesEngine xeromycesEngine;
 
 		g_VFS = CreateVfs();
+		TS_ASSERT_OK(g_VFS->Mount(L"", DataDir() / "mods" / "mod" / "", VFS_MOUNT_MUST_EXIST));
 		TS_ASSERT_OK(g_VFS->Mount(L"", DataDir() / "mods" / "public" / "", VFS_MOUNT_MUST_EXIST));
 		TS_ASSERT_OK(g_VFS->Mount(L"cache", DataDir() / "_testcache" / "", 0, VFS_MAX_PRIORITY));
 
 		CTerrain terrain;
 
-		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain};
-		sim2.LoadDefaultScripts();
+		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain, CSimulation2::DEFAULT_SCRIPTS};
 		sim2.ResetState();
+
+		JS::RootedValue attribs(sim2.GetScriptInterface().GetGeneralJSContext());
+		Script::CreateObject(Script::Request(sim2.GetScriptInterface()), &attribs);
+		sim2.SetInitAttributes(attribs);
 
 		std::unique_ptr<CMapReader> mapReader = std::make_unique<CMapReader>();
 
-		LDR_BeginRegistering();
-		mapReader->LoadMap(L"maps/skirmishes/Greek Acropolis (2).pmp",
+		PS::Loader::BeginRegistering();
+		mapReader->LoadMap(L"maps/skirmishes/greek_acropolis_2p.pmp",
 			sim2.GetScriptInterface().GetContext(), JS::UndefinedHandleValue,
 			&terrain, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 			&sim2, &sim2.GetSimContext(), -1, false);
-		LDR_EndRegistering();
-		TS_ASSERT_OK(LDR_NonprogressiveLoad());
+		PS::Loader::EndRegistering();
+		TS_ASSERT_OK(PS::Loader::NonprogressiveLoad());
 
+		sim2.PreInitGame();
+		sim2.InitGame();
 		sim2.Update(0);
 
 		{
@@ -911,8 +932,8 @@ public:
 			debug_printf("\n");
 			debug_printf("# size = %d\n", (int)str.str().length());
 			debug_printf("# hash = ");
-			for (size_t i = 0; i < hash.size(); ++i)
-				debug_printf("%02x", (unsigned int)(u8)hash[i]);
+			for (const char byte : hash)
+				debug_printf("%02x", static_cast<unsigned int>(static_cast<u8>(byte)));
 			debug_printf("\n");
 		}
 
@@ -935,7 +956,6 @@ public:
 		// Shut down the world
 		g_VFS.reset();
 		DeleteDirectory(DataDir()/"_testcache");
-		CXeromyces::Terminate();
 	}
 
 };

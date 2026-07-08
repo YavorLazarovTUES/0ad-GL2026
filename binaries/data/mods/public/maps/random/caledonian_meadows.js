@@ -3,7 +3,7 @@ Engine.LoadLibrary("rmgen-common");
 Engine.LoadLibrary("rmbiome");
 Engine.LoadLibrary("heightmap");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
 	const tGrove = "temp_grass_plants";
 	const tPath = "road_rome_a";
@@ -161,7 +161,7 @@ function* GenerateMap()
 			"units/gaul/infantry_slinger_b",
 			"units/gaul/infantry_javelineer_b",
 			"units/gaul/champion_fanatic",
-			"actor|props/special/common/waypoint_flag.xml",
+			"actor|props/special/common/waypoint_flag_factions.xml",
 			"actor|props/special/eyecandy/barrel_a.xml",
 			"actor|props/special/eyecandy/basket_celt_a.xml",
 			"actor|props/special/eyecandy/crate_a.xml",
@@ -293,8 +293,9 @@ function* GenerateMap()
 		[false, 7 / 8],
 		// 10 Hilltop
 		[false, 8 / 8]
-	].map(([underWater, ratio]) => {
-		const base = underWater ? heightRange.min : heightSeaGround;
+	].map(([underWater, ratio]) =>
+	{
+		const base = underWater ? heightRange.min : heightSeaGroundAdjusted;
 		const factor = underWater ? heightSeaGroundAdjusted - heightRange.min :
 			heightRange.max - heightSeaGroundAdjusted;
 		return base + ratio * factor;
@@ -593,7 +594,8 @@ function* GenerateMap()
 	 * Get midpoint slope of each area
 	 */
 	const slopeMap = getSlopeMap();
-	const slopeMidpoints = areas.map(area => {
+	const slopeMidpoints = areas.map(area =>
+	{
 		const slopesInThisArea = area.map(({ x, y }) => slopeMap[x][y]);
 		return Math.min(...slopesInThisArea) + Math.max(...slopesInThisArea);
 	});
@@ -614,7 +616,7 @@ function* GenerateMap()
 	yield 80;
 
 	g_Map.log("Placing players");
-	if (isNomad())
+	if (mapSettings.Nomad)
 		placePlayersNomad(g_Map.createTileClass(),
 			new HeightConstraint(heighLimits[4], heighLimits[5]));
 	else
@@ -628,7 +630,7 @@ function* GenerateMap()
 	for (let i = 0; i < resourceSpots.length; ++i)
 	{
 		const pos = new Vector2D(resourceSpots[i].x, resourceSpots[i].y);
-		const choice = i % (isNomad() ? 4 : 5);
+		const choice = i % (mapSettings.Nomad ? 4 : 5);
 		if (choice == 0)
 			placeMine(pos, "gaia/rock/temperate_large_02");
 		if (choice == 1)

@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -27,7 +27,10 @@
 #ifndef INCLUDED_BYTE_ORDER
 #define INCLUDED_BYTE_ORDER
 
-#include "lib/sysdep/cpu.h"
+#include "lib/sysdep/compiler.h"
+#include "lib/types.h"
+
+#include <cstddef>
 
 // detect byte order via predefined macros.
 #ifndef BYTE_ORDER
@@ -127,10 +130,7 @@ i64 movsx_le64(const u8* p, size_t size);
 i64 movsx_be64(const u8* p, size_t size);
 
 
-#if ICC_VERSION
-#define swap32 _bswap
-#define swap64 _bswap64
-#elif MSC_VERSION
+#if MSC_VERSION
 extern unsigned short _byteswap_ushort(unsigned short);
 extern unsigned long _byteswap_ulong(unsigned long);
 extern unsigned __int64 _byteswap_uint64(unsigned __int64);

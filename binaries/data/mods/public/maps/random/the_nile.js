@@ -1,7 +1,7 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 
-function* GenerateMap()
+export function* generateMap()
 {
 	const tPrimary = "desert_sand_dunes_100";
 	const tCity = "desert_city_tile";
@@ -22,6 +22,7 @@ function* GenerateMap()
 	const oCamel = "gaia/fauna_camel";
 	const oGazelle = "gaia/fauna_gazelle";
 	const oGoat = "gaia/fauna_goat";
+	const oFish = "gaia/fish/tilapia";
 	const oStoneLarge = "gaia/rock/badlands_large";
 	const oStoneSmall = "gaia/rock/desert_small";
 	const oMetalLarge = "gaia/ore/desert_large";
@@ -150,7 +151,8 @@ function* GenerateMap()
 		"heightLand": heightShore,
 		"meanderShort": 12,
 		"meanderLong": 50,
-		"waterFunc": (position, height, riverFraction) => {
+		"waterFunc": (position, height, riverFraction) =>
+		{
 
 			clWater.add(position);
 			createTerrain(tShore).place(position);
@@ -166,7 +168,8 @@ function* GenerateMap()
 			}
 			++plantID;
 		},
-		"landFunc": (position, shoreDist1, shoreDist2) => {
+		"landFunc": (position, shoreDist1, shoreDist2) =>
+		{
 
 			for (const riv of riverTextures)
 				if (riv.left < +shoreDist1 && +shoreDist1 < riv.right ||
@@ -492,6 +495,23 @@ function* GenerateMap()
 		],
 		scaleByMapSize(2, 6), 50
 	);
+
+	g_Map.log("Creating fish");
+	createObjectGroups(
+		new SimpleGroup([new SimpleObject(oFish, 1, 2, 0, 1)], true, clFood),
+		0,
+		[stayClasses(clWater, 4), avoidClasses(clFood, 12)],
+		scaleByMapSize(60, 80),
+		100);
+
+
+	g_Map.log("Creating pond fish");
+	createObjectGroups(
+		new SimpleGroup([new SimpleObject(oFish, 1, 2, 0, 1)], true, clFood),
+		0,
+		[stayClasses(clPond, 3), avoidClasses(clFood, 4)],
+		scaleByMapSize(30, 30),
+		50);
 
 	placePlayersNomad(clPlayer, avoidClasses(clWater, 4, clForest, 1, clMetal, 4, clRock, 4, clFood, 2));
 

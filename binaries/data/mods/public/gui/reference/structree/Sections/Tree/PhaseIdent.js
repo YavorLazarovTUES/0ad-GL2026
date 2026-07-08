@@ -9,24 +9,23 @@ class PhaseIdent
 		this.Icon = Engine.GetGUIObjectByName("phase[" + this.phaseIdx + "]_icon");
 		this.Bars = Engine.GetGUIObjectByName("phase[" + this.phaseIdx + "]_bars");
 
-		let prodIconSize = ProductionIcon.Size();
-		let entityBoxHeight = EntityBox.IconAndCaptionHeight();
+		const prodIconSize = ProductionIcon.Size();
+		const entityBoxHeight = EntityBox.IconAndCaptionHeight();
 		for (let i = 0; i < this.Bars.children.length; ++i)
 		{
-			let size = this.Bars.children[i].size;
-			size.top = entityBoxHeight + prodIconSize.rowHeight * (i + 1);
-			size.bottom = entityBoxHeight + prodIconSize.rowHeight * (i + 2) - prodIconSize.rowGap;
-			this.Bars.children[i].size = size;
+			const bar = this.Bars.children[i];
+			Object.assign(bar.size, {
+				"top": entityBoxHeight + prodIconSize.rowHeight * (i + 1),
+				"bottom": entityBoxHeight + prodIconSize.rowHeight * (i + 2) - prodIconSize.rowGap
+			});
 		}
 	}
 
-	draw(phaseList, barLength, civCode)
+	draw(phaseList, civCode)
 	{
 		// Position ident
-		let identSize = this.Ident.size;
-		identSize.top = TreeSection.getPositionOffset(this.phaseIdx, this.page.TemplateParser);
-		identSize.bottom = TreeSection.getPositionOffset(this.phaseIdx + 1, this.page.TemplateParser);
-		this.Ident.size = identSize;
+		this.Ident.size.top = TreeSection.getPositionOffset(this.phaseIdx, this.page.TemplateParser);
+		this.Ident.size.bottom = TreeSection.getPositionOffset(this.phaseIdx + 1, this.page.TemplateParser);
 		this.Ident.hidden = false;
 
 		// Draw main icon
@@ -36,10 +35,7 @@ class PhaseIdent
 		let i = 1;
 		for (; i < phaseList.length - this.phaseIdx; ++i)
 		{
-			let prodBar = this.Bars.children[(i - 1)];
-			let prodBarSize = prodBar.size;
-			prodBarSize.right = barLength;
-			prodBar.size = prodBarSize;
+			const prodBar = this.Bars.children[(i - 1)];
 			prodBar.hidden = false;
 
 			this.drawPhaseIcon(prodBar.children[0], this.phaseIdx + i, civCode);
@@ -49,11 +45,13 @@ class PhaseIdent
 
 	drawPhaseIcon(phaseIcon, phaseIndex, civCode)
 	{
-		let phaseName = this.page.TemplateParser.phaseList[phaseIndex];
-		let prodPhaseTemplate = this.page.TemplateParser.getTechnology(phaseName + "_" + civCode, civCode) || this.page.TemplateParser.getTechnology(phaseName, civCode);
+		const phaseName = this.page.TemplateParser.phaseList[phaseIndex];
+		const prodPhaseTemplate =
+			this.page.TemplateParser.getTechnology(phaseName + "_" + civCode, civCode) ||
+			this.page.TemplateParser.getTechnology(phaseName + "_generic", civCode) ||
+			this.page.TemplateParser.getTechnology(phaseName, civCode);
 
 		phaseIcon.sprite = "stretched:" + this.page.IconPath + prodPhaseTemplate.icon;
 		phaseIcon.tooltip = getEntityNamesFormatted(prodPhaseTemplate);
-	};
-
+	}
 }

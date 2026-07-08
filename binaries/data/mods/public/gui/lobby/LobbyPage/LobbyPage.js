@@ -4,22 +4,29 @@
  */
 class LobbyPage
 {
-	constructor(dialog, xmppMessages, leaderboardPage, profilePage)
+	constructor(closePageCallback, dialog, xmppMessages, leaderboardPage, profilePage)
 	{
 		Engine.ProfileStart("Create LobbyPage");
-		let mapCache = new MapCache();
-		let buddyButton = new BuddyButton(xmppMessages);
-		let gameList = new GameList(xmppMessages, buddyButton, mapCache);
-		let playerList = new PlayerList(xmppMessages, buddyButton, gameList);
+		const mapCache = new MapCache();
+		const buddyButton = new BuddyButton(xmppMessages);
+		const accountSettingsButton = Engine.GetGUIObjectByName("accountSettingsButton");
+		accountSettingsButton.onPress = AccountSettingsPage.openPage.bind(null, xmppMessages);
+		const gameList = new GameList(xmppMessages, buddyButton, mapCache);
+		const playerList = new PlayerList(xmppMessages, buddyButton, gameList);
 
 		this.lobbyPage = {
 			"buttons": {
 				"buddyButton": buddyButton,
-				"hostButton": new HostButton(dialog, xmppMessages),
-				"joinButton": new JoinButton(dialog, gameList),
+				"accountSettingsButton": accountSettingsButton,
+				"joinButton": new JoinButton(closePageCallback, dialog, gameList),
+				"hostButton": new HostButton(closePageCallback, dialog, xmppMessages,
+					Engine.GetGUIObjectByName("hostButton"), false),
+				"hostSavedGameButton": new HostButton(closePageCallback, dialog, xmppMessages,
+					Engine.GetGUIObjectByName("hostSavedGameButton"), true),
 				"leaderboardButton": new LeaderboardButton(xmppMessages, leaderboardPage),
 				"profileButton": new ProfileButton(xmppMessages, profilePage),
-				"quitButton": new QuitButton(dialog, leaderboardPage, profilePage)
+				"quitButton": new QuitButton(closePageCallback, dialog, leaderboardPage,
+					profilePage)
 			},
 			"panels": {
 				"chatPanel": new ChatPanel(xmppMessages),
@@ -42,32 +49,24 @@ class LobbyPage
 
 	setDialogStyle()
 	{
-		{
-			let lobbyPage = Engine.GetGUIObjectByName("lobbyPage");
-			lobbyPage.sprite = "ModernDialog";
+		const lobbyPage = Engine.GetGUIObjectByName("lobbyPage");
+		lobbyPage.sprite = "ModernDialog";
+		lobbyPage.size = {
+			"left": this.WindowMargin,
+			"top": this.WindowMargin,
+			"right": -this.WindowMargin,
+			"bottom": -this.WindowMargin,
+			"rleft": 0,
+			"rtop": 0,
+			"rright": 100,
+			"rbottom": 100
+		};
 
-			let size = lobbyPage.size;
-			size.left = this.WindowMargin;
-			size.top = this.WindowMargin;
-			size.right = -this.WindowMargin;
-			size.bottom = -this.WindowMargin;
-			lobbyPage.size = size;
-		}
+		const lobbyPageTitle = Engine.GetGUIObjectByName("lobbyPageTitle");
+		lobbyPageTitle.size.top -= this.WindowMargin / 2;
+		lobbyPageTitle.size.bottom -= this.WindowMargin / 2;
 
-		{
-			let lobbyPageTitle = Engine.GetGUIObjectByName("lobbyPageTitle");
-			let size = lobbyPageTitle.size;
-			size.top -= this.WindowMargin / 2;
-			size.bottom -= this.WindowMargin / 2;
-			lobbyPageTitle.size = size;
-		}
-
-		{
-			let lobbyPanels = Engine.GetGUIObjectByName("lobbyPanels");
-			let size = lobbyPanels.size;
-			size.top -= this.WindowMargin / 2;
-			lobbyPanels.size = size;
-		}
+		Engine.GetGUIObjectByName("lobbyPanels").size.top -= this.WindowMargin / 2;
 	}
 }
 

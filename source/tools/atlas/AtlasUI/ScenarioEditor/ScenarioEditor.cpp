@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,35 +19,62 @@
 
 #include "ScenarioEditor.h"
 
-#include "wx/busyinfo.h"
-#include "wx/clipbrd.h"
-#include "wx/config.h"
-#include "wx/dir.h"
-#include "wx/evtloop.h"
-#include "wx/ffile.h"
-#include "wx/filename.h"
-#include "wx/image.h"
-#include "wx/sstream.h"
-#include "wx/sysopt.h"
-#include "wx/tooltip.h"
-#include "wx/xml/xml.h"
+#include "tools/atlas/AtlasObject/AtlasObject.h"
+#include "tools/atlas/AtlasUI/CustomControls/Buttons/ToolButton.h"
+#include "tools/atlas/AtlasUI/CustomControls/Canvas/Canvas.h"
+#include "tools/atlas/AtlasUI/CustomControls/FileHistory/FileHistory.h"
+#include "tools/atlas/AtlasUI/CustomControls/HighResTimer/HighResTimer.h"
+#include "tools/atlas/AtlasUI/CustomControls/MapDialog/MapDialog.h"
+#include "tools/atlas/AtlasUI/General/AtlasWindowCommandProc.h"
+#include "tools/atlas/AtlasUI/General/Datafile.h"
+#include "tools/atlas/AtlasUI/General/Observable.h"
+#include "tools/atlas/AtlasUI/Misc/DLLInterface.h"
+#include "tools/atlas/AtlasUI/Misc/KeyMap.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/SectionLayout.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/MiscState.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/ObjectSettings.h"
+#include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/Tools.h"
+#include "tools/atlas/GameInterface/MessagePasser.h"
+#include "tools/atlas/GameInterface/Messages.h"
+#include "tools/atlas/GameInterface/Shareable.h"
+#include "tools/atlas/GameInterface/SharedTypes.h"
 
-#include "General/AtlasEventLoop.h"
-#include "General/Datafile.h"
+#include <cstddef>
+#include <string>
+#include <utility>
+#include <wx/busyinfo.h>
+#include <wx/chartype.h>
+#include <wx/clipbrd.h>
+#include <wx/config.h>
+#include <wx/dataobj.h>
+#include <wx/datetime.h>
+#include <wx/debug.h>
+#include <wx/ffile.h>
+#include <wx/filedlg.h>
+#include <wx/filefn.h>
+#include <wx/filename.h>
+#include <wx/gdicmn.h>
+#include <wx/glcanvas.h>
+#include <wx/imagbmp.h>
+#include <wx/image.h>
+#include <wx/imagpng.h>
+#include <wx/log.h>
+#include <wx/menu.h>
+#include <wx/msgdlg.h>
+#include <wx/sstream.h>
+#include <wx/sysopt.h>
+#include <wx/textdlg.h>
+#include <wx/toolbar.h>
+#include <wx/tooltip.h>
+#include <wx/toplevel.h>
+#include <wx/translation.h>
+#include <wx/utils.h>
+#include <wx/xml/xml.h>
 
-#include "CustomControls/Buttons/ToolButton.h"
-#include "CustomControls/Canvas/Canvas.h"
-#include "CustomControls/HighResTimer/HighResTimer.h"
-#include "CustomControls/MapDialog/MapDialog.h"
+class wxInputStream;
+class wxWindow;
 
-#include "GameInterface/MessagePasser.h"
-#include "GameInterface/Messages.h"
-
-#include "Misc/KeyMap.h"
-
-#include "Tools/Common/Tools.h"
-#include "Tools/Common/Brushes.h"
-#include "Tools/Common/MiscState.h"
+#include <array>
 
 static HighResTimer g_Timer;
 
@@ -99,38 +126,38 @@ public:
 
 private:
 
+	void SetScrolling(int dir, float speed, bool enable)
+	{
+		POST_MESSAGE(ScrollConstant, (eRenderView::GAME, dir, enable ? speed : 0.0f));
+	}
+
 	bool KeyScroll(wxKeyEvent& evt, bool enable)
 	{
-		int dir;
+		static std::array<bool, 6> scrolling{};
+
 		switch (evt.GetKeyCode())
 		{
-		case 'A': case WXK_LEFT:  dir = eScrollConstantDir::LEFT; break;
-		case 'D': case WXK_RIGHT: dir = eScrollConstantDir::RIGHT; break;
-		case 'W': case WXK_UP:    dir = eScrollConstantDir::FORWARDS; break;
-		case 'S': case WXK_DOWN:  dir = eScrollConstantDir::BACKWARDS; break;
-		case 'Q': case '[':       dir = eScrollConstantDir::CLOCKWISE; break;
-		case 'E': case ']':       dir = eScrollConstantDir::ANTICLOCKWISE; break;
-		case WXK_SHIFT: case WXK_CONTROL: dir = -1; break;
+		case 'A': case WXK_LEFT:  std::get<0>(scrolling) = enable; break;
+		case 'D': case WXK_RIGHT: std::get<1>(scrolling) = enable; break;
+		case 'W': case WXK_UP:    std::get<2>(scrolling) = enable; break;
+		case 'S': case WXK_DOWN:  std::get<3>(scrolling) = enable; break;
+		case 'Q': case '[':       std::get<4>(scrolling) = enable; break;
+		case 'E': case ']':       std::get<5>(scrolling) = enable; break;
+		// Modifier keys changing speed and therefore requiring update.
+		case WXK_SHIFT: case WXK_CONTROL: break;
 		default: return false;
 		}
 
 		float speed = 120.f * ScenarioEditor::GetSpeedModifier();
 
-		if (dir == -1) // changed modifier keys - update all currently-scrolling directions
-		{
-			if (wxGetKeyState(WXK_LEFT))       POST_MESSAGE(ScrollConstant, (eRenderView::GAME, eScrollConstantDir::LEFT, speed));
-			if (wxGetKeyState(WXK_RIGHT))      POST_MESSAGE(ScrollConstant, (eRenderView::GAME, eScrollConstantDir::RIGHT, speed));
-			if (wxGetKeyState(WXK_UP))         POST_MESSAGE(ScrollConstant, (eRenderView::GAME, eScrollConstantDir::FORWARDS, speed));
-			if (wxGetKeyState(WXK_DOWN))       POST_MESSAGE(ScrollConstant, (eRenderView::GAME, eScrollConstantDir::BACKWARDS, speed));
-			if (wxGetKeyState((wxKeyCode)'[')) POST_MESSAGE(ScrollConstant, (eRenderView::GAME, eScrollConstantDir::CLOCKWISE, speed));
-			if (wxGetKeyState((wxKeyCode)']')) POST_MESSAGE(ScrollConstant, (eRenderView::GAME, eScrollConstantDir::ANTICLOCKWISE, speed));
-			return false;
-		}
-		else
-		{
-			POST_MESSAGE(ScrollConstant, (eRenderView::GAME, dir, enable ? speed : 0.0f));
-			return true;
-		}
+		SetScrolling(eScrollConstantDir::LEFT, speed, std::get<0>(scrolling));
+		SetScrolling(eScrollConstantDir::RIGHT, speed, std::get<1>(scrolling));
+		SetScrolling(eScrollConstantDir::FORWARDS, speed, std::get<2>(scrolling));
+		SetScrolling(eScrollConstantDir::BACKWARDS, speed, std::get<3>(scrolling));
+		SetScrolling(eScrollConstantDir::CLOCKWISE, speed, std::get<4>(scrolling));
+		SetScrolling(eScrollConstantDir::ANTICLOCKWISE, speed, std::get<5>(scrolling));
+
+		return true;
 	}
 
 	void OnKeyDown(wxKeyEvent& evt)
@@ -145,6 +172,12 @@ private:
 
 		if (KeyScroll(evt, true))
 			return;
+
+		if (evt.GetKeyCode() == 'B')
+		{
+			POST_MESSAGE(ToggleBirdsEyeView, ());
+			return;
+		}
 
 		POST_MESSAGE(GuiKeyEvent, (GetSDLKeyFromWxKeyCode(evt.GetKeyCode()), evt.GetUnicodeKey(), true));
 
@@ -338,11 +371,13 @@ enum
 	ID_Paste,
 
 	ID_Wireframe,
+	ID_SmoothFramerate,
+	ID_CameraReset,
+
 	ID_MessageTrace,
 	ID_Screenshot,
 	ID_BigScreenshot,
 	ID_JavaScript,
-	ID_CameraReset,
 	ID_DumpState,
 	ID_DumpBinaryState,
 
@@ -370,11 +405,13 @@ BEGIN_EVENT_TABLE(ScenarioEditor, wxFrame)
 	EVT_MENU(ID_Paste, ScenarioEditor::OnPaste)
 
 	EVT_MENU(ID_Wireframe, ScenarioEditor::OnWireframe)
+	EVT_MENU(ID_SmoothFramerate, ScenarioEditor::OnSmoothFramerate)
+	EVT_MENU(ID_CameraReset, ScenarioEditor::OnCameraReset)
+
 	EVT_MENU(ID_MessageTrace, ScenarioEditor::OnMessageTrace)
 	EVT_MENU(ID_Screenshot, ScenarioEditor::OnScreenshot)
 	EVT_MENU(ID_BigScreenshot, ScenarioEditor::OnScreenshot)
 	EVT_MENU(ID_JavaScript, ScenarioEditor::OnJavaScript)
-	EVT_MENU(ID_CameraReset, ScenarioEditor::OnCameraReset)
 	EVT_MENU(ID_DumpState, ScenarioEditor::OnDumpState)
 	EVT_MENU(ID_DumpBinaryState, ScenarioEditor::OnDumpState)
 
@@ -481,15 +518,21 @@ ScenarioEditor::ScenarioEditor(wxWindow* parent)
 	GetCommandProc().Initialize();
 
 
+	wxMenu *menuView = new wxMenu{};
+	menuBar->Append(menuView, _("&View"));
+	{
+		menuView->AppendCheckItem(ID_Wireframe, _("&Wireframe"));
+		menuView->AppendCheckItem(ID_SmoothFramerate, _("Smooth framerate"));
+		menuView->Append(ID_CameraReset, _("&Reset camera"));
+	}
+
 	wxMenu *menuMisc = new wxMenu;
 	menuBar->Append(menuMisc, _("&Misc hacks"));
 	{
-		menuMisc->AppendCheckItem(ID_Wireframe, _("&Wireframe"));
 		menuMisc->AppendCheckItem(ID_MessageTrace, _("Message debug trace"));
 		menuMisc->Append(ID_Screenshot, _("&Screenshot"));
 		menuMisc->Append(ID_BigScreenshot, _("Big screenshot"));
 		menuMisc->Append(ID_JavaScript, _("&JS console"));
-		menuMisc->Append(ID_CameraReset, _("&Reset camera"));
 
 		wxMenu *menuSS = new wxMenu;
 		menuMisc->AppendSubMenu(menuSS, _("Si&mulation state"));
@@ -508,7 +551,7 @@ ScenarioEditor::ScenarioEditor(wxWindow* parent)
 			wxFFile helpFile(helpPath.GetFullPath());
 			wxString helpData;
 			helpFile.ReadAll(&helpData);
-			AtObj data = AtlasObject::LoadFromJSON(std::string(helpData));
+			AtObj data = AtlasObject::LoadFromJSON(std::string{helpData.ToUTF8().data()});
 #define ADD_HELP_ITEM(id) \
 				do { \
 					if (!data[#id].hasContent()) \
@@ -694,7 +737,7 @@ void ScenarioEditor::OnTimer(wxTimerEvent& evt)
 	{
 		AtlasMessage::qRenderLoop qryRenderLoop;
 		qryRenderLoop.Post();
-		if (!qryRenderLoop.wantHighFPS &&
+		if (!qryRenderLoop.smoothFramerate &&
 			qryRenderLoop.timeSinceActivity > 1.0 && g_Timer.GetTime() - last_wx_user_activity > 1.0)
 			m_RenderTimer.Start(TIMER_RENDER_SLOW_INTERVAL); // save CPU/GPU when activity is lower.
 		else
@@ -953,6 +996,11 @@ void ScenarioEditor::OnCameraReset(wxCommandEvent& WXUNUSED(event))
 	POST_MESSAGE(CameraReset, ());
 }
 
+void ScenarioEditor::OnSmoothFramerate(wxCommandEvent& event)
+{
+	POST_MESSAGE(SetSmoothFramerate, (event.IsChecked()));
+}
+
 void ScenarioEditor::OnDumpState(wxCommandEvent& event)
 {
 	wxDateTime time = wxDateTime::Now();
@@ -1008,7 +1056,7 @@ void ScenarioEditor::OnHelp(wxCommandEvent& event)
 
 void ScenarioEditor::OnMenuOpen(wxMenuEvent& event)
 {
-	// Ignore wxMSW system menu events, see https://trac.wildfiregames.com/ticket/5501
+	// Ignore wxMSW system menu events, see https://gitea.wildfiregames.com/0ad/0ad/issues/5501
 	const wxMenu* menu = event.GetMenu();
 	if (!menu)
 		return;

@@ -1,7 +1,7 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 
-function* GenerateMap()
+export function* generateMap()
 {
 	const tOceanDepths = "medit_sea_depths";
 	const tOceanRockDeep = "medit_sea_coral_deep";
@@ -122,7 +122,8 @@ function* GenerateMap()
 			"heightLand": heightLand,
 			"meanderShort": 0,
 			"meanderLong": 0,
-			"waterFunc": (position, height, z) => {
+			"waterFunc": (position, height, z) =>
+			{
 				clWater.add(position);
 			}
 		});
@@ -469,7 +470,7 @@ function* GenerateMap()
 			stayClasses(clWater, 4),
 			new HeightConstraint(-Infinity, heightLand)
 		],
-		scaleByMapSize(8, 32));
+		scaleByMapSize(45, 65));
 
 	yield 90;
 

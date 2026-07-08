@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,16 +20,39 @@
 #include "JSInterface_GUIProxy.h"
 
 #include "gui/CGUI.h"
-#include "gui/CGUISetting.h"
 #include "gui/ObjectBases/IGUIObject.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptExtraHeaders.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Request.h"
 
+#include <js/CallAndConstruct.h>
+#include <js/CallArgs.h>
+#include <js/Class.h>
+#include <js/Object.h>
+#include <js/Proxy.h>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <js/friend/ErrorMessages.h>
+#include <jsapi.h>
+#include <jspubtd.h>
+#include <map>
+#include <memory>
+#include <cstddef>
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <unordered_map>
+#include <utility>
+
+class JSObject;
+namespace Script { class Interface; }
+
+#ifndef INCLUDED_JSI_GUIPROXY_IMP
+#define INCLUDED_JSI_GUIPROXY_IMP
 
 template <typename T>
 JSI_GUIProxy<T>& JSI_GUIProxy<T>::Singleton()
@@ -42,7 +65,7 @@ JSI_GUIProxy<T>& JSI_GUIProxy<T>::Singleton()
 #define DECLARE_GUIPROXY(Type) \
 void Type::CreateJSObject() \
 { \
-	ScriptRequest rq(m_pGUI.GetScriptInterface()); \
+	Script::Request rq(m_pGUI.GetScriptInterface()); \
 	using ProxyHandler = JSI_GUIProxy<std::remove_pointer_t<decltype(this)>>; \
 	m_JSObject = ProxyHandler::CreateJSObject(rq, this, GetGUI().GetProxyData(&ProxyHandler::Singleton())); \
 } \
@@ -64,20 +87,31 @@ class MapCache : public GUIProxyProps
 public:
 	virtual ~MapCache() {};
 
-	virtual bool has(const std::string& name) const override
+	bool has(const std::string& name) const override
 	{
 		return m_Functions.find(name) != m_Functions.end();
 	}
 
-	virtual JSObject* get(const std::string& name) const override
+	JSObject* get(const std::string& name) const override
 	{
 		return m_Functions.at(name).get();
 	}
 
-	virtual bool setFunction(const ScriptRequest& rq, const std::string& name, JSFunction* function) override
+	bool setFunction(const Script::Request& rq, const std::string& name, JSFunction* function) override
 	{
 		m_Functions[name].init(rq.cx, JS_GetFunctionObject(function));
 		return true;
+	}
+
+	std::vector<std::string_view> getPropsNames() const override
+	{
+		std::vector<std::string_view> result;
+		result.reserve(m_Functions.size());
+
+		for (const auto& [key, value] : m_Functions)
+			result.emplace_back(key);
+
+		return result;
 	}
 
 protected:
@@ -103,7 +137,7 @@ struct JSI_GUIProxy<T>::PropCache
 };
 
 template <typename T>
-T* JSI_GUIProxy<T>::FromPrivateSlot(const ScriptRequest&, JS::CallArgs& args)
+T* JSI_GUIProxy<T>::FromPrivateSlot(const Script::Request&, JS::CallArgs& args)
 {
 	// Call the unsafe version - this is only ever called from actual proxy objects.
 	return IGUIProxyObject::UnsafeFromPrivateSlot<T>(args.thisv().toObjectOrNull());
@@ -124,11 +158,11 @@ bool JSI_GUIProxy<T>::PropGetter(JS::HandleObject proxy, const std::string& prop
 }
 
 template <typename T>
-std::pair<const js::BaseProxyHandler*, GUIProxyProps*> JSI_GUIProxy<T>::CreateData(ScriptInterface& scriptInterface)
+std::pair<const js::BaseProxyHandler*, GUIProxyProps*> JSI_GUIProxy<T>::CreateData(Script::Interface& scriptInterface)
 {
 	using PropertyCache = typename PropCache::type;
 	PropertyCache* data = new PropertyCache();
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 
 	// Functions common to all children of IGUIObject.
 	JSI_GUIProxy<IGUIObject>::CreateFunctions(rq, data);
@@ -141,13 +175,13 @@ std::pair<const js::BaseProxyHandler*, GUIProxyProps*> JSI_GUIProxy<T>::CreateDa
 
 template<typename T>
 template<auto callable>
-void JSI_GUIProxy<T>::CreateFunction(const ScriptRequest& rq, GUIProxyProps* cache, const std::string& name)
+void JSI_GUIProxy<T>::CreateFunction(const Script::Request& rq, GUIProxyProps* cache, const std::string& name)
 {
-	cache->setFunction(rq, name, ScriptFunction::Create<callable, FromPrivateSlot>(rq, name.c_str()));
+	cache->setFunction(rq, name, Script::Function::Create<callable, FromPrivateSlot>(rq, name.c_str()));
 }
 
 template<typename T>
-std::unique_ptr<IGUIProxyObject> JSI_GUIProxy<T>::CreateJSObject(const ScriptRequest& rq, T* ptr, GUIProxyProps* dataPtr)
+std::unique_ptr<IGUIProxyObject> JSI_GUIProxy<T>::CreateJSObject(const Script::Request& rq, T* ptr, GUIProxyProps* dataPtr)
 {
 	js::ProxyOptions options;
 	options.setClass(&JSInterface_GUIProxy::ClassDefinition());
@@ -164,9 +198,10 @@ std::unique_ptr<IGUIProxyObject> JSI_GUIProxy<T>::CreateJSObject(const ScriptReq
 }
 
 template <typename T>
-bool JSI_GUIProxy<T>::get(JSContext* cx, JS::HandleObject proxy, JS::HandleValue UNUSED(receiver), JS::HandleId id, JS::MutableHandleValue vp) const
+bool JSI_GUIProxy<T>::get(JSContext* cx, JS::HandleObject proxy, JS::HandleValue /*receiver*/,
+	JS::HandleId id, JS::MutableHandleValue vp) const
 {
-	ScriptRequest rq(cx);
+	Script::Request rq(cx);
 
 	T* e = IGUIProxyObject::FromPrivateSlot<T>(proxy.get());
 	if (!e)
@@ -209,11 +244,16 @@ bool JSI_GUIProxy<T>::get(JSContext* cx, JS::HandleObject proxy, JS::HandleValue
 	}
 	else if (propName == "children")
 	{
-		Script::CreateArray(rq, vp);
+		JS::RootedValueVector children{rq.cx};
 
-		for (size_t i = 0; i < e->m_Children.size(); ++i)
-			Script::SetPropertyInt(rq, vp, i, e->m_Children[i]);
-
+		for (const auto& child : e->m_Children)
+		{
+			JS::RootedValue rootedChild{rq.cx};
+			Script::ToJSVal(rq, &rootedChild, child);
+			if (!children.append(rootedChild))
+				throw std::runtime_error{"Append failed"};
+		}
+		vp.set(JS::ObjectValue(*JS::NewArrayObject(rq.cx, children)));
 		return true;
 	}
 	else if (propName == "name")
@@ -234,7 +274,7 @@ bool JSI_GUIProxy<T>::get(JSContext* cx, JS::HandleObject proxy, JS::HandleValue
 
 template <typename T>
 bool JSI_GUIProxy<T>::set(JSContext* cx, JS::HandleObject proxy, JS::HandleId id, JS::HandleValue vp,
-							JS::HandleValue UNUSED(receiver), JS::ObjectOpResult& result) const
+	JS::HandleValue /*receiver*/, JS::ObjectOpResult& result) const
 {
 	T* e = IGUIProxyObject::FromPrivateSlot<T>(proxy.get());
 	if (!e)
@@ -243,7 +283,7 @@ bool JSI_GUIProxy<T>::set(JSContext* cx, JS::HandleObject proxy, JS::HandleId id
 		return result.fail(JSMSG_OBJECT_REQUIRED);
 	}
 
-	ScriptRequest rq(cx);
+	Script::Request rq(cx);
 
 	JS::RootedValue idval(rq.cx);
 	if (!JS_IdToValue(rq.cx, id, &idval))
@@ -269,7 +309,7 @@ bool JSI_GUIProxy<T>::set(JSContext* cx, JS::HandleObject proxy, JS::HandleId id
 	// Use onWhatever to set event handlers
 	if (propName.substr(0, 2) == "on")
 	{
-		if (vp.isPrimitive() || vp.isNull() || !JS_ObjectIsFunction(&vp.toObject()))
+		if (vp.isPrimitive() || vp.isNull() || !JS::IsCallable(&vp.toObject()))
 		{
 			LOGERROR("on- event-handlers must be functions");
 			return result.fail(JSMSG_NOT_FUNCTION);
@@ -298,7 +338,7 @@ bool JSI_GUIProxy<T>::delete_(JSContext* cx, JS::HandleObject proxy, JS::HandleI
 		return result.fail(JSMSG_OBJECT_REQUIRED);
 	}
 
-	ScriptRequest rq(cx);
+	Script::Request rq(cx);
 
 	JS::RootedValue idval(rq.cx);
 	if (!JS_IdToValue(rq.cx, id, &idval))
@@ -319,3 +359,83 @@ bool JSI_GUIProxy<T>::delete_(JSContext* cx, JS::HandleObject proxy, JS::HandleI
 	LOGERROR("Only event handlers can be deleted from GUI objects!");
 	return result.fail(JSMSG_BAD_PROP_ID);
 }
+
+template<typename T>
+bool JSI_GUIProxy<T>::ownPropertyKeys(JSContext* cx, JS::HandleObject proxy, JS::MutableHandleIdVector props) const
+{
+	Script::Request rq(cx);
+
+	T* e = IGUIProxyObject::FromPrivateSlot<T>(proxy.get());
+	if (!e)
+		return false;
+
+	// Add common properties.
+	static constexpr std::array<const char*, 3> keys = {
+		"name",
+		"parent",
+		"children"
+	};
+
+	for (const char* key : keys)
+	{
+		JS::RootedString str(cx, JS_NewStringCopyZ(cx, key));
+		if (!str)
+			return false;
+
+		JS::RootedId id(cx);
+		if (!JS_StringToId(cx, str, &id))
+			return false;
+
+		if (!props.append(id))
+			return false;
+	}
+
+	// Add settings.
+	for (const auto& [name, setting] : e->m_Settings)
+	{
+		JS::RootedString str(cx, JS_NewStringCopyZ(cx, name.c_str()));
+		JS::RootedId id(cx);
+		if (!str || !JS_StringToId(cx, str, &id) || !props.append(id))
+			return false;
+	}
+
+	// Add script handlers.
+	for (const auto& [name, scriptHandler] : e->m_ScriptHandlers)
+	{
+		JS::RootedString str(cx, JS_NewStringCopyZ(cx, fmt::format("on{}", name).c_str()));
+		JS::RootedId id(cx);
+		if (!str || !JS_StringToId(cx, str, &id) || !props.append(id))
+			return false;
+	}
+
+	// Add properties from the cache.
+	using PropertyCache = typename PropCache::type;
+	const PropertyCache* data = static_cast<const PropertyCache*>(static_cast<const GUIProxyProps*>(js::GetProxyReservedSlot(proxy, 0).toPrivate()));
+	for (const auto& key : data->getPropsNames()) {
+		JS::RootedString str(cx, JS_NewStringCopyZ(cx, key.data()));
+		JS::RootedId id(cx);
+		if (!str || !JS_StringToId(cx, str, &id) || !props.append(id))
+			return false;
+	}
+
+	return true;
+}
+
+template<typename T>
+bool JSI_GUIProxy<T>::getOwnPropertyDescriptor(JSContext* cx, JS::HandleObject proxy, JS::HandleId id, JS::MutableHandle<mozilla::Maybe<JS::PropertyDescriptor>> desc) const
+{
+	JS::RootedValue value(cx);
+
+	if (!this->get(cx, proxy, JS::UndefinedHandleValue, id, &value))
+		return false;
+
+	if (value.isUndefined())
+	{
+		desc.set(mozilla::Nothing());
+		return true;
+	}
+
+	desc.set(mozilla::Some(JS::PropertyDescriptor::Data(value, JSPROP_ENUMERATE | JSPROP_READONLY)));
+	return true;
+}
+#endif // INCLUDED_JSI_GUIPROXY_IMP

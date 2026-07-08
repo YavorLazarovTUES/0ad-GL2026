@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -26,12 +26,25 @@
 
 #include "precompiled.h"
 
-#include "lib/byte_order.h"
-#include "lib/bits.h"
-#include "lib/timer.h"
-#include "lib/allocators/shared_ptr.h"
 #include "tex_codec.h"
 
+#include "lib/alignment.h"
+#include "lib/allocators/shared_ptr.h"
+#include "lib/bits.h"
+#include "lib/byte_order.h"
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
+#include "lib/lib.h"
+#include "lib/os_path.h"
+#include "lib/posix/posix_types.h"
+#include "lib/status.h"
+#include "lib/tex/tex.h"
+#include "lib/tex/tex_internal.h"
+#include "lib/types.h"
+
+#include <algorithm>
+#include <cstdlib>
+#include <memory>
 
 // NOTE: the convention is bottom-up for DDS, but there's no way to tell.
 
@@ -226,7 +239,7 @@ struct S3tcDecompressInfo
 	u8* out;
 };
 
-static void s3tc_decompress_level(size_t UNUSED(level), size_t level_w, size_t level_h,
+static void s3tc_decompress_level(size_t /*level*/, size_t level_w, size_t level_h,
 	const u8* RESTRICT level_data, size_t level_data_size, void* RESTRICT cbData)
 {
 	S3tcDecompressInfo* di = (S3tcDecompressInfo*)cbData;
@@ -603,13 +616,13 @@ bool TexCodecDds::is_ext(const OsPath& extension) const
 }
 
 
-size_t TexCodecDds::hdr_size(const u8* UNUSED(file)) const
+size_t TexCodecDds::hdr_size(const u8* /*file*/) const
 {
 	return 4+sizeof(DDS_HEADER);
 }
 
 
-Status TexCodecDds::decode(u8* RESTRICT data, size_t UNUSED(size), Tex* RESTRICT t) const
+Status TexCodecDds::decode(u8* RESTRICT data, size_t /*size*/, Tex* RESTRICT t) const
 {
 	const DDS_HEADER* sd = (const DDS_HEADER*)(data+4);
 	RETURN_STATUS_IF_ERR(decode_sd(sd, t->m_Width, t->m_Height, t->m_Bpp, t->m_Flags));
@@ -617,20 +630,15 @@ Status TexCodecDds::decode(u8* RESTRICT data, size_t UNUSED(size), Tex* RESTRICT
 }
 
 
-Status TexCodecDds::encode(Tex* RESTRICT UNUSED(t), DynArray* RESTRICT UNUSED(da)) const
+Status TexCodecDds::encode(Tex* RESTRICT, DynArray* RESTRICT) const
 {
 	// note: do not return ERR::NOT_SUPPORTED et al. because that would
 	// break tex_write (which assumes either this, 0 or errors are returned).
 	return INFO::TEX_CODEC_CANNOT_HANDLE;
 }
 
-
-TIMER_ADD_CLIENT(tc_dds_transform);
-
 Status TexCodecDds::transform(Tex* t, size_t transforms) const
 {
-	TIMER_ACCRUE(tc_dds_transform);
-
 	size_t mipmaps = t->m_Flags & TEX_MIPMAPS;
 	size_t dxt = t->m_Flags & TEX_DXT;
 	ENSURE(is_valid_dxt(dxt));

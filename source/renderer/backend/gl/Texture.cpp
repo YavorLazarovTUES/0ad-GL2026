@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,8 +19,10 @@
 
 #include "Texture.h"
 
-#include "lib/code_annotation.h"
+#include "graphics/Color.h"
 #include "lib/config2.h"
+#include "lib/debug.h"
+#include "renderer/backend/Sampler.h"
 #include "renderer/backend/gl/Device.h"
 #include "renderer/backend/gl/DeviceCommandContext.h"
 #include "renderer/backend/gl/Mapping.h"
@@ -211,8 +213,8 @@ std::unique_ptr<CTexture> CTexture::Create(
 			break;
 #if CONFIG2_GLES
 		// GLES requires pixel type == UNSIGNED_SHORT or UNSIGNED_INT for depth.
-		case Format::D16_UNORM: FALLTHROUGH;
-		case Format::D24_UNORM: FALLTHROUGH;
+		case Format::D16_UNORM: [[fallthrough]];
+		case Format::D24_UNORM: [[fallthrough]];
 		case Format::D32_SFLOAT:
 			internalFormat = GL_DEPTH_COMPONENT;
 			pixelFormat = GL_DEPTH_COMPONENT;
@@ -242,10 +244,20 @@ std::unique_ptr<CTexture> CTexture::Create(
 			pixelFormat = GL_DEPTH_STENCIL_EXT;
 			pixelType = GL_UNSIGNED_INT_24_8_EXT;
 			break;
+		case Format::R16G16B16A16_SFLOAT:
+			internalFormat = GL_RGBA16F_ARB;
+			pixelFormat = GL_RGBA;
+			pixelType = GL_HALF_FLOAT;
+			break;
+		case Format::R32G32B32A32_SFLOAT:
+			internalFormat = GL_RGBA32F_ARB;
+			pixelFormat = GL_RGBA;
+			pixelType = GL_FLOAT;
+			break;
 #endif
-		case Format::BC1_RGB_UNORM: FALLTHROUGH;
-		case Format::BC1_RGBA_UNORM: FALLTHROUGH;
-		case Format::BC2_UNORM: FALLTHROUGH;
+		case Format::BC1_RGB_UNORM:
+		case Format::BC1_RGBA_UNORM:
+		case Format::BC2_UNORM:
 		case Format::BC3_UNORM:
 			compressedFormat = true;
 			break;
@@ -270,6 +282,14 @@ std::unique_ptr<CTexture> CTexture::Create(
 		if (format == Format::R8G8B8A8_UNORM)
 		{
 			glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, sampleCount, GL_RGBA8, width, height, GL_TRUE);
+		}
+		else if (format == Format::R16G16B16A16_SFLOAT)
+		{
+			glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, sampleCount, GL_RGBA16F_ARB, width, height, GL_TRUE);
+		}
+		else if (format == Format::R32G32B32A32_SFLOAT)
+		{
+			glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, sampleCount, GL_RGBA32F_ARB, width, height, GL_TRUE);
 		}
 		else if (format == Format::D24_UNORM_S8_UINT)
 		{

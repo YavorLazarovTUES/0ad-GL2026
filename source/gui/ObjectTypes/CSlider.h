@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,10 +18,15 @@
 #ifndef INCLUDED_CSLIDER
 #define INCLUDED_CSLIDER
 
+#include "gui/CGUISetting.h"
 #include "gui/CGUISprite.h"
 #include "gui/ObjectBases/IGUIButtonBehavior.h"
 #include "gui/ObjectBases/IGUIObject.h"
 #include "maths/Vector2D.h"
+#include "ps/CStr.h"
+
+class CGUI;
+class CRect;
 
 class CSlider : public IGUIObject, public IGUIButtonBehavior
 {
@@ -29,7 +34,6 @@ class CSlider : public IGUIObject, public IGUIButtonBehavior
 
 public:
 	CSlider(CGUI& pGUI);
-	virtual ~CSlider();
 
 protected:
 	static const CStr EventNameValueChange;

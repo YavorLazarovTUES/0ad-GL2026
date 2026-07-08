@@ -1,4 +1,4 @@
-/* Copyright (C) 2020 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,12 +18,16 @@
 #ifndef INCLUDED_ICMPPOSITION
 #define INCLUDED_ICMPPOSITION
 
+#include "maths/Fixed.h"
+#include "maths/FixedVector2D.h"
+#include "maths/FixedVector3D.h"
+#include "ps/CStr.h"
+#include "simulation2/helpers/Position.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
 #include "simulation2/system/Interface.h"
 
-#include "simulation2/helpers/Position.h"
-#include "maths/FixedVector3D.h"
-#include "maths/FixedVector2D.h"
-
+#include <js/Value.h>
 #include <set>
 
 class CMatrix3D;
@@ -157,6 +161,13 @@ public:
 	 * (This is to support the 'floating' flag in actor XMLs.)
 	 */
 	virtual void SetActorFloating(bool flag) = 0;
+
+
+	/**
+	 * Set the entity's anchor type, in a non-network-synchronised visual-only way.
+	 * (This is to support the 'anchor' flag in actor XMLs.)
+	 */
+	 virtual void SetActorAnchor(const CStr& anchor) = 0;
 
 	/**
 	 * Set construction progress of the model, this affects the rendered position of the model.

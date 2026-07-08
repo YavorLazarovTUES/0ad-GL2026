@@ -12,7 +12,8 @@ class MiniMap
 		this.miniMap.onMouseLeave = this.onMouseLeave.bind(this);
 		this.mouseIsOverMiniMap = false;
 		this.updateFlareLifetime();
-		registerConfigChangeHandler(changes => {
+		registerConfigChangeHandler(changes =>
+		{
 			if (changes.has("gui.session.flarelifetime"))
 				this.updateFlareLifetime();
 		});
@@ -28,7 +29,7 @@ class MiniMap
 	{
 		// Partly duplicated from handleInputAfterGui(), but with the input being
 		// world coordinates instead of screen coordinates.
-		if (inputState == INPUT_NORMAL && controlsPlayer(g_ViewedPlayer) && Engine.HotkeyIsPressed("session.flare"))
+		if (inputState == INPUT_NORMAL && Engine.HotkeyIsPressed("session.flare"))
 		{
 			triggerFlareAction(target);
 			return true;
@@ -69,7 +70,7 @@ class MiniMap
 			return true;
 		}
 
-		let action = determineAction(undefined, undefined, true);
+		const action = determineAction(undefined, undefined, true);
 		if (!action)
 			return false;
 		if (button == SDL_BUTTON_LEFT && !Engine.HotkeyIsPressed("session.queue") && !Engine.HotkeyIsPressed("session.orderone"))
@@ -97,6 +98,10 @@ class MiniMap
 
 	flare(target, playerID)
 	{
-		return this.miniMap.flare({ "x": target.x, "y": target.z }, g_DiplomacyColors.getPlayerColor(playerID));
+		return this.miniMap.flare(
+			{ "x": target.x, "y": target.z },
+			// Observers flare in white.
+			g_DiplomacyColors.getPlayerColor(playerID == -1 ? 0 : playerID)
+		);
 	}
 }

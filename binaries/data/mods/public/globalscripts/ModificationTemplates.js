@@ -5,13 +5,13 @@
  */
 function ModificationTemplates(path)
 {
-	let suffix = ".json";
+	const suffix = ".json";
 
 	this.names = deepfreeze(listFiles(path, suffix, true));
 
 	this.templates = {};
 
-	for (let name of this.names)
+	for (const name of this.names)
 		this.templates[name] = Engine.ReadJSONFile(path + name + suffix);
 
 	deepfreeze(this.templates);
@@ -55,25 +55,25 @@ function DeriveModificationsFromTech(techTemplate)
 	if (!techTemplate.modifications)
 		return {};
 
-	let techMods = {};
+	const techMods = {};
 	let techAffects = [];
 	if (techTemplate.affects && techTemplate.affects.length)
 		techAffects = techTemplate.affects.map(affected => affected.split(/\s+/));
 	else
 		techAffects.push([]);
 
-	for (let mod of techTemplate.modifications)
+	for (const mod of techTemplate.modifications)
 	{
-		let affects = techAffects.slice();
+		const affects = techAffects.slice();
 		if (mod.affects)
 		{
-			let specAffects = mod.affects.split(/\s+/);
-			for (let a in affects)
+			const specAffects = mod.affects.split(/\s+/);
+			for (const a in affects)
 				affects[a] = affects[a].concat(specAffects);
 		}
 
-		let newModifier = { "affects": affects };
-		for (let idx in mod)
+		const newModifier = { "affects": affects };
+		for (const idx in mod)
 			if (idx !== "value" && idx !== "affects")
 				newModifier[idx] = mod[idx];
 
@@ -96,15 +96,15 @@ function DeriveModificationsFromTechnologies(techsDataArray)
 	if (!techsDataArray.length)
 		return {};
 
-	let derivedModifiers = {};
-	for (let technology of techsDataArray)
+	const derivedModifiers = {};
+	for (const technology of techsDataArray)
 	{
 		// Auras don't have a "reqs" property
 		if ('reqs' in technology && !technology.reqs)
 			continue;
 
-		let modifiers = DeriveModificationsFromTech(technology);
-		for (let modPath in modifiers)
+		const modifiers = DeriveModificationsFromTech(technology);
+		for (const modPath in modifiers)
 		{
 			if (!derivedModifiers[modPath])
 				derivedModifiers[modPath] = [];
@@ -118,41 +118,41 @@ function DeriveModificationsFromTechnologies(techsDataArray)
  * Common definition of the XML schema for in-template modifications.
  */
 const ModificationSchema =
-"<interleave>" +
-	"<element name='Paths' a:help='Space separated value paths to modify.'>" +
-		"<attribute name='datatype'>" +
-			"<value>tokens</value>" +
-		"</attribute>" +
-		"<text/>" +
-	"</element>" +
-	"<element name='Affects' a:help='An array of classes to affect.'>" +
-		"<attribute name='datatype'>" +
-			"<value>tokens</value>" +
-		"</attribute>" +
-		"<text/>" +
-	"</element>" +
-	"<choice>" +
-		"<element name='Add'>" +
-			"<data type='decimal' />" +
-		"</element>" +
-		"<element name='Multiply'>" +
-			"<data type='decimal' />" +
-		"</element>" +
-		"<element name='Replace'>" +
+	"<interleave>" +
+		"<element name='Paths' a:help='Space separated value paths to modify.'>" +
+			"<attribute name='datatype'>" +
+				"<value>tokens</value>" +
+			"</attribute>" +
 			"<text/>" +
 		"</element>" +
-	"</choice>" +
-"</interleave>";
+		"<element name='Affects' a:help='An array of classes to affect.'>" +
+			"<attribute name='datatype'>" +
+				"<value>tokens</value>" +
+			"</attribute>" +
+			"<text/>" +
+		"</element>" +
+		"<choice>" +
+			"<element name='Add'>" +
+				"<data type='decimal' />" +
+			"</element>" +
+			"<element name='Multiply'>" +
+				"<data type='decimal' />" +
+			"</element>" +
+			"<element name='Replace'>" +
+				"<text/>" +
+			"</element>" +
+		"</choice>" +
+	"</interleave>";
 
 const ModificationsSchema =
-"<element name='Modifiers' a:help='List of modifiers.'>" +
-	"<oneOrMore>" +
-		"<element>" +
-			"<anyName />" +
-			ModificationSchema +
-		"</element>" +
-	"</oneOrMore>" +
-"</element>";
+	"<element name='Modifiers' a:help='List of modifiers.'>" +
+		"<oneOrMore>" +
+			"<element>" +
+				"<anyName />" +
+				ModificationSchema +
+			"</element>" +
+		"</oneOrMore>" +
+	"</element>";
 
 /**
  * Derives a single modification (to be applied to entities) from a given XML template.
@@ -162,7 +162,7 @@ const ModificationsSchema =
  */
 function DeriveModificationFromXMLTemplate(template)
 {
-	let effect = {};
+	const effect = {};
 	if (template.Add)
 		effect.add = +template.Add;
 	if (template.Multiply)
@@ -171,8 +171,8 @@ function DeriveModificationFromXMLTemplate(template)
 		effect.replace = template.Replace;
 	effect.affects = template.Affects ? template.Affects._string.split(/\s/) : [];
 
-	let ret = {};
-	for (let path of template.Paths._string.split(/\s/))
+	const ret = {};
+	for (const path of template.Paths._string.split(/\s/))
 	{
 		ret[path] = [effect];
 	}
@@ -188,11 +188,11 @@ function DeriveModificationFromXMLTemplate(template)
  */
 function DeriveModificationsFromXMLTemplate(template)
 {
-	let ret = {};
-	for (let name in template)
+	const ret = {};
+	for (const name in template)
 	{
-		let modification = DeriveModificationFromXMLTemplate(template[name]);
-		for (let path in modification)
+		const modification = DeriveModificationFromXMLTemplate(template[name]);
+		for (const path in modification)
 		{
 			if (!ret[path])
 				ret[path] = [];

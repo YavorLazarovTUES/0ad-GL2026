@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,15 +19,20 @@
 
 #include "ArchiveBuilder.h"
 
-#include "graphics/TextureManager.h"
 #include "graphics/ColladaManager.h"
-#include "lib/tex/tex_codec.h"
+#include "graphics/TextureManager.h"
+#include "lib/debug.h"
+#include "lib/file/archive/archive.h"
 #include "lib/file/archive/archive_zip.h"
+#include "lib/file/file_system.h"
 #include "lib/file/vfs/vfs_util.h"
+#include "lib/path.h"
+#include "lib/tex/tex.h"
+#include "ps/XMB/XMBStorage.h"
 #include "ps/XML/Xeromyces.h"
 #include "renderer/backend/dummy/Device.h"
 
-#include <boost/algorithm/string/predicate.hpp>
+#include <string>
 
 CArchiveBuilder::CArchiveBuilder(const OsPath& mod, const OsPath& tempdir) :
 	m_TempDir(tempdir), m_NumBaseMods(0)
@@ -65,7 +70,7 @@ void CArchiveBuilder::Build(const OsPath& archive, bool compress)
 	// size for releases (which re-compress all files with better compression
 	// algorithms) - it's probably most important currently to optimise for
 	// download size rather than install size or startup performance.
-	// (See http://trac.wildfiregames.com/ticket/671)
+	// (See https://gitea.wildfiregames.com/0ad/0ad/issues/671)
 	const bool noDeflate = !compress;
 
 	PIArchiveWriter writer = CreateArchiveWriter_Zip(archive, noDeflate);
@@ -92,13 +97,11 @@ void CArchiveBuilder::Build(const OsPath& archive, bool compress)
 		ENSURE(ret == INFO::OK);
 
 		// Compress textures and store the new cached version instead of the original
-		if ((boost::algorithm::starts_with(path.string(), L"art/textures/") ||
-			 boost::algorithm::starts_with(path.string(), L"fonts/")
-			) &&
+		if ((path.string().starts_with(L"art/textures/") || path.string().starts_with(L"fonts/")) &&
 			tex_is_known_extension(path) &&
 			// Skip some subdirectories where the engine doesn't use CTextureManager yet:
-			!boost::algorithm::starts_with(path.string(), L"art/textures/cursors/") &&
-			!boost::algorithm::starts_with(path.string(), L"art/textures/terrain/alphamaps/")
+			!path.string().starts_with(L"art/textures/cursors/") &&
+			!path.string().starts_with(L"art/textures/terrain/alphamaps/")
 		)
 		{
 			VfsPath cachedPath;
@@ -122,9 +125,9 @@ void CArchiveBuilder::Build(const OsPath& archive, bool compress)
 		{
 			CColladaManager::FileType type;
 
-			if (boost::algorithm::starts_with(path.string(), L"art/meshes/"))
+			if (path.string().starts_with(L"art/meshes/"))
 				type = CColladaManager::PMD;
-			else if (boost::algorithm::starts_with(path.string(), L"art/animation/"))
+			else if (path.string().starts_with(L"art/animation/"))
 				type = CColladaManager::PSA;
 			else
 			{
@@ -176,7 +179,7 @@ void CArchiveBuilder::Build(const OsPath& archive, bool compress)
 	debug_printf("Finished packaging \"%s\".", archive.string8().c_str());
 }
 
-Status CArchiveBuilder::CollectFileCB(const VfsPath& pathname, const CFileInfo& UNUSED(fileInfo), const uintptr_t cbData)
+Status CArchiveBuilder::CollectFileCB(const VfsPath& pathname, const CFileInfo&, const uintptr_t cbData)
 {
 	CArchiveBuilder* self = static_cast<CArchiveBuilder*>((void*)cbData);
 	self->m_Files.push_back(pathname);

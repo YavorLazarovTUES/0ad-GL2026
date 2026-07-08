@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,15 +19,30 @@
 
 #include "ConfigDB.h"
 
+#include "lib/alignment.h"
 #include "lib/allocators/shared_ptr.h"
+#include "lib/debug.h"
+#include "lib/file/vfs/vfs.h"
 #include "lib/file/vfs/vfs_path.h"
+#include "lib/path.h"
+#include "lib/secure_crt.h"
+#include "lib/status.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
 #include "ps/Filesystem.h"
+#include "ps/Profiler2.h"
 
-#include <boost/algorithm/string/predicate.hpp>
+#include <algorithm>
+#include <cstddef>
 #include <mutex>
 #include <unordered_set>
+#include <version>
+
+#if defined(__cpp_lib_to_chars)
+#include <charconv>
+#else
+#include <sstream>
+#endif
 
 namespace
 {
@@ -55,8 +70,13 @@ const std::unordered_set<std::string> g_UnloggedEntries = {
 
 template<typename T> void Get(const CStr& value, T& ret)
 {
+#if defined(__cpp_lib_to_chars)
+	std::from_chars(value.data(), value.data() + value.size(), ret);
+#else
+	// TODO: switch to std::from_chars after minimal libcxx supports it.
 	std::stringstream ss(value);
 	ss >> ret;
+#endif
 }
 
 template<> void Get<>(const CStr& value, bool& ret)
@@ -86,10 +106,8 @@ std::string EscapeString(const CStr& str)
 
 } // anonymous namespace
 
-typedef std::map<CStr, CConfigValueSet> TConfigMap;
-
 #define GETVAL(type)\
-	void CConfigDB::GetValue(EConfigNamespace ns, const CStr& name, type& value)\
+	void CConfigDB::GetValue(EConfigNamespace ns, const std::string_view name, type& value)\
 	{\
 		CHECK_NS(;);\
 		std::lock_guard<std::recursive_mutex> s(m_Mutex);\
@@ -97,7 +115,7 @@ typedef std::map<CStr, CConfigValueSet> TConfigMap;
 		if (it != m_Map[CFG_COMMAND].end())\
 		{\
 			if (!it->second.empty())\
-				Get(it->second[0], value);\
+				::Get(it->second[0], value);\
 			return;\
 		}\
 		for (int search_ns = ns; search_ns >= 0; --search_ns)\
@@ -106,7 +124,7 @@ typedef std::map<CStr, CConfigValueSet> TConfigMap;
 			if (it != m_Map[search_ns].end())\
 			{\
 				if (!it->second.empty())\
-					Get(it->second[0], value);\
+					::Get(it->second[0], value);\
 				return;\
 			}\
 		}\
@@ -128,6 +146,7 @@ void CConfigDB::Initialise()
 
 void CConfigDB::Shutdown()
 {
+	PROFILE2("CConfigDB::Shutdown");
 	g_ConfigDBPtr.reset();
 }
 
@@ -219,11 +238,11 @@ std::map<CStr, CConfigValueSet> CConfigDB::GetValuesWithPrefix(EConfigNamespace 
 	// values in earlier namespaces
 	for (int search_ns = 0; search_ns <= ns; ++search_ns)
 		for (const std::pair<const CStr, CConfigValueSet>& p : m_Map[search_ns])
-			if (boost::algorithm::starts_with(p.first, prefix))
+			if (p.first.starts_with(prefix))
 				ret[p.first] = p.second;
 
 	for (const std::pair<const CStr, CConfigValueSet>& p : m_Map[CFG_COMMAND])
-		if (boost::algorithm::starts_with(p.first, prefix))
+		if (p.first.starts_with(prefix))
 			ret[p.first] = p.second;
 
 	return ret;
@@ -312,6 +331,9 @@ bool CConfigDB::Reload(EConfigNamespace ns)
 	}
 
 	TConfigMap newMap;
+	if (ns == CFG_MOD)
+		newMap.swap(m_Map[CFG_MOD]);
+
 	char *filebuf = (char*)buffer.get();
 	char *filebufend = filebuf+buflen;
 
@@ -464,21 +486,25 @@ bool CConfigDB::WriteFile(EConfigNamespace ns, const VfsPath& path) const
 
 	std::lock_guard<std::recursive_mutex> s(m_Mutex);
 	std::shared_ptr<u8> buf;
-	AllocateAligned(buf, 1*MiB, maxSectorSize);
+
+	const size_t buffersize = 1*MiB;
+	AllocateAligned(buf, buffersize, maxSectorSize);
+	size_t len = 0;
 	char* pos = (char*)buf.get();
 
 	for (const std::pair<const CStr, CConfigValueSet>& p : m_Map[ns])
 	{
 		size_t i;
-		pos += sprintf(pos, "%s = ", p.first.c_str());
+		pos += sprintf_s(pos, buffersize - len, "%s = ", p.first.c_str());
 		for (i = 0; i + 1 < p.second.size(); ++i)
-			pos += sprintf(pos, "\"%s\", ", EscapeString(p.second[i]).c_str());
+			pos += sprintf_s(pos, buffersize - len, "\"%s\", ", EscapeString(p.second[i]).c_str());
 		if (!p.second.empty())
-			pos += sprintf(pos, "\"%s\"\n", EscapeString(p.second[i]).c_str());
+			pos += sprintf_s(pos, buffersize - len, "\"%s\"\n", EscapeString(p.second[i]).c_str());
 		else
-			pos += sprintf(pos, "\"\"\n");
+			pos += sprintf_s(pos, buffersize - len, "\"\"\n");
+
+		len = pos - (char*)buf.get();
 	}
-	const size_t len = pos - (char*)buf.get();
 
 	Status ret = g_VFS->CreateFile(path, buf, len);
 	if (ret < 0)

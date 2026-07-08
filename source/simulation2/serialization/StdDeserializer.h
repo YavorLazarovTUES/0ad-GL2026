@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,16 +18,28 @@
 #ifndef INCLUDED_STDDESERIALIZER
 #define INCLUDED_STDDESERIALIZER
 
-#include "IDeserializer.h"
+#include "lib/code_annotation.h"
+#include "lib/types.h"
+#include "simulation2/system/Component.h"
 
+#include <cstddef>
+#include <iosfwd>
+#include <js/Id.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
 #include <string>
 #include <vector>
+
+class JSObject;
+class JSTracer;
+namespace JS { template <typename T> class Heap; }
+namespace Script { class Interface; }
 
 class CStdDeserializer : public IDeserializer
 {
 	NONCOPYABLE(CStdDeserializer);
 public:
-	CStdDeserializer(const ScriptInterface& scriptInterface, std::istream& stream);
+	CStdDeserializer(const Script::Interface& scriptInterface, std::istream& stream);
 	virtual ~CStdDeserializer();
 
 	virtual void ScriptVal(const char* name, JS::MutableHandleValue out);
@@ -52,8 +64,10 @@ private:
 	virtual void AddScriptBackref(JS::HandleObject obj);
 	virtual void GetScriptBackref(size_t tag, JS::MutableHandleObject ret);
 	std::vector<JS::Heap<JSObject*> > m_ScriptBackrefs;
+	JS::PropertyKey m_SerializePropId;
+	JS::PropertyKey m_DeserializePropId;
 
-	const ScriptInterface& m_ScriptInterface;
+	const Script::Interface& m_ScriptInterface;
 
 	std::istream& m_Stream;
 };

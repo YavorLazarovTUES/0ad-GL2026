@@ -1,18 +1,18 @@
 /**
  * Whether to also place all actors.
  */
-let actors = false;
+const actors = false;
 
 /**
  * Coordinates of the first entity.
  */
-let startX = 20;
-let startZ = 20;
+const startX = 20;
+const startZ = 20;
 
 /**
  * Horizontal coordinate of the last entity in the current row.
  */
-let stopX = 1870;
+const stopX = 1870;
 
 /**
  * Coordinates of the current entity.
@@ -28,33 +28,36 @@ let maxh = 0;
 /**
  * Space between entities.
  */
-let gap = 14;
+const gap = 14;
 
-let cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
-for (let template of cmpTemplateManager.FindAllTemplates(actors))
+const cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
+for (const template of cmpTemplateManager.FindAllTemplates(actors))
 {
 	print(template + "...\n");
 
-	let ent = Engine.AddEntity(template);
+	const ent = Engine.AddEntity(template);
 	if (!ent)
 	{
 		error("Failed to load " + template + "\n");
 		continue;
 	}
 
-	let cmpFootprint = Engine.QueryInterface(ent, IID_Footprint);
+	const cmpFootprint = Engine.QueryInterface(ent, IID_Footprint);
 	if (!cmpFootprint)
 	{
 		print(template + " has no footprint\n");
 		continue;
 	}
 
-	let shape = cmpFootprint.GetShape();
+	const shape = cmpFootprint.GetShape();
 	let w = shape.width;
 	let h = shape.depth;
 
 	if (shape.type == 'circle')
-		w = h = shape.radius * 2;
+	{
+		w = shape.radius * 2;
+		h = w;
+	}
 
 	if (x + w >= stopX)
 	{
@@ -70,7 +73,7 @@ for (let template of cmpTemplateManager.FindAllTemplates(actors))
 		continue;
 	}
 
-	let cmpPosition = Engine.QueryInterface(ent, IID_Position);
+	const cmpPosition = Engine.QueryInterface(ent, IID_Position);
 	if (!cmpPosition)
 	{
 		warn(template + " has no position\n");
@@ -81,7 +84,7 @@ for (let template of cmpTemplateManager.FindAllTemplates(actors))
 	cmpPosition.JumpTo(x + w / 2, z);
 	cmpPosition.SetYRotation(Math.PI * 3 / 4);
 
-	let cmpOwnership = Engine.QueryInterface(ent, IID_Ownership);
+	const cmpOwnership = Engine.QueryInterface(ent, IID_Ownership);
 	if (cmpOwnership)
 		cmpOwnership.SetOwner(1);
 

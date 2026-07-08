@@ -5,6 +5,7 @@
        to this list should be carefully considered -->
   <!-- Attack is needed for the Actor Viewer and attack range overlay -->
   <Attack merge=""/>
+  <Auras merge=""/>
   <BuildRestrictions merge=""/>
   <Decay merge=""/>
   <Footprint merge=""/>
@@ -29,6 +30,7 @@
   </Visibility>
   <!-- Previews should not cast shadows -->
   <VisualActor merge="">
-    <DisableShadows/>
+    <ShadowsReceive>true</ShadowsReceive>
+    <ShadowsCast>false</ShadowsCast>
   </VisualActor>
 </Entity>

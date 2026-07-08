@@ -18,7 +18,7 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 
-function* GenerateMap(mapSettings)
+export function* generateMap(mapSettings)
 {
 	TILE_CENTERED_HEIGHT_MAP = true;
 
@@ -63,8 +63,8 @@ function* GenerateMap(mapSettings)
 	const mapCenter = g_Map.getCenter();
 	const numPlayers = getNumPlayers();
 
-	let clWater = g_Map.createTileClass();
-	let clCliffs = g_Map.createTileClass();
+	let clWater;
+	let clCliffs;
 	const clPlayer = g_Map.createTileClass();
 	const clForest = g_Map.createTileClass();
 	const clDirt = g_Map.createTileClass();
@@ -171,7 +171,7 @@ function* GenerateMap(mapSettings)
 			continue;
 		}
 
-		if (isNomad())
+		if (mapSettings.Nomad)
 			break;
 
 		g_Map.log("Finding player locations");
@@ -183,7 +183,7 @@ function* GenerateMap(mapSettings)
 
 		if (players)
 		{
-			[playerIDs, playerPosition] = players;
+			({ playerIDs, playerPosition } = players);
 			break;
 		}
 
@@ -191,7 +191,7 @@ function* GenerateMap(mapSettings)
 	}
 	yield 35;
 
-	if (!isNomad())
+	if (!mapSettings.Nomad)
 	{
 		g_Map.log("Flattening initial CC area");
 		const playerRadius = defaultPlayerBaseRadius() * 0.8;
@@ -246,7 +246,7 @@ function* GenerateMap(mapSettings)
 
 	for (let i = 0; i < numPlayers; ++i)
 	{
-		if (isNomad())
+		if (mapSettings.Nomad)
 			break;
 
 		const localBiome = constraintHighlands.allows(playerPosition[i]) ? biomes.highlands :

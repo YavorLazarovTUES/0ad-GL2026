@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,15 +18,22 @@
 #ifndef INCLUDED_CCHART
 #define INCLUDED_CCHART
 
+#include "gui/CGUISetting.h"
 #include "gui/ObjectBases/IGUIObject.h"
 #include "gui/ObjectBases/IGUITextOwner.h"
 #include "gui/SettingTypes/CGUIColor.h"
 #include "gui/SettingTypes/CGUIList.h"
 #include "gui/SettingTypes/CGUISeries.h"
-#include "maths/Size2D.h"
+#include "lib/code_annotation.h"
 #include "maths/Vector2D.h"
+#include "ps/CStr.h"
 
 #include <vector>
+
+class CCanvas2D;
+class CGUI;
+class CRect;
+class CSize2D;
 
 struct CChartData
 {
@@ -48,13 +55,12 @@ class CChart : public IGUIObject, public IGUITextOwner
 
 public:
 	CChart(CGUI& pGUI);
-	virtual ~CChart();
 
 protected:
 	/**
-	 * @see IGUIObject#UpdateCachedSize()
+	 * @see IGUIObject#HandleSizeChanged()
 	 */
-	void UpdateCachedSize();
+	void HandleSizeChanged();
 
 	/**
 	 * @see IGUIObject#HandleMessage()

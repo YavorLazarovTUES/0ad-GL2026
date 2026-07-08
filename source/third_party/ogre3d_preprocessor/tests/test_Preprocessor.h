@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,6 +19,7 @@
 
 #include "graphics/PreprocessorWrapper.h"
 #include "lib/timer.h"
+#include "ps/CLogger.h"
 #include "ps/CStr.h"
 #include "third_party/ogre3d_preprocessor/OgreGLSLPreprocessor.h"
 
@@ -201,7 +202,7 @@ public:
 	{
 		int includeRetrievedCounter = 0;
 		CPreprocessorWrapper::IncludeRetrieverCallback includeCallback = [&includeRetrievedCounter](
-				const CStr& UNUSED(includePath), CStr& out) {
+				const CStr& /*includePath*/, CStr& out) {
 			out = "42";
 			++includeRetrievedCounter;
 			return true;
@@ -218,7 +219,7 @@ public:
 	void test_include_invalid_file()
 	{
 		CPreprocessorWrapper::IncludeRetrieverCallback includeCallback = [](
-				const CStr& UNUSED(includePath), CStr& UNUSED(out)) {
+				const CStr& /*includePath*/, CStr& /*out*/) {
 			return false;
 		};
 
@@ -232,7 +233,7 @@ public:
 	void test_include_with_defines()
 	{
 		CPreprocessorWrapper::IncludeRetrieverCallback includeCallback = [](
-				const CStr& UNUSED(includePath), CStr& out) {
+				const CStr& /*includePath*/, CStr& out) {
 			out = R"(
 				#if defined(A)
 					#define X 41
@@ -262,7 +263,7 @@ public:
 			"#line 1\n\n\t\n\n\n\t\n\t\n\n\n\t\n\t\n\t\n\t\n\tvec3 color();\n\t\n#line 5\n\t42 256");
 	}
 
-	void test_performance_DISABLED()
+	void DISABLED_test_performance()
 	{
 		CPreprocessorWrapper::IncludeRetrieverCallback includeCallback = [](
 			const CStr& includePath, CStr& out) {

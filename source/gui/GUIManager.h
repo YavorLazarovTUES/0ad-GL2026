@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,18 +18,31 @@
 #ifndef INCLUDED_GUIMANAGER
 #define INCLUDED_GUIMANAGER
 
-#include "lib/file/vfs/vfs_path.h"
-#include "lib/input.h"
+#include "lib/code_annotation.h"
+#include "lib/path.h"
+#include "lib/status.h"
 #include "ps/CStr.h"
+#include "ps/Input.h"
 #include "ps/TemplateLoader.h"
+#include "scriptinterface/Interface.h"
 #include "scriptinterface/StructuredClone.h"
 
+#include <cstddef>
 #include <deque>
+#include <js/TypeDecls.h>
+#include <memory>
+#include <optional>
 #include <string>
 #include <unordered_set>
+#include <variant>
 
 class CCanvas2D;
 class CGUI;
+class CParamNode;
+namespace Script { class Context; }
+namespace JS { class HandleValueArray; }
+namespace JS { class Value; }
+namespace PS { template <typename T, size_t N> class StaticVector; }
 
 /**
  * External interface to the GUI system.
@@ -44,14 +57,14 @@ class CGUIManager
 {
 	NONCOPYABLE(CGUIManager);
 public:
-	CGUIManager(ScriptContext& scriptContext, ScriptInterface& scriptInterface);
+	CGUIManager(Script::Context& scriptContext, Script::Interface& scriptInterface);
 	~CGUIManager();
 
-	ScriptInterface& GetScriptInterface()
+	Script::Interface& GetScriptInterface()
 	{
 		return m_ScriptInterface;
 	}
-	ScriptContext& GetContext() { return m_ScriptContext; }
+	Script::Context& GetContext() { return m_ScriptContext; }
 	std::shared_ptr<CGUI> GetActiveGUI() { return top(); }
 
 	/**
@@ -62,7 +75,7 @@ public:
 	/**
 	 * Load a new GUI page and make it active. All current pages will be destroyed.
 	 */
-	void SwitchPage(const CStrW& name, const ScriptInterface* srcScriptInterface, JS::HandleValue initData);
+	void SwitchPage(const CStrW& name, const Script::Interface* srcScriptInterface, JS::HandleValue initData);
 
 	/**
 	 * Load a new GUI page and make it active. All current pages will be retained,
@@ -70,13 +83,7 @@ public:
 	 * user inputs.
 	 * The returned promise will be fulfilled once the pushed page is closed.
 	 */
-	JS::Value PushPage(const CStrW& pageName, Script::StructuredClone initData);
-
-	/**
-	 * Unload the currently active GUI page, and make the previous page active.
-	 * (There must be at least two pages when you call this.)
-	 */
-	void PopPage(Script::StructuredClone args);
+	JS::Value OpenChildPage(const CStrW& pageName, Script::StructuredClone initData);
 
 	/**
 	 * Called when a file has been modified, to hotload changes.
@@ -91,18 +98,20 @@ public:
 	/**
 	 * Pass input events to the currently active GUI page.
 	 */
-	InReaction HandleEvent(const SDL_Event_* ev);
+	Input::Reaction HandleEvent(const SDL_Event& ev);
 
 	/**
 	 * See CGUI::SendEventToAll; applies to the currently active page.
 	 */
-	void SendEventToAll(const CStr& eventName) const;
-	void SendEventToAll(const CStr& eventName, JS::HandleValueArray paramData) const;
+	void SendEventToAll(const CStr& eventName,
+		std::optional<JS::HandleValueArray> paramData = std::nullopt) const;
 
 	/**
 	 * See CGUI::TickObjects; applies to @em all loaded pages.
+	 * When the root page is closed it's returned wheter Atlas should be
+	 * started.
 	 */
-	void TickObjects();
+	std::optional<bool> TickObjects();
 
 	/**
 	 * See CGUI::Draw; applies to @em all loaded pages.
@@ -141,20 +150,41 @@ private:
 		SGUIPage(const CStrW& pageName, const Script::StructuredClone initData);
 
 		/**
-		 * Create the CGUI with it's own ScriptInterface. Deletes the previous CGUI if it existed.
+		 * Create the CGUI with it's own Script::Interface. Deletes the previous CGUI if it existed.
 		 */
-		void LoadPage(ScriptContext& scriptContext);
+		void LoadPage(Script::Context& context);
 
 		/**
-		 * A new promise gets set. A reference to that promise is returned. The promise will settle when
-		 * the page is closed.
+		 * A reference to the promise is returned. The promise will settle when the page is closed.
 		 */
-		JS::Value ReplacePromise(ScriptInterface& scriptInterface);
+		JS::Value GetPromise();
+
+		struct Close
+		{
+			Script::StructuredClone arg;
+			bool rejected;
+		};
+
+		struct OpenRequest
+		{
+			std::wstring path;
+			Script::StructuredClone arg;
+		};
+
+		using CloseResult = std::variant<Close, OpenRequest>;
+		/**
+		 * If the page should be closed this function closes the page and
+		 * returns the result of the @c init function.
+		 * If this page wasn't closed an empty optional is returned.
+		 */
+		std::optional<CloseResult> MaybeClose(const bool isRootPage);
 
 		/**
-		 * Execute the stored callback function with the given arguments.
+		 * This function should be called when a child page got closed. The
+		 * result of the closed page should be the argument of this
+		 * function. This function resolves the @c receivingPromise.
 		 */
-		void ResolvePromise(Script::StructuredClone args);
+		void Refocus(const Close& result);
 
 		std::wstring m_Name;
 		std::unordered_set<VfsPath> inputs; // for hotloading
@@ -162,16 +192,22 @@ private:
 		std::shared_ptr<CGUI> gui; // the actual GUI page
 
 		/**
-		 * Function executed by this parent GUI page when the child GUI page it pushed is popped.
-		 * Notice that storing it in the SGUIPage instead of CGUI means that it will survive the hotloading CGUI reset.
+		 * When this promise is settled this page wants to be closed. It
+		 * settles with the page completion value.
 		 */
-		std::shared_ptr<JS::PersistentRootedObject> callbackFunction;
+		std::shared_ptr<JS::PersistentRootedObject> sendingPromise;
+
+		/**
+		 * The parent page waits on this promise. It also gets the
+		 * completion value through this promise.
+		 */
+		std::shared_ptr<JS::PersistentRootedObject> receivingPromise;
 	};
 
 	std::shared_ptr<CGUI> top() const;
 
-	ScriptContext& m_ScriptContext;
-	ScriptInterface& m_ScriptInterface;
+	Script::Context& m_ScriptContext;
+	Script::Interface& m_ScriptInterface;
 
 	/**
 	 * The page stack must not move pointers on push/pop, or pushing a page in a page's init method
@@ -195,11 +231,21 @@ private:
 	};
 	PageStackType m_PageStack;
 
+	/**
+	 * Returns an immutable copy so iterators aren't invalidated by handlers.
+	 */
+	PS::StaticVector<SGUIPage, 16> GetCopyOfFrozenStack() const;
+
 	CTemplateLoader m_TemplateLoader;
+
+	struct InputHandler
+	{
+		CGUIManager& gui;
+		Input::Reaction operator()(const SDL_Event& ev);
+	};
+	Input::Handler<InputHandler> m_InputHandler;
 };
 
 extern CGUIManager* g_GUI;
-
-extern InReaction gui_handler(const SDL_Event_* ev);
 
 #endif // INCLUDED_GUIMANAGER

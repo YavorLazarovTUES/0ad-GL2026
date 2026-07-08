@@ -1,4 +1,4 @@
-/* Copyright (C) 2017 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@
 
 @page writing-components How to write components
 
-<i>See the <a href="http://trac.wildfiregames.com/wiki/TDD_Simulation">Trac wiki</a> for more documentation about this system.</i>
+<i>See the <a href="https://gitea.wildfiregames.com/0ad/0ad/wiki/TDD_Simulation">Trac wiki</a> for more documentation about this system.</i>
 
 <!--
   egrep '@(sub)*section' source/simulation2/docs/SimulationDocs.h|sed 's/@//; s/section/- @ref/; s/^sub/ /g; s/\(- \S* \S*\).*$/\1/'
@@ -51,7 +51,7 @@ Think of a name for the component. We'll use "Example" in this example; replace
 it with your chosen name in all the filenames and code samples below.
 
 (If you copy-and-paste from the examples below, be aware that the
-<a href="http://trac.wildfiregames.com/wiki/Coding_Conventions">coding conventions</a>
+<a href="https://gitea.wildfiregames.com/0ad/0ad/wiki/Coding_Conventions">coding conventions</a>
 require indentation with tabs, not spaces, so make sure you get it right.)
 
 Create the file @b simulation2/components/ICmpExample.h:
@@ -120,7 +120,7 @@ which does some extra conversions or checks or whatever.
 
 There's a small limit to the number of arguments that are currently supported - if you need more,
 first try to save yourself some pain by using fewer arguments, otherwise you'll need to add a new
-macro into simulation2/system/InterfaceScripted.h and increase @ref SCRIPT_INTERFACE_MAX_ARGS in scriptinterface/ScriptInterface.h.
+macro into simulation2/system/InterfaceScripted.h and increase @ref SCRIPT_INTERFACE_MAX_ARGS in scriptinterface/Interface.h.
 
 
 
@@ -138,7 +138,7 @@ defined as long as the linker finds them).
 To convert from a C++ type @c T to a JS::Value, define:
 
 @code
-template<> void ScriptInterface::ToJSVal<T>(JSContext* cx, JS::MutableHandleValue ret, const T& val)
+template<> void Script::Interface::ToJSVal<T>(JSContext* cx, JS::MutableHandleValue ret, const T& val)
 {
 	...
 }
@@ -152,7 +152,7 @@ Be careful about JS garbage collection (don't let it collect the objects you're 
 To convert from a JS::Value to a C++ type @c T, define:
 
 @code
-template<> bool ScriptInterface::FromJSVal<T>(JSContext* cx, JS::HandleValue v, T& out)
+template<> bool Script::Interface::FromJSVal<T>(JSContext* cx, JS::HandleValue v, T& out)
 {
 	...
 }
@@ -207,7 +207,7 @@ to hear about all MT_Destroy messages.)
 Then you need to respond to the messages in @c HandleMessage:
 
 @code
-virtual void HandleMessage(const CMessage& msg, bool UNUSED(global))
+virtual void HandleMessage(const CMessage& msg, bool global)
 {
     switch (msg.GetType())
     {
@@ -505,7 +505,7 @@ But for now everything is put in there.)
 Now you have to add C++/JS conversions into MessageTypeConversions.cpp, so scripts can send and receive messages:
 
 @code
-JS::Value CMessageExample::ToJSVal(const ScriptInterface& scriptInterface) const
+JS::Value CMessageExample::ToJSVal(const Script::Interface& scriptInterface) const
 {
 	TOJSVAL_SETUP();
 	SET_MSG_PROPERTY(x);
@@ -513,7 +513,7 @@ JS::Value CMessageExample::ToJSVal(const ScriptInterface& scriptInterface) const
 	return JS::ObjectValue(*obj);
 }
 
-CMessage* CMessageExample::FromJSVal(const ScriptInterface& scriptInterface, JS::HandleValue val)
+CMessage* CMessageExample::FromJSVal(const Script::Interface& scriptInterface, JS::HandleValue val)
 {
 	FROMJSVAL_SETUP();
 	GET_MSG_PROPERTY(int, x);
@@ -528,12 +528,12 @@ with a set of scalar fields.)
 If you don't want to support scripts sending/receiving the message, you can implement stub functions instead:
 
 @code
-JS::Value CMessageExample::ToJSVal(const ScriptInterface& UNUSED(scriptInterface)) const
+JS::Value CMessageExample::ToJSVal(const Script::Interface&) const
 {
 	return JS::UndefinedValue();
 }
 
-CMessage* CMessageExample::FromJSVal(const ScriptInterface& UNUSED(scriptInterface), JS::HandleValue UNUSED(val))
+CMessage* CMessageExample::FromJSVal(const Script::Interface&, JS::HandleValue)
 {
 	return NULL;
 }

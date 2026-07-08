@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,12 +21,21 @@
 
 #include "graphics/FontMetrics.h"
 #include "gui/CGUI.h"
+#include "gui/CGUISprite.h"
 #include "gui/ObjectBases/IGUIObject.h"
+#include "gui/SGUIIcon.h"
+#include "lib/debug.h"
+#include "lib/types.h"
 #include "lib/utf8.h"
+#include "maths/Rect.h"
 #include "ps/CLogger.h"
+#include "ps/CStrIntern.h"
 
 #include <algorithm>
 #include <array>
+#include <utility>
+
+struct CGUIColor;
 
 // List of word delimiter bounds
 // The list contains ranges of word delimiters. The odd indexed chars are the start
@@ -157,7 +166,7 @@ void CGUIString::GenerateTextCall(const CGUI& pGUI, SFeedback& Feedback, CStrInt
 						TextCall.m_Tooltip = tagAttrib.value;
 				}
 
-				SpriteCall.m_Sprite = icon.m_SpriteName;
+				SpriteCall.m_Sprite = CGUISpriteInstance{icon.m_SpriteName,false};
 
 				// Add sprite call
 				Feedback.m_SpriteCalls.push_back(std::move(SpriteCall));
@@ -198,6 +207,9 @@ void CGUIString::GenerateTextCall(const CGUI& pGUI, SFeedback& Feedback, CStrInt
 					// TODO Gee: (2004-08-15) Check if Font exists?
 					TextCall.m_Font = CStrIntern(utf8_from_wstring(tag.m_TagValue));
 					break;
+				case TextChunk::Tag::TAG_LOCALE:
+					TextCall.m_FontLocale = CStrIntern(utf8_from_wstring(tag.m_TagValue));
+					break;
 				case TextChunk::Tag::TAG_TOOLTIP:
 					TextCall.m_Tooltip = tag.m_TagValue;
 					break;
@@ -209,17 +221,17 @@ void CGUIString::GenerateTextCall(const CGUI& pGUI, SFeedback& Feedback, CStrInt
 
 			// Calculate the size of the font.
 			CSize2D size;
-			int cx, cy;
-			CFontMetrics font (TextCall.m_Font);
+			float cx, cy;
+			CFontMetrics font{TextCall.m_Font, TextCall.m_FontLocale};
 			font.CalculateStringSize(TextCall.m_String.c_str(), cx, cy);
 
-			size.Width = static_cast<float>(cx);
+			size.Width = cx;
 			// For anything other than the first line, the line spacing
 			// needs to be considered rather than just the height of the text.
 			if (FirstLine)
-				size.Height = static_cast<float>(font.GetHeight());
+				size.Height = font.GetCapHeight();
 			else
-				size.Height = static_cast<float>(font.GetLineSpacing());
+				size.Height = font.GetHeight();
 
 			// Append width, and make maximum height the height.
 			Feedback.m_Size.Width += size.Width;
@@ -264,6 +276,8 @@ CGUIString::TextChunk::Tag::TagType CGUIString::TextChunk::Tag::GetTagType(const
 		return TAG_COLOR;
 	if (tagtype == L"font")
 		return TAG_FONT;
+	if (tagtype == L"locale")
+		return TAG_LOCALE;
 	if (tagtype == L"icon")
 		return TAG_ICON;
 	if (tagtype == L"imgleft")
@@ -345,7 +359,7 @@ void CGUIString::SetValue(const CStrW& str)
 						LOGERROR("Parameter without value at pos %d '%s'", p, utf8_from_wstring(str));
 						break;
 					}
-					FALLTHROUGH;
+					[[fallthrough]];
 				case L'=':
 					// parse a quoted parameter
 					if (closing) // We still parse them to make error handling cleaner
@@ -372,7 +386,7 @@ void CGUIString::SetValue(const CStrW& str)
 								break;
 							}
 							// NOTE: We do not support \n in tag parameters
-							FALLTHROUGH;
+							[[fallthrough]];
 						default:
 							param.push_back(str[p]);
 						}
@@ -437,7 +451,7 @@ void CGUIString::SetValue(const CStrW& str)
 				m_RawString.push_back(L'\n');
 				break;
 			}
-			FALLTHROUGH;
+			[[fallthrough]];
 		default:
 			++rawpos;
 			m_RawString.push_back(str[p]);

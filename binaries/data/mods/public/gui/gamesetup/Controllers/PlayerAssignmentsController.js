@@ -3,7 +3,7 @@
  */
 class PlayerAssignmentsController
 {
-	constructor(setupWindow, netMessages)
+	constructor(setupWindow, netMessages, isSavedGame)
 	{
 		this.clientJoinHandlers = new Set();
 		this.clientLeaveHandlers = new Set();
@@ -11,7 +11,7 @@ class PlayerAssignmentsController
 
 		if (!g_IsNetworked)
 		{
-			let name = singleplayerName();
+			const name = singleplayerName();
 
 			// Replace empty player name when entering a single-player match for the first time.
 			Engine.ConfigDB_CreateAndSaveValue("user", this.ConfigNameSingleplayer, name);
@@ -35,7 +35,7 @@ class PlayerAssignmentsController
 		setupWindow.registerGetHotloadDataHandler(this.onGetHotloadData.bind(this));
 		netMessages.registerNetMessageHandler("players", this.onPlayerAssignmentMessage.bind(this));
 
-		this.registerClientJoinHandler(this.onClientJoin.bind(this));
+		this.registerClientJoinHandler(this.onClientJoin.bind(this, isSavedGame));
 	}
 
 	registerPlayerAssignmentsChangeHandler(handler)
@@ -93,9 +93,9 @@ class PlayerAssignmentsController
 	 * On client join, try to assign them to a free slot.
 	 * (This is called before g_PlayerAssignments is updated).
 	 */
-	onClientJoin(newGUID, newAssignments)
+	onClientJoin(isSavedGame, newGUID, newAssignments)
 	{
-		if (!g_IsController || newAssignments[newGUID].player != -1)
+		if (!g_IsController || newAssignments[newGUID].player !== -1)
 			return;
 
 		// Assign the client (or only buddies if prefered) to a free slot
@@ -107,35 +107,41 @@ class PlayerAssignmentsController
 				return;
 		}
 
-		// Find a player slot that no other player is assigned to.
-		const possibleSlots = [...Array(g_GameSettings.playerCount.nbPlayers).keys()].map(i => i + 1);
+		const slot = this.findAssignmentSlot(isSavedGame, newGUID, newAssignments);
 
-		let slot;
-		const newName = newAssignments[newGUID].name;
-		// First check if we know them and try to give them their old assignment back.
-		if (this.lastAssigned[newName] > 0 && this.lastAssigned[newName] <= g_GameSettings.playerCount.nbPlayers)
-		{
-			let free = true;
-			for (const guid in newAssignments)
-				if (newAssignments[guid].player === this.lastAssigned[newName])
-				{
-					free = false;
-					break;
-				}
-			if (free)
-				slot = this.lastAssigned[newName];
-		}
-		if (!slot)
-			slot = possibleSlots.find(i => {
-				for (const guid in newAssignments)
-					if (newAssignments[guid].player == i)
-						return false;
-				return true;
-			});
 		if (slot === undefined)
 			return;
 
 		this.assignClient(newGUID, slot);
+	}
+
+	findAssignmentSlot(isSavedGame, newGUID, newAssignments)
+	{
+		const newAssignmentsArray = Object.values(newAssignments);
+		const isSlotAvailable = slot =>
+			newAssignmentsArray.every(elem => elem.player !== slot) &&
+			(!isSavedGame || !g_GameSettings.playerAI.get(slot - 1));
+
+		const newName = newAssignments[newGUID].name;
+		// First check if we know them and try to give them their old assignment back.
+		if (this.lastAssigned[newName] > 0 &&
+			this.lastAssigned[newName] <= g_GameSettings.playerCount.nbPlayers &&
+			isSlotAvailable(this.lastAssigned[newName]))
+		{
+			return this.lastAssigned[newName];
+		}
+
+		// If we can't restore the previous slot, try to give them the slot stored in the savegame.
+		if (isSavedGame)
+		{
+			const saveSlot = g_GameSettings.playerName.values.indexOf(newName) + 1;
+			if (saveSlot > 0 && isSlotAvailable(saveSlot))
+				return saveSlot;
+		}
+
+		// If we can't restore the slot, assign the client to the first free slot.
+		return Array.from(Array(g_GameSettings.playerCount.nbPlayers).keys(), i => i + 1).find(
+			isSlotAvailable);
 	}
 
 	/**
@@ -156,15 +162,15 @@ class PlayerAssignmentsController
 	 */
 	onPlayerAssignmentMessage(message)
 	{
-		let newAssignments = message.newAssignments;
-		for (let guid in newAssignments)
+		const newAssignments = message.newAssignments;
+		for (const guid in newAssignments)
 			if (!g_PlayerAssignments[guid])
-				for (let handler of this.clientJoinHandlers)
+				for (const handler of this.clientJoinHandlers)
 					handler(guid, message.newAssignments);
 
-		for (let guid in g_PlayerAssignments)
+		for (const guid in g_PlayerAssignments)
 			if (!newAssignments[guid])
-				for (let handler of this.clientLeaveHandlers)
+				for (const handler of this.clientLeaveHandlers)
 					handler(guid);
 
 		g_PlayerAssignments = newAssignments;
@@ -189,7 +195,7 @@ class PlayerAssignmentsController
 	{
 		if (g_PlayerAssignments[guidToAssign].player != -1)
 		{
-			for (let guid in g_PlayerAssignments)
+			for (const guid in g_PlayerAssignments)
 				if (g_PlayerAssignments[guid].player == playerIndex + 1)
 				{
 					this.assignClient(guid, g_PlayerAssignments[guidToAssign].player);
@@ -214,7 +220,7 @@ class PlayerAssignmentsController
 	{
 		if (g_IsNetworked)
 		{
-			for (let guid in g_PlayerAssignments)
+			for (const guid in g_PlayerAssignments)
 				if (g_PlayerAssignments[guid].player > g_GameSettings.playerCount.nbPlayers)
 					Engine.AssignNetworkPlayer(g_PlayerAssignments[guid].player, "");
 		}

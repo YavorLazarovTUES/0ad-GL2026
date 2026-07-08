@@ -29,7 +29,7 @@ Engine.RegisterGlobal("ApplyValueModificationsToEntity", (prop, oVal, ent) => oV
 
 function testEntitiesList()
 {
-	let cmpBuilder = ConstructComponent(builderId, "Builder", {
+	const cmpBuilder = ConstructComponent(builderId, "Builder", {
 		"Rate": "1.0",
 		"Entities": { "_string": "structures/{civ}/barracks structures/{civ}/civil_centre structures/{native}/house" }
 	});
@@ -106,7 +106,7 @@ testEntitiesList();
 
 function testBuildingFoundation()
 {
-	let cmpBuilder = ConstructComponent(builderId, "Builder", {
+	const cmpBuilder = ConstructComponent(builderId, "Builder", {
 		"Rate": "1.0",
 		"Entities": { "_string": "" }
 	});
@@ -121,14 +121,15 @@ function testBuildingFoundation()
 
 	let increased = false;
 	AddMock(target, IID_Foundation, {
-		"Build": (entity, amount) => {
+		"Build": (entity, amount) =>
+		{
 			increased = true;
 			TS_ASSERT_EQUALS(amount, 1);
 		},
 		"AddBuilder": () => {}
 	});
 
-	let cmpTimer = ConstructComponent(SYSTEM_ENTITY, "Timer");
+	const cmpTimer = ConstructComponent(SYSTEM_ENTITY, "Timer");
 
 	TS_ASSERT(cmpBuilder.StartRepairing(target));
 	cmpTimer.OnUpdate({ "turnLength": 1 });
@@ -145,7 +146,7 @@ function testRepairing()
 		"IsAlly": (p) => p == playerId
 	});
 
-	let cmpBuilder = ConstructComponent(builderId, "Builder", {
+	const cmpBuilder = ConstructComponent(builderId, "Builder", {
 		"Rate": "1.0",
 		"Entities": { "_string": "" }
 	});
@@ -158,7 +159,7 @@ function testRepairing()
 		"GetBuildTime": () => 100
 	});
 
-	let cmpTargetHealth = ConstructComponent(target, "Health", {
+	const cmpTargetHealth = ConstructComponent(target, "Health", {
 		"Max": 100,
 		"RegenRate": 0,
 		"IdleRegenRate": 0,
@@ -169,11 +170,11 @@ function testRepairing()
 	cmpTargetHealth.SetHitpoints(50);
 
 	DeleteMock(target, IID_Foundation);
-	let cmpTargetRepairable = ConstructComponent(target, "Repairable", {
+	const cmpTargetRepairable = ConstructComponent(target, "Repairable", {
 		"RepairTimeRatio": 1,
 	});
 
-	let cmpTimer = ConstructComponent(SYSTEM_ENTITY, "Timer");
+	const cmpTimer = ConstructComponent(SYSTEM_ENTITY, "Timer");
 
 	TS_ASSERT(cmpTargetRepairable.IsRepairable());
 	TS_ASSERT(cmpBuilder.StartRepairing(target));

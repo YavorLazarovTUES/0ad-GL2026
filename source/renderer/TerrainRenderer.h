@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,11 +24,8 @@
 #define INCLUDED_TERRAINRENDERER
 
 #include "graphics/Color.h"
-#include "maths/BoundingBoxAligned.h"
-#include "renderer/backend/IDeviceCommandContext.h"
-#include "renderer/backend/ITexture.h"
-#include "renderer/backend/IShaderProgram.h"
 
+class CBoundingBoxAligned;
 class CCamera;
 class CCanvas2D;
 class CModelDecal;
@@ -36,9 +33,10 @@ class CPatch;
 class CShaderDefines;
 class CSimulation2;
 class CVector2D;
-
 class ShadowMap;
-
+namespace Renderer::Backend { class IDeviceCommandContext; }
+namespace Renderer::Backend { class IShaderProgram; }
+namespace Renderer::Backend { class ITexture; }
 struct TerrainRendererInternals;
 
 /**
@@ -106,7 +104,8 @@ public:
 	 */
 	void RenderTerrainShader(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-		const CShaderDefines& context, int cullGroup, ShadowMap* shadow);
+		const CShaderDefines& context, int cullGroup, ShadowMap* shadow,
+		const bool wireframe);
 
 	/**
 	 * RenderPatches: Render all patches un-textured as polygons.
@@ -120,7 +119,7 @@ public:
 	void RenderPatches(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		int cullGroup, const CShaderDefines& defines,
-		const CColor& color = CColor(0.0f, 0.0f, 0.0f, 1.0f));
+		const CColor& color, const bool wireframe);
 
 	/**
 	 * RenderOutlines: Render the outline of patches as lines.

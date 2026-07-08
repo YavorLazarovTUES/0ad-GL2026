@@ -2,9 +2,9 @@ Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
-	setSelectedBiome();
+	setBiome(mapSettings.Biome);
 
 	const tPrimary = g_Terrains.mainTerrain;
 	const tGrass = g_Terrains.tier1Terrain;
@@ -116,7 +116,8 @@ function* GenerateMap()
 		"heightLand": heightLand,
 		"meanderShort": 20,
 		"meanderLong": 0,
-		"waterFunc": (position, height, riverFraction) => {
+		"waterFunc": (position, height, riverFraction) =>
+		{
 
 			if (height < heightShore2)
 				clWater.add(position);
@@ -139,13 +140,13 @@ function* GenerateMap()
 		new TileClassPainter(clHighlands));
 
 	g_Map.log("Creating fish");
-	for (let i = 0; i < scaleByMapSize(10, 20); ++i)
+	for (let i = 0; i < scaleByMapSize(60, 70); ++i)
 		createObjectGroupsDeprecated(
 			new SimpleGroup([new SimpleObject(oFish, 2, 3, 0, 2)], true, clFood),
 			0,
-			[stayClasses(clWater, 2), avoidClasses(clFood, 3)],
+			[stayClasses(clWater, 4), avoidClasses(clFood, 8)],
 			numPlayers,
-			50);
+			100);
 	yield 25;
 
 	g_Map.log("Creating bumps");

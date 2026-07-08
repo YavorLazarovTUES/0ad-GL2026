@@ -1,4 +1,4 @@
-/* Copyright (C) 2017 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,15 +19,19 @@
 
 #include "CinemaPath.h"
 
-#include <sstream>
-#include <string>
-
 #include "graphics/Camera.h"
+#include "lib/debug.h"
 #include "maths/MathUtil.h"
+#include "maths/Matrix3D.h"
 #include "maths/Quaternion.h"
 #include "maths/Vector3D.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
+
+#include <cmath>
+#include <numbers>
+#include <string>
+#include <vector>
 
 CCinemaPath::CCinemaPath(const CCinemaData& data, const TNSpline& spline, const TNSpline& targetSpline)
 	: CCinemaData(data), TNSpline(spline), m_TargetSpline(targetSpline), m_TimeElapsed(0.f)
@@ -109,7 +113,7 @@ void CCinemaPath::SetTimescale(fixed scale)
 	m_Timescale = scale;
 }
 
-void CCinemaPath::MoveToPointAt(float t, float nodet, const CVector3D& startRotation, CCamera* camera) const
+void CCinemaPath::MoveToPointAt(float t, float nodet, const CVector3D& startRotation, CCamera& camera) const
 {
 	t = (this->*DistModePtr)(t);
 
@@ -118,9 +122,9 @@ void CCinemaPath::MoveToPointAt(float t, float nodet, const CVector3D& startRota
 	if (m_LookAtTarget)
 	{
 		if (m_TimeElapsed <= m_TargetSpline.MaxDistance.ToFloat())
-			camera->LookAt(pos, m_TargetSpline.GetPosition(m_TimeElapsed / m_TargetSpline.MaxDistance.ToFloat()), CVector3D(0, 1, 0));
+			camera.LookAt(pos, m_TargetSpline.GetPosition(m_TimeElapsed / m_TargetSpline.MaxDistance.ToFloat()), CVector3D(0, 1, 0));
 		else
-			camera->LookAt(pos, m_TargetSpline.GetAllNodes().back().Position, CVector3D(0, 1, 0));
+			camera.LookAt(pos, m_TargetSpline.GetAllNodes().back().Position, CVector3D(0, 1, 0));
 	}
 	else
 	{
@@ -130,11 +134,11 @@ void CCinemaPath::MoveToPointAt(float t, float nodet, const CVector3D& startRota
 		end.FromEulerAngles(DEGTORAD(nodeRotation.X), DEGTORAD(nodeRotation.Y), DEGTORAD(nodeRotation.Z));
 		start.Slerp(start, end, nodet);
 
-		camera->m_Orientation.SetIdentity();
-		camera->m_Orientation.Rotate(start);
-		camera->m_Orientation.Translate(pos);
+		camera.m_Orientation.SetIdentity();
+		camera.m_Orientation.Rotate(start);
+		camera.m_Orientation.Translate(pos);
 	}
-	camera->UpdateFrustum();
+	camera.UpdateFrustum();
 }
 
 // Distortion mode functions
@@ -193,7 +197,7 @@ float CCinemaPath::EaseCircle(float t) const
 
 float CCinemaPath::EaseSine(float t) const
 {
-	t = 1.0f - cos(t * (float)M_PI/2);
+	t = 1.0f - cos(t * std::numbers::pi_v<float> / 2.f);
 	if (m_GrowthCount > 1.0f)
 	{
 		--m_GrowthCount;
@@ -232,7 +236,7 @@ bool CCinemaPath::Validate()
 	return false;
 }
 
-bool CCinemaPath::Play(const float deltaRealTime, CCamera* camera)
+bool CCinemaPath::Play(const float deltaRealTime, CCamera& camera)
 {
 	m_TimeElapsed += m_Timescale.ToFloat() * deltaRealTime;
 	if (!Validate())

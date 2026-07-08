@@ -24,11 +24,10 @@ class DeveloperOverlayControl
 
 	resize(i)
 	{
-		let size = this.body.size;
-		let height = size.bottom;
-		size.top = height * i;
-		size.bottom = height * (i + 1);
-		this.body.size = size;
+		const height = this.body.size.bottom;
+		this.body.size.top = height * i;
+		this.body.size.bottom = height * (i + 1);
+
 		this.body.hidden = false;
 	}
 }

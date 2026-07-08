@@ -45,7 +45,7 @@ EntityLimits.prototype.Schema =
 	"</element>" +
 	"<element name='LimitRemovers' a:help='List of building/unit(s) requirements to lift a specific limit.'>" +
 		"<zeroOrMore>" +
-			"<element a:help='Specifies a category of building/unit on which to remove this limit. The limit will be removed if all the followings requirements are satisfied'>" +
+			"<element a:help='Specifies a category of building/unit on which to remove this limit. The limit will be removed if all the following requirements are satisfied'>" +
 				"<anyName />" +
 				"<oneOrMore>" +
 					"<element a:help='Possible requirements are: RequiredTechs and RequiredClasses'>" +
@@ -82,7 +82,7 @@ EntityLimits.prototype.Init = function()
 		if (category in this.template.LimitChangers)
 		{
 			this.changers[category] = {};
-			for (var c in this.template.LimitChangers[category])
+			for (const c in this.template.LimitChangers[category])
 				this.changers[category][c] = +this.template.LimitChangers[category][c];
 		}
 		if (category in this.template.LimitRemovers)
@@ -90,7 +90,7 @@ EntityLimits.prototype.Init = function()
 			// Keep a copy of removable limits for possible restoration.
 			this.removedLimit[category] = this.limit[category];
 			this.removers[category] = {};
-			for (var c in this.template.LimitRemovers[category])
+			for (const c in this.template.LimitRemovers[category])
 			{
 				this.removers[category][c] = this.template.LimitRemovers[category][c]._string.split(/\s+/);
 				if (c === "RequiredClasses")
@@ -183,8 +183,8 @@ EntityLimits.prototype.AllowedToCreate = function(limitType, category, count, te
 
 EntityLimits.prototype.NotifyLimit = function(limitType, category, limit)
 {
-	let cmpPlayer = Engine.QueryInterface(this.entity, IID_Player);
-	let notification = {
+	const cmpPlayer = Engine.QueryInterface(this.entity, IID_Player);
+	const notification = {
 		"players": [cmpPlayer.GetPlayerID()],
 		"translateMessage": true,
 		"translateParameters": ["category"],
@@ -200,7 +200,7 @@ EntityLimits.prototype.NotifyLimit = function(limitType, category, limit)
 		warn("EntityLimits.js: Unknown LimitType " + limitType);
 		notification.message = markForTranslation("%(category)s limit of %(limit)s reached");
 	}
-	let cmpGUIInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface);
+	const cmpGUIInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface);
 	cmpGUIInterface.PushNotification(notification);
 };
 
@@ -223,19 +223,19 @@ EntityLimits.prototype.AllowedToTrain = function(category, count, templateName, 
  */
 EntityLimits.prototype.AllowedToReplace = function(ent, template)
 {
-	let cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
-	let templateFrom = cmpTemplateManager.GetTemplate(cmpTemplateManager.GetCurrentTemplateName(ent));
-	let templateTo = cmpTemplateManager.GetTemplate(template);
+	const cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
+	const templateFrom = cmpTemplateManager.GetTemplate(cmpTemplateManager.GetCurrentTemplateName(ent));
+	const templateTo = cmpTemplateManager.GetTemplate(template);
 
 	if (templateTo.TrainingRestrictions)
 	{
-		let category = templateTo.TrainingRestrictions.Category;
+		const category = templateTo.TrainingRestrictions.Category;
 		return this.AllowedToCreate(TRAINING, category, templateFrom.TrainingRestrictions && templateFrom.TrainingRestrictions.Category == category ? 0 : 1);
 	}
 
 	if (templateTo.BuildRestrictions)
 	{
-		let category = templateTo.BuildRestrictions.Category;
+		const category = templateTo.BuildRestrictions.Category;
 		return this.AllowedToCreate(BUILD, category, templateFrom.BuildRestrictions && templateFrom.BuildRestrictions.Category == category ? 0 : 1);
 	}
 
@@ -251,23 +251,26 @@ EntityLimits.prototype.OnGlobalOwnershipChanged = function(msg)
 		error("EntityLimits component is defined on a non-player entity");
 		return;
 	}
+	let modifier;
 	if (msg.from == cmpPlayer.GetPlayerID())
-		var modifier = -1;
+		modifier = -1;
 	else if (msg.to == cmpPlayer.GetPlayerID())
-		var modifier = 1;
+		modifier = 1;
 	else
 		return;
 
 	// Update entity counts
-	var category = null;
-	var cmpBuildRestrictions = Engine.QueryInterface(msg.entity, IID_BuildRestrictions);
-	if (cmpBuildRestrictions)
-		category = cmpBuildRestrictions.GetCategory();
-	var cmpTrainingRestrictions = Engine.QueryInterface(msg.entity, IID_TrainingRestrictions);
-	if (cmpTrainingRestrictions)
-		category = cmpTrainingRestrictions.GetCategory();
-	if (category)
-		this.ChangeCount(category, modifier);
+	{
+		let category;
+		const cmpBuildRestrictions = Engine.QueryInterface(msg.entity, IID_BuildRestrictions);
+		if (cmpBuildRestrictions)
+			category = cmpBuildRestrictions.GetCategory();
+		const cmpTrainingRestrictions = Engine.QueryInterface(msg.entity, IID_TrainingRestrictions);
+		if (cmpTrainingRestrictions)
+			category = cmpTrainingRestrictions.GetCategory();
+		if (category)
+			this.ChangeCount(category, modifier);
+	}
 
 	// Update entity limits
 	var cmpIdentity = Engine.QueryInterface(msg.entity, IID_Identity);
@@ -279,7 +282,7 @@ EntityLimits.prototype.OnGlobalOwnershipChanged = function(msg)
 	if (cmpFoundation)
 		return;
 	var classes = cmpIdentity.GetClassesList();
-	for (var category in this.changers)
+	for (const category in this.changers)
 		for (var c in this.changers[category])
 			if (classes.indexOf(c) >= 0)
 			{
@@ -289,7 +292,7 @@ EntityLimits.prototype.OnGlobalOwnershipChanged = function(msg)
 					this.removedLimit[category] += modifier * this.changers[category][c];
 			}
 
-	for (var category in this.removers)
+	for (const category in this.removers)
 		if ("RequiredClasses" in this.removers[category])
 			for (var cls of this.removers[category].RequiredClasses)
 				if (classes.indexOf(cls) !== -1)

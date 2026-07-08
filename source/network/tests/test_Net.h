@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,32 +17,56 @@
 
 #include "lib/self_test.h"
 
-#include "graphics/TerrainTextureManager.h"
+#include "gui/GUIManager.h"
+#include "lib/debug.h"
 #include "lib/external_libraries/enet.h"
-#include "lib/external_libraries/libsdl.h"
-#include "lib/tex/tex.h"
-#include "network/NetServer.h"
+#include "lib/file/file_system.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/path.h"
+#include "lib/posix/posix_types.h"
 #include "network/NetClient.h"
 #include "network/NetMessage.h"
-#include "network/NetMessages.h"
+#include "network/NetServer.h"
 #include "ps/CLogger.h"
-#include "ps/Game.h"
+#include "ps/CStr.h"
 #include "ps/Filesystem.h"
+#include "ps/Game.h"
 #include "ps/Loader.h"
 #include "ps/XML/Xeromyces.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "simulation2/Simulation2.h"
+#include "scriptinterface/JSON.h"
+#include "scriptinterface/Object.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/system/TurnManager.h"
+
+#include <SDL_timer.h>
+#include <cstddef>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <optional>
+#include <string>
+#include <vector>
+
+namespace
+{
+void UpdateGame(CGame& game)
+{
+	game.GetTurnManager()->Update(1.0f, 1, std::bind_front(&CGUIManager::SendEventToAll, g_GUI));
+}
+}
 
 class TestNetComms : public CxxTest::TestSuite
 {
+	std::optional<CXeromycesEngine> xeromycesEngine;
+
 public:
 	void setUp()
 	{
 		g_VFS = CreateVfs();
 		TS_ASSERT_OK(g_VFS->Mount(L"", DataDir() / "mods" / "public" / "", VFS_MOUNT_MUST_EXIST));
 		TS_ASSERT_OK(g_VFS->Mount(L"cache", DataDir() / "_testcache" / "", 0, VFS_MAX_PRIORITY));
-		CXeromyces::Startup();
+		xeromycesEngine.emplace();
 
 		enet_initialize();
 	}
@@ -51,7 +75,7 @@ public:
 	{
 		enet_deinitialize();
 
-		CXeromyces::Terminate();
+		xeromycesEngine.reset();
 		g_VFS.reset();
 		DeleteDirectory(DataDir()/"_testcache");
 	}
@@ -64,15 +88,8 @@ public:
 		return true;
 	}
 
-	void connect(CNetServer& server, const std::vector<CNetClient*>& clients)
+	void connect(const std::vector<CNetClient*>& clients)
 	{
-		TS_ASSERT(server.SetupConnection(PS_DEFAULT_PORT));
-		for (CNetClient* client: clients)
-		{
-			client->SetupServerData("127.0.0.1", PS_DEFAULT_PORT, false);
-			TS_ASSERT(client->SetupConnection(nullptr));
-		}
-
 		for (size_t i = 0; ; ++i)
 		{
 //			debug_printf(".");
@@ -102,7 +119,7 @@ public:
 			for (size_t j = 0; j < clients.size(); ++j)
 				clients[j]->Poll();
 
-			if (server.GetState() == SERVER_STATE_UNCONNECTED && clients_are_all(clients, NCS_UNCONNECTED))
+			if (clients_are_all(clients, NCS_UNCONNECTED))
 				break;
 
 			if (i > 20)
@@ -127,13 +144,16 @@ public:
 		}
 	}
 
-	void test_basic_DISABLED()
+	// just so that cxxtestgen doesn't complain "No tests defined" if all are disabled
+	void test_dummy() {}
+
+	void DISABLED_test_basic()
 	{
 		// This doesn't actually test much, it just runs a very quick multiplayer game
 		// and prints a load of debug output so you can see if anything funny's going on
 
-		ScriptInterface scriptInterface("Engine", "Test", g_ScriptContext);
-		ScriptRequest rq(scriptInterface);
+		Script::Interface scriptInterface("Engine", "Test", g_ScriptContext);
+		Script::Request rq(scriptInterface);
 
 		TestStdoutLogger logger;
 
@@ -142,8 +162,6 @@ public:
 		CGame client1Game(false);
 		CGame client2Game(false);
 		CGame client3Game(false);
-
-		CNetServer server("no_secret");
 
 		JS::RootedValue attrs(rq.cx);
 		Script::CreateObject(
@@ -154,17 +172,17 @@ public:
 			"mapPath", "maps/scenarios/",
 			"thing", "example");
 
-		server.UpdateInitAttributes(&attrs, scriptInterface);
+		CNetServer server{false, PS_DEFAULT_PORT, false, {}, {}, Script::StringifyJSON(rq, &attrs, false)};
 
-		CNetClient client1(&client1Game);
-		CNetClient client2(&client2Game);
-		CNetClient client3(&client3Game);
+		CNetClient client1(&client1Game, "127.0.0.1", PS_DEFAULT_PORT);
+		CNetClient client2(&client2Game, "127.0.0.1", PS_DEFAULT_PORT);
+		CNetClient client3(&client3Game, "127.0.0.1", PS_DEFAULT_PORT);
 
 		clients.push_back(&client1);
 		clients.push_back(&client2);
 		clients.push_back(&client3);
 
-		connect(server, clients);
+		connect(clients);
 		debug_printf("%s", client1.TestReadGuiMessages().c_str());
 
 		server.StartGame();
@@ -172,7 +190,7 @@ public:
 		for (size_t j = 0; j < clients.size(); ++j)
 		{
 			clients[j]->Poll();
-			TS_ASSERT_OK(LDR_NonprogressiveLoad());
+			TS_ASSERT_OK(PS::Loader::NonprogressiveLoad());
 			clients[j]->LoadFinished();
 		}
 
@@ -199,20 +217,20 @@ public:
 		}
 
 		wait(clients, 100);
-		client1Game.GetTurnManager()->Update(1.0f, 1);
-		client2Game.GetTurnManager()->Update(1.0f, 1);
-		client3Game.GetTurnManager()->Update(1.0f, 1);
+		UpdateGame(client1Game);
+		UpdateGame(client2Game);
+		UpdateGame(client3Game);
 		wait(clients, 100);
-		client1Game.GetTurnManager()->Update(1.0f, 1);
-		client2Game.GetTurnManager()->Update(1.0f, 1);
-		client3Game.GetTurnManager()->Update(1.0f, 1);
+		UpdateGame(client1Game);
+		UpdateGame(client2Game);
+		UpdateGame(client3Game);
 		wait(clients, 100);
 	}
 
-	void test_rejoin_DISABLED()
+	void DISABLED_test_rejoin()
 	{
-		ScriptInterface scriptInterface("Engine", "Test", g_ScriptContext);
-		ScriptRequest rq(scriptInterface);
+		Script::Interface scriptInterface("Engine", "Test", g_ScriptContext);
+		Script::Request rq(scriptInterface);
 
 		TestStdoutLogger logger;
 
@@ -221,8 +239,6 @@ public:
 		CGame client1Game(false);
 		CGame client2Game(false);
 		CGame client3Game(false);
-
-		CNetServer server("no_secret");
 
 		JS::RootedValue attrs(rq.cx);
 		Script::CreateObject(
@@ -233,21 +249,17 @@ public:
 			"mapPath", "maps/scenarios/",
 			"thing", "example");
 
-		server.UpdateInitAttributes(&attrs, scriptInterface);
+		CNetServer server{false, PS_DEFAULT_PORT, false, {}, {}, Script::StringifyJSON(rq, &attrs, false)};
 
-		CNetClient client1(&client1Game);
-		CNetClient client2(&client2Game);
-		CNetClient client3(&client3Game);
-
-		client1.SetUserName(L"alice");
-		client2.SetUserName(L"bob");
-		client3.SetUserName(L"charlie");
+		CNetClient client1(&client1Game, "127.0.0.1", PS_DEFAULT_PORT, L"alice");
+		CNetClient client2(&client2Game, "127.0.0.1", PS_DEFAULT_PORT, L"bob");
+		CNetClient client3(&client3Game, "127.0.0.1", PS_DEFAULT_PORT, L"charlie");
 
 		clients.push_back(&client1);
 		clients.push_back(&client2);
 		clients.push_back(&client3);
 
-		connect(server, clients);
+		connect(clients);
 		debug_printf("%s", client1.TestReadGuiMessages().c_str());
 
 		server.StartGame();
@@ -255,7 +267,7 @@ public:
 		for (size_t j = 0; j < clients.size(); ++j)
 		{
 			clients[j]->Poll();
-			TS_ASSERT_OK(LDR_NonprogressiveLoad());
+			TS_ASSERT_OK(PS::Loader::NonprogressiveLoad());
 			clients[j]->LoadFinished();
 		}
 
@@ -273,9 +285,9 @@ public:
 		}
 
 		wait(clients, 100);
-		client1Game.GetTurnManager()->Update(1.0f, 1);
-		client2Game.GetTurnManager()->Update(1.0f, 1);
-		client3Game.GetTurnManager()->Update(1.0f, 1);
+		UpdateGame(client1Game);
+		UpdateGame(client2Game);
+		UpdateGame(client3Game);
 		wait(clients, 100);
 
 		{
@@ -296,12 +308,8 @@ public:
 		debug_printf("==== Connecting client 2B\n");
 
 		CGame client2BGame(false);
-		CNetClient client2B(&client2BGame);
-		client2B.SetUserName(L"bob");
+		CNetClient client2B(&client2BGame, "127.0.0.1", PS_DEFAULT_PORT, L"bob");
 		clients.push_back(&client2B);
-
-		client2B.SetupServerData("127.0.0.1", PS_DEFAULT_PORT, false);
-		TS_ASSERT(client2B.SetupConnection(nullptr));
 
 		for (size_t i = 0; ; ++i)
 		{
@@ -327,12 +335,12 @@ public:
 
 		wait(clients, 100);
 
-		client1Game.GetTurnManager()->Update(1.0f, 1);
-		client3Game.GetTurnManager()->Update(1.0f, 1);
+		UpdateGame(client1Game);
+		UpdateGame(client3Game);
 		wait(clients, 100);
 		server.SetTurnLength(100);
-		client1Game.GetTurnManager()->Update(1.0f, 1);
-		client3Game.GetTurnManager()->Update(1.0f, 1);
+		UpdateGame(client1Game);
+		UpdateGame(client3Game);
 		wait(clients, 100);
 
 		// (This SetTurnLength thing doesn't actually detect errors unless you change
@@ -350,7 +358,7 @@ public:
 
 
 		clients[2]->Poll();
-		TS_ASSERT_OK(LDR_NonprogressiveLoad());
+		TS_ASSERT_OK(PS::Loader::NonprogressiveLoad());
 		clients[2]->LoadFinished();
 
 		wait(clients, 100);
@@ -368,9 +376,9 @@ public:
 
 		for (size_t i = 0; i < 3; ++i)
 		{
-			client1Game.GetTurnManager()->Update(1.0f, 1);
-			client2BGame.GetTurnManager()->Update(1.0f, 1);
-			client3Game.GetTurnManager()->Update(1.0f, 1);
+			UpdateGame(client1Game);
+			UpdateGame(client2BGame);
+			UpdateGame(client3Game);
 			wait(clients, 100);
 		}
 	}

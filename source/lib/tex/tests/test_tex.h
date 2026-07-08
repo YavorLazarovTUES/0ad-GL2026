@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -22,11 +22,12 @@
 
 #include "lib/self_test.h"
 
-#include "lib/tex/tex.h"
-#include "lib/tex/tex_codec.h"
 #include "lib/allocators/shared_ptr.h"
+#include "lib/tex/tex.h"
+#include "lib/types.h"
 
 #include <cstring>
+#include <memory>
 
 class TestTex : public CxxTest::TestSuite
 {
@@ -49,7 +50,8 @@ public:
 
 	void test_img_size()
 	{
-		std::shared_ptr<u8> img(new u8[100*100*4], ArrayDeleter());
+		std::shared_ptr<u8> img;
+		TS_ASSERT_OK(AllocateAligned(img, 100 * 100 * 4));
 
 		Tex t;
 		TS_ASSERT_OK(t.wrap(100, 100, 32, TEX_ALPHA, img, 0));
@@ -65,7 +67,8 @@ public:
 	{
 		const size_t w = 4, h = 4, bpp = 4;
 		const size_t size = w*h/2;
-		std::shared_ptr<u8> img(new u8[size], ArrayDeleter());
+		std::shared_ptr<u8> img;
+		TS_ASSERT_OK(AllocateAligned(img, size));
 		memcpy(img.get(), "\xFF\xFF\x00\x00\x00\xAA\xFF\x55", 8); // gradient from white to black
 		const u8 expected[] =
 			"\xFF\xFF\xFF" "\xFF\xFF\xFF" "\xFF\xFF\xFF" "\xFF\xFF\xFF"

@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,7 +18,19 @@
 #ifndef INCLUDED_REPLAYTURNMANAGER
 #define INCLUDED_REPLAYTURNMANAGER
 
-#include "LocalTurnManager.h"
+#include "lib/types.h"
+#include "ps/CStr.h"
+#include "simulation2/helpers/Player.h"
+#include "simulation2/system/LocalTurnManager.h"
+
+#include <js/ValueArray.h>
+#include <map>
+#include <string>
+#include <utility>
+#include <vector>
+
+class CSimulation2;
+class IReplayLogger;
 
 /**
  * Implementation of CLocalTurnManager for replay games.
@@ -37,9 +49,9 @@ public:
 	void StoreFinalReplayTurn(u32 turn);
 
 private:
-	void NotifyFinishedUpdate(u32 turn) override;
+	void NotifyFinishedUpdate(u32 turn, const UpdateCallback& sendEventToAll) override;
 
-	void DoTurn(u32 turn);
+	void DoTurn(u32 turn, const UpdateCallback& sendEventToAll);
 
 	static const CStr EventNameReplayFinished;
 	static const CStr EventNameReplayOutOfSync;

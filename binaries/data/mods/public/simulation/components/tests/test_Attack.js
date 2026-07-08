@@ -38,7 +38,7 @@ let entityID = 903;
 
 function attackComponentTest(defenderClass, isEnemy, test_function)
 {
-	let playerEnt1 = 5;
+	const playerEnt1 = 5;
 
 	AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
 		"GetPlayerByID": () => playerEnt1
@@ -52,7 +52,7 @@ function attackComponentTest(defenderClass, isEnemy, test_function)
 		"IsEnemy": () => isEnemy
 	});
 
-	let attacker = entityID;
+	const attacker = entityID;
 
 	AddMock(attacker, IID_Position, {
 		"IsInWorld": () => true,
@@ -64,7 +64,7 @@ function attackComponentTest(defenderClass, isEnemy, test_function)
 		"GetOwner": () => 1
 	});
 
-	let cmpAttack = ConstructComponent(attacker, "Attack", {
+	const cmpAttack = ConstructComponent(attacker, "Attack", {
 		"Melee": {
 			"Damage": {
 				"Hack": 11,
@@ -74,7 +74,7 @@ function attackComponentTest(defenderClass, isEnemy, test_function)
 			"MinRange": 3,
 			"MaxRange": 5,
 			"PreferredClasses": {
-				"_string": "FemaleCitizen"
+				"_string": "Civilian"
 			},
 			"RestrictedClasses": {
 				"_string": "Elephant Archer"
@@ -157,7 +157,7 @@ function attackComponentTest(defenderClass, isEnemy, test_function)
 		}
 	});
 
-	let defender = ++entityID;
+	const defender = ++entityID;
 
 	AddMock(defender, IID_Identity, {
 		"GetClassesList": () => [defenderClass],
@@ -185,7 +185,8 @@ function attackComponentTest(defenderClass, isEnemy, test_function)
 }
 
 // Validate template getter functions
-attackComponentTest(undefined, true, (attacker, cmpAttack, defender) => {
+attackComponentTest(undefined, true, (attacker, cmpAttack, defender) =>
+{
 
 	TS_ASSERT_UNEVAL_EQUALS(cmpAttack.GetAttackTypes(), ["Melee", "Ranged", "Capture"]);
 	TS_ASSERT_UNEVAL_EQUALS(cmpAttack.GetAttackTypes([]), ["Melee", "Ranged", "Capture"]);
@@ -198,7 +199,7 @@ attackComponentTest(undefined, true, (attacker, cmpAttack, defender) => {
 	TS_ASSERT_UNEVAL_EQUALS(cmpAttack.GetAttackTypes(["Capture", "!Ranged"]), ["Capture"]);
 	TS_ASSERT_UNEVAL_EQUALS(cmpAttack.GetAttackTypes(["Capture", "Melee", "!Ranged"]), ["Melee", "Capture"]);
 
-	TS_ASSERT_UNEVAL_EQUALS(cmpAttack.GetPreferredClasses("Melee"), ["FemaleCitizen"]);
+	TS_ASSERT_UNEVAL_EQUALS(cmpAttack.GetPreferredClasses("Melee"), ["Civilian"]);
 	TS_ASSERT_UNEVAL_EQUALS(cmpAttack.GetRestrictedClasses("Melee"), ["Elephant", "Archer"]);
 	TS_ASSERT_UNEVAL_EQUALS(cmpAttack.GetFullAttackRange(), { "min": 0, "max": 80 });
 	TS_ASSERT_UNEVAL_EQUALS(cmpAttack.GetAttackEffectsData("Capture"), { "Capture": 8 });
@@ -281,14 +282,15 @@ attackComponentTest(undefined, true, (attacker, cmpAttack, defender) => {
 	});
 });
 
-for (let className of ["Infantry", "Cavalry"])
-	attackComponentTest(className, true, (attacker, cmpAttack, defender) => {
+for (const className of ["Infantry", "Cavalry"])
+	attackComponentTest(className, true, (attacker, cmpAttack, defender) =>
+	{
 
 		TS_ASSERT_EQUALS(cmpAttack.GetAttackEffectsData("Melee").Bonuses.BonusCav.Multiplier, 2);
 
 		TS_ASSERT_EQUALS(cmpAttack.GetAttackEffectsData("Capture").Bonuses || null, null);
 
-		let getAttackBonus = (s, t, e, splash) => AttackHelper.GetAttackBonus(s, e, t, cmpAttack.GetAttackEffectsData(t, splash).Bonuses || null);
+		const getAttackBonus = (s, t, e, splash) => AttackHelper.GetAttackBonus(s, e, t, cmpAttack.GetAttackEffectsData(t, splash).Bonuses || null);
 		TS_ASSERT_UNEVAL_EQUALS(getAttackBonus(attacker, "Melee", defender), className == "Cavalry" ? 2 : 1);
 		TS_ASSERT_UNEVAL_EQUALS(getAttackBonus(attacker, "Ranged", defender), 1);
 		TS_ASSERT_UNEVAL_EQUALS(getAttackBonus(attacker, "Ranged", defender, true), className == "Cavalry" ? 3 : 1);
@@ -297,17 +299,20 @@ for (let className of ["Infantry", "Cavalry"])
 	});
 
 // CanAttack rejects elephant attack due to RestrictedClasses
-attackComponentTest("Elephant", true, (attacker, cmpAttack, defender) => {
+attackComponentTest("Elephant", true, (attacker, cmpAttack, defender) =>
+{
 	TS_ASSERT_EQUALS(cmpAttack.CanAttack(defender), false);
 });
 
 function testGetBestAttackAgainst(defenderClass, bestAttack, bestAllyAttack, isBuilding = false)
 {
-	attackComponentTest(defenderClass, true, (attacker, cmpAttack, defender) => {
+	attackComponentTest(defenderClass, true, (attacker, cmpAttack, defender) =>
+	{
 
 		if (isBuilding)
 			AddMock(defender, IID_Capturable, {
-				"CanCapture": playerID => {
+				"CanCapture": playerID =>
+				{
 					TS_ASSERT_EQUALS(playerID, 1);
 					return true;
 				}
@@ -323,19 +328,21 @@ function testGetBestAttackAgainst(defenderClass, bestAttack, bestAllyAttack, isB
 		TS_ASSERT_EQUALS(cmpAttack.CanAttack(defender, ["!Ranged", "!Melee"]), isBuilding || defenderClass == "Domestic");
 		TS_ASSERT_EQUALS(cmpAttack.CanAttack(defender, ["Melee", "!Melee"]), false);
 
-		let allowCapturing = [true];
+		const allowCapturing = [true];
 		if (!isBuilding)
 			allowCapturing.push(false);
 
-		for (let ac of allowCapturing)
+		for (const ac of allowCapturing)
 			TS_ASSERT_EQUALS(cmpAttack.GetBestAttackAgainst(defender, ac), bestAttack);
 	});
 
-	attackComponentTest(defenderClass, false, (attacker, cmpAttack, defender) => {
+	attackComponentTest(defenderClass, false, (attacker, cmpAttack, defender) =>
+	{
 
 		if (isBuilding)
 			AddMock(defender, IID_Capturable, {
-				"CanCapture": playerID => {
+				"CanCapture": playerID =>
+				{
 					TS_ASSERT_EQUALS(playerID, 1);
 					return true;
 				}
@@ -351,16 +358,16 @@ function testGetBestAttackAgainst(defenderClass, bestAttack, bestAllyAttack, isB
 		TS_ASSERT_EQUALS(cmpAttack.CanAttack(defender, ["!Ranged", "!Melee"]), isBuilding || defenderClass == "Domestic");
 		TS_ASSERT_EQUALS(cmpAttack.CanAttack(defender, ["Melee", "!Melee"]), false);
 
-		let allowCapturing = [true];
+		const allowCapturing = [true];
 		if (!isBuilding)
 			allowCapturing.push(false);
 
-		for (let ac of allowCapturing)
+		for (const ac of allowCapturing)
 			TS_ASSERT_EQUALS(cmpAttack.GetBestAttackAgainst(defender, ac), bestAllyAttack);
 	});
 }
 
-testGetBestAttackAgainst("FemaleCitizen", "Melee", undefined);
+testGetBestAttackAgainst("Civilian", "Melee", undefined);
 testGetBestAttackAgainst("Archer", "Ranged", undefined);
 testGetBestAttackAgainst("Domestic", "Slaughter", "Slaughter");
 testGetBestAttackAgainst("Structure", "Capture", "Capture", true);
@@ -371,7 +378,7 @@ function testAttackPreference()
 {
 	const attacker = 5;
 
-	let cmpAttack = ConstructComponent(attacker, "Attack", {
+	const cmpAttack = ConstructComponent(attacker, "Attack", {
 		"Melee": {
 			"Damage": {
 				"Crush": 0
@@ -379,7 +386,7 @@ function testAttackPreference()
 			"MinRange": 3,
 			"MaxRange": 5,
 			"PreferredClasses": {
-				"_string": "FemaleCitizen Unit+!Ship"
+				"_string": "Civilian Unit+!Ship"
 			},
 			"RestrictedClasses": {
 				"_string": "Elephant Archer"
@@ -388,7 +395,7 @@ function testAttackPreference()
 	});
 
 	AddMock(attacker+1, IID_Identity, {
-		"GetClassesList": () => ["FemaleCitizen", "Unit"]
+		"GetClassesList": () => ["Civilian", "Unit"]
 	});
 
 	AddMock(attacker+2, IID_Identity, {

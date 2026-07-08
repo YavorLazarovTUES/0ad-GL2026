@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,14 +22,22 @@
 #include "gui/CGUI.h"
 #include "gui/CGUISprite.h"
 #include "gui/ObjectBases/IGUIObject.h"
+#include "gui/SettingTypes/CGUIColor.h"
 #include "gui/SettingTypes/CGUIList.h"
 #include "gui/SettingTypes/CGUISeries.h"
-#include "gui/SettingTypes/CGUISize.h"
 #include "gui/SettingTypes/CGUIString.h"
-#include "gui/SettingTypes/EAlign.h"
+#include "lib/types.h"
+#include "maths/Vector2D.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
+
+#include <js/RootingAPI.h>
+
+enum class EAlign;
+enum class EScrollOrientation;
+enum class EVAlign;
+struct CColor;
 
 IGUISetting::IGUISetting(const CStr& name, IGUIObject* owner) : m_Object(*owner), m_Name(name)
 {
@@ -51,9 +59,9 @@ bool IGUISetting::FromString(const CStrW& value, const bool sendMessage)
 }
 
 /**
- * Parses the given JS::Value using ScriptInterface::FromJSVal and assigns it to the setting data.
+ * Parses the given JS::Value using Script::Interface::FromJSVal and assigns it to the setting data.
  */
-bool IGUISetting::FromJSVal(const ScriptRequest& rq, JS::HandleValue value, const bool sendMessage)
+bool IGUISetting::FromJSVal(const Script::Request& rq, JS::HandleValue value, const bool sendMessage)
 {
 	if (!DoFromJSVal(rq, value))
 		return false;
@@ -74,7 +82,7 @@ bool CGUISimpleSetting<T>::DoFromString(const CStrW& value)
 };
 
 template<>
-bool CGUISimpleSetting<CGUIColor>::DoFromJSVal(const ScriptRequest& rq, JS::HandleValue value)
+bool CGUISimpleSetting<CGUIColor>::DoFromJSVal(const Script::Request& rq, JS::HandleValue value)
 {
 	if (value.isString())
 	{
@@ -93,13 +101,13 @@ bool CGUISimpleSetting<CGUIColor>::DoFromJSVal(const ScriptRequest& rq, JS::Hand
 };
 
 template<typename T>
-bool CGUISimpleSetting<T>::DoFromJSVal(const ScriptRequest& rq, JS::HandleValue value)
+bool CGUISimpleSetting<T>::DoFromJSVal(const Script::Request& rq, JS::HandleValue value)
 {
 	return Script::FromJSVal<T>(rq, value, m_Setting);
 };
 
 template<typename T>
-void CGUISimpleSetting<T>::ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue value)
+void CGUISimpleSetting<T>::ToJSVal(const Script::Request& rq, JS::MutableHandleValue value)
 {
 	Script::ToJSVal<T>(rq, value, m_Setting);
 };
@@ -118,7 +126,6 @@ TYPE(CVector2D)
 TYPE(CStr)
 TYPE(CStrW)
 // TODO: make these inherit from CGUISimpleSetting directly.
-TYPE(CGUISize)
 TYPE(CGUIColor)
 TYPE(CGUISpriteInstance)
 TYPE(CGUIString)
@@ -126,5 +133,6 @@ TYPE(EAlign)
 TYPE(EVAlign)
 TYPE(CGUIList)
 TYPE(CGUISeries)
+TYPE(EScrollOrientation)
 
 #undef TYPE

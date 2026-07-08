@@ -2,11 +2,11 @@ Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap(mapSettings)
+export function* generateMap(mapSettings)
 {
 	TILE_CENTERED_HEIGHT_MAP = true;
 
-	setSelectedBiome();
+	setBiome(mapSettings.Biome);
 
 	const tMainTerrain = g_Terrains.mainTerrain;
 	const tForestFloor1 = g_Terrains.forestFloor1;
@@ -121,20 +121,22 @@ function* GenerateMap(mapSettings)
 			"heightLand": heightLand,
 			"meanderShort": 20,
 			"meanderLong": 0,
-			"waterFunc": (position, height, riverFraction) => {
+			"waterFunc": (position, height, riverFraction) =>
+			{
 				if (height < 0)
 					clWater.add(position);
 			},
-			"landFunc": (position, shoreDist1, shoreDist2) => {
+			"landFunc": (position, shoreDist1, shoreDist2) =>
+			{
 				g_Map.setHeight(position, 3.1);
 				clLand.add(position);
 			}
 		});
 
-		if (!isNomad())
+		if (!mapSettings.Nomad)
 		{
-			[playerIDs, playerPosition] =
-				playerPlacementRiver(startAngle + Math.PI / 2, fractionToTiles(0.6));
+			({ playerIDs, playerPosition } =
+				playerPlacementRiver(startAngle + Math.PI / 2, fractionToTiles(0.6)));
 			markPlayerArea("small");
 		}
 
@@ -178,10 +180,10 @@ function* GenerateMap(mapSettings)
 
 		const startAngle = randomAngle();
 
-		if (!isNomad())
+		if (!mapSettings.Nomad)
 		{
-			[playerIDs, playerPosition] =
-				playerPlacementRiver(startAngle + Math.PI / 2, fractionToTiles(0.5));
+			({ playerIDs, playerPosition } =
+				playerPlacementRiver(startAngle + Math.PI / 2, fractionToTiles(0.5)));
 			markPlayerArea("large");
 		}
 
@@ -237,12 +239,14 @@ function* GenerateMap(mapSettings)
 
 	const unknownMapFunctions = {
 		// Chain of islands or many disconnected islands.
-		"Archipelago": () => {
+		"Archipelago": () =>
+		{
 			g_StartingWalls = "towers";
 			g_StartingTreasures = true;
 
-			const [pIDs, islandPosition] = playerPlacementCircle(fractionToTiles(0.35));
-			if (!isNomad())
+			const { "playerIDs": pIDs, "playerPosition": islandPosition } =
+				playerPlacementCircle(fractionToTiles(0.35));
+			if (!mapSettings.Nomad)
 			{
 				[playerIDs, playerPosition] = [pIDs, islandPosition];
 				markPlayerArea("large");
@@ -255,7 +259,7 @@ function* GenerateMap(mapSettings)
 					new ClumpPlacer(islandSize, 0.8, 0.1, Infinity, islandPosition[i]),
 					landElevationPainter);
 
-			switch (randIntInclusive(1, isNomad() ? 2 : 3))
+			switch (randIntInclusive(1, mapSettings.Nomad ? 2 : 3))
 			{
 			case 1:
 				g_Map.log("Creating archipelago");
@@ -316,13 +320,14 @@ function* GenerateMap(mapSettings)
 		},
 
 		// Disk shaped mainland with water on the edge.
-		"Continent": () => {
+		"Continent": () =>
+		{
 			const waterHeight = -5;
 
-			if (!isNomad())
+			if (!mapSettings.Nomad)
 			{
 				g_Map.log("Ensuring player area");
-				[playerIDs, playerPosition] = playerPlacementCircle(fractionToTiles(0.25));
+				({ playerIDs, playerPosition } = playerPlacementCircle(fractionToTiles(0.25)));
 				markPlayerArea("small");
 
 				for (let i = 0; i < numPlayers; ++i)
@@ -385,18 +390,18 @@ function* GenerateMap(mapSettings)
 
 		// Creates a circular lake in the middle and possibly a river
 		// between each player ("pizza slices").
-		"RiversAndLake": () => {
+		"RiversAndLake": () =>
+		{
 			const waterHeight = -4;
 			createArea(
 				new MapBoundsPlacer(),
 				new ElevationPainter(heightLand));
 
 			let startAngle;
-			if (!isNomad())
+			if (!mapSettings.Nomad)
 			{
-				let playerAngle;
-				[playerIDs, playerPosition, playerAngle, startAngle] =
-					playerPlacementCircle(fractionToTiles(0.35));
+				({ playerIDs, playerPosition, startAngle } =
+					playerPlacementCircle(fractionToTiles(0.35)));
 				markPlayerArea("small");
 			}
 
@@ -452,7 +457,7 @@ function* GenerateMap(mapSettings)
 					]);
 			}
 
-			if (!isNomad && lake && randBool(2/3))
+			if (!mapSettings.Nomad && lake && randBool(2/3))
 			{
 				g_Map.log("Creating small central island");
 				createArea(
@@ -467,7 +472,8 @@ function* GenerateMap(mapSettings)
 
 		// Align players on a land strip with seas bordering on one or both
 		// sides that can hold islands.
-		"EdgeSeas": () => {
+		"EdgeSeas": () =>
+		{
 			const waterHeight = -4;
 
 			createArea(
@@ -475,7 +481,7 @@ function* GenerateMap(mapSettings)
 				new ElevationPainter(heightLand));
 
 			const startAngle = randomAngle();
-			if (!isNomad())
+			if (!mapSettings.Nomad)
 			{
 				playerIDs = sortAllPlayers();
 				playerPosition =
@@ -508,7 +514,8 @@ function* GenerateMap(mapSettings)
 		},
 
 		// Land shaped like a concrescent moon around a central lake.
-		"Gulf": () => {
+		"Gulf": () =>
+		{
 			const waterHeight = -3;
 
 			createArea(
@@ -516,7 +523,7 @@ function* GenerateMap(mapSettings)
 				new ElevationPainter(heightLand));
 
 			const startAngle = randomAngle();
-			if (!isNomad())
+			if (!mapSettings.Nomad)
 			{
 				g_Map.log("Determining player locations");
 
@@ -550,16 +557,17 @@ function* GenerateMap(mapSettings)
 		},
 
 		// Mainland style with some small random lakes.
-		"Lakes": () => {
+		"Lakes": () =>
+		{
 			const waterHeight = -5;
 
 			createArea(
 				new MapBoundsPlacer(),
 				new ElevationPainter(heightLand));
 
-			if (!isNomad())
+			if (!mapSettings.Nomad)
 			{
-				[playerIDs, playerPosition] = playerPlacementCircle(fractionToTiles(0.35));
+				({ playerIDs, playerPosition } = playerPlacementCircle(fractionToTiles(0.35)));
 				markPlayerArea("large");
 			}
 
@@ -579,7 +587,8 @@ function* GenerateMap(mapSettings)
 
 		// A large hill leaving players only a small passage to each of the
 		// the two neighboring players.
-		"Passes": () => {
+		"Passes": () =>
+		{
 			const heightMountain = 24;
 			const waterHeight = -4;
 
@@ -587,12 +596,11 @@ function* GenerateMap(mapSettings)
 				new MapBoundsPlacer(),
 				new ElevationPainter(heightLand));
 
-			let playerAngle;
 			let startAngle;
-			if (!isNomad())
+			if (!mapSettings.Nomad)
 			{
-				[playerIDs, playerPosition, playerAngle, startAngle] =
-					playerPlacementCircle(fractionToTiles(0.35));
+				({ playerIDs, playerPosition, startAngle } =
+					playerPlacementCircle(fractionToTiles(0.35)));
 				markPlayerArea("small");
 			}
 			else
@@ -627,7 +635,8 @@ function* GenerateMap(mapSettings)
 			g_Map.log("Creating passages between neighboring players");
 			if (numPlayers > 1)
 			{
-				const getEndpoints = (() => {
+				const getEndpoints = (() =>
+				{
 					if (numPlayers !== 2)
 						return i => [i, (i + 1) % numPlayers]
 							.map(index => playerPosition[index]);
@@ -678,7 +687,8 @@ function* GenerateMap(mapSettings)
 
 		// Land enclosed by a hill that leaves small areas for civic centers
 		// and large central place.
-		"Lowlands": () => {
+		"Lowlands": () =>
+		{
 			const heightMountain = 30;
 
 			g_Map.log("Creating mountain that is going to separate players");
@@ -686,12 +696,11 @@ function* GenerateMap(mapSettings)
 				new MapBoundsPlacer(),
 				new ElevationPainter(heightMountain));
 
-			let playerAngle;
 			let startAngle;
-			if (!isNomad())
+			if (!mapSettings.Nomad)
 			{
-				[playerIDs, playerPosition, playerAngle, startAngle] =
-					playerPlacementCircle(fractionToTiles(0.35));
+				({ playerIDs, playerPosition, startAngle } =
+					playerPlacementCircle(fractionToTiles(0.35)));
 				markPlayerArea("small");
 			}
 			else
@@ -740,14 +749,15 @@ function* GenerateMap(mapSettings)
 		},
 
 		// No water, no hills.
-		"Mainland": () => {
+		"Mainland": () =>
+		{
 			createArea(
 				new MapBoundsPlacer(),
 				new ElevationPainter(3));
 
-			if (!isNomad())
+			if (!mapSettings.Nomad)
 			{
-				[playerIDs, playerPosition] = playerPlacementCircle(fractionToTiles(0.35));
+				({ playerIDs, playerPosition } = playerPlacementCircle(fractionToTiles(0.35)));
 				markPlayerArea("small");
 			}
 		}

@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,16 +18,17 @@
 #ifndef INCLUDED_IGUISCROLLBAROWNER
 #define INCLUDED_IGUISCROLLBAROWNER
 
-#include "ps/CStrForward.h"
+#include "lib/code_annotation.h"
 
 #include <memory>
 #include <vector>
 
 class CCanvas2D;
+class CStr8;
+class IGUIObject;
+class IGUIScrollBar;
 struct SGUIMessage;
 struct SGUIScrollBarStyle;
-class IGUIScrollBar;
-class IGUIObject;
 
 /**
  * Base-class this if you want an object to contain
@@ -69,7 +70,7 @@ public:
 	 * Get Scroll Bar reference (it should be transparent it's actually
 	 * pointers).
 	 */
-	virtual IGUIScrollBar& GetScrollBar(const int& index)
+	virtual IGUIScrollBar& GetScrollBar(const int& index) const
 	{
 		return *m_ScrollBars[index];
 	}

@@ -30,10 +30,8 @@
 # if defined(__FreeBSD__)
  // The MAP_NORESERVE define has been removed in FreeBSD 11.x (https://reviews.freebsd.org/rS273250).
  // Even before that, it was never implemented. So just define it to zero.
-# define MAP_NORESERVE 0 
+# define MAP_NORESERVE 0
 # endif
 #endif
-
-#include "lib/posix/posix_errno.h"	// for user convenience
 
 #endif	// #ifndef INCLUDED_POSIX_MMAN

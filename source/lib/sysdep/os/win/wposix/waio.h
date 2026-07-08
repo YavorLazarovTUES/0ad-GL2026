@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -29,8 +29,9 @@
 
 #include "lib/status.h"
 #include "lib/os_path.h"
-#include "lib/posix/posix_time.h"	// timespec
 #include "lib/sysdep/os/win/wposix/wposix_types.h"
+
+#include <ctime>
 
 // Note: transfer buffers, offsets, and lengths must be sector-aligned
 // (we don't bother copying to an align buffer because our block cache
@@ -129,7 +130,7 @@ extern Status waio_close(int fd);
 // @param size is rounded up to a multiple of maxSectorSize (required by
 // SetEndOfFile; this could be avoided by using the undocumented
 // NtSetInformationFile or SetFileInformationByHandle on Vista and later).
-// use wtruncate after I/O is complete to chop off the excess padding.
+// use truncate after I/O is complete to chop off the excess padding.
 //
 // NB: writes that extend a file (i.e. ALL WRITES when creating new files)
 // are synchronous, which prevents overlapping I/O and other work.

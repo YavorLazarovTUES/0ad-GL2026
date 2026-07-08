@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,26 +20,41 @@
 #include "ShadowMap.h"
 
 #include "graphics/Camera.h"
-#include "graphics/LightEnv.h"
-#include "graphics/ShaderManager.h"
+#include "graphics/Color.h"
 #include "lib/bits.h"
+#include "lib/config2.h"
+#include "lib/debug.h"
 #include "maths/BoundingBoxAligned.h"
 #include "maths/Brush.h"
 #include "maths/Frustum.h"
 #include "maths/MathUtil.h"
 #include "maths/Matrix3D.h"
+#include "maths/Vector3D.h"
 #include "ps/CLogger.h"
-#include "ps/ConfigDB.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
-#include "ps/Profile.h"
-#include "renderer/backend/IDevice.h"
-#include "renderer/backend/ITexture.h"
+#include "ps/ConfigDB.h"
 #include "renderer/DebugRenderer.h"
 #include "renderer/Renderer.h"
 #include "renderer/RenderingOptions.h"
 #include "renderer/SceneRenderer.h"
+#include "renderer/backend/Backend.h"
+#include "renderer/backend/CompareOp.h"
+#include "renderer/backend/Format.h"
+#include "renderer/backend/IDevice.h"
+#include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/IFramebuffer.h"
+#include "renderer/backend/IShaderProgram.h"
+#include "renderer/backend/ITexture.h"
+#include "renderer/backend/Sampler.h"
 
+#include <algorithm>
 #include <array>
+#include <cmath>
+#include <cstdint>
+#include <memory>
+#include <span>
+#include <vector>
 
 namespace
 {
@@ -122,14 +137,12 @@ struct ShadowMapInternals
 
 void ShadowMapInternals::UpdateCascadesParameters()
 {
-	CascadeCount = 1;
-	CFG_GET_VAL("shadowscascadecount", CascadeCount);
+	CascadeCount = g_ConfigDB.Get("shadowscascadecount", 1);
 
-	if (CascadeCount < 1 || CascadeCount > MAX_CASCADE_COUNT || Device->GetBackend() == Renderer::Backend::Backend::GL_ARB)
+	if (CascadeCount < 1 || CascadeCount > MAX_CASCADE_COUNT)
 		CascadeCount = 1;
 
-	ShadowsCoverMap = false;
-	CFG_GET_VAL("shadowscovermap", ShadowsCoverMap);
+	ShadowsCoverMap = g_ConfigDB.Get("shadowscovermap", false);
 }
 
 void CalculateBoundsForCascade(
@@ -149,20 +162,18 @@ void CalculateBoundsForCascade(
 	// We can solve 3D problem in 2D space, because the frustum is
 	// symmetric by 2 planes. Than means we can use only one corner
 	// to find a circumscribed sphere.
-	CCamera::Quad corners;
-
-	camera.GetViewQuad(nearPlane, corners);
-	for (CVector3D& corner : corners)
+	CCamera::Quad nearCorners{camera.GetViewQuad(nearPlane)};
+	for (CVector3D& corner : nearCorners)
 		corner = camera.GetOrientation().Transform(corner);
-	const CVector3D cornerNear = corners[0];
-	for (const CVector3D& corner : corners)
+	const CVector3D cornerNear = nearCorners[0];
+	for (const CVector3D& corner : nearCorners)
 		*frustumBBAA += lightTransform.Transform(corner);
 
-	camera.GetViewQuad(farPlane, corners);
-	for (CVector3D& corner : corners)
+	CCamera::Quad farCorners{camera.GetViewQuad(farPlane)};
+	for (CVector3D& corner : farCorners)
 		corner = camera.GetOrientation().Transform(corner);
-	const CVector3D cornerDist = corners[0];
-	for (const CVector3D& corner : corners)
+	const CVector3D cornerDist = farCorners[0];
+	for (const CVector3D& corner : farCorners)
 		*frustumBBAA += lightTransform.Transform(corner);
 
 	// We solve 2D case for the right trapezoid.
@@ -284,8 +295,8 @@ void ShadowMap::SetupFrame(const CCamera& camera, const CVector3D& lightdir)
 
 	m->ShadowsCutoffDistance = DEFAULT_SHADOWS_CUTOFF_DISTANCE;
 	m->CascadeDistanceRatio = DEFAULT_CASCADE_DISTANCE_RATIO;
-	CFG_GET_VAL("shadowscutoffdistance", m->ShadowsCutoffDistance);
-	CFG_GET_VAL("shadowscascadedistanceratio", m->CascadeDistanceRatio);
+	m->ShadowsCutoffDistance = g_ConfigDB.Get("shadowscutoffdistance", m->ShadowsCutoffDistance);
+	m->CascadeDistanceRatio = g_ConfigDB.Get("shadowscascadedistanceratio", m->CascadeDistanceRatio);
 	m->CascadeDistanceRatio = Clamp(m->CascadeDistanceRatio, 1.1f, 16.0f);
 
 	m->Cascades[GetCascadeCount() - 1].Distance = m->ShadowsCutoffDistance;
@@ -482,7 +493,7 @@ void ShadowMapInternals::CreateTexture()
 	Texture.reset();
 	DummyTexture.reset();
 
-	CFG_GET_VAL("shadowquality", QualityLevel);
+	QualityLevel = g_ConfigDB.Get("shadowquality", QualityLevel);
 
 	// Get shadow map size as next power of two up from view width/height.
 	int shadowMapSize;
@@ -551,16 +562,22 @@ void ShadowMapInternals::CreateTexture()
 				Renderer::Backend::Sampler::AddressMode::CLAMP_TO_EDGE));
 	}
 
+#if CONFIG2_GLES
+	// GLES doesn't do depth comparisons, so treat it as a
+	// basic unfiltered depth texture
+	const Renderer::Backend::Sampler::Filter depthFilter{
+		Device->GetBackend() == Renderer::Backend::Backend::GL
+		? Renderer::Backend::Sampler::Filter::NEAREST
+		: Renderer::Backend::Sampler::Filter::LINEAR};
+#else
+	// Use LINEAR to trigger automatic PCF on some devices.
+	const Renderer::Backend::Sampler::Filter depthFilter{
+		Renderer::Backend::Sampler::Filter::LINEAR};
+#endif
+
 	Renderer::Backend::Sampler::Desc samplerDesc =
 		Renderer::Backend::Sampler::MakeDefaultSampler(
-#if CONFIG2_GLES
-			// GLES doesn't do depth comparisons, so treat it as a
-			// basic unfiltered depth texture
-			Renderer::Backend::Sampler::Filter::NEAREST,
-#else
-			// Use LINEAR to trigger automatic PCF on some devices.
-			Renderer::Backend::Sampler::Filter::LINEAR,
-#endif
+			depthFilter,
 			Renderer::Backend::Sampler::AddressMode::CLAMP_TO_EDGE);
 	// Enable automatic depth comparisons
 	samplerDesc.compareEnabled = true;
@@ -677,33 +694,16 @@ void ShadowMap::BindTo(
 		}
 		deviceCommandContext->SetUniform(
 			shader->GetBindingSlot(str_shadowTransform),
-			PS::span<const float>(
+			std::span<const float>(
 				shadowTransforms[0]._data,
 				shadowTransforms[0].AsFloatArray().size() * GetCascadeCount()));
 		deviceCommandContext->SetUniform(
 			shader->GetBindingSlot(str_shadowDistance),
-			PS::span<const float>(shadowDistances.data(), shadowDistances.size()));
+			std::span<const float>(shadowDistances.data(), shadowDistances.size()));
 	}
 }
 
-// Depth texture bits
-int ShadowMap::GetDepthTextureBits() const
-{
-	return m->DepthTextureBits;
-}
-
-void ShadowMap::SetDepthTextureBits(int bits)
-{
-	if (bits != m->DepthTextureBits)
-	{
-		m->Texture.reset();
-		m->Width = m->Height = 0;
-
-		m->DepthTextureBits = bits;
-	}
-}
-
-void ShadowMap::RenderDebugBounds()
+void ShadowMap::RenderDebugBounds(Renderer::Backend::IDeviceCommandContext& deviceCommandContext)
 {
 	// Render various shadow bounds:
 	//  Yellow = bounds of objects in view frustum that receive shadows
@@ -713,13 +713,16 @@ void ShadowMap::RenderDebugBounds()
 	const CMatrix3D transform = g_Renderer.GetSceneRenderer().GetViewCamera().GetViewProjection() * m->InvLightTransform;
 
 	g_Renderer.GetDebugRenderer().DrawBoundingBox(
+		deviceCommandContext,
 		m->ShadowReceiverBound, CColor(1.0f, 1.0f, 0.0f, 1.0f), transform, true);
 
 	for (int cascade = 0; cascade < GetCascadeCount(); ++cascade)
 	{
 		g_Renderer.GetDebugRenderer().DrawBoundingBox(
+			deviceCommandContext,
 			m->Cascades[cascade].ShadowRenderBound, CColor(0.0f, 0.0f, 1.0f, 0.10f), transform);
 		g_Renderer.GetDebugRenderer().DrawBoundingBox(
+			deviceCommandContext,
 			m->Cascades[cascade].ShadowRenderBound, CColor(0.0f, 0.0f, 1.0f, 0.5f), transform, true);
 
 		const CFrustum frustum = GetShadowCasterCullFrustum(cascade);
@@ -730,8 +733,8 @@ void ShadowMap::RenderDebugBounds()
 		CBrush frustumBrush;
 		brush.Intersect(frustum, frustumBrush);
 
-		g_Renderer.GetDebugRenderer().DrawBrush(frustumBrush, CColor(1.0f, 0.0f, 0.0f, 0.1f));
-		g_Renderer.GetDebugRenderer().DrawBrush(frustumBrush, CColor(1.0f, 0.0f, 0.0f, 0.1f), true);
+		g_Renderer.GetDebugRenderer().DrawBrush(deviceCommandContext, frustumBrush, CColor(1.0f, 0.0f, 0.0f, 0.1f));
+		g_Renderer.GetDebugRenderer().DrawBrush(deviceCommandContext, frustumBrush, CColor(1.0f, 0.0f, 0.0f, 0.1f), true);
 	}
 }
 

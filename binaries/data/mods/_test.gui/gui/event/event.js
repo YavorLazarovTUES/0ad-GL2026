@@ -6,7 +6,8 @@ var obj1 = Engine.GetGUIObjectByName("obj1");
 var obj3 = Engine.GetGUIObjectByName("obj3");
 
 obj1.onTick = () => { ++called1; };
-Engine.GetGUIObjectByName("obj2").onTick = () => {
+Engine.GetGUIObjectByName("obj2").onTick = () =>
+{
 	++called2;
 	delete obj1.onTick;
 	delete obj3.onTick;

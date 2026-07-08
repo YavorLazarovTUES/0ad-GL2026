@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,10 +19,14 @@
 #define INCLUDED_RENDERER_BACKEND_VULKAN_BUFFER
 
 #include "renderer/backend/IBuffer.h"
+#include "renderer/backend/vulkan/DeviceObjectUID.h"
 #include "renderer/backend/vulkan/VMA.h"
 
+#include <cstdint>
 #include <glad/vulkan.h>
 #include <memory>
+
+namespace Renderer::Backend::Vulkan { class CDevice; }
 
 namespace Renderer
 {
@@ -32,8 +36,6 @@ namespace Backend
 
 namespace Vulkan
 {
-
-class CDevice;
 
 class CBuffer final : public IBuffer
 {
@@ -53,6 +55,8 @@ public:
 	 */
 	void* GetMappedData() { return m_AllocationInfo.pMappedData; }
 
+	DeviceObjectUID GetUID() const { return m_UID; }
+
 private:
 	friend class CDevice;
 
@@ -63,6 +67,8 @@ private:
 	CBuffer();
 
 	CDevice* m_Device = nullptr;
+
+	DeviceObjectUID m_UID{INVALID_DEVICE_OBJECT_UID};
 
 	Type m_Type = Type::VERTEX;
 	uint32_t m_Size = 0;

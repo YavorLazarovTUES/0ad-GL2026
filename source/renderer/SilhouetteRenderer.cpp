@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,18 +22,37 @@
 #include "graphics/Camera.h"
 #include "graphics/HFTracer.h"
 #include "graphics/Model.h"
+#include "graphics/Overlay.h"
 #include "graphics/Patch.h"
+#include "graphics/RenderableObject.h"
+#include "graphics/ShaderDefines.h"
 #include "graphics/ShaderManager.h"
+#include "graphics/ShaderTechnique.h"
+#include "lib/debug.h"
+#include "lib/posix/posix_types.h"
+#include "lib/types.h"
 #include "maths/MathUtil.h"
+#include "maths/Matrix3D.h"
+#include "maths/Vector3D.h"
+#include "maths/Vector4D.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
 #include "ps/Profile.h"
+#include "ps/VideoMode.h"
 #include "renderer/DebugRenderer.h"
 #include "renderer/Renderer.h"
 #include "renderer/Scene.h"
+#include "renderer/backend/Format.h"
+#include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/IShaderProgram.h"
+#include "renderer/backend/PipelineState.h"
 
-#include <cfloat>
-
-extern int g_xres, g_yres;
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
+#include <limits>
 
 // For debugging
 static const bool g_DisablePreciseIntersections = false;
@@ -180,10 +199,13 @@ static void ComputeScreenBounds(Occluder& occluder, const CBoundingBoxAligned& b
 			for (size_t iz = 0; iz <= 1; ++iz)
 			{
 				CVector4D svec = proj.Transform(CVector4D(bounds[ix].X, bounds[iy].Y, bounds[iz].Z, 1.0f));
-				x0 = std::min(x0,  static_cast<u16>(g_HalfMaxCoord + static_cast<u16>(g_HalfMaxCoord * svec.X / svec.W)));
-				y0 = std::min(y0,  static_cast<u16>(g_HalfMaxCoord + static_cast<u16>(g_HalfMaxCoord * svec.Y / svec.W)));
-				x1 = std::max(x1,  static_cast<u16>(g_HalfMaxCoord + static_cast<u16>(g_HalfMaxCoord * svec.X / svec.W)));
-				y1 = std::max(y1,  static_cast<u16>(g_HalfMaxCoord + static_cast<u16>(g_HalfMaxCoord * svec.Y / svec.W)));
+				// Avoid overflows
+				u16 svx = static_cast<u16>(Clamp(g_HalfMaxCoord + g_HalfMaxCoord * (svec.X / svec.W), 0.f, static_cast<float>(g_MaxCoord - 1)));
+				u16 svy = static_cast<u16>(Clamp(g_HalfMaxCoord + g_HalfMaxCoord * (svec.Y / svec.W), 0.f, static_cast<float>(g_MaxCoord - 1)));
+				x0 = std::min(x0, svx);
+				y0 = std::min(y0, svy);
+				x1 = std::max(x1, svx);
+				y1 = std::max(y1, svy);
 				z0 = std::min(z0, svec.Z / svec.W);
 			}
 		}
@@ -201,10 +223,8 @@ static void ComputeScreenBounds(Occluder& occluder, const CBoundingBoxAligned& b
 static void ComputeScreenPos(Caster& caster, const CVector3D& pos, CMatrix3D& proj)
 {
 	CVector4D svec = proj.Transform(CVector4D(pos.X, pos.Y, pos.Z, 1.0f));
-	u16 x = g_HalfMaxCoord + static_cast<int>(g_HalfMaxCoord * svec.X / svec.W);
-	u16 y = g_HalfMaxCoord + static_cast<int>(g_HalfMaxCoord * svec.Y / svec.W);
-	caster.x = Clamp(x, std::numeric_limits<u16>::min(), static_cast<u16>(g_MaxCoord - 1));
-	caster.y = Clamp(y, std::numeric_limits<u16>::min(), static_cast<u16>(g_MaxCoord - 1));
+	caster.x = static_cast<u16>(Clamp(g_HalfMaxCoord + g_HalfMaxCoord * (svec.X / svec.W), 0.f, static_cast<float>(g_MaxCoord - 1)));
+	caster.y = static_cast<u16>(Clamp(g_HalfMaxCoord + g_HalfMaxCoord * (svec.Y / svec.W), 0.f, static_cast<float>(g_MaxCoord - 1)));
 	caster.z = svec.Z / svec.W;
 }
 
@@ -237,9 +257,9 @@ void SilhouetteRenderer::ComputeSubmissions(const CCamera& camera)
 #if 0
 	// For debugging ray-patch intersections - casts a ton of rays and draws
 	// a sphere where they intersect
-	for (int y = 0; y < g_yres; y += 8)
+	for (int y = 0; y < g_VideoMode.GetWindowHeight(); y += 8)
 	{
-		for (int x = 0; x < g_xres; x += 8)
+		for (int x = 0; x < g_VideoMode.GetWindowWidth(); x += 8)
 		{
 			SOverlaySphere sphere;
 			sphere.m_Color = CColor(1, 0, 0, 1);
@@ -443,14 +463,13 @@ void SilhouetteRenderer::RenderSubmitCasters(SceneCollector& collector)
 		collector.SubmitNonRecursive(m_VisibleModelCasters[i]);
 }
 
-void SilhouetteRenderer::RenderDebugBounds(
-	Renderer::Backend::IDeviceCommandContext* UNUSED(deviceCommandContext))
+void SilhouetteRenderer::RenderDebugBounds(Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
 	if (m_DebugBounds.empty())
 		return;
 
 	for (size_t i = 0; i < m_DebugBounds.size(); ++i)
-		g_Renderer.GetDebugRenderer().DrawBoundingBox(m_DebugBounds[i].bounds, m_DebugBounds[i].color, true);
+		g_Renderer.GetDebugRenderer().DrawBoundingBox(*deviceCommandContext, m_DebugBounds[i].bounds, m_DebugBounds[i].color, true);
 }
 
 void SilhouetteRenderer::RenderDebugOverlays(
@@ -463,7 +482,7 @@ void SilhouetteRenderer::RenderDebugOverlays(
 	CMatrix3D m;
 	m.SetIdentity();
 	m.Scale(1.0f, -1.f, 1.0f);
-	m.Translate(0.0f, (float)g_yres, -1000.0f);
+	m.Translate(0.0f, static_cast<float>(g_VideoMode.GetWindowHeight()), -1000.0f);
 
 	CMatrix3D proj;
 	proj.SetOrtho(0.f, g_MaxCoord, 0.f, g_MaxCoord, -1.f, 1000.f);

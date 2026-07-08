@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,23 +18,30 @@
 #ifndef INCLUDED_COMPONENTMANAGER
 #define INCLUDED_COMPONENTMANAGER
 
-#include "ps/Filesystem.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "simulation2/helpers/Player.h"
-#include "simulation2/system/Components.h"
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
+#include "lib/types.h"
+#include "scriptinterface/Interface.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/DynamicSubscription.h"
 #include "simulation2/system/Entity.h"
-#include "simulation2/system/IComponent.h"
 
 #include <boost/random/linear_congruential.hpp>
+#include <iosfwd>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
 #include <map>
+#include <memory>
 #include <set>
+#include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
-class IComponent;
-class CParamNode;
 class CMessage;
-class CSimContext;
-class CDynamicSubscription;
+class JSTracer;
+namespace Script { class Context; }
 
 class CComponentManager
 {
@@ -49,6 +56,7 @@ public:
 private:
 	using AllocFunc = IComponent::AllocFunc;
 	using DeallocFunc = IComponent::DeallocFunc;
+	using ClassInitFunc = IComponent::ClassInitFunc;
 
 	// ComponentTypes come in three types:
 	//   Native: normal C++ component
@@ -71,10 +79,11 @@ private:
 		std::string name;
 		std::string schema; // RelaxNG fragment
 		std::unique_ptr<JS::PersistentRootedValue> ctor; // only valid if type == CT_Script
+		ClassInitFunc classInit;
 	};
 
 public:
-	CComponentManager(CSimContext&, ScriptContext& cx, bool skipScriptFunctions = false);
+	CComponentManager(CSimContext&, Script::Context& cx, bool skipScriptFunctions = false);
 	~CComponentManager();
 
 	void LoadComponentTypes();
@@ -90,7 +99,8 @@ public:
 	void RegisterMessageType(MessageTypeId mtid, const char* name);
 
 	void RegisterComponentType(InterfaceId, ComponentTypeId, AllocFunc, DeallocFunc, const char*, const std::string& schema);
-	void RegisterComponentTypeScriptWrapper(InterfaceId, ComponentTypeId, AllocFunc, DeallocFunc, const char*, const std::string& schema);
+	void RegisterComponentTypeScriptWrapper(InterfaceId, ComponentTypeId, AllocFunc, DeallocFunc,
+		const char*, const std::string& schema, ClassInitFunc classInit);
 
 	void MarkScriptedComponentForSystemEntity(CComponentManager::ComponentTypeId cid);
 
@@ -109,6 +119,16 @@ public:
 	 * Must only be called by a component type's ClassInit.
 	 */
 	void SubscribeGloballyToMessageType(MessageTypeId mtid);
+
+	/**
+	 * Check if the current component type is subscribed to messages of the given type.
+	 */
+	bool IsLocallySubscribed(MessageTypeId mtid);
+
+	/**
+	 * Check if the current component type is globally subscribed to messages of the given type.
+	 */
+	bool IsGloballySubscribed(MessageTypeId mtid);
 
 	/**
 	 * Subscribe the given component instance to all messages of the given message type.
@@ -226,6 +246,16 @@ public:
 	 */
 	void FlushDestroyedComponents();
 
+	/**
+	 * Called during GC tracing of our components.
+	 */
+	static void Trace(JSTracer* trc, void* data);
+	/**
+	 * Call this from components when they need to save their JS instance.
+	 * Not done by the component manager because C++ components do it lazily.
+	 */
+	void RegisterTrace(entity_id_t ent, const JS::Heap<JS::Value>& instance);
+
 	IComponent* QueryInterface(entity_id_t ent, InterfaceId iid) const;
 
 	using InterfacePair = std::pair<entity_id_t, IComponent*>;
@@ -269,7 +299,7 @@ public:
 
 	std::string GenerateSchema() const;
 
-	ScriptInterface& GetScriptInterface() { return m_ScriptInterface; }
+	Script::Interface& GetScriptInterface() { return m_ScriptInterface; }
 
 private:
 	// Implementations of functions exposed to scripts
@@ -298,7 +328,7 @@ private:
 
 	CEntityHandle AllocateEntityHandle(entity_id_t ent);
 
-	ScriptInterface m_ScriptInterface;
+	Script::Interface m_ScriptInterface;
 	CSimContext& m_SimContext;
 
 	CEntityHandle m_SystemEntity;
@@ -322,6 +352,7 @@ private:
 	std::map<IComponent*, std::set<MessageTypeId> > m_DynamicMessageSubscriptionsNonsyncByComponent;
 
 	std::unordered_map<entity_id_t, SEntityComponentCache*> m_ComponentCaches;
+	std::unordered_map<entity_id_t, std::vector<JS::Heap<JS::Value>*>> m_TraceCache;
 
 	// TODO: maintaining both ComponentsBy* is nasty; can we get rid of one,
 	// while keeping QueryInterface and PostMessage sufficiently efficient?

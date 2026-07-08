@@ -1,4 +1,4 @@
-/* Copyright (C) 2015 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,38 +25,44 @@
 #include "ogg.h"
 #include "SoundData.h"
 
-#include "lib/external_libraries/openal.h"
 #include "lib/file/vfs/vfs_path.h"
 
-class COggData : public CSoundData
-{
-	ALuint m_Format;
-	long m_Frequency;
+#include <AL/al.h>
+#include <array>
 
+/*
+* 50 buffers of 98304 bytes each gives us 4.9 seconds of audio, which is a good amount to have buffered at once.
+*/
+constexpr int OGG_DEFAULT_BUFFER_COUNT = 50;
+
+class COggData final : public CSoundData
+{
 public:
 	COggData();
-	virtual ~COggData();
+	~COggData();
 
-	virtual bool InitOggFile(const VfsPath& itemPath);
-	virtual bool IsFileFinished();
-	virtual bool IsOneShot();
-	virtual bool IsStereo();
+	bool InitOggFile(const VfsPath& itemPath);
+	bool IsFileFinished();
+	bool IsOneShot() override;
+	bool IsStereo() override;
 
-	virtual int FetchDataIntoBuffer(int count, ALuint* buffers);
-	virtual void ResetFile();
+	int FetchDataIntoBuffer(int count, ALuint* buffers);
+	void ResetFile();
 
+private:
+	ALuint m_Format;
+	ALsizei m_Frequency;
 protected:
-	OggStreamPtr  ogg;
+	OggStreamPtr m_Stream;
 	bool m_FileFinished;
 	bool m_OneShot;
-	ALuint m_Buffer[100];
-	int m_BuffersUsed;
+	std::array<ALuint, OGG_DEFAULT_BUFFER_COUNT> m_Buffer{};
+	int m_BuffersCount;
 
-	bool AddDataBuffer(char* data, long length);
-	void SetFormatAndFreq(int form, ALsizei freq);
-	int  GetBufferCount();
-	unsigned int GetBuffer();
-	unsigned int* GetBufferPtr();
+	void SetFormatAndFreq(ALenum form, ALsizei freq);
+	int GetBufferCount() override;
+	unsigned int GetBuffer() override;
+	unsigned int* GetBufferPtr() override;
 };
 
 #endif // CONFIG2_AUDIO

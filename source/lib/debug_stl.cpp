@@ -1,4 +1,4 @@
-/* Copyright (C) 2020 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -25,15 +25,20 @@
  */
 
 #include "precompiled.h"
-#include "lib/debug_stl.h"
 
+#include "debug_stl.h"
+
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
 #include "lib/regex.h"
+#include "lib/secure_crt.h"
+#include "lib/sysdep/compiler.h"
+#include "lib/sysdep/stl.h"
 
-#include <cassert>
+#include <cwchar>
 #include <deque>
 #include <list>
-#include <map>
-#include <set>
+#include <new>
 #include <vector>
 
 static const StatusDefinition debugStlStatusDefinitions[] = {
@@ -213,17 +218,17 @@ wchar_t* debug_stl_simplify_name(wchar_t* name)
 template<class Container>
 struct ContainerBase : public Container
 {
-	bool IsValid(size_t UNUSED(el_size)) const
+	bool IsValid(size_t /*el_size*/) const
 	{
 		return true;
 	}
 
-	size_t NumElements(size_t UNUSED(el_size)) const
+	size_t NumElements(size_t /*el_size*/) const
 	{
 		return this->size();
 	}
 
-	static const u8* DereferenceAndAdvance(typename Container::iterator& it, size_t UNUSED(el_size))
+	static const u8* DereferenceAndAdvance(typename Container::iterator& it, size_t /*el_size*/)
 	{
 		const u8* p = (const u8*)&*it;
 		++it;
@@ -309,12 +314,12 @@ struct Any_tree : public std::_Tree<_Traits>
 	{
 	}
 
-	bool IsValid(size_t UNUSED(el_size)) const
+	bool IsValid(size_t /*el_size*/) const
 	{
 		return true;
 	}
 
-	size_t NumElements(size_t UNUSED(el_size)) const
+	size_t NumElements(size_t /*el_size*/) const
 	{
 		return size();
 	}
@@ -397,7 +402,7 @@ struct Any_multiset: public Any_set
 
 struct Any_vector: public ContainerBase<std::vector<int> >
 {
-	bool IsValid(size_t UNUSED(el_size)) const
+	bool IsValid(size_t /*el_size*/) const
 	{
 		// more elements reported than reserved
 		if(size() > capacity())
@@ -547,17 +552,11 @@ template<class T> bool get_container_info(const T& t, size_t size, size_t el_siz
 // return number of elements and an iterator (any data it needs is stored in
 // it_mem, which must hold DEBUG_STL_MAX_ITERATOR_SIZE bytes).
 // returns 0 on success or an StlContainerError.
-Status debug_stl_get_container_info(const wchar_t* type_name, const u8* p, size_t size,
-	size_t el_size, size_t* el_count, DebugStlIterator* el_iterator, void* it_mem)
+Status debug_stl_get_container_info([[maybe_unused]] const wchar_t* type_name, [[maybe_unused]] const u8* p,
+	[[maybe_unused]] size_t size, [[maybe_unused]] size_t el_size, [[maybe_unused]] size_t* el_count,
+	[[maybe_unused]] DebugStlIterator* el_iterator, [[maybe_unused]] void* it_mem)
 {
 #if MSC_VERSION
-	UNUSED2(type_name);
-	UNUSED2(p);
-	UNUSED2(size);
-	UNUSED2(el_size);
-	UNUSED2(el_count);
-	UNUSED2(el_iterator);
-	UNUSED2(it_mem);
 	return ERR::STL_CNT_UNSUPPORTED;	// NOWARN
 #else
 

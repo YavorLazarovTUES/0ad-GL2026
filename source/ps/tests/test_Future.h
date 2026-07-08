@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,27 +19,43 @@
 
 #include "ps/Future.h"
 
+#include <cstring>
+#include <exception>
 #include <functional>
+#include <new>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 class TestFuture : public CxxTest::TestSuite
 {
 public:
+	struct TestTaskManager
+	{
+		std::vector<std::function<void()>> tasks;
+		void PushTask(std::function<void()> task)
+		{
+			tasks.push_back(std::move(task));
+		}
+	};
+
 	void test_future_basic()
 	{
 		bool executed{false};
-		Future<void> noret;
-		auto task = noret.Wrap([&]{ executed = true; });
-		task();
+		TestTaskManager ttm;
+		Future noret{ttm, [&]{ executed = true; }};
+		TS_ASSERT_EQUALS(ttm.tasks.size(), 1);
+		std::exchange(ttm.tasks, {})[0]();
 		TS_ASSERT(executed);
 	}
 
 	void test_future_return()
 	{
+		TestTaskManager ttm;
 		{
-			Future<int> future;
-			std::function<void()> task = future.Wrap([]() { return 1; });
-			task();
+			Future future{ttm, []{ return 1; }};
+			TS_ASSERT_EQUALS(ttm.tasks.size(), 1);
+			std::exchange(ttm.tasks, {})[0]();
 			TS_ASSERT_EQUALS(future.Get(), 1);
 		}
 
@@ -60,15 +76,10 @@ public:
 		};
 		TS_ASSERT_EQUALS(destroyed, 0);
 		{
-			Future<NonDef> future;
-			std::function<void()> task = future.Wrap([]() { return NonDef{1}; });
-			task();
+			Future future{ttm, []{ return NonDef{1}; }};
+			TS_ASSERT_EQUALS(ttm.tasks.size(), 1);
+			std::exchange(ttm.tasks, {})[0]();
 			TS_ASSERT_EQUALS(future.Get().value, 1);
-		}
-		TS_ASSERT_EQUALS(destroyed, 1);
-		{
-			Future<NonDef> future;
-			std::function<void()> task = future.Wrap([]() { return NonDef{1}; });
 		}
 		TS_ASSERT_EQUALS(destroyed, 1);
 		/**
@@ -87,6 +98,7 @@ public:
 	{
 		Future<int> future;
 		std::function<int()> function;
+		TestTaskManager ttm;
 
 		// Set things up so all temporaries passed into the futures will be reset to obviously invalid memory.
 		std::aligned_storage_t<sizeof(Future<int>), alignof(Future<int>)> futureStorage;
@@ -97,27 +109,25 @@ public:
 		c = new (&functionStorage) std::function<int()>{};
 
 		*c = []() { return 7; };
-		std::function<void()> task = f->Wrap(std::move(*c));
+		*f = {ttm, std::move(*c)};
 
 		future = std::move(*f);
 		function = std::move(*c);
+
+		TS_ASSERT_EQUALS(ttm.tasks.size(), 1);
+		std::exchange(ttm.tasks, {})[0]();
+
+		TS_ASSERT_EQUALS(future.Get(), 7);
 
 		// Destroy and clear the memory
 		f->~Future();
 		c->~function();
 		memset(&futureStorage, 0xFF, sizeof(decltype(futureStorage)));
 		memset(&functionStorage, 0xFF, sizeof(decltype(functionStorage)));
-
-		// Let's move the packaged task while at it.
-		std::function<void()> task2 = std::move(task);
-		task2();
-		TS_ASSERT_EQUALS(future.Get(), 7);
 	}
 
 	void test_move_only_function()
 	{
-		Future<void> future;
-
 		class MoveOnlyType
 		{
 		public:
@@ -126,8 +136,116 @@ public:
 			MoveOnlyType& operator=(MoveOnlyType&) = delete;
 			MoveOnlyType(MoveOnlyType&&) = default;
 			MoveOnlyType& operator=(MoveOnlyType&&) = default;
+			int fn() const { return 7; }
 		};
 
-		future.Wrap([t = MoveOnlyType{}]{});
+		TestTaskManager ttm;
+
+		Future future{ttm, [t = MoveOnlyType{}]{ return t.fn(); }};
+		TS_ASSERT_EQUALS(ttm.tasks.size(), 1);
+		std::exchange(ttm.tasks, {})[0]();
+
+		TS_ASSERT_EQUALS(future.Get(), 7);
+	}
+
+	struct TestException : std::exception
+	{
+		using std::exception::exception;
+	};
+
+	void test_exception()
+	{
+		TestTaskManager ttm;
+		Future<int> future{ttm, []() -> int
+		{
+			throw TestException{};
+		}};
+
+		TS_ASSERT_EQUALS(ttm.tasks.size(), 1);
+		std::exchange(ttm.tasks, {})[0]();
+		TS_ASSERT(future.IsDone());
+		TS_ASSERT_THROWS(future.Get(), const TestException&);
+	}
+
+	void test_voidException()
+	{
+		TestTaskManager ttm;
+		Future<void> future{ttm, []
+		{
+			throw TestException{};
+		}};
+
+		TS_ASSERT_EQUALS(ttm.tasks.size(), 1);
+		std::exchange(ttm.tasks, {})[0]();
+		TS_ASSERT(future.IsDone());
+		TS_ASSERT_THROWS(future.Get(), const TestException&);
+	}
+
+	void test_implicitException()
+	{
+		// If the function does not throw but it's the cause something is thrown the exception should
+		// also be reported to the code receiving the result.
+
+		class ThrowsOnMove
+		{
+		public:
+			ThrowsOnMove() = default;
+			ThrowsOnMove(ThrowsOnMove&&)
+			{
+				throw TestException{};
+			}
+		};
+
+		TestTaskManager ttm;
+
+		Future<ThrowsOnMove> future{ttm, []
+		{
+			return ThrowsOnMove{};
+		}};
+
+		TS_ASSERT_EQUALS(ttm.tasks.size(), 1);
+		std::exchange(ttm.tasks, {})[0]();
+		TS_ASSERT(future.IsDone());
+		TS_ASSERT_THROWS(future.Get(), const TestException&);
+	}
+
+	void test_stop_token_overload()
+	{
+		TestTaskManager ttm;
+		{
+			class DifferentValues
+			{
+			public:
+				bool operator()()
+				{
+					return false;
+				}
+				bool operator()(StopToken)
+				{
+					return true;
+				}
+			};
+
+			Future<bool> future{ttm, DifferentValues{}};
+			TS_ASSERT_EQUALS(ttm.tasks.size(), 1);
+			std::exchange(ttm.tasks, {})[0]();
+			TS_ASSERT_EQUALS(future.Get(), true);
+		}
+		{
+			class DifferentTypes
+			{
+			public:
+				void operator()()
+				{}
+				bool operator()(StopToken)
+				{
+					return true;
+				}
+			};
+
+			Future<bool> future{ttm, DifferentTypes{}};
+			TS_ASSERT_EQUALS(ttm.tasks.size(), 1);
+			std::exchange(ttm.tasks, {})[0]();
+		}
 	}
 };

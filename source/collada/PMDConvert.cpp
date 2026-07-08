@@ -1,4 +1,4 @@
-/* Copyright (C) 2012 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,31 +18,36 @@
 #include "precompiled.h"
 
 #include "PMDConvert.h"
+
 #include "CommonConvert.h"
-
-#include "FCollada.h"
-#include "FCDocument/FCDAsset.h"
-#include "FCDocument/FCDocument.h"
-#include "FCDocument/FCDocumentTools.h"
-#include "FCDocument/FCDController.h"
-#include "FCDocument/FCDControllerInstance.h"
-#include "FCDocument/FCDGeometry.h"
-#include "FCDocument/FCDGeometryMesh.h"
-#include "FCDocument/FCDGeometryPolygons.h"
-#include "FCDocument/FCDGeometryPolygonsInput.h"
-#include "FCDocument/FCDGeometryPolygonsTools.h"
-#include "FCDocument/FCDGeometrySource.h"
-#include "FCDocument/FCDSceneNode.h"
-#include "FCDocument/FCDSkinController.h"
-
+#include "DLL.h"
 #include "StdSkeletons.h"
 #include "Decompose.h"
 #include "Maths.h"
 #include "GeomReindex.h"
 
-#include <cassert>
-#include <vector>
+#include <FCDocument/FCDController.h>
+#include <FCDocument/FCDControllerInstance.h>
+#include <FCDocument/FCDEntity.h>
+#include <FCDocument/FCDEntityInstance.h>
+#include <FCDocument/FCDGeometry.h>
+#include <FCDocument/FCDGeometryMesh.h>
+#include <FCDocument/FCDGeometryPolygons.h>
+#include <FCDocument/FCDGeometryPolygonsInput.h>
+#include <FCDocument/FCDGeometryPolygonsTools.h>
+#include <FCDocument/FCDGeometrySource.h>
+#include <FCDocument/FCDSceneNode.h>
+#include <FCDocument/FCDSkinController.h>
+#include <FMath/FMMatrix44.h>
+#include <FMath/FMVector3.h>
+#include <FUtils/FUDaeEnum.h>
+#include <FUtils/FUString.h>
+#include <FUtils/Platforms.h>
 #include <algorithm>
+#include <cassert>
+#include <cstring>
+#include <utility>
+#include <vector>
 
 const size_t maxInfluences = 4;
 struct VertexBlend
@@ -285,7 +290,7 @@ public:
 						//	To indicate this special case, we use a bone ID set to the total number
 						//	of bones in the model, which will have a special "bone matrix" reserved
 						//	that contains the world space transform of the model during skinning.
-						//	(see http://trac.wildfiregames.com/ticket/1012)
+						//	(see https://gitea.wildfiregames.com/0ad/0ad/issues/1012)
 						influences.bones[j] = (uint8)jointCount;
 						influences.weights[j] = vertexInfluences[i].GetPair(j)->weight;
 					}
@@ -319,7 +324,7 @@ public:
 						{
 							// The relevant joint does exist, but it's not a recognised
 							// bone in our chosen skeleton structure
-							Log(LOG_ERROR, "Vertex influenced by unrecognised bone '%s'", joint->GetName().c_str());
+							Log(LOG_ERROR, "Vertex influenced by unrecognized bone '%s'", joint->GetName().c_str());
 							continue;
 						}
 
@@ -456,7 +461,7 @@ public:
 		}
 		else
 		{
-			throw ColladaException("Unrecognised object type");
+			throw ColladaException("Unrecognized object type");
 		}
 
 	}

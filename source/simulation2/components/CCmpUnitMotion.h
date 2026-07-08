@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,31 +18,44 @@
 #ifndef INCLUDED_CCMPUNITMOTION
 #define INCLUDED_CCMPUNITMOTION
 
-#include "simulation2/system/Component.h"
-#include "ICmpUnitMotion.h"
-
-#include "simulation2/components/CCmpUnitMotionManager.h"
-#include "simulation2/components/ICmpObstruction.h"
-#include "simulation2/components/ICmpObstructionManager.h"
-#include "simulation2/components/ICmpOwnership.h"
-#include "simulation2/components/ICmpPosition.h"
-#include "simulation2/components/ICmpPathfinder.h"
-#include "simulation2/components/ICmpRangeManager.h"
-#include "simulation2/components/ICmpValueModificationManager.h"
-#include "simulation2/components/ICmpVisual.h"
-#include "simulation2/helpers/Geometry.h"
-#include "simulation2/helpers/Render.h"
-#include "simulation2/MessageTypes.h"
-#include "simulation2/serialization/SerializedPathfinder.h"
-#include "simulation2/serialization/SerializedTypes.h"
-
+#include "graphics/Color.h"
 #include "graphics/Overlay.h"
+#include "lib/debug.h"
+#include "lib/types.h"
+#include "maths/Fixed.h"
 #include "maths/FixedVector2D.h"
+#include "maths/FixedVector3D.h"
+#include "maths/MathUtil.h"
 #include "ps/CLogger.h"
 #include "ps/Profile.h"
 #include "renderer/Scene.h"
+#include "simulation2/MessageTypes.h"
+#include "simulation2/components/CCmpUnitMotionManager.h"
+#include "simulation2/components/ICmpObstruction.h"
+#include "simulation2/components/ICmpObstructionManager.h"
+#include "simulation2/components/ICmpPathfinder.h"
+#include "simulation2/components/ICmpPosition.h"
+#include "simulation2/components/ICmpUnitMotion.h"
+#include "simulation2/components/ICmpUnitMotionManager.h"
+#include "simulation2/components/ICmpValueModificationManager.h"
+#include "simulation2/components/ICmpVisual.h"
+#include "simulation2/helpers/PathGoal.h"
+#include "simulation2/helpers/Pathfinding.h"
+#include "simulation2/helpers/Position.h"
+#include "simulation2/helpers/Render.h"
+#include "simulation2/serialization/SerializeTemplates.h"
+#include "simulation2/serialization/SerializedPathfinder.h"
+#include "simulation2/serialization/SerializedTypes.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+#include "simulation2/system/Message.h"
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <utility>
+#include <vector>
 
 // NB: this implementation of ICmpUnitMotion is very tightly coupled with UnitMotionManager.
 // As such, both are compiled in the same TU.
@@ -125,8 +138,14 @@ constexpr u8 BACKUP_HACK_DELAY = 10;
  */
 constexpr u8 VERY_OBSTRUCTED_THRESHOLD = 10;
 
-const CColor OVERLAY_COLOR_LONG_PATH(1, 1, 1, 1);
-const CColor OVERLAY_COLOR_SHORT_PATH(1, 0, 0, 1);
+struct PathColorPalette
+{
+    CColor longPath;
+    CColor shortPath;
+};
+
+constexpr PathColorPalette REGULAR_UNIT_PALETTE{{1, 1, 1, 1}, {1, 0, 0, 1}};
+constexpr PathColorPalette FORMATION_CONTROLLER_PALETTE{{0, 0, 1, 1}, {0, 1, 0, 1}};
 } // anonymous namespace
 
 class CCmpUnitMotion final : public ICmpUnitMotion
@@ -252,7 +271,7 @@ public:
 			"<element name='FormationController'>"
 				"<data type='boolean'/>"
 			"</element>"
-			"<element name='WalkSpeed' a:help='Basic movement speed (in metres per second).'>"
+			"<element name='WalkSpeed' a:help='Basic movement speed (in meters per second).'>"
 				"<ref name='positiveDecimal'/>"
 			"</element>"
 			"<optional>"
@@ -263,7 +282,7 @@ public:
 			"<element name='InstantTurnAngle' a:help='Angle we can turn instantly. Any value greater than pi will disable turning times. Avoid zero since it stops the entity every turn.'>"
 				"<ref name='positiveDecimal'/>"
 			"</element>"
-			"<element name='Acceleration' a:help='Acceleration (in metres per second^2).'>"
+			"<element name='Acceleration' a:help='Acceleration (in meters per second^2).'>"
 				"<ref name='positiveDecimal'/>"
 			"</element>"
 			"<element name='PassabilityClass' a:help='Identifies the terrain passability class (values are defined in special/pathfinder.xml).'>"
@@ -370,7 +389,7 @@ public:
 			m_BlockMovement = cmpObstruction->GetBlockMovementFlag(false);
 	}
 
-	void HandleMessage(const CMessage& msg, bool UNUSED(global)) override
+	void HandleMessage(const CMessage& msg, bool /*global*/) override
 	{
 		switch (msg.GetType())
 		{
@@ -411,7 +430,7 @@ public:
 			const CMessageValueModification& msgData = static_cast<const CMessageValueModification&> (msg);
 			if (msgData.component != L"UnitMotion")
 				break;
-			FALLTHROUGH;
+			[[fallthrough]];
 		}
 		case MT_OwnershipChanged:
 		{
@@ -435,6 +454,11 @@ public:
 	bool IsMoveRequested() const override
 	{
 		return m_MoveRequest.m_Type != MoveRequest::NONE;
+	}
+
+	bool IsMovingAsFormation() const override
+	{
+		return IsFormationMember() && m_MoveRequest.m_Type == MoveRequest::OFFSET;
 	}
 
 	fixed GetSpeedMultiplier() const override
@@ -492,7 +516,7 @@ public:
 		m_Acceleration = acceleration;
 	}
 
-	virtual entity_pos_t GetWeight() const
+	entity_pos_t GetWeight() const
 	{
 		return m_TemplateWeight;
 	}
@@ -520,6 +544,16 @@ public:
 	fixed GetCurrentSpeed() const override
 	{
 		return m_CurrentSpeed;
+	}
+
+	void SetCurrentSpeed(const fixed& speed) override
+	{
+		m_CurrentSpeed = speed;
+
+		if (speed == fixed::Zero())
+			m_LastTurnSpeed = fixed::Zero();
+		else
+			m_LastTurnSpeed = speed;
 	}
 
 	void SetFacePointAfterMove(bool facePointAfterMove) override
@@ -559,6 +593,14 @@ public:
 		m_FormationController = controller;
 	}
 
+	std::optional<CFixedVector2D> GetFormationOffset() const override
+	{
+		if (m_MoveRequest.m_Type != MoveRequest::OFFSET)
+			return std::nullopt;
+
+		return m_MoveRequest.m_Position;
+	}
+
 	bool IsTargetRangeReachable(entity_id_t target, entity_pos_t minRange, entity_pos_t maxRange) override;
 
 	void FaceTowardsPoint(entity_pos_t x, entity_pos_t z) override;
@@ -596,11 +638,6 @@ private:
 	bool IsFormationMember() const
 	{
 		return m_FormationController != INVALID_ENTITY;
-	}
-
-	bool IsMovingAsFormation() const
-	{
-		return IsFormationMember() && m_MoveRequest.m_Type == MoveRequest::OFFSET;
 	}
 
 	bool IsFormationControllerMoving() const
@@ -758,12 +795,7 @@ private:
 	void Move(CCmpUnitMotionManager::MotionState& state, fixed dt);
 	void PostMove(CCmpUnitMotionManager::MotionState& state, fixed dt);
 
-	/**
-	 * Returns true if we are possibly at our destination.
-	 * Since the concept of being at destination is dependent on why the move was requested,
-	 * UnitMotion can only ever hint about this, hence the conditional tone.
-	 */
-	bool PossiblyAtDestination() const;
+	bool PossiblyAtDestination() const override;
 
 	/**
 	 * Process the move the unit will do this turn.
@@ -1093,13 +1125,47 @@ void CCmpUnitMotion::PostMove(CCmpUnitMotionManager::MotionState& state, fixed d
 	else if (!state.wasObstructed && state.pos != state.initialPos)
 		m_FailedMovements = 0;
 
+	const bool needPathUpdate{PathingUpdateNeeded(state.pos)};
+
+	// If we're following a long-path, check if we might run into units in advance, to smoothe motion.
+	if (!needPathUpdate && !state.wasObstructed && m_LongPath.m_Waypoints.size() >= 1 && m_ShortPath.m_Waypoints.empty())
+	{
+		ICmpObstructionManager::tag_t specificIgnore;
+		if (m_MoveRequest.m_Type == MoveRequest::ENTITY)
+		{
+			CmpPtr<ICmpObstruction> cmpTargetObstruction(GetSimContext(), m_MoveRequest.m_Entity);
+			if (cmpTargetObstruction)
+				specificIgnore = cmpTargetObstruction->GetObstruction();
+		}
+		CmpPtr<ICmpObstructionManager> cmpObstructionManager(GetSystemEntity());
+		if (cmpObstructionManager && cmpObstructionManager->TestUnitLine(GetObstructionFilter(specificIgnore),
+			state.pos.X, state.pos.Y, m_LongPath.m_Waypoints.back().x, m_LongPath.m_Waypoints.back().z, m_Clearance, true))
+		{
+			// We will run into something: request a new short path.
+			// If we have several waypoints left, aim for the one after next directly.
+			// (This is mostly because the obstruction might be at the waypoint, and the end is kind of treated specially).
+			// Else just path to the goal.
+			if (m_LongPath.m_Waypoints.size() > 1) {
+				fixed radius = Pathfinding::NAVCELL_SIZE * 2;
+				m_LongPath.m_Waypoints.pop_back();
+				PathGoal subgoal = { PathGoal::CIRCLE, m_LongPath.m_Waypoints.back().x, m_LongPath.m_Waypoints.back().z, radius };
+				RequestShortPath(state.pos, subgoal, false);
+			} else {
+				// If we only have one waypoint left, request a short path to the waypoint itself.
+				PathGoal goal;
+				if (ComputeGoal(goal, m_MoveRequest))
+					RequestShortPath(state.pos, goal, false);
+			}
+		}
+	}
+
 	// If we moved straight, and didn't quite finish the path, reset - we'll update it next turn if still OK.
 	if (state.wentStraight && !state.wasObstructed)
 		m_ShortPath.m_Waypoints.clear();
 
 	// We may need to recompute our path sometimes (e.g. if our target moves).
 	// Since we request paths asynchronously anyways, this does not need to be done before moving.
-	if (!state.wentStraight && PathingUpdateNeeded(state.pos))
+	if (!state.wentStraight && needPathUpdate)
 	{
 		PathGoal goal;
 		if (ComputeGoal(goal, m_MoveRequest))
@@ -1117,25 +1183,33 @@ bool CCmpUnitMotion::PossiblyAtDestination() const
 	CmpPtr<ICmpObstructionManager> cmpObstructionManager(GetSystemEntity());
 	ENSURE(cmpObstructionManager);
 
-	if (m_MoveRequest.m_Type == MoveRequest::POINT)
-		return cmpObstructionManager->IsInPointRange(GetEntityId(), m_MoveRequest.m_Position.X, m_MoveRequest.m_Position.Y, m_MoveRequest.m_MinRange, m_MoveRequest.m_MaxRange, false);
-	if (m_MoveRequest.m_Type == MoveRequest::ENTITY)
-		return cmpObstructionManager->IsInTargetRange(GetEntityId(), m_MoveRequest.m_Entity, m_MoveRequest.m_MinRange, m_MoveRequest.m_MaxRange, false);
-	if (m_MoveRequest.m_Type == MoveRequest::OFFSET)
+	switch (m_MoveRequest.m_Type)
+	{
+	case MoveRequest::POINT:
+		return cmpObstructionManager->IsInPointRange(
+			GetEntityId(), m_MoveRequest.m_Position.X, m_MoveRequest.m_Position.Y,
+			m_MoveRequest.m_MinRange, m_MoveRequest.m_MaxRange, false);
+
+	case MoveRequest::ENTITY:
+		return cmpObstructionManager->IsInTargetRange(
+			GetEntityId(), m_MoveRequest.m_Entity,
+			m_MoveRequest.m_MinRange, m_MoveRequest.m_MaxRange, false);
+
+	case MoveRequest::OFFSET:
 	{
 		CmpPtr<ICmpUnitMotion> cmpControllerMotion(GetSimContext(), m_MoveRequest.m_Entity);
 		if (cmpControllerMotion && cmpControllerMotion->IsMoveRequested())
 			return false;
 
-		// In formation, return a match only if we are exactly at the target position.
-		// Otherwise, units can go in an infinite "walzting" loop when the Idle formation timer
-		// reforms them.
 		CFixedVector2D targetPos;
 		ComputeTargetPosition(targetPos);
 		CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
-		return (targetPos-cmpPosition->GetPosition2D()).CompareLength(fixed::Zero()) <= 0;
+		return (targetPos - cmpPosition->GetPosition2D()).CompareLength(Pathfinding::NAVCELL_SIZE) <= 0;
 	}
-	return false;
+
+	default:
+		return false;
+	}
 }
 
 bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate, WaypointPath& shortPath, WaypointPath& longPath, CFixedVector2D& pos, fixed& speed, entity_angle_t& angle, uint8_t pushingPressure) const
@@ -1860,7 +1934,6 @@ bool CCmpUnitMotion::IsTargetRangeReachable(entity_id_t target, entity_pos_t min
 	return cmpPathfinder->IsGoalReachable(pos.X, pos.Y, goal, m_PassClass);
 }
 
-
 void CCmpUnitMotion::RenderPath(const WaypointPath& path, std::vector<SOverlayLine>& lines, CColor color)
 {
 	bool floating = false;
@@ -1892,17 +1965,20 @@ void CCmpUnitMotion::RenderPath(const WaypointPath& path, std::vector<SOverlayLi
 
 void CCmpUnitMotion::RenderSubmit(SceneCollector& collector)
 {
-	if (!m_DebugOverlayEnabled)
-		return;
+    if (!m_DebugOverlayEnabled)
+        return;
 
-	RenderPath(m_LongPath, m_DebugOverlayLongPathLines, OVERLAY_COLOR_LONG_PATH);
-	RenderPath(m_ShortPath, m_DebugOverlayShortPathLines, OVERLAY_COLOR_SHORT_PATH);
+    const auto& palette{m_IsFormationController ?
+        FORMATION_CONTROLLER_PALETTE : REGULAR_UNIT_PALETTE};
 
-	for (size_t i = 0; i < m_DebugOverlayLongPathLines.size(); ++i)
-		collector.Submit(&m_DebugOverlayLongPathLines[i]);
+    RenderPath(m_LongPath, m_DebugOverlayLongPathLines, palette.longPath);
+    RenderPath(m_ShortPath, m_DebugOverlayShortPathLines, palette.shortPath);
 
-	for (size_t i = 0; i < m_DebugOverlayShortPathLines.size(); ++i)
-		collector.Submit(&m_DebugOverlayShortPathLines[i]);
+	for (SOverlayLine& line : m_DebugOverlayLongPathLines)
+		collector.Submit(&line);
+
+	for (SOverlayLine& line : m_DebugOverlayShortPathLines)
+		collector.Submit(&line);
 }
 
 #endif // INCLUDED_CCMPUNITMOTION

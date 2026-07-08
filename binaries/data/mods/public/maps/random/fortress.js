@@ -1,7 +1,7 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
 	const tGrass = ["temperate_grass_04", "temperate_grass_03", "temperate_grass_04"];
 	const tForestFloor = "temperate_forestfloor_01";
@@ -68,13 +68,13 @@ function* GenerateMap()
 		{ "template": oStoneTreasure, "count": 2 }
 	];
 
-	const [playerIDs, playerPosition] = playerPlacementCircle(fractionToTiles(0.35));
+	const { playerIDs, playerPosition } = playerPlacementCircle(fractionToTiles(0.35));
 
 	g_Map.log("Creating playerbases");
 	const playerAngle = BUILDING_ORIENTATION;
 	for (let i = 0; i < numPlayers; ++i)
 	{
-		if (isNomad())
+		if (mapSettings.Nomad)
 			break;
 
 		// CC and units

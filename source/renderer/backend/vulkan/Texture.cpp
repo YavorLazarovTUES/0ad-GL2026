@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,7 +19,11 @@
 
 #include "Texture.h"
 
+#include "lib/debug.h"
+#include "ps/CLogger.h"
+#include "renderer/backend/Sampler.h"
 #include "renderer/backend/vulkan/Device.h"
+#include "renderer/backend/vulkan/DeviceSelection.h"
 #include "renderer/backend/vulkan/Mapping.h"
 #include "renderer/backend/vulkan/SamplerManager.h"
 #include "renderer/backend/vulkan/Utilities.h"

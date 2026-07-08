@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -25,13 +25,18 @@
  */
 
 #include "precompiled.h"
-#include "lib/file/vfs/vfs_tree.h"
 
-#include <cstdio>
-#include <ctime>
+#include "vfs_tree.h"
 
+#include "lib/code_annotation.h"
+#include "lib/debug.h"
 #include "lib/file/common/file_stats.h"
-#include "lib/sysdep/cpu.h"
+#include "lib/secure_crt.h"
+#include "lib/status.h"
+
+#include <ctime>
+#include <cwchar>
+#include <utility>
 
 
 //-----------------------------------------------------------------------------
@@ -173,15 +178,21 @@ VfsDirectory* VfsDirectory::GetSubdirectory(const VfsPath& name)
 
 void VfsDirectory::SetAssociatedDirectory(const PRealDirectory& realDirectory)
 {
-	if(!cpu_CAS(&m_shouldPopulate, 0, 1))
+	if(m_shouldPopulate)
 		DEBUG_WARN_ERR(ERR::LOGIC);	// caller didn't check ShouldPopulate
+	m_shouldPopulate = true;
 	m_realDirectory = realDirectory;
 }
 
 
 bool VfsDirectory::ShouldPopulate()
 {
-	return cpu_CAS(&m_shouldPopulate, 1, 0);	// test and reset
+	// test and reset
+	if(!m_shouldPopulate)
+		return false;
+
+	m_shouldPopulate = false;
+	return true;
 }
 
 

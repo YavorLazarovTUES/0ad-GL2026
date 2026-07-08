@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,23 +19,70 @@
 
 #include "ParticleEmitter.h"
 
-#include "graphics/LightEnv.h"
 #include "graphics/LOSTexture.h"
+#include "graphics/LightEnv.h"
 #include "graphics/ParticleEmitterType.h"
 #include "graphics/ParticleManager.h"
-#include "graphics/ShaderProgram.h"
+#include "graphics/RenderableObject.h"
 #include "graphics/TextureManager.h"
+#include "lib/allocators/STLAllocators.h"
+#include "lib/debug.h"
+#include "lib/types.h"
+#include "maths/Matrix3D.h"
+#include "ps/memory/LinearAllocator.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
 #include "renderer/Renderer.h"
+#include "renderer/Scene.h"
 #include "renderer/SceneRenderer.h"
+#include "renderer/backend/Format.h"
+#include "renderer/backend/IBuffer.h"
+#include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/IShaderProgram.h"
+
+#include <array>
+#include <cmath>
+#include <cstdint>
+
+namespace
+{
+
+struct ParticleYoungestInFrontCompare
+{
+	bool operator()(const SParticle& lhs, const SParticle& rhs) const
+	{
+		return lhs.age > rhs.age;
+	}
+};
+
+struct ParticleOldestInFrontCompare
+{
+	bool operator()(const SParticle& lhs, const SParticle& rhs) const
+	{
+		return lhs.age < rhs.age;
+	}
+};
+
+struct ParticleClosestInFrontCompare
+{
+	bool operator()(const SParticle& lhs, const SParticle& rhs) const
+	{
+		return cameraForward.Dot(lhs.pos) > cameraForward.Dot(rhs.pos);
+	}
+
+	CVector3D cameraForward;
+};
+
+} // anonymous namespace
 
 CParticleEmitter::CParticleEmitter(const CParticleEmitterTypePtr& type) :
-	m_Type(type), m_Active(true), m_NextParticleIdx(0), m_EmissionRoundingError(0.f),
-	m_LastUpdateTime(type->m_Manager.GetCurrentTime()),
+	m_Type(type), m_LastUpdateTime(type->m_Manager.GetCurrentTime()),
 	m_IndexArray(Renderer::Backend::IBuffer::Usage::TRANSFER_DST),
 	m_VertexArray(Renderer::Backend::IBuffer::Type::VERTEX,
 		Renderer::Backend::IBuffer::Usage::DYNAMIC | Renderer::Backend::IBuffer::Usage::TRANSFER_DST),
-	m_LastFrameNumber(-1)
+	m_VertexUVArray(Renderer::Backend::IBuffer::Type::VERTEX,
+		Renderer::Backend::IBuffer::Usage::TRANSFER_DST),
+	m_LastFrameNumber(-1), m_UseInstancing{type->m_Manager.ShouldUseInstancing()}
 {
 	// If we should start with particles fully emitted, pretend that we
 	// were created in the past so the first update will produce lots of
@@ -52,22 +99,48 @@ CParticleEmitter::CParticleEmitter(const CParticleEmitterTypePtr& type) :
 	m_AttributePos.format = Renderer::Backend::Format::R32G32B32_SFLOAT;
 	m_VertexArray.AddAttribute(&m_AttributePos);
 
-	m_AttributeAxis.format = Renderer::Backend::Format::R32G32_SFLOAT;
-	m_VertexArray.AddAttribute(&m_AttributeAxis);
-
-	m_AttributeUV.format = Renderer::Backend::Format::R32G32_SFLOAT;
-	m_VertexArray.AddAttribute(&m_AttributeUV);
-
 	m_AttributeColor.format = Renderer::Backend::Format::R8G8B8A8_UNORM;
 	m_VertexArray.AddAttribute(&m_AttributeColor);
 
-	m_VertexArray.SetNumberOfVertices(m_Type->m_MaxParticles * 4);
+	m_AttributeAxisX.format = Renderer::Backend::Format::R32G32B32A32_SFLOAT;
+	m_VertexArray.AddAttribute(&m_AttributeAxisX);
+
+	m_AttributeAxisY.format = Renderer::Backend::Format::R32G32B32A32_SFLOAT;
+	m_VertexArray.AddAttribute(&m_AttributeAxisY);
+
+	m_VertexArray.SetNumberOfVertices(m_UseInstancing ? m_Type->m_MaxParticles : m_Type->m_MaxParticles * 4);
 	m_VertexArray.Layout();
 
-	m_IndexArray.SetNumberOfVertices(m_Type->m_MaxParticles * 6);
+	m_AttributeUV.format = Renderer::Backend::Format::R32G32_SFLOAT;
+	m_VertexUVArray.AddAttribute(&m_AttributeUV);
+
+	m_VertexUVArray.SetNumberOfVertices(m_UseInstancing ? 4 : m_Type->m_MaxParticles * 4);
+	m_VertexUVArray.Layout();
+
+	VertexArrayIterator<float[2]> attrUV = m_AttributeUV.GetIterator<float[2]>();
+	for (uint32_t index{0}; index < (m_UseInstancing ? 1u : m_Type->m_MaxParticles); ++index)
+	{
+		(*attrUV)[0] = 1;
+		(*attrUV)[1] = 0;
+		++attrUV;
+		(*attrUV)[0] = 0;
+		(*attrUV)[1] = 0;
+		++attrUV;
+		(*attrUV)[0] = 0;
+		(*attrUV)[1] = 1;
+		++attrUV;
+		(*attrUV)[0] = 1;
+		(*attrUV)[1] = 1;
+		++attrUV;
+	}
+
+	m_VertexUVArray.Upload();
+	m_VertexUVArray.FreeBackingStore();
+
+	m_IndexArray.SetNumberOfVertices(m_UseInstancing ? 6 : m_Type->m_MaxParticles * 6);
 	m_IndexArray.Layout();
 	VertexArrayIterator<u16> index = m_IndexArray.GetIterator();
-	for (u16 i = 0; i < m_Type->m_MaxParticles; ++i)
+	for (u16 i = 0; i < (m_UseInstancing ? 1 : m_Type->m_MaxParticles); ++i)
 	{
 		*index++ = i*4 + 0;
 		*index++ = i*4 + 1;
@@ -79,20 +152,27 @@ CParticleEmitter::CParticleEmitter(const CParticleEmitterTypePtr& type) :
 	m_IndexArray.Upload();
 	m_IndexArray.FreeBackingStore();
 
-	const uint32_t stride = m_VertexArray.GetStride();
-	const std::array<Renderer::Backend::SVertexAttributeFormat, 4> attributes{{
+	const uint32_t stride{m_VertexArray.GetStride()};
+	const Renderer::Backend::VertexAttributeRate dynamicDataRate{
+		m_UseInstancing
+			? Renderer::Backend::VertexAttributeRate::PER_INSTANCE
+			: Renderer::Backend::VertexAttributeRate::PER_VERTEX};
+	const std::array<Renderer::Backend::SVertexAttributeFormat, 5> attributes{{
+		{Renderer::Backend::VertexAttributeStream::UV0,
+			m_AttributeUV.format, m_AttributeUV.offset, m_VertexUVArray.GetStride(),
+			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0},
 		{Renderer::Backend::VertexAttributeStream::POSITION,
 			m_AttributePos.format, m_AttributePos.offset, stride,
-			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0},
+			dynamicDataRate, 1},
 		{Renderer::Backend::VertexAttributeStream::COLOR,
 			m_AttributeColor.format, m_AttributeColor.offset, stride,
-			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0},
-		{Renderer::Backend::VertexAttributeStream::UV0,
-			m_AttributeUV.format, m_AttributeUV.offset, stride,
-			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0},
+			dynamicDataRate, 1},
 		{Renderer::Backend::VertexAttributeStream::UV1,
-			m_AttributeAxis.format, m_AttributeAxis.offset, stride,
-			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0},
+			m_AttributeAxisX.format, m_AttributeAxisX.offset, stride,
+			dynamicDataRate, 1},
+		{Renderer::Backend::VertexAttributeStream::UV2,
+			m_AttributeAxisY.format, m_AttributeAxisY.offset, stride,
+			dynamicDataRate, 1},
 	}};
 	m_VertexInputLayout = g_Renderer.GetVertexInputLayout(attributes);
 }
@@ -101,6 +181,11 @@ void CParticleEmitter::UpdateArrayData(int frameNumber)
 {
 	if (m_LastFrameNumber == frameNumber)
 		return;
+
+	PS::Memory::ScopedLinearAllocator scopedLinearAllocator{g_Renderer.GetLinearAllocator()};
+
+	using ParticlesVector = std::vector<SParticle, ProxyAllocator<SParticle, PS::Memory::ScopedLinearAllocator>>;
+	ParticlesVector sortedParticles((ParticlesVector::allocator_type(scopedLinearAllocator)));
 
 	m_LastFrameNumber = frameNumber;
 
@@ -111,75 +196,125 @@ void CParticleEmitter::UpdateArrayData(int frameNumber)
 	// Regenerate the vertex array data:
 
 	VertexArrayIterator<CVector3D> attrPos = m_AttributePos.GetIterator<CVector3D>();
-	VertexArrayIterator<float[2]> attrAxis = m_AttributeAxis.GetIterator<float[2]>();
-	VertexArrayIterator<float[2]> attrUV = m_AttributeUV.GetIterator<float[2]>();
 	VertexArrayIterator<SColor4ub> attrColor = m_AttributeColor.GetIterator<SColor4ub>();
+	VertexArrayIterator<CVector4D> attrAxisX = m_AttributeAxisX.GetIterator<CVector4D>();
+	VertexArrayIterator<CVector4D> attrAxisY = m_AttributeAxisY.GetIterator<CVector4D>();
 
 	ENSURE(m_Particles.size() <= m_Type->m_MaxParticles);
 
 	CBoundingBoxAligned bounds;
 
-	for (size_t i = 0; i < m_Particles.size(); ++i)
+	if (m_Type->m_SortMode != CParticleEmitterType::SortMode::UNSPECIFIED)
 	{
-		// TODO: for more efficient rendering, maybe we should replace this with
-		// a degenerate quad if alpha is 0
+		sortedParticles.insert(sortedParticles.end(), m_Particles.begin(), m_Particles.end());
 
-		bounds += m_Particles[i].pos;
-
-		*attrPos++ = m_Particles[i].pos;
-		*attrPos++ = m_Particles[i].pos;
-		*attrPos++ = m_Particles[i].pos;
-		*attrPos++ = m_Particles[i].pos;
-
-		// Compute corner offsets, split into sin/cos components so the vertex
-		// shader can multiply by the camera-right (or left?) and camera-up vectors
-		// to get rotating billboards:
-
-		float s = sin(m_Particles[i].angle) * m_Particles[i].size/2.f;
-		float c = cos(m_Particles[i].angle) * m_Particles[i].size/2.f;
-
-		(*attrAxis)[0] = c;
-		(*attrAxis)[1] = s;
-		++attrAxis;
-		(*attrAxis)[0] = s;
-		(*attrAxis)[1] = -c;
-		++attrAxis;
-		(*attrAxis)[0] = -c;
-		(*attrAxis)[1] = -s;
-		++attrAxis;
-		(*attrAxis)[0] = -s;
-		(*attrAxis)[1] = c;
-		++attrAxis;
-
-		(*attrUV)[0] = 1;
-		(*attrUV)[1] = 0;
-		++attrUV;
-		(*attrUV)[0] = 0;
-		(*attrUV)[1] = 0;
-		++attrUV;
-		(*attrUV)[0] = 0;
-		(*attrUV)[1] = 1;
-		++attrUV;
-		(*attrUV)[0] = 1;
-		(*attrUV)[1] = 1;
-		++attrUV;
-
-		SColor4ub color = m_Particles[i].color;
-
-		// Special case: If the blending depends on the source color, not the source alpha,
-		// then pre-multiply by the alpha. (This is kind of a hack.)
-		if (m_Type->m_BlendMode == CParticleEmitterType::BlendMode::OVERLAY ||
-			m_Type->m_BlendMode == CParticleEmitterType::BlendMode::MULTIPLY)
+		switch (m_Type->m_SortMode)
 		{
-			color.R = (color.R * color.A) / 255;
-			color.G = (color.G * color.A) / 255;
-			color.B = (color.B * color.A) / 255;
+		case CParticleEmitterType::SortMode::YOUNGEST_IN_FRONT:
+			std::sort(sortedParticles.begin(), sortedParticles.end(), ParticleYoungestInFrontCompare{});
+			break;
+		case CParticleEmitterType::SortMode::OLDEST_IN_FRONT:
+			std::sort(sortedParticles.begin(), sortedParticles.end(), ParticleOldestInFrontCompare{});
+			break;
+		case CParticleEmitterType::SortMode::CLOSEST_IN_FRONT:
+			std::sort(sortedParticles.begin(), sortedParticles.end(), ParticleClosestInFrontCompare{
+				g_Renderer.GetSceneRenderer().GetViewCamera().GetOrientation().GetIn()});
+			break;
+		default:
+			break;
 		}
+	}
 
-		*attrColor++ = color;
-		*attrColor++ = color;
-		*attrColor++ = color;
-		*attrColor++ = color;
+	m_NumberOfVisibleParticles = 0;
+
+	const std::span<SParticle> particles{
+		m_Type->m_SortMode == CParticleEmitterType::SortMode::UNSPECIFIED ?
+			std::span<SParticle>{m_Particles} : std::span<SParticle>{sortedParticles}};
+
+	if (m_UseInstancing)
+	{
+		for (const SParticle& particle : particles)
+		{
+			if (particle.age > particle.maxAge || particle.color.A == 0)
+				continue;
+
+			++m_NumberOfVisibleParticles;
+
+			bounds += particle.pos;
+
+			*attrPos++ = particle.pos;
+
+			SColor4ub color{particle.color};
+
+			// Special case: If the blending depends on the source color, not the source alpha,
+			// then pre-multiply by the alpha. (This is kind of a hack.)
+			if (m_Type->m_BlendMode == CParticleEmitterType::BlendMode::OVERLAY ||
+				m_Type->m_BlendMode == CParticleEmitterType::BlendMode::MULTIPLY)
+			{
+				color.R = (color.R * color.A) / 255;
+				color.G = (color.G * color.A) / 255;
+				color.B = (color.B * color.A) / 255;
+			}
+
+			*attrColor++ = color;
+
+			const CVector4D axisXAndSize{
+				particle.axisX.X, particle.axisX.Y, particle.axisX.Z, particle.size};
+			const CVector4D axisYAndAngle{
+				particle.axisY.X, particle.axisY.Y, particle.axisY.Z, particle.angle};
+
+			*attrAxisX++ = axisXAndSize;
+			*attrAxisY++ = axisYAndAngle;
+		}
+	}
+	else
+	{
+		for (const SParticle& particle : particles)
+		{
+			if (particle.age > particle.maxAge || particle.color.A == 0)
+				continue;
+
+			++m_NumberOfVisibleParticles;
+
+			bounds += particle.pos;
+
+			*attrPos++ = particle.pos;
+			*attrPos++ = particle.pos;
+			*attrPos++ = particle.pos;
+			*attrPos++ = particle.pos;
+
+			SColor4ub color{particle.color};
+
+			// Special case: If the blending depends on the source color, not the source alpha,
+			// then pre-multiply by the alpha. (This is kind of a hack.)
+			if (m_Type->m_BlendMode == CParticleEmitterType::BlendMode::OVERLAY ||
+				m_Type->m_BlendMode == CParticleEmitterType::BlendMode::MULTIPLY)
+			{
+				color.R = (color.R * color.A) / 255;
+				color.G = (color.G * color.A) / 255;
+				color.B = (color.B * color.A) / 255;
+			}
+
+			*attrColor++ = color;
+			*attrColor++ = color;
+			*attrColor++ = color;
+			*attrColor++ = color;
+
+			const CVector4D axisXAndSize{
+				particle.axisX.X, particle.axisX.Y, particle.axisX.Z, particle.size};
+			const CVector4D axisYAndAngle{
+				particle.axisY.X, particle.axisY.Y, particle.axisY.Z, particle.angle};
+
+			*attrAxisX++ = axisXAndSize;
+			*attrAxisX++ = axisXAndSize;
+			*attrAxisX++ = axisXAndSize;
+			*attrAxisX++ = axisXAndSize;
+
+			*attrAxisY++ = axisYAndAngle;
+			*attrAxisY++ = axisYAndAngle;
+			*attrAxisY++ = axisYAndAngle;
+			*attrAxisY++ = axisYAndAngle;
+		}
 	}
 
 	m_ParticleBounds = bounds;
@@ -190,12 +325,14 @@ void CParticleEmitter::UpdateArrayData(int frameNumber)
 void CParticleEmitter::PrepareForRendering()
 {
 	m_VertexArray.PrepareForRendering();
+	m_VertexUVArray.PrepareForRendering();
 }
 
 void CParticleEmitter::UploadData(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
 	m_VertexArray.UploadIfNeeded(deviceCommandContext);
+	m_VertexUVArray.UploadIfNeeded(deviceCommandContext);
 }
 
 void CParticleEmitter::Bind(
@@ -211,14 +348,7 @@ void CParticleEmitter::Bind(
 		shader->GetBindingSlot(str_losTransform),
 		los.GetTextureMatrix()[0], los.GetTextureMatrix()[12]);
 
-	const CLightEnv& lightEnv = g_Renderer.GetSceneRenderer().GetLightEnv();
-
-	deviceCommandContext->SetUniform(
-		shader->GetBindingSlot(str_sunColor), lightEnv.m_SunColor.AsFloatArray());
-	deviceCommandContext->SetUniform(
-		shader->GetBindingSlot(str_fogColor), lightEnv.m_FogColor.AsFloatArray());
-	deviceCommandContext->SetUniform(
-		shader->GetBindingSlot(str_fogParams), lightEnv.m_FogFactor, lightEnv.m_FogMax);
+	g_Renderer.GetSceneRenderer().GetLightEnv().Bind(deviceCommandContext, shader);
 
 	deviceCommandContext->SetTexture(
 		shader->GetBindingSlot(str_baseTex), m_Type->m_Texture->GetBackendTexture());
@@ -227,7 +357,7 @@ void CParticleEmitter::Bind(
 void CParticleEmitter::RenderArray(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
-	if (m_Particles.empty())
+	if (m_NumberOfVisibleParticles == 0)
 		return;
 
 	const uint32_t stride = m_VertexArray.GetStride();
@@ -236,19 +366,19 @@ void CParticleEmitter::RenderArray(
 	deviceCommandContext->SetVertexInputLayout(m_VertexInputLayout);
 
 	deviceCommandContext->SetVertexBuffer(
-		0, m_VertexArray.GetBuffer(), firstVertexOffset);
+		0, m_VertexUVArray.GetBuffer(),
+		m_VertexUVArray.GetStride() * m_VertexUVArray.GetOffset());
+	deviceCommandContext->SetVertexBuffer(
+		1, m_VertexArray.GetBuffer(), firstVertexOffset);
 	deviceCommandContext->SetIndexBuffer(m_IndexArray.GetBuffer());
 
-	deviceCommandContext->DrawIndexed(m_IndexArray.GetOffset(), m_Particles.size() * 6, 0);
+	if (m_UseInstancing)
+		deviceCommandContext->DrawIndexedInstanced(m_IndexArray.GetOffset(), 6, 0, m_NumberOfVisibleParticles, 0);
+	else
+		deviceCommandContext->DrawIndexed(m_IndexArray.GetOffset(), m_NumberOfVisibleParticles * 6, 0);
 
 	g_Renderer.GetStats().m_DrawCalls++;
-	g_Renderer.GetStats().m_Particles += m_Particles.size();
-}
-
-void CParticleEmitter::Unattach(const CParticleEmitterPtr& self)
-{
-	m_Active = false;
-	m_Type->m_Manager.AddUnattachedEmitter(self);
+	g_Renderer.GetStats().m_Particles += m_NumberOfVisibleParticles;
 }
 
 void CParticleEmitter::AddParticle(const SParticle& particle)
@@ -274,7 +404,7 @@ CModelParticleEmitter::CModelParticleEmitter(const CParticleEmitterTypePtr& type
 
 CModelParticleEmitter::~CModelParticleEmitter()
 {
-	m_Emitter->Unattach(m_Emitter);
+	m_Type->m_Manager.AddUnattachedEmitter(std::move(m_Emitter));
 }
 
 void CModelParticleEmitter::SetEntityVariable(const std::string& name, float value)

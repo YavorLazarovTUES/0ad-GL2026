@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,14 +19,27 @@
 
 #include "JSInterface_ModIo.h"
 
+#include "lib/debug.h"
+#include "lib/types.h"
 #include "ps/CLogger.h"
 #include "ps/ModIo.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/Object.h"
+#include "scriptinterface/Request.h"
+
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <map>
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace JS { class CallArgs; }
 
 namespace JSI_ModIo
 {
-ModIo* ModIoGetter(const ScriptRequest&, JS::CallArgs&)
+ModIo* ModIoGetter(const Script::Request&, JS::CallArgs&)
 {
 	if (!g_ModIo)
 	{
@@ -47,7 +60,7 @@ void StartGetGameId()
 }
 
 // TODO: could provide a FromJSVal for ModIoModData
-JS::Value GetMods(const ScriptRequest& rq)
+JS::Value GetMods(const Script::Request& rq)
 {
 	if (!g_ModIo)
 	{
@@ -57,10 +70,10 @@ JS::Value GetMods(const ScriptRequest& rq)
 
 	const std::vector<ModIoModData>& availableMods = g_ModIo->GetMods();
 
-	JS::RootedValue mods(rq.cx);
-	Script::CreateArray(rq, &mods, availableMods.size());
+	JS::RootedValueVector mods{rq.cx};
+	if (!mods.reserve(availableMods.size()))
+		throw std::runtime_error{"Reserve failed"};
 
-	u32 i = 0;
 	for (const ModIoModData& mod : availableMods)
 	{
 		JS::RootedValue m(rq.cx);
@@ -70,10 +83,11 @@ JS::Value GetMods(const ScriptRequest& rq)
 			Script::SetProperty(rq, m, prop.first.c_str(), prop.second, true);
 
 		Script::SetProperty(rq, m, "dependencies", mod.dependencies, true);
-		Script::SetPropertyInt(rq, mods, i++, m);
+		if (!mods.append(m))
+			throw std::runtime_error{"Append failed"};
 	}
 
-	return mods;
+	return JS::ObjectValue(*JS::NewArrayObject(rq.cx, mods));
 }
 
 const std::map<DownloadProgressStatus, std::string> statusStrings = {
@@ -91,7 +105,7 @@ const std::map<DownloadProgressStatus, std::string> statusStrings = {
 };
 
 // TODO: could provide a FromJSVal for DownloadProgressData
-JS::Value GetDownloadProgress(const ScriptRequest& rq)
+JS::Value GetDownloadProgress(const Script::Request& rq)
 {
 	if (!g_ModIo)
 	{
@@ -111,14 +125,14 @@ JS::Value GetDownloadProgress(const ScriptRequest& rq)
 	return progressData;
 }
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
-	ScriptFunction::Register<&StartGetGameId>(rq, "ModIoStartGetGameId");
-	ScriptFunction::Register<&ModIo::StartListMods, &ModIoGetter>(rq, "ModIoStartListMods");
-	ScriptFunction::Register<&ModIo::StartDownloadMod, &ModIoGetter>(rq, "ModIoStartDownloadMod");
-	ScriptFunction::Register<&ModIo::AdvanceRequest, &ModIoGetter>(rq, "ModIoAdvanceRequest");
-	ScriptFunction::Register<&ModIo::CancelRequest, &ModIoGetter>(rq, "ModIoCancelRequest");
-	ScriptFunction::Register<&GetMods>(rq, "ModIoGetMods");
-	ScriptFunction::Register<&GetDownloadProgress>(rq, "ModIoGetDownloadProgress");
+	Script::Function::Register<&StartGetGameId>(rq, "ModIoStartGetGameId");
+	Script::Function::Register<&ModIo::StartListMods, &ModIoGetter>(rq, "ModIoStartListMods");
+	Script::Function::Register<&ModIo::StartDownloadMod, &ModIoGetter>(rq, "ModIoStartDownloadMod");
+	Script::Function::Register<&ModIo::AdvanceRequest, &ModIoGetter>(rq, "ModIoAdvanceRequest");
+	Script::Function::Register<&ModIo::CancelRequest, &ModIoGetter>(rq, "ModIoCancelRequest");
+	Script::Function::Register<&GetMods>(rq, "ModIoGetMods");
+	Script::Function::Register<&GetDownloadProgress>(rq, "ModIoGetDownloadProgress");
 }
 }

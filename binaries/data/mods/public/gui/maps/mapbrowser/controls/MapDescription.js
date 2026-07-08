@@ -12,29 +12,20 @@ MapBrowserPageControls.prototype.MapDescription = class
 		this.mapBrowserSelectedPreview = Engine.GetGUIObjectByName("mapBrowserSelectedPreview");
 		this.mapBrowserSelectedDescription = Engine.GetGUIObjectByName("mapBrowserSelectedDescription");
 
-		let computedSize = this.mapBrowserSelectedPreview.getComputedSize();
-		let top = this.mapBrowserSelectedName.size.bottom;
-		let height = Math.floor((computedSize.right - computedSize.left) / this.ImageRatio);
+		const computedSize = this.mapBrowserSelectedPreview.getComputedSize();
+		const top = this.mapBrowserSelectedName.size.bottom;
+		const height = Math.floor((computedSize.right - computedSize.left) / this.ImageRatio);
 
-		{
-			let size = this.mapBrowserSelectedPreview.size;
-			size.top = top;
-			size.bottom = top + height;
-			this.mapBrowserSelectedPreview.size = size;
-		}
-
-		{
-			let size = this.mapBrowserSelectedDescription.size;
-			size.top = top + height + 10;
-			this.mapBrowserSelectedDescription.size = size;
-		}
+		this.mapBrowserSelectedPreview.size.top = top;
+		this.mapBrowserSelectedPreview.size.bottom = top + height;
+		this.mapBrowserSelectedDescription.size.top = top + height + 10;
 
 		gridBrowser.registerSelectionChangeHandler(this.onSelectionChange.bind(this));
 	}
 
 	onSelectionChange()
 	{
-		let map = this.gridBrowser.mapList[this.gridBrowser.selected];
+		const map = this.gridBrowser.mapList[this.gridBrowser.selected];
 		if (!map)
 			return;
 

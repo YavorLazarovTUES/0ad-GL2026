@@ -1,7 +1,7 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
 	setFogThickness(0.46);
 	setFogFactor(0.5);
@@ -63,8 +63,16 @@ function* GenerateMap()
 	const clFood = g_Map.createTileClass();
 	const clBaseResource = g_Map.createTileClass();
 
+	const { playerIDs, playerPosition } =
+		playerPlacementByPattern(
+			mapSettings.PlayerPlacement,
+			fractionToTiles(0.35),
+			fractionToTiles(0.1),
+			randomAngle(),
+			undefined);
+
 	placePlayerBases({
-		"PlayerPlacement": playerPlacementCircle(fractionToTiles(0.35)),
+		"PlayerPlacement": [playerIDs, playerPosition],
 		"PlayerTileClass": clPlayer,
 		"BaseResourceClass": clBaseResource,
 		"CityPatch": {
@@ -294,10 +302,10 @@ function* GenerateMap()
 			[new SimpleObject(oFish, 2, 3, 0, 2)]
 		],
 		[
-			15 * numPlayers
+			25 * numPlayers
 		],
 		[
-			avoidClasses(clFood, 20),
+			avoidClasses(clFood, 10),
 			stayClasses(clWater, 6)
 		],
 		clFood);

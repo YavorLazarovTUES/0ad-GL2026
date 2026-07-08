@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,8 +21,12 @@
 #include "simulation2/system/IComponent.h"
 
 #define DECLARE_INTERFACE_TYPE(iname) \
-	virtual bool NewJSObject(const ScriptInterface& scriptInterface, JS::MutableHandleObject out) const; \
-	static void InterfaceInit(ScriptInterface& scriptInterface); \
-	static EInterfaceId GetInterfaceId() { return IID_##iname; }
+	virtual JS::HandleValue GetJSInstance() const; \
+	static void InterfaceInit(Script::Interface& scriptInterface); \
+	static EInterfaceId GetInterfaceId() { return IID_##iname; } \
+private: \
+	virtual bool NewJSObject(const Script::Interface& scriptInterface, JS::MutableHandleObject out) const; \
+	mutable JS::Heap<JS::Value> m_CachedInstance; \
+public:
 
 #endif // INCLUDED_INTERFACE

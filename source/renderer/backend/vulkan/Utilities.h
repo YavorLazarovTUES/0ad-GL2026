@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,9 +18,14 @@
 #ifndef INCLUDED_RENDERER_BACKEND_VULKAN_UTILITIES
 #define INCLUDED_RENDERER_BACKEND_VULKAN_UTILITIES
 
-#include "ps/CStr.h"
+#include "lib/debug.h"
+#include "ps/CLogger.h"
 
+#include <cstdint>
 #include <glad/vulkan.h>
+
+namespace Renderer::Backend::Vulkan { class CBuffer; }
+namespace Renderer::Backend::Vulkan { class CTexture; }
 
 #define ENSURE_VK_SUCCESS(EXPR) \
 	do \
@@ -33,6 +38,17 @@
 		} \
 	} while (0)
 
+#define RETURN_NULLPTR_IF_NOT_VK_SUCCESS(EXPR) \
+	do \
+	{ \
+		const VkResult result = (EXPR); \
+		if (result != VK_SUCCESS) \
+		{ \
+			LOGERROR(#EXPR " returned %d (%s) instead of VK_SUCCESS (%s:%d)", static_cast<int>(result), Utilities::GetVkResultName(result), __func__, __LINE__); \
+			return nullptr; \
+		} \
+	} while (0)
+
 namespace Renderer
 {
 
@@ -41,9 +57,6 @@ namespace Backend
 
 namespace Vulkan
 {
-
-class CBuffer;
-class CTexture;
 
 namespace Utilities
 {

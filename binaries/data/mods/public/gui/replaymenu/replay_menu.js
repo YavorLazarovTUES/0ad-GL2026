@@ -58,12 +58,13 @@ var g_MapCache = new MapCache();
 /**
  * Initializes globals, loads replays and displays the list.
  */
-function init(data)
+async function init(data)
 {
 	if (!g_Settings)
 	{
-		Engine.SwitchGuiPage("page_pregame.xml");
-		return;
+		return { [Engine.openRequest]: {
+			"page": "page_pregame.xml"
+		} };
 	}
 
 	g_SummarySelection = data && data.summarySelection;
@@ -72,12 +73,23 @@ function init(data)
 
 	if (!g_Replays)
 	{
-		Engine.SwitchGuiPage("page_pregame.xml");
-		return;
+		return { [Engine.openRequest]: {
+			"page": "page_pregame.xml"
+		} };
 	}
-
+	registerGlobalGuiPageHotkeys(["options", "hotkeys", "civinfo", "structree", "catafalque", "mapbrowser", "manual", "tips"]);
 	initHotkeyTooltips();
 	displayReplayList();
+
+	const closePromise = new Promise(closePageCallback =>
+	{
+		Engine.GetGUIObjectByName("mainMenu").onPress = closePageCallback.bind(undefined, {
+			"page": "page_pregame.xml"
+		});
+	});
+
+	const ret = await Promise.race([ closePromise, startReplayHandler(), showReplaySummary() ]);
+	return { [Engine.openRequest]: ret };
 }
 
 /**
@@ -96,7 +108,7 @@ function loadReplays(replaySelectionData, compareFiles)
 		return;
 
 	g_Playernames = [];
-	for (let replay of g_Replays)
+	for (const replay of g_Replays)
 	{
 		let nonAIPlayers = 0;
 
@@ -110,14 +122,14 @@ function loadReplays(replaySelectionData, compareFiles)
 			g_MapNames.push(replay.attribs.settings.mapName);
 
 		// Extract playernames
-		for (let playerData of replay.attribs.settings.PlayerData)
+		for (const playerData of replay.attribs.settings.PlayerData)
 		{
 			if (!playerData || playerData.AI)
 				continue;
 
 			// Remove rating from nick
 			let playername = playerData.Name;
-			let ratingStart = playername.indexOf(" (");
+			const ratingStart = playername.indexOf(" (");
 			if (ratingStart != -1)
 				playername = playername.substr(0, ratingStart);
 
@@ -147,7 +159,7 @@ function loadReplays(replaySelectionData, compareFiles)
 		if (replaySelectionData.directory)
 			g_SelectedReplayDirectory = replaySelectionData.directory;
 
-		let replaySelection = Engine.GetGUIObjectByName("replaySelection");
+		const replaySelection = Engine.GetGUIObjectByName("replaySelection");
 		if (replaySelectionData.column)
 			replaySelection.selected_column = replaySelectionData.column;
 		if (replaySelectionData.columnOrder)
@@ -174,8 +186,13 @@ function sanitizeInitAttributes(attribs)
 	if (!attribs.settings.PlayerData)
 		attribs.settings.PlayerData = [];
 
-	if (!attribs.settings.PopulationCap)
-		attribs.settings.PopulationCap = 300;
+	attribs.settings.PopulationCap ??= Infinity;
+
+	if (!attribs.settings.PopulationCapType)
+		attribs.settings.PopulationCapType =
+			attribs.settings.WorldPopulation ?
+				"world" :
+				"player";
 
 	if (!attribs.mapType)
 		attribs.mapType = "skirmish";
@@ -184,7 +201,8 @@ function sanitizeInitAttributes(attribs)
 	if (attribs.settings.PlayerData.length && attribs.settings.PlayerData[0] == null)
 		attribs.settings.PlayerData.shift();
 
-	attribs.settings.PlayerData.forEach((pData, index) => {
+	attribs.settings.PlayerData.forEach((pData, index) =>
+	{
 		if (!pData.Name)
 			pData.Name = "";
 	});
@@ -223,12 +241,13 @@ function displayReplayList()
 
 	filterReplays();
 
-	var list = g_ReplaysFiltered.map(replay => {
-		let works = replay.isCompatible;
+	var list = g_ReplaysFiltered.map(replay =>
+	{
+		const works = replay.isCompatible;
 		return {
 			"directories": replay.directory,
 			"months": compatibilityColor(getReplayDateTime(replay), works),
-			"popCaps": compatibilityColor(translatePopulationCapacity(replay.attribs.settings.PopulationCap, !!replay.attribs.settings.WorldPopulation), works),
+			"popCaps": compatibilityColor(translatePopulationCapacity(replay.attribs.settings.PopulationCap, replay.attribs.settings.PopulationCapType), works),
 			"mapNames": compatibilityColor(getReplayMapName(replay), works),
 			"mapSizes": compatibilityColor(translateMapSize(replay.attribs.settings.Size), works),
 			"durations": compatibilityColor(getReplayDuration(replay), works),
@@ -262,8 +281,8 @@ function displayReplayList()
  */
 function displayReplayDetails()
 {
-	let selected = Engine.GetGUIObjectByName("replaySelection").selected;
-	let replaySelected = selected > -1;
+	const selected = Engine.GetGUIObjectByName("replaySelection").selected;
+	const replaySelected = selected > -1;
 
 	Engine.GetGUIObjectByName("replayInfo").hidden = !replaySelected;
 	Engine.GetGUIObjectByName("replayInfoEmpty").hidden = replaySelected;
@@ -275,7 +294,7 @@ function displayReplayDetails()
 	if (!replaySelected)
 		return;
 
-	let replay = g_ReplaysFiltered[selected];
+	const replay = g_ReplaysFiltered[selected];
 
 	Engine.GetGUIObjectByName("sgMapName").caption = translate(replay.attribs.settings.mapName);
 	Engine.GetGUIObjectByName("sgMapSize").caption = translateMapSize(replay.attribs.settings.Size);
@@ -286,7 +305,7 @@ function displayReplayDetails()
 		{ "numberOfPlayers": replay.attribs.settings.PlayerData.length });
 	Engine.GetGUIObjectByName("replayFilename").caption = Engine.GetReplayDirectoryName(replay.directory);
 
-	let metadata = Engine.GetReplayMetadata(replay.directory);
+	const metadata = Engine.GetReplayMetadata(replay.directory);
 	Engine.GetGUIObjectByName("sgPlayersNames").caption =
 		formatPlayerInfo(
 			replay.attribs.settings.PlayerData,
@@ -354,13 +373,13 @@ function getReplayDuration(replay)
  */
 function isReplayCompatible(replay)
 {
-	return replayHasSameEngineVersion(replay) && hasSameMods(replay.attribs.mods, g_EngineInfo.mods);
+	return replayHasCompatibleEngineVersion(replay) && hasSameMods(replay.attribs.mods, g_EngineInfo.mods);
 }
 
 /**
  * True if we can start the given replay with the currently loaded mods.
  */
-function replayHasSameEngineVersion(replay)
+function replayHasCompatibleEngineVersion(replay)
 {
-	return replay.attribs.engine_version && replay.attribs.engine_version == g_EngineInfo.engine_version;
+	return replay.attribs.engine_serialization_version && replay.attribs.engine_serialization_version == g_EngineInfo.engine_serialization_version;
 }

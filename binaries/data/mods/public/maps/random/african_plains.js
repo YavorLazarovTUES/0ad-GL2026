@@ -2,13 +2,9 @@ Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap(mapSettings)
+export function* generateMap(mapSettings)
 {
-	if (mapSettings.Biome)
-		setSelectedBiome();
-	else
-		setBiome("generic/savanna");
-
+	setBiome(mapSettings.Biome);
 
 	// Pick some biome defaults and overload a few settings.
 	const tPrimary = g_Terrains.mainTerrain;
@@ -74,8 +70,16 @@ function* GenerateMap(mapSettings)
 	const clFood = g_Map.createTileClass();
 	const clBaseResource = g_Map.createTileClass();
 
+	const { playerIDs, playerPosition } =
+		playerPlacementByPattern(
+			mapSettings.PlayerPlacement,
+			fractionToTiles(0.35),
+			fractionToTiles(0.1),
+			randomAngle(),
+			undefined);
+
 	placePlayerBases({
-		"PlayerPlacement": playerPlacementCircle(fractionToTiles(0.35)),
+		"PlayerPlacement": [playerIDs, playerPosition],
 		"PlayerTileClass": clPlayer,
 		"BaseResourceClass": clBaseResource,
 		"CityPatch": {

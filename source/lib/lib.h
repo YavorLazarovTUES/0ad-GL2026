@@ -1,4 +1,4 @@
-/* Copyright (C) 2019 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -59,6 +59,9 @@ scope
 
 #ifndef INCLUDED_LIB
 #define INCLUDED_LIB
+
+#include "lib/debug.h"
+#include "lib/types.h"
 
 #include <cmath>	// fabsf
 #include <limits>	// numeric_limits

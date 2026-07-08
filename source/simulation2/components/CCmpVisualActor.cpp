@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,39 +17,57 @@
 
 #include "precompiled.h"
 
-#include "simulation2/system/Component.h"
 #include "ICmpVisual.h"
 
-#include "simulation2/MessageTypes.h"
-#include "simulation2/serialization/SerializedTypes.h"
-
-#include "ICmpFootprint.h"
-#include "ICmpIdentity.h"
-#include "ICmpMirage.h"
-#include "ICmpOwnership.h"
-#include "ICmpPosition.h"
-#include "ICmpTemplateManager.h"
-#include "ICmpTerrain.h"
-#include "ICmpUnitMotion.h"
-#include "ICmpUnitRenderer.h"
-#include "ICmpValueModificationManager.h"
-#include "ICmpVisibility.h"
-#include "ICmpSound.h"
-
+#include "graphics/Color.h"
 #include "graphics/Decal.h"
 #include "graphics/Model.h"
+#include "graphics/ModelAbstract.h"
 #include "graphics/ObjectBase.h"
 #include "graphics/ObjectEntry.h"
 #include "graphics/Unit.h"
 #include "graphics/UnitAnimation.h"
 #include "graphics/UnitManager.h"
+#include "lib/debug.h"
+#include "lib/path.h"
+#include "lib/types.h"
+#include "lib/utf8.h"
+#include "maths/BoundingBoxAligned.h"
+#include "maths/BoundingBoxOriented.h"
 #include "maths/BoundingSphere.h"
-#include "maths/Frustum.h"
+#include "maths/Fixed.h"
+#include "maths/FixedVector3D.h"
 #include "maths/Matrix3D.h"
 #include "maths/Vector3D.h"
 #include "ps/CLogger.h"
-#include "ps/GameSetup/Config.h"
-#include "renderer/Scene.h"
+#include "ps/CStr.h"
+#include "ps/algorithm.h"
+#include "simulation2/MessageTypes.h"
+#include "simulation2/components/ICmpFootprint.h"
+#include "simulation2/components/ICmpIdentity.h"
+#include "simulation2/components/ICmpMirage.h"
+#include "simulation2/components/ICmpOwnership.h"
+#include "simulation2/components/ICmpPosition.h"
+#include "simulation2/components/ICmpSound.h"
+#include "simulation2/components/ICmpTemplateManager.h"
+#include "simulation2/components/ICmpUnitRenderer.h"
+#include "simulation2/components/ICmpValueModificationManager.h"
+#include "simulation2/components/ICmpVisibility.h"
+#include "simulation2/helpers/Player.h"
+#include "simulation2/helpers/Position.h"
+#include "simulation2/serialization/SerializeTemplates.h"
+#include "simulation2/serialization/SerializedTypes.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Interface.h"
+#include "simulation2/system/Message.h"
+
+#include <cstddef>
+#include <js/Value.h>
+#include <map>
+#include <memory>
+#include <string>
+#include <utility>
 
 class CCmpVisualActor final : public ICmpVisual
 {
@@ -95,7 +113,8 @@ private:
 
 	bool m_SilhouetteDisplay;
 	bool m_SilhouetteOccluder;
-	bool m_DisableShadows;
+	bool m_ShadowsCast;
+	bool m_ShadowsReceive;
 
 	ICmpUnitRenderer::tag_t m_ModelTag;
 
@@ -126,11 +145,6 @@ public:
 			"</optional>"
 			"<optional>"
 				"<element name='ConstructionPreview' a:help='If present, the unit should have a construction preview'>"
-					"<empty/>"
-				"</element>"
-			"</optional>"
-			"<optional>"
-				"<element name='DisableShadows' a:help='Used internally; if present, shadows will be disabled'>"
 					"<empty/>"
 				"</element>"
 			"</optional>"
@@ -188,7 +202,23 @@ public:
 			"</optional>"
 			"<element name='VisibleInAtlasOnly'>"
 				"<data type='boolean'/>"
-			"</element>";
+			"</element>"
+			"<optional>"
+				"<element name='ShadowsCast'>"
+					"<a:help>If true (default), the entity will cast dynamic shadows onto the environment. "
+					"Set to false to avoid unnecessary shadow computation for objects that do not need to affect scene lighting, "
+					"such as transparent effects, previews, or decorative visuals.</a:help>"
+					"<data type='boolean'/>"
+				"</element>"
+			"</optional>"
+			"<optional>"
+				"<element name='ShadowsReceive'>"
+					"<a:help>If true (default), the entity will receive dynamic shadows from other objects. "
+					"Set to false if the object should appear fully lit regardless of surrounding shadows, which can be useful "
+					"for performance tuning or effects that simulate glowing or volumetric visuals.</a:help>"
+					"<data type='boolean'/>"
+				"</element>"
+			"</optional>";
 	}
 
 	void Init(const CParamNode& paramNode) override
@@ -210,7 +240,9 @@ public:
 
 		m_SilhouetteDisplay = paramNode.GetChild("SilhouetteDisplay").ToBool();
 		m_SilhouetteOccluder = paramNode.GetChild("SilhouetteOccluder").ToBool();
-		m_DisableShadows = paramNode.GetChild("DisableShadows").ToBool();
+
+		m_ShadowsCast = m_VisibleInAtlasOnly ? false : (paramNode.GetChild("ShadowsCast").IsOk() ? paramNode.GetChild("ShadowsCast").ToBool() : true);
+		m_ShadowsReceive = m_VisibleInAtlasOnly ? false : (paramNode.GetChild("ShadowsReceive").IsOk() ? paramNode.GetChild("ShadowsReceive").ToBool() : true);
 
 		// Initialize the model's selection shape descriptor. This currently relies on the component initialization order; the
 		// Footprint component must be initialized before this component (VisualActor) to support the ability to use the footprint
@@ -288,7 +320,7 @@ public:
 		}
 	}
 
-	void HandleMessage(const CMessage& msg, bool UNUSED(global)) override
+	void HandleMessage(const CMessage& msg, bool /*global*/) override
 	{
 		switch (msg.GetType())
 		{
@@ -450,7 +482,7 @@ public:
 		if (!m_Unit || !m_Unit->GetAnimation() || !m_Unit->GetID())
 			return;
 
-		m_Unit->GetAnimation()->SetAnimationState(m_AnimName, m_AnimOnce, m_AnimSpeed.ToFloat(), m_AnimDesync.ToFloat(), m_SoundGroup.c_str());	
+		m_Unit->GetAnimation()->SetAnimationState(m_AnimName, m_AnimOnce, m_AnimSpeed.ToFloat(), m_AnimDesync.ToFloat(), m_SoundGroup.c_str());
 	}
 
 	void SelectMovementAnimation(const std::string& name, fixed speed) override
@@ -479,12 +511,12 @@ public:
 			m_Unit->GetAnimation()->SetAnimationSyncOffset(m_AnimSyncOffsetTime.ToFloat());
 	}
 
-	void SetShadingColor(fixed r, fixed g, fixed b, fixed a) override
+	// TODO: Why is `a` even an argument?
+	void SetShadingColor(fixed r, fixed g, fixed b, fixed /*a*/) override
 	{
 		m_R = r;
 		m_G = g;
 		m_B = b;
-		UNUSED2(a); // TODO: why is this even an argument?
 
 		if (m_Unit)
 		{
@@ -546,7 +578,7 @@ public:
 	}
 
 private:
-	// Replace {phenotype} with the correct value in m_ActorName
+	// Replace {phenotype} and {civ} with the correct value in m_ActorName
 	void ParseActorName(std::wstring base);
 
 	/// Helper function shared by component init and actor reloading
@@ -569,18 +601,13 @@ REGISTER_COMPONENT_TYPE(VisualActor)
 void CCmpVisualActor::ParseActorName(std::wstring base)
 {
 	CmpPtr<ICmpIdentity> cmpIdentity(GetEntityHandle());
-	const std::wstring pattern = L"{phenotype}";
 	if (cmpIdentity)
 	{
-		size_t pos = base.find(pattern);
-		while (pos != std::string::npos)
-		{
-			base.replace(pos, pattern.size(),  cmpIdentity->GetPhenotype());
-			pos = base.find(pattern, pos + pattern.size());
-		}
+		PS::ReplaceSubrange(base, L"{phenotype}", cmpIdentity->GetPhenotype());
+		PS::ReplaceSubrange(base, L"{civ}", cmpIdentity->GetCiv());
 	}
 
-	m_ActorName = base;
+	m_ActorName = std::move(base);
 }
 
 void CCmpVisualActor::InitModel()
@@ -613,18 +640,26 @@ void CCmpVisualActor::InitModel()
 		model.ToCModel()->AddFlagsRec(modelFlags);
 	}
 
-	if (m_DisableShadows)
+	if (!m_ShadowsCast && model.ToCModel())
+		model.ToCModel()->RemoveShadowsCast();
+
+	if (!m_ShadowsReceive)
 	{
 		if (model.ToCModel())
-			model.ToCModel()->RemoveShadowsRec();
+			model.ToCModel()->RemoveShadowsReceive();
 		else if (model.ToCModelDecal())
-			model.ToCModelDecal()->RemoveShadows();
+			model.ToCModelDecal()->RemoveShadowsReceive();
 	}
 
+	CStr anchor =  m_Unit->GetObject().m_Base->m_Properties.m_AnchorType;
 	bool floating = m_Unit->GetObject().m_Base->m_Properties.m_FloatOnWater;
 	CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
 	if (cmpPosition)
+	{
+		if (!anchor.empty())
+			cmpPosition->SetActorAnchor(anchor);
 		cmpPosition->SetActorFloating(floating);
+	}
 
 	if (!m_ModelTag.valid())
 	{

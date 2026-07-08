@@ -1,4 +1,4 @@
-/* Copyright (C) 2010 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -25,21 +25,25 @@
  */
 
 #include "precompiled.h"
-#include "lib/sysdep/os/win/wposix/wposix.h"
 
-#include "lib/sysdep/os/win/wposix/wposix_internal.h"
-#include "lib/bits.h"
+#include "wposix.h"
+
+#include "lib/sysdep/os/win/win.h"
+
+#include <cerrno>
+#include <cstdlib>
+#include <cstring>
 
 
 int setenv(const char* envname, const char* envval, int overwrite)
 {
-	if(!envname || envname[0] == '\0' || strchr(envname, '='))
+	if(!envname || envname[0] == '\0' || std::strchr(envname, '='))
 	{
 		errno = EINVAL;
 		return -1;
 	}
 
-	if(overwrite || !getenv(envname))
+	if(overwrite || !std::getenv(envname))
 		SetEnvironmentVariableA(envname, envval);
 
 	return 0;

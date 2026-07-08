@@ -60,20 +60,21 @@ class testResistance
 	{
 		this.Reset();
 
-		let damage = 5;
-		let attackData = { "Damage": { "Name": damage } };
-		let attackType = "Test";
+		const damage = 5;
+		const attackData = { "Damage": { "Name": damage } };
+		const attackType = "Test";
 
 		TS_ASSERT(!this.cmpResistance.IsInvulnerable());
 
-		let cmpHealth = AddMock(this.EntityID, IID_Health, {
-			"TakeDamage": (amount, __, ___) => {
+		const cmpHealth = AddMock(this.EntityID, IID_Health, {
+			"TakeDamage": (amount, __, ___) =>
+			{
 				TS_ASSERT_EQUALS(amount, damage);
 				return { "healthChange": -amount };
 			}
 		});
-		let spy = new Spy(cmpHealth, "TakeDamage");
-		let data = {
+		const spy = new Spy(cmpHealth, "TakeDamage");
+		const data = {
 			"type": attackType,
 			"attackData": attackData,
 			"attacker": this.AttackerID,
@@ -94,10 +95,10 @@ class testResistance
 	{
 		this.Reset();
 
-		let damage = 5;
-		let bonus = 2;
-		let classes = "Entity";
-		let attackData = {
+		const damage = 5;
+		const bonus = 2;
+		const classes = "Entity";
+		const attackData = {
 			"Damage": { "Name": damage },
 			"Bonuses": {
 				"bonus": {
@@ -112,13 +113,14 @@ class testResistance
 			"GetCiv": () => "civ"
 		});
 
-		let cmpHealth = AddMock(this.EntityID, IID_Health, {
-			"TakeDamage": (amount, __, ___) => {
+		const cmpHealth = AddMock(this.EntityID, IID_Health, {
+			"TakeDamage": (amount, __, ___) =>
+			{
 				TS_ASSERT_EQUALS(amount, damage * bonus);
 				return { "healthChange": -amount };
 			}
 		});
-		let spy = new Spy(cmpHealth, "TakeDamage");
+		const spy = new Spy(cmpHealth, "TakeDamage");
 
 		AttackHelper.HandleAttackEffects(this.EntityID, {
 			"type": "Test",
@@ -131,8 +133,8 @@ class testResistance
 
 	TestDamageResistanceApplies()
 	{
-		let resistanceValue = 2;
-		let damageType = "Name";
+		const resistanceValue = 2;
+		const damageType = "Name";
 		this.Reset({
 			"Entity": {
 				"Damage": {
@@ -141,18 +143,19 @@ class testResistance
 			}
 		});
 
-		let damage = 5;
-		let attackData = {
+		const damage = 5;
+		const attackData = {
 			"Damage": { "Name": damage }
 		};
 
-		let cmpHealth = AddMock(this.EntityID, IID_Health, {
-			"TakeDamage": (amount, __, ___) => {
+		const cmpHealth = AddMock(this.EntityID, IID_Health, {
+			"TakeDamage": (amount, __, ___) =>
+			{
 				TS_ASSERT_EQUALS(amount, damage * Math.pow(0.9, resistanceValue));
 				return { "healthChange": -amount };
 			}
 		});
-		let spy = new Spy(cmpHealth, "TakeDamage");
+		const spy = new Spy(cmpHealth, "TakeDamage");
 
 		AttackHelper.HandleAttackEffects(this.EntityID, {
 			"type": "Test",
@@ -165,25 +168,26 @@ class testResistance
 
 	TestCaptureResistanceApplies()
 	{
-		let resistanceValue = 2;
+		const resistanceValue = 2;
 		this.Reset({
 			"Entity": {
 				"Capture": resistanceValue
 			}
 		});
 
-		let damage = 5;
-		let attackData = {
+		const damage = 5;
+		const attackData = {
 			"Capture": damage
 		};
 
-		let cmpCapturable = AddMock(this.EntityID, IID_Capturable, {
-			"Capture": (amount, __, ___) => {
+		const cmpCapturable = AddMock(this.EntityID, IID_Capturable, {
+			"Capture": (amount, __, ___) =>
+			{
 				TS_ASSERT_EQUALS(amount, damage * Math.pow(0.9, resistanceValue));
 				return { "captureChange": amount };
 			}
 		});
-		let spy = new Spy(cmpCapturable, "Capture");
+		const spy = new Spy(cmpCapturable, "Capture");
 
 		AttackHelper.HandleAttackEffects(this.EntityID, {
 			"type": "Test",
@@ -197,8 +201,8 @@ class testResistance
 	TestStatusEffectsResistancesApplies()
 	{
 		// Test duration reduction.
-		let durationFactor = 0.5;
-		let statusName = "statusName";
+		const durationFactor = 0.5;
+		const statusName = "statusName";
 		this.Reset({
 			"Entity": {
 				"ApplyStatus": {
@@ -209,7 +213,7 @@ class testResistance
 			}
 		});
 
-		let duration = 10;
+		const duration = 10;
 		let attackData = {
 			"ApplyStatus": {
 				[statusName]: {
@@ -219,7 +223,8 @@ class testResistance
 		};
 
 		let cmpStatusEffectsReceiver = AddMock(this.EntityID, IID_StatusEffectsReceiver, {
-			"ApplyStatus": (effectData, __, ___) => {
+			"ApplyStatus": (effectData, __, ___) =>
+			{
 				TS_ASSERT_EQUALS(effectData[statusName].Duration, duration * durationFactor);
 				return { "inflictedStatuses": Object.keys(effectData) };
 			}
@@ -246,7 +251,8 @@ class testResistance
 		});
 
 		cmpStatusEffectsReceiver = AddMock(this.EntityID, IID_StatusEffectsReceiver, {
-			"ApplyStatus": (effectData, __, ___) => {
+			"ApplyStatus": (effectData, __, ___) =>
+			{
 				TS_ASSERT_UNEVAL_EQUALS(effectData, {});
 				return { "inflictedStatuses": Object.keys(effectData) };
 			}
@@ -262,8 +268,8 @@ class testResistance
 		TS_ASSERT_EQUALS(spy._called, 1);
 
 		// Test multiple resistances.
-		let reducedStatusName = "reducedStatus";
-		let blockedStatusName = "blockedStatus";
+		const reducedStatusName = "reducedStatus";
+		const blockedStatusName = "blockedStatus";
 		this.Reset({
 			"Entity": {
 				"ApplyStatus": {
@@ -289,7 +295,8 @@ class testResistance
 		};
 
 		cmpStatusEffectsReceiver = AddMock(this.EntityID, IID_StatusEffectsReceiver, {
-			"ApplyStatus": (effectData, __, ___) => {
+			"ApplyStatus": (effectData, __, ___) =>
+			{
 				TS_ASSERT_EQUALS(effectData[reducedStatusName].Duration, duration * durationFactor);
 				TS_ASSERT_UNEVAL_EQUALS(Object.keys(effectData), [reducedStatusName]);
 				return { "inflictedStatuses": Object.keys(effectData) };
@@ -308,8 +315,8 @@ class testResistance
 
 	TestResistanceAndBonus()
 	{
-		let resistanceValue = 2;
-		let damageType = "Name";
+		const resistanceValue = 2;
+		const damageType = "Name";
 		this.Reset({
 			"Entity": {
 				"Damage": {
@@ -318,10 +325,10 @@ class testResistance
 			}
 		});
 
-		let damage = 5;
-		let bonus = 2;
-		let classes = "Entity";
-		let attackData = {
+		const damage = 5;
+		const bonus = 2;
+		const classes = "Entity";
+		const attackData = {
 			"Damage": { "Name": damage },
 			"Bonuses": {
 				"bonus": {
@@ -336,13 +343,14 @@ class testResistance
 			"GetCiv": () => "civ"
 		});
 
-		let cmpHealth = AddMock(this.EntityID, IID_Health, {
-			"TakeDamage": (amount, __, ___) => {
+		const cmpHealth = AddMock(this.EntityID, IID_Health, {
+			"TakeDamage": (amount, __, ___) =>
+			{
 				TS_ASSERT_EQUALS(amount, damage * bonus * Math.pow(0.9, resistanceValue));
 				return { "healthChange": -amount };
 			}
 		});
-		let spy = new Spy(cmpHealth, "TakeDamage");
+		const spy = new Spy(cmpHealth, "TakeDamage");
 
 		AttackHelper.HandleAttackEffects(this.EntityID, {
 			"type": "Test",
@@ -355,17 +363,17 @@ class testResistance
 
 	TestMultipleEffects()
 	{
-		let captureResistanceValue = 2;
+		const captureResistanceValue = 2;
 		this.Reset({
 			"Entity": {
 				"Capture": captureResistanceValue
 			}
 		});
 
-		let damage = 5;
-		let bonus = 2;
-		let classes = "Entity";
-		let attackData = {
+		const damage = 5;
+		const bonus = 2;
+		const classes = "Entity";
+		const attackData = {
 			"Damage": { "Name": damage },
 			"Capture": damage,
 			"Bonuses": {
@@ -381,22 +389,24 @@ class testResistance
 			"GetCiv": () => "civ"
 		});
 
-		let cmpCapturable = AddMock(this.EntityID, IID_Capturable, {
-			"Capture": (amount, __, ___) => {
+		const cmpCapturable = AddMock(this.EntityID, IID_Capturable, {
+			"Capture": (amount, __, ___) =>
+			{
 				TS_ASSERT_EQUALS(amount, damage * bonus * Math.pow(0.9, captureResistanceValue));
 				return { "captureChange": amount };
 			}
 		});
-		let cmpHealth = AddMock(this.EntityID, IID_Health, {
-			"TakeDamage": (amount, __, ___) => {
+		const cmpHealth = AddMock(this.EntityID, IID_Health, {
+			"TakeDamage": (amount, __, ___) =>
+			{
 				TS_ASSERT_EQUALS(amount, damage * bonus);
 				return { "healthChange": -amount };
 			},
 			"GetHitpoints": () => 1,
 			"GetMaxHitpoints": () => 1
 		});
-		let healthSpy = new Spy(cmpHealth, "TakeDamage");
-		let captureSpy = new Spy(cmpCapturable, "Capture");
+		const healthSpy = new Spy(cmpHealth, "TakeDamage");
+		const captureSpy = new Spy(cmpCapturable, "Capture");
 
 		AttackHelper.HandleAttackEffects(this.EntityID, {
 			"type": "Test",
@@ -409,7 +419,7 @@ class testResistance
 	}
 }
 
-let cmp = new testResistance();
+const cmp = new testResistance();
 cmp.TestInvulnerability();
 cmp.TestBonus();
 cmp.TestDamageResistanceApplies();

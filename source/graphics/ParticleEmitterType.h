@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,17 +19,20 @@
 #define INCLUDED_PARTICLEEMITTERTYPE
 
 #include "graphics/Texture.h"
+#include "lib/code_annotation.h"
 #include "lib/file/vfs/vfs_path.h"
+#include "lib/types.h"
 #include "maths/BoundingBoxAligned.h"
 
 #include <memory>
 #include <string>
+#include <vector>
 
-class CVector3D;
 class CParticleEmitter;
 class CParticleManager;
-class IParticleVar;
+class CVector3D;
 class IParticleEffector;
+class IParticleVar;
 
 /**
  * Particle emitter type - stores the common state data for all emitters of that
@@ -84,6 +87,14 @@ private:
 		MULTIPLY
 	};
 
+	enum class SortMode
+	{
+		UNSPECIFIED,
+		YOUNGEST_IN_FRONT,
+		OLDEST_IN_FRONT,
+		CLOSEST_IN_FRONT
+	};
+
 	int GetVariableID(const std::string& name);
 
 	bool LoadXML(const VfsPath& path);
@@ -91,21 +102,29 @@ private:
 	/**
 	 * Update the state of an emitter's particles, by a potentially long time @p dt.
 	 */
-	void UpdateEmitter(CParticleEmitter& emitter, float dt);
+	void UpdateEmitter(CParticleEmitter& emitter, float dt) const;
 
 	/**
 	 * Update the state of an emitter's particles, by a short time @p dt that can
 	 * be computed in a single step.
 	 */
-	void UpdateEmitterStep(CParticleEmitter& emitter, float dt);
+	void UpdateEmitterStep(CParticleEmitter& emitter, float dt) const;
 
-	CBoundingBoxAligned CalculateBounds(CVector3D emitterPos, CBoundingBoxAligned emittedBounds);
+	CBoundingBoxAligned CalculateBounds(CVector3D emitterPos, CBoundingBoxAligned emittedBounds) const;
 
 	CTexturePtr m_Texture;
 
-	BlendMode m_BlendMode = BlendMode::ADD;
+	BlendMode m_BlendMode{BlendMode::ADD};
+	SortMode m_SortMode{SortMode::UNSPECIFIED};
 	bool m_StartFull;
-	bool m_UseRelativeVelocity;
+	bool m_UseLocalSpace{false};
+	bool m_UseRelativePosition{false}, m_UseRelativeVelocity{false};
+
+	// A non-zero vector in case of a fixed axis for the corresponding direction.
+	CVector3D m_AxisX{}, m_AxisY{};
+	bool m_UseRelativeAxisX{false}, m_UseRelativeAxisY{false};
+
+	bool m_UseVelocityAsAxisX{false};
 
 	float m_MaxLifetime;
 	u16 m_MaxParticles;

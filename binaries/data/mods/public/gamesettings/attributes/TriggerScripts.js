@@ -16,15 +16,15 @@ GameSettings.prototype.Attributes.TriggerScripts = class TriggerScripts extends 
 
 	fromInitAttributes(attribs)
 	{
-		if (!!this.getLegacySetting(attribs, "TriggerScripts"))
+		if (this.getLegacySetting(attribs, "TriggerScripts"))
 			this.customScripts = new Set(this.getLegacySetting(attribs, "TriggerScripts"));
 	}
 
 	updateVictoryScripts()
 	{
-		let setting = this.settings.victoryConditions;
-		let scripts = new Set();
-		for (let cond of setting.active)
+		const setting = this.settings.victoryConditions;
+		const scripts = new Set();
+		for (const cond of setting.active)
 			setting.conditions[cond].Scripts.forEach(script => scripts.add(script));
 		this.victoryScripts = scripts;
 	}

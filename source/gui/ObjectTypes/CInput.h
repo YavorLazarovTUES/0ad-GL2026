@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,14 +18,24 @@
 #ifndef INCLUDED_CINPUT
 #define INCLUDED_CINPUT
 
+#include "gui/CGUISetting.h"
 #include "gui/CGUISprite.h"
+#include "gui/CGUIText.h"
 #include "gui/ObjectBases/IGUIObject.h"
 #include "gui/ObjectBases/IGUIScrollBarOwner.h"
+#include "gui/SettingTypes/CGUIColor.h"
 #include "gui/SettingTypes/CGUIString.h"
-#include "lib/external_libraries/libsdl.h"
+#include "lib/types.h"
+#include "maths/Rect.h"
+#include "ps/CStr.h"
+#include "ps/Input.h"
 
+#include <SDL_keycode.h>
 #include <list>
 #include <vector>
+
+class CCanvas2D;
+class CGUI;
 
 /**
  * Text field where you can input and edit the text.
@@ -43,7 +53,6 @@ protected: // forwards
 
 public:
 	CInput(CGUI& pGUI);
-	virtual ~CInput();
 
 	/**
 	 * @see IGUIObject#ResetStates()
@@ -70,7 +79,7 @@ protected:
 	/**
 	 * Handle events manually to catch keyboard inputting.
 	 */
-	virtual InReaction ManuallyHandleKeys(const SDL_Event_* ev);
+	virtual Input::Reaction ManuallyHandleKeys(const SDL_Event& ev);
 
 	/**
 	 * Handle events manually to catch keys which change the text.
@@ -85,12 +94,12 @@ protected:
 	/**
 	 * Handle hotkey events (called by ManuallyHandleKeys)
 	 */
-	virtual InReaction ManuallyHandleHotkeyEvent(const SDL_Event_* ev);
+	virtual Input::Reaction ManuallyHandleHotkeyEvent(const SDL_Event& ev);
 
 	/**
-	 * @see IGUIObject#UpdateCachedSize()
+	 * @see IGUIObject#HandleSizeChanged()
 	 */
-	virtual void UpdateCachedSize();
+	virtual void HandleSizeChanged();
 
 	/**
 	 * Draws the Text

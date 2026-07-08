@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,55 +17,97 @@
 
 #include "precompiled.h"
 
-#include "lib/svn_revision.h"
+#include "lib/build_version.h"
+#include "lib/code_annotation.h"
+#include "lib/config2.h"
+#include "lib/debug.h"
+#include "lib/external_libraries/curl.h"
+#include "lib/external_libraries/enet.h"
+#include "lib/external_libraries/png.h"
 #include "lib/external_libraries/libsdl.h"
+#include "lib/path.h"
 #include "lib/posix/posix_utsname.h"
-#include "lib/timer.h"
+#include "lib/sysdep/arch.h"
+#include "lib/sysdep/compiler.h"
 #include "lib/sysdep/cpu.h"
 #include "lib/sysdep/numa.h"
+#include "lib/sysdep/os.h"
 #include "lib/sysdep/os_cpu.h"
 #include "lib/sysdep/smbios.h"
 #include "lib/sysdep/sysdep.h"	// sys_OpenFile
-#include "lib/utf8.h"
-#if CONFIG2_AUDIO
-#include "soundmanager/SoundManager.h"
-#endif
+#include "lib/timer.h"
+#include "lib/types.h"
 #include "ps/CLogger.h"
-#include "ps/ConfigDB.h"
+#include "ps/CStr.h"
+#include "ps/Errors.h"
 #include "ps/Filesystem.h"
 #include "ps/GameSetup/Config.h"
-#include "ps/Profile.h"
+#include "ps/Profiler2.h"
 #include "ps/Pyrogenesis.h"
-#include "ps/scripting/JSInterface_ConfigDB.h"
-#include "ps/scripting/JSInterface_Debug.h"
 #include "ps/UserReport.h"
 #include "ps/VideoMode.h"
+#include "ps/scripting/JSInterface_ConfigDB.h"
+#include "ps/scripting/JSInterface_Debug.h"
 #include "renderer/backend/IDevice.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "scriptinterface/StructuredClone.h"
+#include "soundmanager/ISoundManager.h"
 
+#include <SDL_cpuinfo.h>
+#include <SDL_version.h>
+#include <SDL_video.h>
 #include <boost/version.hpp>
+#include <cstdio>
+#include <ctime>
+#include <cwchar>
 #include <fmt/format.h>
+#include <freetype/fttypes.h>
+#include <iterator>
+#include <js/PropertyAndElement.h>
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <libxml/xmlversion.h>
+#include <random>
+#include <sodium.h>
+#include <sstream>
+#include <string>
+#include <thread>
+#include <unicode/uvernum.h>
+#include <vector>
+#include <zlib.h>
 
 // FreeType headers might have an include order.
 #include <ft2build.h>
-#include <freetype/freetype.h>
+#include FT_FREETYPE_H
+
+#if ARCH_AMD64
+#include "lib/sysdep/arch/x86_x64/x86_x64.h"
+#endif
 
 #if OS_LINUX
 #include <fstream>
+#endif
+
+#if CONFIG2_LOBBY
+#include "lib/external_libraries/gloox.h"
 #endif
 
 #if CONFIG2_NVTT
 #include "nvtt/nvtt.h"
 #endif
 
-#include <random>
-#include <sstream>
-#include <string>
-#include <thread>
+#if CONFIG2_MINIUPNPC
+#include <miniupnpc/miniupnpc.h>
+#endif
+
+#if CONFIG2_AUDIO
+#include <vorbis/codec.h>
+#endif
 
 namespace
 {
@@ -73,7 +115,7 @@ namespace
 class Reporter
 {
 public:
-	Reporter(const ScriptRequest& rq)
+	Reporter(const Script::Request& rq)
 		: m_Rq(rq), m_LibrarySettings(rq.cx)
 	{
 		Script::CreateObject(m_Rq, &m_LibrarySettings);
@@ -92,21 +134,21 @@ public:
 	}
 
 private:
-	const ScriptRequest& m_Rq;
+	const Script::Request& m_Rq;
 	JS::RootedValue m_LibrarySettings;
 };
 
 class LibraryReporter : public Reporter
 {
 public:
-	LibraryReporter(const ScriptRequest& rq, const char* name)
+	LibraryReporter(const Script::Request& rq, const char* name)
 		: Reporter(rq)
 	{
 		Add("name", name);
 	}
 };
 
-JS::Value MakeSDLReport(const ScriptRequest& rq)
+JS::Value MakeSDLReport(const Script::Request& rq)
 {
 	LibraryReporter reporter{rq, "sdl"};
 
@@ -133,7 +175,7 @@ JS::Value MakeSDLReport(const ScriptRequest& rq)
 	return reporter.MakeReport();
 }
 
-JS::Value MakeFreeTypeReport(const ScriptRequest& rq)
+JS::Value MakeFreeTypeReport(const Script::Request& rq)
 {
 	FT_Library FTLibrary;
 
@@ -152,23 +194,39 @@ JS::Value MakeFreeTypeReport(const ScriptRequest& rq)
 	return libraryReporter.MakeReport();
 }
 
-void ReportLibraries(const ScriptRequest& rq, JS::HandleValue settings)
+void ReportLibraries(const Script::Request& rq, JS::HandleValue settings)
 {
-	JS::RootedValue librariesSettings(rq.cx);
-	Script::CreateArray(rq, &librariesSettings);
-	int libraryCount = 0;
+	JS::RootedValueVector librariesSettings{rq.cx};
 
-	auto appendLibrary = [&rq, &librariesSettings, &libraryCount](const JS::Value& librarySettings)
+	auto appendLibrary = [&rq, &librariesSettings](const JS::Value& librarySettings)
 	{
 		JS::RootedValue value(rq.cx, librarySettings);
-		Script::SetPropertyInt(rq, librariesSettings, libraryCount++, value);
+		if (!librariesSettings.append(value))
+			throw std::runtime_error{"Append failed"};
 	};
 
 	appendLibrary(MakeSDLReport(rq));
 	appendLibrary(MakeFreeTypeReport(rq));
 
 	appendLibrary(LibraryReporter{rq, "boost"}.Add("version", BOOST_VERSION).MakeReport());
+	appendLibrary(LibraryReporter{rq, "enet"}.Add("version", std::to_string(ENET_VERSION)).MakeReport());
 	appendLibrary(LibraryReporter{rq, "fmt"}.Add("version", FMT_VERSION).MakeReport());
+#if CONFIG2_LOBBY
+	appendLibrary(LibraryReporter{rq, "gloox"}.Add("version", gloox_version()).MakeReport());
+#endif
+	appendLibrary(LibraryReporter{rq, "libicu"}.Add("version", U_ICU_VERSION).MakeReport());
+	appendLibrary(LibraryReporter{rq, "libcurl"}.Add("version", std::string(curl_version())).MakeReport());
+#if CONFIG2_AUDIO
+	appendLibrary(LibraryReporter{rq, "libvorbis"}.Add("version", std::string(vorbis_version_string())).MakeReport());
+#endif
+	appendLibrary(LibraryReporter{rq, "libpng"}.Add("version", std::string(png_get_libpng_ver(nullptr))).MakeReport());
+	appendLibrary(LibraryReporter{rq, "libsodium"}.Add("version", std::string(sodium_version_string())).MakeReport());
+	appendLibrary(LibraryReporter{rq, "libxml2"}.Add("version", LIBXML_DOTTED_VERSION).MakeReport());
+#if CONFIG2_MINIUPNPC
+	appendLibrary(LibraryReporter{rq, "miniunpnpc"}.Add("version", MINIUPNPC_VERSION).MakeReport());
+#endif
+	appendLibrary(LibraryReporter{rq, "zlib"}.Add("version", ZLIB_VERSION).MakeReport());
+
 #if CONFIG2_NVTT
 	appendLibrary(LibraryReporter{rq, "nvtt"}
 		.Add("build_version", NVTT_VERSION)
@@ -176,12 +234,13 @@ void ReportLibraries(const ScriptRequest& rq, JS::HandleValue settings)
 		.MakeReport());
 #endif
 
-	Script::SetProperty(rq, settings, "libraries", librariesSettings);
+	Script::SetProperty(rq, settings, "libraries",
+		JS::RootedValue{rq.cx, JS::ObjectValue(*JS::NewArrayObject(rq.cx, librariesSettings))});
 }
 
 void WriteSystemInfo(Renderer::Backend::IDevice* device, const utsname& un)
 {
-	TIMER(L"write_sys_info");
+	PROFILE2("WriteSystemInfo");
 
 	OsPath pathname = psLogDir() / "system_info.txt";
 	FILE* f = sys_OpenFile(pathname, "w");
@@ -226,7 +285,7 @@ void WriteSystemInfo(Renderer::Backend::IDevice* device, const utsname& un)
 	// graphics
 	fprintf(f, "Video Card     : %s\n", device->GetName().c_str());
 	fprintf(f, "Video Driver   : %s\n", device->GetDriverInformation().c_str());
-	fprintf(f, "Video Mode     : %dx%d:%d\n", g_VideoMode.GetXRes(), g_VideoMode.GetYRes(), g_VideoMode.GetBPP());
+	fprintf(f, "Video Mode     : %dx%d:%d\n", g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight(), g_VideoMode.GetBPP());
 
 #if CONFIG2_AUDIO
 	if (g_SoundManager)
@@ -275,16 +334,16 @@ void RunHardwareDetection(bool writeSystemInfoBeforeDetection, Renderer::Backend
 	if (writeSystemInfoBeforeDetection)
 		WriteSystemInfo(device, un);
 
-	TIMER(L"RunHardwareDetection");
+	PROFILE2("RunHardwareDetection");
 
-	ScriptInterface scriptInterface("Engine", "HWDetect", g_ScriptContext);
+	Script::Interface scriptInterface("Engine", "HWDetect", g_ScriptContext);
 
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 
 	JSI_Debug::RegisterScriptFunctions(scriptInterface); // Engine.DisplayErrorDialog
 	JSI_ConfigDB::RegisterScriptFunctions(scriptInterface);
 
-	ScriptFunction::Register<SetDisableAudio>(rq, "SetDisableAudio");
+	Script::Function::Register<SetDisableAudio>(rq, "SetDisableAudio");
 
 	// Load the detection script:
 
@@ -318,7 +377,9 @@ void RunHardwareDetection(bool writeSystemInfoBeforeDetection, Renderer::Backend
 	Script::SetProperty(rq, settings, "arch_arm", ARCH_ARM);
 	Script::SetProperty(rq, settings, "arch_aarch64", ARCH_AARCH64);
 	Script::SetProperty(rq, settings, "arch_e2k", ARCH_E2K);
+	Script::SetProperty(rq, settings, "arch_loong64", ARCH_LOONG64);
 	Script::SetProperty(rq, settings, "arch_ppc64", ARCH_PPC64);
+	Script::SetProperty(rq, settings, "arch_riscv64", ARCH_RISCV64);
 
 #ifdef NDEBUG
 	Script::SetProperty(rq, settings, "build_debug", 0);
@@ -328,10 +389,9 @@ void RunHardwareDetection(bool writeSystemInfoBeforeDetection, Renderer::Backend
 	Script::SetProperty(rq, settings, "build_opengles", CONFIG2_GLES);
 
 	Script::SetProperty(rq, settings, "build_datetime", std::string(__DATE__ " " __TIME__));
-	Script::SetProperty(rq, settings, "build_revision", std::wstring(svn_revision));
+	Script::SetProperty(rq, settings, "build_version", std::wstring(build_version));
 
 	Script::SetProperty(rq, settings, "build_msc", (int)MSC_VERSION);
-	Script::SetProperty(rq, settings, "build_icc", (int)ICC_VERSION);
 	Script::SetProperty(rq, settings, "build_gcc", (int)GCC_VERSION);
 	Script::SetProperty(rq, settings, "build_clang", (int)CLANG_VERSION);
 
@@ -404,9 +464,10 @@ void RunHardwareDetection(bool writeSystemInfoBeforeDetection, Renderer::Backend
 
 	Script::SetProperty(rq, settings, "hardware_concurrency", std::thread::hardware_concurrency());
 	Script::SetProperty(rq, settings, "random_device_entropy", std::random_device{}.entropy());
+	Script::SetProperty(rq, settings, "neon", static_cast<int>(SDL_HasNEON()));
 
 	// The version should be increased for every meaningful change.
-	const int reportVersion = 21;
+	const int reportVersion = 24;
 
 	// Send the same data to the reporting system
 	g_UserReporter.SubmitReport(
@@ -417,5 +478,18 @@ void RunHardwareDetection(bool writeSystemInfoBeforeDetection, Renderer::Backend
 
 	// Run the detection script:
 	JS::RootedValue global(rq.cx, rq.globalValue());
-	ScriptFunction::CallVoid(rq, global, "RunHardwareDetection", settings);
+	bool hardwareSupported{true};
+	Script::Function::Call(rq, global, "RunHardwareDetection", hardwareSupported, settings);
+
+	if (!hardwareSupported)
+	{
+		// It doesn't make sense to continue working here, because we're not
+		// able to display anything.
+		DEBUG_DISPLAY_FATAL_ERROR(
+			L"Your graphics card doesn't appear to be fully compatible with OpenGL shaders."
+			L" The game does not support pre-shader graphics cards."
+			L" You are advised to try installing newer drivers and/or upgrade your graphics card."
+			L" For more information, please see http://www.wildfiregames.com/forum/index.php?showtopic=16734"
+		);
+	}
 }

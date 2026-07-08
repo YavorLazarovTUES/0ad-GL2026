@@ -1,4 +1,4 @@
-/* Copyright (C) 2020 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,20 +17,28 @@
 
 #include "precompiled.h"
 
-#include "ComponentManager.h"
-#include "IComponent.h"
-#include "ParamNode.h"
-
+#include "lib/debug.h"
+#include "ps/CLogger.h"
+#include "ps/Profiler2.h"
 #include "simulation2/MessageTypes.h"
-
+#include "simulation2/components/ICmpTemplateManager.h"
 #include "simulation2/serialization/DebugSerializer.h"
 #include "simulation2/serialization/HashSerializer.h"
-#include "simulation2/serialization/StdSerializer.h"
 #include "simulation2/serialization/StdDeserializer.h"
+#include "simulation2/serialization/StdSerializer.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
 
-#include "simulation2/components/ICmpTemplateManager.h"
-
-#include "ps/CLogger.h"
+#include <algorithm>
+#include <boost/random/linear_congruential.hpp>
+#include <cstdint>
+#include <cstdio>
+#include <map>
+#include <set>
+#include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
 
 std::string SerializeRNG(const boost::random::rand48& rng)
 {
@@ -97,6 +105,7 @@ bool CComponentManager::DumpDebugState(std::ostream& stream, bool includeDebugIn
 
 bool CComponentManager::ComputeStateHash(std::string& outHash, bool quick) const
 {
+	PROFILE2("ComputeStateHash");
 	// Hash serialization: this includes the minimal data necessary to detect
 	// differences in the state, and ignores things like counts and names
 
@@ -117,27 +126,17 @@ bool CComponentManager::ComputeStateHash(std::string& outHash, bool quick) const
 			continue;
 
 		// Only emit component types if they have a component that will be serialized
-		bool needsSerialization = false;
+		bool hasEmittedComponent = false;
 		for (std::map<entity_id_t, IComponent*>::const_iterator eit = cit->second.begin(); eit != cit->second.end(); ++eit)
 		{
 			// Don't serialize local entities
 			if (ENTITY_IS_LOCAL(eit->first))
 				continue;
-
-			needsSerialization = true;
-			break;
-		}
-
-		if (!needsSerialization)
-			continue;
-
-		serializer.NumberI32_Unbounded("component type id", cit->first);
-
-		for (std::map<entity_id_t, IComponent*>::const_iterator eit = cit->second.begin(); eit != cit->second.end(); ++eit)
-		{
-			// Don't serialize local entities
-			if (ENTITY_IS_LOCAL(eit->first))
-				continue;
+			if (!hasEmittedComponent)
+			{
+				serializer.NumberI32_Unbounded("component type id", cit->first);
+				hasEmittedComponent = true;
+			}
 
 			serializer.NumberU32_Unbounded("entity id", eit->first);
 			eit->second->Serialize(serializer);
@@ -323,7 +322,7 @@ bool CComponentManager::DeserializeState(std::istream& stream)
 			ComponentTypeId ctid = LookupCID(ctname);
 			if (ctid == CID__Invalid)
 			{
-				LOGERROR("Deserialization saw unrecognised component type '%s'", ctname.c_str());
+				LOGERROR("Deserialization saw unrecognized component type '%s'", ctname.c_str());
 				return false;
 			}
 
@@ -350,7 +349,7 @@ bool CComponentManager::DeserializeState(std::istream& stream)
 			ComponentTypeId ctid = LookupCID(ctname);
 			if (ctid == CID__Invalid)
 			{
-				LOGERROR("Deserialization saw unrecognised component type '%s'", ctname.c_str());
+				LOGERROR("Deserialization saw unrecognized component type '%s'", ctname.c_str());
 				return false;
 			}
 

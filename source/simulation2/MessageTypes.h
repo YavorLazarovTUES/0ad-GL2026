@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,25 +18,31 @@
 #ifndef INCLUDED_MESSAGETYPES
 #define INCLUDED_MESSAGETYPES
 
-#include "simulation2/system/Components.h"
+#include "lib/types.h"
+#include "maths/Fixed.h"
+#include "maths/Vector3D.h"
+#include "ps/CStr.h"
+#include "simulation2/helpers/Pathfinding.h"
+#include "simulation2/helpers/Player.h"
+#include "simulation2/helpers/Position.h"
+#include "simulation2/system/Component.h"
 #include "simulation2/system/Entity.h"
 #include "simulation2/system/Message.h"
 
-#include "simulation2/helpers/Player.h"
-#include "simulation2/helpers/Position.h"
+#include <array>
+#include <cstdint>
+#include <js/TypeDecls.h>
+#include <string>
+#include <vector>
 
-#include "simulation2/components/ICmpPathfinder.h"
-
-#include "maths/Vector3D.h"
-
-#include "ps/CStr.h"
+namespace Script { class Request; }
 
 #define DEFAULT_MESSAGE_IMPL(name) \
 	virtual int GetType() const { return MT_##name; } \
 	virtual const char* GetScriptHandlerName() const { return "On" #name; } \
 	virtual const char* GetScriptGlobalHandlerName() const { return "OnGlobal" #name; } \
-	virtual JS::Value ToJSVal(const ScriptRequest& rq) const; \
-	static CMessage* FromJSVal(const ScriptRequest&, JS::HandleValue val);
+	virtual JS::Value ToJSVal(const Script::Request& rq) const; \
+	static CMessage* FromJSVal(const Script::Request&, JS::HandleValue val);
 
 class SceneCollector;
 class CFrustum;
@@ -509,6 +515,38 @@ public:
 	}
 
 	player_id_t player;
+};
+
+/**
+ * Sent by the Player component when a specific player has won.
+ */
+class CMessagePlayerWon final : public CMessage
+{
+public:
+	DEFAULT_MESSAGE_IMPL(PlayerWon)
+
+	CMessagePlayerWon(player_id_t playerId) :
+		playerId{playerId}
+	{
+	}
+
+	player_id_t playerId;
+};
+
+/**
+ * Sent by the Player component when an specific player has been defeated.
+ */
+class CMessagePlayerDefeated final : public CMessage
+{
+public:
+	DEFAULT_MESSAGE_IMPL(PlayerDefeated)
+
+	CMessagePlayerDefeated(player_id_t playerId) :
+		playerId{playerId}
+	{
+	}
+
+	player_id_t playerId;
 };
 
 /**

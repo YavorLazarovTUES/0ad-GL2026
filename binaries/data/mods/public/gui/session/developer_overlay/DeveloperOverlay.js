@@ -17,6 +17,10 @@ class DeveloperOverlay
 			new DeveloperOverlayControlDropDown(
 				new DeveloperOverlayControlDrowDowns.prototype[name](playerViewControl, selection),
 				i + this.checkBoxes.length));
+		this.sliders = this.getSliderNames().map((name, i) =>
+			new DeveloperOverlayControlSlider(
+				new DeveloperOverlayControlSliders.prototype[name](playerViewControl, selection),
+				i + this.checkBoxes.length + this.dropDowns.length));
 
 		this.resize();
 	}
@@ -34,6 +38,11 @@ class DeveloperOverlay
 		return Object.keys(DeveloperOverlayControlDrowDowns.prototype);
 	}
 
+	getSliderNames()
+	{
+		return Object.keys(DeveloperOverlayControlSliders.prototype);
+	}
+
 	toggle()
 	{
 		if (g_IsNetworked && !g_InitAttributes.settings.CheatsEnabled)
@@ -41,17 +50,23 @@ class DeveloperOverlay
 
 		this.devCommandsOverlay.hidden = !this.devCommandsOverlay.hidden;
 		this.sendNotification();
-		this.checkBoxes.forEach(checkbox => {
+		this.checkBoxes.forEach(checkbox =>
+		{
 			checkbox.setHidden(this.devCommandsOverlay.hidden);
 		});
-		this.dropDowns.forEach(dropDown => {
+		this.dropDowns.forEach(dropDown =>
+		{
 			dropDown.setHidden(this.devCommandsOverlay.hidden);
+		});
+		this.sliders.forEach(slider =>
+		{
+			slider.setHidden(this.devCommandsOverlay.hidden);
 		});
 	}
 
 	sendNotification()
 	{
-		let message = this.devCommandsOverlay.hidden ? this.CloseNotification : this.OpenNotification;
+		const message = this.devCommandsOverlay.hidden ? this.CloseNotification : this.OpenNotification;
 
 		// Only players can send the simulation chat command
 		if (Engine.GetPlayerID() == -1)
@@ -68,12 +83,11 @@ class DeveloperOverlay
 
 	resize()
 	{
-		let size = this.devCommandsOverlay.size;
-		size.bottom =
-			size.top +
+		this.devCommandsOverlay.size.bottom =
+			this.devCommandsOverlay.size.top +
 			this.checkBoxes.reduce((height, checkbox) => height + checkbox.getHeight(), 0) +
-			this.dropDowns.reduce((height, dropDown) => height + dropDown.getHeight(), 0);
-		this.devCommandsOverlay.size = size;
+			this.dropDowns.reduce((height, dropDown) => height + dropDown.getHeight(), 0) +
+			this.sliders.reduce((height, slider) => height + slider.getHeight(), 0);
 	}
 }
 

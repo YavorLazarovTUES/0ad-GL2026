@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,16 +19,20 @@
 
 #include "Device.h"
 
+#include "renderer/backend/Format.h"
+#include "renderer/backend/IFramebuffer.h"
 #include "renderer/backend/dummy/Buffer.h"
 #include "renderer/backend/dummy/DeviceCommandContext.h"
 #include "renderer/backend/dummy/Framebuffer.h"
 #include "renderer/backend/dummy/PipelineState.h"
 #include "renderer/backend/dummy/ShaderProgram.h"
+#include "renderer/backend/dummy/SwapChain.h"
 #include "renderer/backend/dummy/Texture.h"
-#include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+
+#include <SDL_video.h>
+#include <initializer_list>
+#include <js/RootingAPI.h>
 
 namespace Renderer
 {
@@ -46,11 +50,7 @@ CDevice::CDevice()
 	m_DriverInformation = "Unknown";
 	m_Extensions = {};
 
-	m_Backbuffer = CFramebuffer::Create(this);
-
 	m_Capabilities.S3TC = true;
-	m_Capabilities.ARBShaders = false;
-	m_Capabilities.ARBShadersShadow = false;
 	m_Capabilities.computeShaders = true;
 	m_Capabilities.debugLabels = true;
 	m_Capabilities.debugScopedLabels = true;
@@ -64,7 +64,7 @@ CDevice::CDevice()
 
 CDevice::~CDevice() = default;
 
-void CDevice::Report(const ScriptRequest& rq, JS::HandleValue settings)
+void CDevice::Report(const Script::Request& rq, JS::HandleValue settings)
 {
 	Script::SetProperty(rq, settings, "name", "dummy");
 }
@@ -72,6 +72,18 @@ void CDevice::Report(const ScriptRequest& rq, JS::HandleValue settings)
 std::unique_ptr<IDeviceCommandContext> CDevice::CreateCommandContext()
 {
 	return CDeviceCommandContext::Create(this);
+}
+
+std::unique_ptr<ISwapChain> CDevice::CreateSwapChain(
+	const char*, SDL_Window*, int, int,
+	const bool, std::unique_ptr<ISwapChain> oldSwapChain)
+{
+	oldSwapChain.reset();
+	return CSwapChain::Create(this);
+}
+
+void CDevice::WaitUntilIdle()
+{
 }
 
 std::unique_ptr<IGraphicsPipelineState> CDevice::CreateGraphicsPipelineState(
@@ -87,15 +99,16 @@ std::unique_ptr<IComputePipelineState> CDevice::CreateComputePipelineState(
 }
 
 std::unique_ptr<IVertexInputLayout> CDevice::CreateVertexInputLayout(
-	const PS::span<const SVertexAttributeFormat> UNUSED(attributes))
+	const std::span<const SVertexAttributeFormat>)
 {
 	return nullptr;
 }
 
 std::unique_ptr<ITexture> CDevice::CreateTexture(
-	const char* UNUSED(name), const CTexture::Type type, const uint32_t usage,
+	const char* /*name*/, const CTexture::Type type, const uint32_t usage,
 	const Format format, const uint32_t width, const uint32_t height,
-	const Sampler::Desc& UNUSED(defaultSamplerDesc), const uint32_t MIPLevelCount, const uint32_t UNUSED(sampleCount))
+	const Sampler::Desc& /*defaultSamplerDesc*/, const uint32_t MIPLevelCount,
+	const uint32_t /*sampleCount*/)
 {
 	return CTexture::Create(this, type, usage, format, width, height, MIPLevelCount);
 }
@@ -127,34 +140,12 @@ std::unique_ptr<IShaderProgram> CDevice::CreateShaderProgram(
 	return CShaderProgram::Create(this);
 }
 
-bool CDevice::AcquireNextBackbuffer()
-{
-	// We have nothing to acquire.
-	return true;
-}
-
-IFramebuffer* CDevice::GetCurrentBackbuffer(
-	const AttachmentLoadOp, const AttachmentStoreOp,
-	const AttachmentLoadOp, const AttachmentStoreOp)
-{
-	return m_Backbuffer.get();
-}
-
-void CDevice::Present()
-{
-	// We have nothing to present.
-}
-
-void CDevice::OnWindowResize(const uint32_t UNUSED(width), const uint32_t UNUSED(height))
-{
-}
-
-bool CDevice::IsTextureFormatSupported(const Format UNUSED(format)) const
+bool CDevice::IsTextureFormatSupported(const Format) const
 {
 	return true;
 }
 
-bool CDevice::IsFramebufferFormatSupported(const Format UNUSED(format)) const
+bool CDevice::IsFramebufferFormatSupported(const Format) const
 {
 	return true;
 }
@@ -165,7 +156,26 @@ Format CDevice::GetPreferredDepthStencilFormat(
 	return Format::D24_UNORM_S8_UINT;
 }
 
-std::unique_ptr<IDevice> CreateDevice(SDL_Window* UNUSED(window))
+uint32_t CDevice::AllocateQuery()
+{
+	return 0;
+}
+
+void CDevice::FreeQuery(const uint32_t /*handle*/)
+{
+}
+
+bool CDevice::IsQueryResultAvailable(const uint32_t /*handle*/) const
+{
+	return false;
+}
+
+uint64_t CDevice::GetQueryResult(const uint32_t /*handle*/)
+{
+	return 0;
+}
+
+std::unique_ptr<IDevice> CreateDevice(SDL_Window*)
 {
 	return std::make_unique<Dummy::CDevice>();
 }

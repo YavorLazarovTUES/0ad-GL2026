@@ -32,7 +32,7 @@ BuildRestrictions.prototype.Schema =
 			"</oneOrMore>" +
 		"</list>" +
 	"</element>" +
-	"<element name='Category' a:help='Specifies the category of this building, for satisfying special constraints. Choices include: Academy, ArmyCamp, CivilCentre, Colony, Council, Dock, Embassy, Fortress, Gladiator, GreatTower, ImperialCourt, ImperialMinistry, Library, Lighthouse, Monument, Palace, Pillar, PyramidLarge, RotaryMill, Stoa, Structure, TempleOfAmun, TempleOfVesta, Theater, Tower, Wall, Wonder, Yakhchal'>" +
+	"<element name='Category' a:help='Specifies the category of this building, for satisfying special constraints. Choices include: Academy, ArmyCamp, CivilCentre, Colony, Council, Dock, Embassy, Fortress, GreatTower, ImperialCourt, ImperialMinistry, Kennel, Library, Lighthouse, Monument, Palace, Pillar, PyramidLarge, Stoa, Structure, TempleOfAmun, TempleOfIsis, TempleOfVesta, Theater, Tower, Wall, Wonder, Yakhchal'>" +
 		"<text/>" +
 	"</element>" +
 	"<optional>" +
@@ -44,6 +44,16 @@ BuildRestrictions.prototype.Schema =
 		"<element name='Distance' a:help='Specifies distance restrictions on this building, relative to buildings from the given category.'>" +
 			"<interleave>" +
 				"<element name='FromClass'>" +
+					"<optional>" +
+						"<attribute name='context'>" +
+							"<text/>" +
+						"</attribute>" +
+					"</optional>" +
+					"<optional>" +
+						"<attribute name='comment'>" +
+							"<text/>" +
+						"</attribute>" +
+					"</optional>" +
 					"<text/>" +
 				"</element>" +
 				"<optional><element name='MinDistance'><data type='positiveInteger'/></element></optional>" +
@@ -104,7 +114,7 @@ BuildRestrictions.prototype.CheckPlacement = function()
 	if (!cmpPlayer.IsAI())
 	{
 		// Check whether it's in a visible or fogged region
-		var cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
+		const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
 		var cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
 		if (!cmpRangeManager || !cmpOwnership)
 			return result; // Fail
@@ -118,7 +128,7 @@ BuildRestrictions.prototype.CheckPlacement = function()
 	}
 
 	// Check obstructions and terrain passability
-	var passClassName = "";
+	var passClassName;
 	switch (this.template.PlacementType)
 	{
 	case "shore":
@@ -141,32 +151,36 @@ BuildRestrictions.prototype.CheckPlacement = function()
 		return result; // Fail
 
 
+	let ret;
 	if (this.template.Category == "Wall")
 	{
 		// for walls, only test the center point
-		var ret = cmpObstruction.CheckFoundation(passClassName, true);
+		ret = cmpObstruction.CheckFoundation(passClassName, true);
 	}
 	else
 	{
-		var ret = cmpObstruction.CheckFoundation(passClassName, false);
+		ret = cmpObstruction.CheckFoundation(passClassName, false);
 	}
 
-	if (ret != "success")
+	if (ret !== "success")
 	{
 		switch (ret)
 		{
-		case "fail_error":
-		case "fail_no_obstruction":
-			error("CheckPlacement: Error returned from CheckFoundation");
-			break;
 		case "fail_obstructs_foundation":
 			result.message = markForTranslation("%(name)s cannot be built on another building or resource");
 			break;
 		case "fail_terrain_class":
 			// TODO: be more specific and/or list valid terrain?
 			result.message = markForTranslation("%(name)s cannot be built on invalid terrain");
+			break;
+		case "fail_error":
+		case "fail_no_obstruction":
+		default:
+			error(`CheckPlacement: Error returned from CheckFoundation. Got reason: '${ret}'`);
+			break;
 		}
-		return result; // Fail
+
+		return result;
 	}
 
 	// Check territory restrictions
@@ -241,29 +255,28 @@ BuildRestrictions.prototype.CheckPlacement = function()
 		}
 	}
 
-	let cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
+	const cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
 
-	let templateName = cmpTemplateManager.GetCurrentTemplateName(this.entity);
-	let template = cmpTemplateManager.GetTemplate(removeFiltersFromTemplateName(templateName));
+	const templateName = cmpTemplateManager.GetCurrentTemplateName(this.entity);
+	const template = cmpTemplateManager.GetTemplate(removeFiltersFromTemplateName(templateName));
 
 	// Check distance restriction
 	if (this.template.Distance)
 	{
-		var cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
+		const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
 		var cat = this.template.Distance.FromClass;
 
 		var filter = function(id)
 		{
-			var cmpIdentity = Engine.QueryInterface(id, IID_Identity);
-			return cmpIdentity.GetClassesList().indexOf(cat) > -1;
+			return Engine.QueryInterface(id, IID_Identity).GetClassesList().indexOf(cat) > -1;
 		};
 
 		if (this.template.Distance.MinDistance !== undefined)
 		{
-			let minDistance = ApplyValueModificationsToTemplate("BuildRestrictions/Distance/MinDistance", +this.template.Distance.MinDistance, cmpPlayer.GetPlayerID(), template);
+			const minDistance = ApplyValueModificationsToTemplate("BuildRestrictions/Distance/MinDistance", +this.template.Distance.MinDistance, cmpPlayer.GetPlayerID(), template);
 			if (cmpRangeManager.ExecuteQuery(this.entity, 0, minDistance, [cmpPlayer.GetPlayerID()], IID_BuildRestrictions, false).some(filter))
 			{
-				let result = markForPluralTranslation(
+				result = markForPluralTranslation(
 					"%(name)s too close to a %(category)s, must be at least %(distance)s meter away",
 					"%(name)s too close to a %(category)s, must be at least %(distance)s meters away",
 					minDistance);
@@ -281,10 +294,10 @@ BuildRestrictions.prototype.CheckPlacement = function()
 		}
 		if (this.template.Distance.MaxDistance !== undefined)
 		{
-			let maxDistance = ApplyValueModificationsToTemplate("BuildRestrictions/Distance/MaxDistance", +this.template.Distance.MaxDistance, cmpPlayer.GetPlayerID(), template);
+			const maxDistance = ApplyValueModificationsToTemplate("BuildRestrictions/Distance/MaxDistance", +this.template.Distance.MaxDistance, cmpPlayer.GetPlayerID(), template);
 			if (!cmpRangeManager.ExecuteQuery(this.entity, 0, maxDistance, [cmpPlayer.GetPlayerID()], IID_BuildRestrictions, false).some(filter))
 			{
-				let result = markForPluralTranslation(
+				result = markForPluralTranslation(
 					"%(name)s too far from a %(category)s, must be within %(distance)s meter",
 					"%(name)s too far from a %(category)s, must be within %(distance)s meters",
 					maxDistance);

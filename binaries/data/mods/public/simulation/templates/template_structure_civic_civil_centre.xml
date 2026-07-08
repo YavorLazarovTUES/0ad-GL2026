@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Entity parent="template_structure_civic">
   <AlertRaiser>
-    <List datatype="tokens">FemaleCitizen</List>
+    <List datatype="tokens">Civilian</List>
     <RaiseAlertRange>120</RaiseAlertRange>
     <EndOfAlertRange>180</EndOfAlertRange>
     <SearchRange>100</SearchRange>
@@ -10,17 +10,17 @@
     <Ranged>
       <AttackName>Bow</AttackName>
       <Damage>
-        <Pierce>10</Pierce>
+        <Pierce>8</Pierce>
       </Damage>
       <MaxRange>60</MaxRange>
-      <PrepareTime>1200</PrepareTime>
-      <RepeatTime>2000</RepeatTime>
+      <PrepareTime>400</PrepareTime>
+      <RepeatTime>4000</RepeatTime>
       <Projectile>
         <Speed>100</Speed>
-        <Spread>1.5</Spread>
+        <Spread>2</Spread>
         <Gravity>50</Gravity>
         <FriendlyFire>false</FriendlyFire>
-        <LaunchPoint y="3"/>
+        <LaunchPoint y="0"/>
       </Projectile>
       <PreferredClasses datatype="tokens">Human</PreferredClasses>
       <RangeOverlay>
@@ -39,13 +39,13 @@
     </Distance>
   </BuildRestrictions>
   <BuildingAI>
-    <DefaultArrowCount>3</DefaultArrowCount>
+    <DefaultArrowCount>6</DefaultArrowCount>
     <GarrisonArrowMultiplier>1</GarrisonArrowMultiplier>
     <GarrisonArrowClasses>Soldier</GarrisonArrowClasses>
   </BuildingAI>
   <Capturable>
     <CapturePoints>2500</CapturePoints>
-    <RegenRate>5.0</RegenRate>
+    <RegenRate>30</RegenRate>
   </Capturable>
   <Cost>
     <BuildTime>500</BuildTime>
@@ -74,7 +74,7 @@
   <Identity>
     <GenericName>Civic Center</GenericName>
     <SelectionGroupName>template_structure_civic_civil_centre</SelectionGroupName>
-    <Tooltip>Build in own or neutral territory. Acquire large tracts of territory. Territory root. Train Citizens and research technologies. Garrison Soldiers for additional arrows.</Tooltip>
+    <Tooltip>Build in own or neutral territory. Acquire large tracts of territory. Territory root. Train Civilians and research technologies. Garrison Soldiers for additional arrows.</Tooltip>
     <Classes datatype="tokens">CivCentre</Classes>
     <VisibleClasses datatype="tokens">Defensive CivilCentre</VisibleClasses>
     <Icon>structures/civic_centre.png</Icon>
@@ -85,7 +85,6 @@
     <metal>50</metal>
   </Loot>
   <Minimap>
-    <Type>structure</Type>
     <Icon size="16.0">civil_centre.png</Icon>
   </Minimap>
   <Obstruction>
@@ -100,7 +99,6 @@
       phase_town_{civ}
       phase_city_{civ}
       unlock_shared_los
-      unlock_shared_dropsites
       archery_tradition
       hoplite_tradition
       hellenistic_metropolis
@@ -140,7 +138,7 @@
   <Trainer>
     <BatchTimeModifier>0.8</BatchTimeModifier>
     <Entities datatype="tokens">
-      units/{civ}/support_female_citizen
+      units/{native}/support_civilian
     </Entities>
   </Trainer>
   <Vision>

@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,33 +17,56 @@
 
 #include "precompiled.h"
 
-#include "renderer/SkyManager.h"
+#include "SkyManager.h"
 
+#include "graphics/Camera.h"
 #include "graphics/LightEnv.h"
 #include "graphics/ShaderManager.h"
-#include "graphics/Terrain.h"
+#include "graphics/ShaderTechnique.h"
+#include "graphics/ShaderTechniquePtr.h"
 #include "graphics/TextureManager.h"
 #include "lib/bits.h"
+#include "lib/code_generation.h"
+#include "lib/file/file_system.h"
+#include "lib/file/vfs/vfs.h"
+#include "lib/file/vfs/vfs_path.h"
+#include "lib/path.h"
+#include "lib/status.h"
 #include "lib/tex/tex.h"
-#include "maths/MathUtil.h"
+#include "lib/types.h"
+#include "maths/Matrix3D.h"
+#include "maths/Vector3D.h"
 #include "ps/CLogger.h"
-#include "ps/ConfigDB.h"
 #include "ps/CStr.h"
+#include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
+#include "ps/ConfigDB.h"
 #include "ps/Filesystem.h"
-#include "ps/Game.h"
-#include "renderer/backend/IDevice.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
-#include "renderer/RenderingOptions.h"
+#include "renderer/backend/Format.h"
+#include "renderer/backend/IBuffer.h"
+#include "renderer/backend/IDevice.h"
+#include "renderer/backend/IDeviceCommandContext.h"
+#include "renderer/backend/IShaderProgram.h"
+#include "renderer/backend/ITexture.h"
+#include "renderer/backend/Sampler.h"
 
 #include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <numbers>
+#include <string>
+#include <utility>
 
-SkyManager::SkyManager()
-	: m_VertexArray(Renderer::Backend::IBuffer::Type::VERTEX,
-		Renderer::Backend::IBuffer::Usage::TRANSFER_DST)
+SkyManager::SkyManager() :
+	m_VertexArray{Renderer::Backend::IBuffer::Type::VERTEX,
+		Renderer::Backend::IBuffer::Usage::TRANSFER_DST},
+	m_SkyVisible{g_ConfigDB.Get("showsky", true)}
 {
-	CFG_GET_VAL("showsky", m_SkyVisible);
 }
 
 void SkyManager::LoadAndUploadSkyTexturesIfNeeded(
@@ -240,7 +263,7 @@ void SkyManager::RenderSky(
 	// each skymap, is in the direction of the sun from our light
 	// environment.
 	CMatrix3D rotate;
-	rotate.SetYRotation(M_PI + g_Renderer.GetSceneRenderer().GetLightEnv().GetRotation());
+	rotate.SetYRotation(std::numbers::pi_v<float> + g_Renderer.GetSceneRenderer().GetLightEnv().GetRotation());
 
 	const CMatrix3D transform = camera.GetViewProjection() * translate * rotate * scale;
 	deviceCommandContext->SetUniform(

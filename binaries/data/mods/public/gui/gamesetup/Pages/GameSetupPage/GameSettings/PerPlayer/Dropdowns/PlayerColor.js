@@ -20,7 +20,7 @@ PlayerSettingControls.PlayerColor = class PlayerColor extends GameSettingControl
 		if (g_GameSettings.playerCount.nbPlayers < this.playerIndex + 1)
 			return;
 
-		const hidden = !g_IsController || g_GameSettings.map.type == "scenario";
+		const hidden = !g_IsController || !this.enabled || g_GameSettings.map.type == "scenario";
 		this.dropdown.hidden = hidden;
 		this.playerColorHeading.hidden = hidden;
 
@@ -30,7 +30,8 @@ PlayerSettingControls.PlayerColor = class PlayerColor extends GameSettingControl
 		this.values = g_GameSettings.playerColor.available;
 		this.dropdown.list = this.values.map(color => coloredText(this.ColorIcon, rgbToGuiColor(color)));
 		this.dropdown.list_data = this.values.map((color, i) => i);
-		this.setSelectedValue(this.values.map((color, i) => {
+		this.setSelectedValue(this.values.map((color, i) =>
+		{
 			if (color.r === value.r && color.g === value.g && color.b === value.b)
 				return i;
 			return undefined;

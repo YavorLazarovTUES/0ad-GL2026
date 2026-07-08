@@ -1,11 +1,15 @@
+import { addAnimals, addBerries, addDecoration, addForests, addHills, addMetal, addMountains,
+	addLayeredPatches, addPlateaus, addStone, addStragglerTrees } from "maps/random/rmgen2/gaia.js";
+import { addElements, allAmounts, allMixes, allSizes, createBases, initTileClasses } from
+	"maps/random/rmgen2/setup.js";
+
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
-Engine.LoadLibrary("rmgen2");
 Engine.LoadLibrary("rmbiome");
 
-function* GenerateMap()
+export function* generateMap(mapSettings)
 {
-	setSelectedBiome();
+	setBiome(mapSettings.Biome);
 
 	globalThis.g_Map = new RandomMap(2, g_Terrains.mainTerrain);
 
@@ -20,7 +24,7 @@ function* GenerateMap()
 	const teamsArray = getTeamsArray();
 	const startAngle = randomAngle();
 	createBases(
-		...playerPlacementByPattern(
+		playerPlacementByPattern(
 			"stronghold",
 			fractionToTiles(0.37),
 			fractionToTiles(0.04),
@@ -39,7 +43,7 @@ function* GenerateMap()
 		rotation = 5/4 * Math.PI;
 
 	createBases(
-		...playerPlacementByPattern(
+		playerPlacementByPattern(
 			"stronghold",
 			fractionToTiles(0.15),
 			fractionToTiles(0.04),
@@ -60,8 +64,8 @@ function* GenerateMap()
 				g_TileClasses.valley, 2,
 				g_TileClasses.water, 2
 			],
-			"sizes": g_AllSizes,
-			"mixes": g_AllMixes,
+			"sizes": allSizes,
+			"mixes": allMixes,
 			"amounts": ["tons"]
 		},
 		{
@@ -144,7 +148,7 @@ function* GenerateMap()
 			],
 			"sizes": ["normal"],
 			"mixes": ["same"],
-			"amounts": g_AllAmounts
+			"amounts": allAmounts
 		},
 		{
 			"func": addStone,
@@ -160,7 +164,7 @@ function* GenerateMap()
 			],
 			"sizes": ["normal"],
 			"mixes": ["same"],
-			"amounts": g_AllAmounts
+			"amounts": allAmounts
 		},
 		{
 			"func": addForests,
@@ -175,8 +179,8 @@ function* GenerateMap()
 				g_TileClasses.rock, 3,
 				g_TileClasses.water, 2
 			],
-			"sizes": g_AllSizes,
-			"mixes": g_AllMixes,
+			"sizes": allSizes,
+			"mixes": allMixes,
 			"amounts": ["few", "normal", "many", "tons"]
 		}
 	]));
@@ -196,9 +200,9 @@ function* GenerateMap()
 				g_TileClasses.rock, 10,
 				g_TileClasses.water, 3
 			],
-			"sizes": g_AllSizes,
-			"mixes": g_AllMixes,
-			"amounts": g_AllAmounts
+			"sizes": allSizes,
+			"mixes": allMixes,
+			"amounts": allAmounts
 		},
 		{
 			"func": addAnimals,
@@ -213,9 +217,9 @@ function* GenerateMap()
 				g_TileClasses.rock, 2,
 				g_TileClasses.water, 3
 			],
-			"sizes": g_AllSizes,
-			"mixes": g_AllMixes,
-			"amounts": g_AllAmounts
+			"sizes": allSizes,
+			"mixes": allMixes,
+			"amounts": allAmounts
 		},
 		{
 			"func": addStragglerTrees,
@@ -230,9 +234,9 @@ function* GenerateMap()
 				g_TileClasses.rock, 2,
 				g_TileClasses.water, 5
 			],
-			"sizes": g_AllSizes,
-			"mixes": g_AllMixes,
-			"amounts": g_AllAmounts
+			"sizes": allSizes,
+			"mixes": allMixes,
+			"amounts": allAmounts
 		}
 	]));
 	yield 90;

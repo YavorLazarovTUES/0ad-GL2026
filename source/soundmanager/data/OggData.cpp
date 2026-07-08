@@ -1,4 +1,4 @@
-/* Copyright (C) 2015 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,31 +21,42 @@
 
 #if CONFIG2_AUDIO
 
-#include "ps/CLogger.h"
+#include "lib/status.h"
+#include "lib/types.h"
 #include "ps/CLogger.h"
 #include "ps/Filesystem.h"
 #include "soundmanager/SoundManager.h"
+#include "soundmanager/data/ogg.h"
+
+#include <algorithm>
+#include <cstddef>
+#include <span>
+#include <vector>
+
+/*
+* Each buffer holds ~0.56 seconds of audio.
+* Bytes per second = sampleRate × channels × bytesPerSample.
+* For 44100 Hz, 2 channels, 2 bytes per sample, this is 176400 bytes per second.
+* Nice multiple of 4096 (system page size)
+*/
+constexpr int OGG_DEFAULT_BUFFER_SIZE = 98304;
 
 COggData::COggData()
-	: m_Format(0), m_Frequency(0), m_OneShot(false), m_BuffersUsed(0)
+	: m_Format(0), m_Frequency(0), m_OneShot(false), m_BuffersCount(0)
 {
 }
 
 COggData::~COggData()
 {
 	AL_CHECK;
-	if (ogg)
-		ogg->Close();
+	if (m_BuffersCount > 0)
+		alDeleteBuffers(m_BuffersCount, &m_Buffer.at(0));
 
 	AL_CHECK;
-	if ( m_BuffersUsed > 0 )
-		alDeleteBuffers(m_BuffersUsed, &m_Buffer[0]);
-
-	AL_CHECK;
-	m_BuffersUsed = 0;
+	m_BuffersCount = 0;
 }
 
-void COggData::SetFormatAndFreq(int form, ALsizei freq)
+void COggData::SetFormatAndFreq(ALenum form, ALsizei freq)
 {
 	m_Format = form;
 	m_Frequency = freq;
@@ -58,38 +69,30 @@ bool COggData::IsStereo()
 
 bool COggData::InitOggFile(const VfsPath& itemPath)
 {
-	CSoundManager* sndManager = (CSoundManager*)g_SoundManager;
-	if (!sndManager)
-		return false;
-
-	int buffersToStart = sndManager->GetBufferCount();
-	if (OpenOggNonstream(g_VFS, itemPath, ogg) != INFO::OK)
+	if (OpenOggNonstream(g_VFS, itemPath, m_Stream) != INFO::OK)
 		return false;
 
 	m_FileFinished = false;
 
-	SetFormatAndFreq(ogg->Format(), ogg->SamplingRate());
+	SetFormatAndFreq(m_Stream->Format(), m_Stream->SamplingRate());
 	SetFileName(itemPath);
 
 	AL_CHECK;
+	alGenBuffers(m_Buffer.size(), m_Buffer.data());
 
-	alGenBuffers(buffersToStart, m_Buffer);
-
-	ALenum err = alGetError();
+	ALenum err{alGetError()};
 	if (err != AL_NO_ERROR)
 	{
 		LOGERROR("Failed to create initial buffer. OpenAL error: %s\n", alGetString(err));
 		return false;
 	}
 
-	m_BuffersUsed = FetchDataIntoBuffer(buffersToStart, m_Buffer);
+	m_BuffersCount = FetchDataIntoBuffer(m_Buffer.size(), m_Buffer.data());
 	if (m_FileFinished)
 	{
 		m_OneShot = true;
-		if (m_BuffersUsed < buffersToStart)
-		{
-			alDeleteBuffers(buffersToStart - m_BuffersUsed, &m_Buffer[m_BuffersUsed]);
-		}
+		if (m_BuffersCount < OGG_DEFAULT_BUFFER_COUNT)
+			alDeleteBuffers(OGG_DEFAULT_BUFFER_COUNT - m_BuffersCount, &m_Buffer.at(m_BuffersCount));
 	}
 	AL_CHECK;
 
@@ -98,7 +101,7 @@ bool COggData::InitOggFile(const VfsPath& itemPath)
 
 ALsizei COggData::GetBufferCount()
 {
-	return m_BuffersUsed;
+	return m_BuffersCount;
 }
 
 bool COggData::IsFileFinished()
@@ -108,7 +111,7 @@ bool COggData::IsFileFinished()
 
 void COggData::ResetFile()
 {
-	ogg->ResetFile();
+	m_Stream->ResetFile();
 	m_FileFinished = false;
 }
 
@@ -119,39 +122,32 @@ bool COggData::IsOneShot()
 
 int COggData::FetchDataIntoBuffer(int count, ALuint* buffers)
 {
-	CSoundManager* sndManager = (CSoundManager*)g_SoundManager;
-	if (!sndManager)
-		return 0;
+	std::vector<u8> PCMOut(OGG_DEFAULT_BUFFER_SIZE);
+	int buffersWritten{0};
 
-	long bufferSize = sndManager->GetBufferSize();
-
-	u8* pcmout = new u8[bufferSize + 5000];
-	int buffersWritten = 0;
-
-	for (int i = 0; i < count && !m_FileFinished; ++i)
+	for (int i{0}; i < count && !m_FileFinished; ++i)
 	{
-		memset(pcmout, 0, bufferSize + 5000);
-		Status totalRet = ogg->GetNextChunk(pcmout, bufferSize);
-		m_FileFinished = ogg->atFileEOF();
-		if (totalRet > 0)
-		{
-			buffersWritten++;
-			alBufferData(buffers[i], m_Format, pcmout, (ALsizei)totalRet, (int)m_Frequency);
-		}
+		std::fill(PCMOut.begin(), PCMOut.end(), 0);
+		const size_t totalRet{m_Stream->GetNextChunk(std::span<u8>(PCMOut))};
+		m_FileFinished = m_Stream->AtFileEOF();
+		if (totalRet == 0)
+			continue;
+
+		++buffersWritten;
+		alBufferData(buffers[i], m_Format, PCMOut.data(), static_cast<ALsizei>(totalRet), m_Frequency);
 	}
-	delete[] pcmout;
 	return buffersWritten;
 }
 
 
 ALuint COggData::GetBuffer()
 {
-	return m_Buffer[0];
+	return m_Buffer.at(0);
 }
 
 ALuint* COggData::GetBufferPtr()
 {
-	return m_Buffer;
+	return m_Buffer.data();
 }
 
 #endif // CONFIG2_AUDIO

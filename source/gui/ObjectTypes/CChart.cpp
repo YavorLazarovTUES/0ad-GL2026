@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,14 +20,24 @@
 #include "CChart.h"
 
 #include "graphics/Canvas2D.h"
+#include "gui/CGUIText.h"
+#include "gui/SGUIMessage.h"
 #include "gui/SettingTypes/CGUIList.h"
 #include "gui/SettingTypes/CGUISeries.h"
 #include "gui/SettingTypes/CGUIString.h"
+#include "lib/utf8.h"
+#include "maths/Rect.h"
+#include "maths/Size2D.h"
 #include "ps/CLogger.h"
-#include "ps/CStrInternStatic.h"
 #include "ps/Profile.h"
 
 #include <cmath>
+#include <cwchar>
+#include <limits>
+#include <optional>
+#include <string>
+
+class CGUI;
 
 CChart::CChart(CGUI& pGUI)
 	: IGUIObject(pGUI),
@@ -43,14 +53,10 @@ CChart::CChart(CGUI& pGUI)
 {
 }
 
-CChart::~CChart()
+void CChart::HandleSizeChanged()
 {
-}
-
-void CChart::UpdateCachedSize()
-{
-	IGUIObject::UpdateCachedSize();
-	IGUITextOwner::UpdateCachedSize();
+	IGUIObject::HandleSizeChanged();
+	IGUITextOwner::HandleSizeChanged();
 }
 
 void CChart::HandleMessage(SGUIMessage& Message)
@@ -66,11 +72,11 @@ void CChart::HandleMessage(SGUIMessage& Message)
 void CChart::DrawAxes(CCanvas2D& canvas) const
 {
 	canvas.DrawRect(CRect(
-		m_CachedActualSize.TopLeft(),
-		m_CachedActualSize.BottomLeft() + CVector2D(m_AxisWidth, 0.0f)), m_AxisColor);
+		GetActualSize().TopLeft(),
+		GetActualSize().BottomLeft() + CVector2D(m_AxisWidth, 0.0f)), m_AxisColor);
 	canvas.DrawRect(CRect(
-		m_CachedActualSize.BottomLeft() - CVector2D(0.0f, m_AxisWidth),
-		m_CachedActualSize.BottomRight()), m_AxisColor);
+		GetActualSize().BottomLeft() - CVector2D(0.0f, m_AxisWidth),
+		GetActualSize().BottomRight()), m_AxisColor);
 }
 
 void CChart::Draw(CCanvas2D& canvas)
@@ -79,6 +85,10 @@ void CChart::Draw(CCanvas2D& canvas)
 
 	if (m_Series.empty())
 		return;
+
+	std::optional<CCanvas2D::ScopedScissor> scissor;
+	if (m_VisibleArea)
+		scissor.emplace(canvas, m_VisibleArea);
 
 	CRect rect = GetChartRect();
 	const float width = rect.GetWidth();
@@ -90,7 +100,7 @@ void CChart::Draw(CCanvas2D& canvas)
 	{
 		if (data.m_Points.empty())
 			continue;
-		
+
 		linePoints.clear();
 		for (const CVector2D& point : data.m_Points)
 		{
@@ -114,14 +124,14 @@ void CChart::Draw(CCanvas2D& canvas)
 		DrawAxes(canvas);
 
 	for (size_t i = 0; i < m_TextPositions.size(); ++i)
-		DrawText(canvas, i, CGUIColor(1.f, 1.f, 1.f, 1.f), m_TextPositions[i]);
+		DrawText(canvas, i, CGUIColor(1.f, 1.f, 1.f, 1.f), m_TextPositions[i], m_VisibleArea);
 }
 
 CRect CChart::GetChartRect() const
 {
 	return CRect(
-		m_CachedActualSize.TopLeft() + CVector2D(m_AxisWidth, m_AxisWidth),
-		m_CachedActualSize.BottomRight() - CVector2D(m_AxisWidth, m_AxisWidth)
+		GetActualSize().TopLeft() + CVector2D(m_AxisWidth, m_AxisWidth),
+		GetActualSize().BottomRight() - CVector2D(m_AxisWidth, m_AxisWidth)
 	);
 }
 

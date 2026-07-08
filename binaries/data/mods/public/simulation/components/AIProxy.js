@@ -18,7 +18,7 @@ AIProxy.prototype.Schema =
  * really and it helps performance significantly.
  *
  * We also add an optimisation to avoid copying non-changing values.
- * The first call to GetRepresentation calls GetFullRepresentation,
+ * The first call to GetRepresentation calls getFullRepresentation,
  * which constructs the complete entity state representation.
  * After that, we simply listen to events from the rest of the gameplay code,
  * and store the changed data in this.changes.
@@ -27,7 +27,7 @@ AIProxy.prototype.Schema =
  * will keep its old value.
  *
  * The event handlers should set this.changes.whatever to exactly the
- * same as GetFullRepresentation would set.
+ * same as getFullRepresentation would set.
  */
 
 AIProxy.prototype.Init = function()
@@ -44,12 +44,122 @@ AIProxy.prototype.Deserialize = function()
 	this.Init();
 };
 
+
+function getFullRepresentation(entityID)
+{
+	const cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
+
+	const ret = {
+		// These properties are constant and won't need to be updated
+		"id": entityID,
+		"template": cmpTemplateManager.GetCurrentTemplateName(entityID)
+	};
+
+	const cmpPosition = Engine.QueryInterface(entityID, IID_Position);
+	if (cmpPosition)
+	{
+		// Updated by OnPositionChanged
+
+		if (cmpPosition.IsInWorld())
+		{
+			const pos = cmpPosition.GetPosition2D();
+			ret.position = [pos.x, pos.y];
+			ret.angle = cmpPosition.GetRotation().y;
+		}
+		else
+		{
+			ret.position = undefined;
+			ret.angle = undefined;
+		}
+	}
+
+	const cmpHealth = Engine.QueryInterface(entityID, IID_Health);
+	if (cmpHealth)
+	{
+		// Updated by OnHealthChanged
+		ret.hitpoints = cmpHealth.GetHitpoints();
+	}
+
+	const cmpResistance = Engine.QueryInterface(entityID, IID_Resistance);
+	if (cmpResistance)
+		ret.invulnerability = cmpResistance.IsInvulnerable();
+
+	const cmpOwnership = Engine.QueryInterface(entityID, IID_Ownership);
+	if (cmpOwnership)
+	{
+		// Updated by OnOwnershipChanged
+		ret.owner = cmpOwnership.GetOwner();
+	}
+
+	const cmpUnitAI = Engine.QueryInterface(entityID, IID_UnitAI);
+	if (cmpUnitAI)
+	{
+		// Updated by OnUnitIdleChanged
+		ret.idle = !!cmpUnitAI.isIdleConfirmed;
+		// Updated by OnUnitStanceChanged
+		ret.stance = cmpUnitAI.GetStanceName();
+		// Updated by OnUnitAIStateChanged
+		ret.unitAIState = cmpUnitAI.GetCurrentState();
+		// Updated by OnUnitAIOrderDataChanged
+		ret.unitAIOrderData = cmpUnitAI.GetOrderData();
+	}
+
+	const cmpProductionQueue = Engine.QueryInterface(entityID, IID_ProductionQueue);
+	if (cmpProductionQueue)
+	{
+		// Updated by OnProductionQueueChanged
+		ret.trainingQueue = cmpProductionQueue.GetQueue();
+	}
+
+	const cmpFoundation = Engine.QueryInterface(entityID, IID_Foundation);
+	if (cmpFoundation)
+	{
+		// Updated by OnFoundationProgressChanged
+		ret.foundationProgress = cmpFoundation.GetBuildPercentage();
+		ret.foundationBuilders = cmpFoundation.GetBuilders();
+	}
+
+	const cmpResourceDropsite = Engine.QueryInterface(entityID, IID_ResourceDropsite);
+	if (cmpResourceDropsite)
+	{
+		// Updated by OnDropsiteSharingChanged
+		ret.sharedDropsite = cmpResourceDropsite.IsShared();
+	}
+
+	const cmpGarrisonHolder = Engine.QueryInterface(entityID, IID_GarrisonHolder);
+	if (cmpGarrisonHolder)
+	{
+		// Updated by OnGarrisonedUnitsChanged
+		ret.garrisoned = cmpGarrisonHolder.GetEntities();
+	}
+
+	const cmpGarrisonable = Engine.QueryInterface(entityID, IID_Garrisonable);
+	if (cmpGarrisonable)
+	{
+		// Updated by OnGarrisonedStateChanged
+		ret.garrisonHolderID = cmpGarrisonable.HolderID();
+	}
+
+	const cmpTerritoryDecay = Engine.QueryInterface(entityID, IID_TerritoryDecay);
+	if (cmpTerritoryDecay)
+		ret.decaying = cmpTerritoryDecay.IsDecaying();
+
+	const cmpCapturable = Engine.QueryInterface(entityID, IID_Capturable);
+	if (cmpCapturable)
+		ret.capturePoints = cmpCapturable.GetCapturePoints();
+
+	return ret;
+}
+
 AIProxy.prototype.GetRepresentation = function()
 {
 	// Return the full representation the first time we're called
 	let ret;
 	if (this.needsFullGet)
-		ret = this.GetFullRepresentation();
+	{
+		this.needsFullGet = false;
+		ret = getFullRepresentation(this.entity);
+	}
 	else
 		ret = this.changes;
 
@@ -63,14 +173,11 @@ AIProxy.prototype.GetRepresentation = function()
 
 AIProxy.prototype.NotifyChange = function()
 {
-	if (this.needsFullGet)
-	{
-		// not yet notified, be sure that the owner is set before doing so
-		// as the Create event is sent only on first ownership changed
-		let cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
-		if (!cmpOwnership || cmpOwnership.GetOwner() < 0)
-			return false;
-	}
+	// not yet notified, be sure that the owner is set before doing so
+	// as the Create event is sent only on first ownership changed
+	const cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
+	if (!cmpOwnership || cmpOwnership.GetOwner() < 0)
+		return false;
 
 	if (!this.changes)
 	{
@@ -159,7 +266,7 @@ AIProxy.prototype.OnProductionQueueChanged = function(msg)
 {
 	if (!this.NotifyChange())
 		return;
-	let cmpProductionQueue = Engine.QueryInterface(this.entity, IID_ProductionQueue);
+	const cmpProductionQueue = Engine.QueryInterface(this.entity, IID_ProductionQueue);
 	this.changes.trainingQueue = cmpProductionQueue.GetQueue();
 };
 
@@ -168,14 +275,14 @@ AIProxy.prototype.OnGarrisonedUnitsChanged = function(msg)
 	if (!this.NotifyChange())
 		return;
 
-	let cmpGarrisonHolder = Engine.QueryInterface(this.entity, IID_GarrisonHolder);
+	const cmpGarrisonHolder = Engine.QueryInterface(this.entity, IID_GarrisonHolder);
 	this.changes.garrisoned = cmpGarrisonHolder.GetEntities();
 
 	// Send a message telling a unit garrisoned or ungarrisoned.
 	// I won't check if the unit is still alive so it'll be up to the AI.
-	for (let ent of msg.added)
+	for (const ent of msg.added)
 		this.cmpAIInterface.PushEvent("Garrison", { "entity": ent, "holder": this.entity });
-	for (let ent of msg.removed)
+	for (const ent of msg.removed)
 		this.cmpAIInterface.PushEvent("UnGarrison", { "entity": ent, "holder": this.entity });
 };
 
@@ -209,112 +316,6 @@ AIProxy.prototype.OnTerritoryDecayChanged = function(msg)
 };
 
 // TODO: event handlers for all the other things
-
-AIProxy.prototype.GetFullRepresentation = function()
-{
-	this.needsFullGet = false;
-	let cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
-
-	let ret = {
-		// These properties are constant and won't need to be updated
-		"id": this.entity,
-		"template": cmpTemplateManager.GetCurrentTemplateName(this.entity)
-	};
-
-	let cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
-	if (cmpPosition)
-	{
-		// Updated by OnPositionChanged
-
-		if (cmpPosition.IsInWorld())
-		{
-			let pos = cmpPosition.GetPosition2D();
-			ret.position = [pos.x, pos.y];
-			ret.angle = cmpPosition.GetRotation().y;
-		}
-		else
-		{
-			ret.position = undefined;
-			ret.angle = undefined;
-		}
-	}
-
-	let cmpHealth = Engine.QueryInterface(this.entity, IID_Health);
-	if (cmpHealth)
-	{
-		// Updated by OnHealthChanged
-		ret.hitpoints = cmpHealth.GetHitpoints();
-	}
-
-	let cmpResistance = Engine.QueryInterface(this.entity, IID_Resistance);
-	if (cmpResistance)
-		ret.invulnerability = cmpResistance.IsInvulnerable();
-
-	let cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
-	if (cmpOwnership)
-	{
-		// Updated by OnOwnershipChanged
-		ret.owner = cmpOwnership.GetOwner();
-	}
-
-	let cmpUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
-	if (cmpUnitAI)
-	{
-		// Updated by OnUnitIdleChanged
-		ret.idle = cmpUnitAI.IsIdle();
-		// Updated by OnUnitStanceChanged
-		ret.stance = cmpUnitAI.GetStanceName();
-		// Updated by OnUnitAIStateChanged
-		ret.unitAIState = cmpUnitAI.GetCurrentState();
-		// Updated by OnUnitAIOrderDataChanged
-		ret.unitAIOrderData = cmpUnitAI.GetOrderData();
-	}
-
-	let cmpProductionQueue = Engine.QueryInterface(this.entity, IID_ProductionQueue);
-	if (cmpProductionQueue)
-	{
-		// Updated by OnProductionQueueChanged
-		ret.trainingQueue = cmpProductionQueue.GetQueue();
-	}
-
-	let cmpFoundation = Engine.QueryInterface(this.entity, IID_Foundation);
-	if (cmpFoundation)
-	{
-		// Updated by OnFoundationProgressChanged
-		ret.foundationProgress = cmpFoundation.GetBuildPercentage();
-	}
-
-	let cmpResourceDropsite = Engine.QueryInterface(this.entity, IID_ResourceDropsite);
-	if (cmpResourceDropsite)
-	{
-		// Updated by OnDropsiteSharingChanged
-		ret.sharedDropsite = cmpResourceDropsite.IsShared();
-	}
-
-	let cmpGarrisonHolder = Engine.QueryInterface(this.entity, IID_GarrisonHolder);
-	if (cmpGarrisonHolder)
-	{
-		// Updated by OnGarrisonedUnitsChanged
-		ret.garrisoned = cmpGarrisonHolder.GetEntities();
-	}
-
-	let cmpGarrisonable = Engine.QueryInterface(this.entity, IID_Garrisonable);
-	if (cmpGarrisonable)
-	{
-		// Updated by OnGarrisonedStateChanged
-		ret.garrisonHolderID = cmpGarrisonable.HolderID();
-	}
-
-	let cmpTerritoryDecay = Engine.QueryInterface(this.entity, IID_TerritoryDecay);
-	if (cmpTerritoryDecay)
-		ret.decaying = cmpTerritoryDecay.IsDecaying();
-
-	let cmpCapturable = Engine.QueryInterface(this.entity, IID_Capturable);
-	if (cmpCapturable)
-		ret.capturePoints = cmpCapturable.GetCapturePoints();
-
-	return ret;
-};
 
 // AI event handlers:
 // (These are passed directly as events to the AI scripts, rather than updating

@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,40 +19,50 @@
 
 #include "Game.h"
 
+#include "graphics/Color.h"
 #include "graphics/GameView.h"
 #include "graphics/LOSTexture.h"
-#include "graphics/ParticleManager.h"
 #include "graphics/UnitManager.h"
-#include "gui/GUIManager.h"
 #include "gui/CGUI.h"
-#include "lib/config2.h"
-#include "lib/timer.h"
+#include "gui/GUIManager.h"
+#include "lib/code_generation.h"
+#include "lib/debug.h"
 #include "network/NetClient.h"
-#include "network/NetServer.h"
-#include "ps/CConsole.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
 #include "ps/GameSetup/GameSetup.h"
 #include "ps/Loader.h"
 #include "ps/Profile.h"
 #include "ps/Replay.h"
-#include "ps/World.h"
 #include "ps/VideoMode.h"
+#include "ps/World.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
 #include "renderer/TimeManager.h"
 #include "renderer/WaterManager.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/JSON.h"
+#include "scriptinterface/Object.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpPlayer.h"
 #include "simulation2/components/ICmpPlayerManager.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
+#include "simulation2/system/LocalTurnManager.h"
 #include "simulation2/system/ReplayTurnManager.h"
-#include "soundmanager/ISoundManager.h"
+#include "simulation2/system/TurnManager.h"
 #include "tools/atlas/GameInterface/GameLoop.h"
 
+#include <cstddef>
 #include <fstream>
+#include <js/RootingAPI.h>
+#include <js/Value.h>
+#include <memory>
+#include <sstream>
+#include <utility>
 
 extern GameLoopState* g_AtlasGameLoop;
 
@@ -67,13 +77,15 @@ const CStr CGame::EventNameSimulationUpdate = "SimulationUpdate";
  * Constructor
  *
  **/
-CGame::CGame(bool replayLog):
+CGame::CGame(bool replayLog, const SimulationDebugOptions debugOptions):
 	m_World(new CWorld(*this)),
-	m_Simulation2{new CSimulation2{&m_World->GetUnitManager(), *g_ScriptContext, &m_World->GetTerrain()}},
+	m_Simulation2{new CSimulation2{&m_World->GetUnitManager(), *g_ScriptContext, &m_World->GetTerrain(),
+		CSimulation2::DEFAULT_SCRIPTS, debugOptions}},
 	// TODO: we need to remove that global dependency. Maybe the game view
 	// should be created outside only if needed.
 	m_GameView(CRenderer::IsInitialised() ? new CGameView(g_VideoMode.GetBackendDevice(), this) : nullptr),
 	m_GameStarted(false),
+	m_CheatsEnabled(false),
 	m_Paused(false),
 	m_SimRate(1.0f),
 	m_PlayerID(-1),
@@ -94,8 +106,6 @@ CGame::CGame(bool replayLog):
 		m_World->GetUnitManager().SetObjectManager(m_GameView->GetObjectManager());
 
 	m_TurnManager = new CLocalTurnManager(*m_Simulation2, GetReplayLogger()); // this will get replaced if we're a net server/client
-
-	m_Simulation2->LoadDefaultScripts();
 }
 
 /**
@@ -186,7 +196,7 @@ bool CGame::StartVisualReplay(const OsPath& replayPath)
 	SetTurnManager(new CReplayTurnManager(*m_Simulation2, GetReplayLogger()));
 
 	m_ReplayPath = replayPath;
-	m_ReplayStream = new std::ifstream(OsString(replayPath).c_str());
+	m_ReplayStream = new std::ifstream(OsString(replayPath));
 
 	std::string type;
 	ENSURE((*m_ReplayStream >> type).good() && type == "start");
@@ -194,8 +204,8 @@ bool CGame::StartVisualReplay(const OsPath& replayPath)
 	std::string line;
 	std::getline(*m_ReplayStream, line);
 
-	const ScriptInterface& scriptInterface = m_Simulation2->GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	const Script::Interface& scriptInterface = m_Simulation2->GetScriptInterface();
+	Script::Request rq(scriptInterface);
 
 	JS::RootedValue attribs(rq.cx);
 	Script::ParseJSON(rq, line, &attribs);
@@ -211,8 +221,8 @@ bool CGame::StartVisualReplay(const OsPath& replayPath)
  **/
 void CGame::RegisterInit(const JS::HandleValue attribs, const std::string& savedState)
 {
-	const ScriptInterface& scriptInterface = m_Simulation2->GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	const Script::Interface& scriptInterface = m_Simulation2->GetScriptInterface();
+	Script::Request rq(scriptInterface);
 
 	m_IsSavedGame = !savedState.empty();
 
@@ -220,6 +230,15 @@ void CGame::RegisterInit(const JS::HandleValue attribs, const std::string& saved
 
 	std::string mapType;
 	Script::GetProperty(rq, attribs, "mapType", mapType);
+
+	JS::RootedValue settings(rq.cx);
+	Script::GetProperty(rq, attribs, "settings", &settings);
+
+	if (Script::HasProperty(rq, attribs, "settings") &&
+	    Script::HasProperty(rq, settings, "CheatsEnabled"))
+	{
+		Script::GetProperty(rq, settings, "CheatsEnabled", m_CheatsEnabled);
+	}
 
 	float speed;
 	if (Script::HasProperty(rq, attribs, "gameSpeed"))
@@ -230,9 +249,9 @@ void CGame::RegisterInit(const JS::HandleValue attribs, const std::string& saved
 			LOGERROR("GameSpeed could not be parsed.");
 	}
 
-	LDR_BeginRegistering();
+	PS::Loader::BeginRegistering();
 
-	LDR_Register([this](const double)
+	PS::Loader::Register([this]
 	{
 		return m_Simulation2->ProgressiveLoad();
 	}, L"Simulation init", 1000);
@@ -249,41 +268,37 @@ void CGame::RegisterInit(const JS::HandleValue attribs, const std::string& saved
 	{
 		// Load random map attributes
 		std::wstring scriptFile;
-		JS::RootedValue settings(rq.cx);
-
 		Script::GetProperty(rq, attribs, "script", scriptFile);
-		Script::GetProperty(rq, attribs, "settings", &settings);
 
 		m_World->RegisterInitRMS(scriptFile, scriptInterface.GetContext(), settings, m_PlayerID);
 	}
 	else
 	{
 		std::wstring mapFile;
-		JS::RootedValue settings(rq.cx);
 		Script::GetProperty(rq, attribs, "map", mapFile);
-		Script::GetProperty(rq, attribs, "settings", &settings);
 
 		m_World->RegisterInit(mapFile, scriptInterface.GetContext(), settings, m_PlayerID);
 	}
 	if (m_GameView)
-		LDR_Register([&waterManager = g_Renderer.GetSceneRenderer().GetWaterManager()](const double)
+		PS::Loader::Register([]() -> PS::Loader::Task
 		{
-			return waterManager.LoadWaterTextures();
+			co_return g_Renderer.GetSceneRenderer().GetWaterManager().LoadWaterTextures();
 		}, L"LoadWaterTextures", 80);
 
 	if (m_IsSavedGame)
-		LDR_Register([this, savedState](const double)
+		PS::Loader::Register(std::bind_front(
+			[](CGame* game, const std::string& state) -> PS::Loader::Task
 		{
-			return LoadInitialState(savedState);
-		}, L"Loading game", 1000);
+			co_return game->LoadInitialState(state);
+		}, this, savedState), L"Loading game", 1000);
 
 	if (m_IsVisualReplay)
-		LDR_Register([this](const double)
+		PS::Loader::Register(std::bind_front([](CGame* game) -> PS::Loader::Task
 		{
-			return LoadVisualReplayData();
-		}, L"Loading visual replay data", 1000);
+			co_return game->LoadVisualReplayData();
+		}, this), L"Loading visual replay data", 1000);
 
-	LDR_EndRegistering();
+	PS::Loader::EndRegistering();
 }
 
 int CGame::LoadInitialState(const std::string& savedState)
@@ -326,6 +341,11 @@ PSRETURN CGame::ReallyStartGame()
 	// all be invisible)
 	Interpolate(0, 0);
 
+	// Run a shrinking GC to reset the memory before starting the game proper.
+	// This also clears JIT code, which seems like a good idea as the game init
+	// might have different patterns to the game itself.
+	m_Simulation2->GetScriptInterface().GetContext().ShrinkingGC();
+
 	m_GameStarted = true;
 
 	// Preload resources to avoid blinking on a first game frame.
@@ -338,12 +358,12 @@ PSRETURN CGame::ReallyStartGame()
 	// Call the reallyStartGame GUI function, but only if it exists
 	if (g_GUI && g_GUI->GetPageCount())
 	{
-		std::shared_ptr<ScriptInterface> scriptInterface = g_GUI->GetActiveGUI()->GetScriptInterface();
-		ScriptRequest rq(scriptInterface);
+		std::shared_ptr<Script::Interface> scriptInterface = g_GUI->GetActiveGUI()->GetScriptInterface();
+		Script::Request rq(scriptInterface);
 
 		JS::RootedValue global(rq.cx, rq.globalValue());
 		if (Script::HasProperty(rq, global, "reallyStartGame"))
-			ScriptFunction::CallVoid(rq, global, "reallyStartGame");
+			Script::Function::CallVoid(rq, global, "reallyStartGame");
 	}
 
 	debug_printf("GAME STARTED, ALL INIT COMPLETE\n");
@@ -379,6 +399,11 @@ void CGame::SetViewedPlayerID(player_id_t playerID)
 	m_ViewedPlayerID = playerID;
 }
 
+bool CGame::CheatsEnabled() const
+{
+	return m_CheatsEnabled;
+}
+
 void CGame::StartGame(JS::MutableHandleValue attribs, const std::string& savedState)
 {
 	if (m_ReplayLogger)
@@ -406,7 +431,8 @@ void CGame::Update(const double deltaRealTime, bool doInterpolate)
 		// so just use the sim rate itself as the number of turns per frame.
 		size_t maxTurns = (size_t)m_SimRate;
 
-		if (m_TurnManager->Update(deltaSimTime, maxTurns))
+		if (m_TurnManager->Update(deltaSimTime, maxTurns,
+			std::bind_front(&CGUIManager::SendEventToAll, g_GUI)))
 		{
 			{
 				PROFILE3("gui sim update");
@@ -474,4 +500,15 @@ bool CGame::IsGameFinished() const
 	}
 
 	return false;
+}
+
+// This function is implemented so that mods can't change it's result. See ICmpPlayer.cpp
+bool CGame::PlayerFinished(player_id_t playerID) const
+{
+	CmpPtr<ICmpPlayerManager> cmpPlayerManager(*m_Simulation2, SYSTEM_ENTITY);
+	if (!cmpPlayerManager)
+		return false;
+
+	CmpPtr<ICmpPlayer> cmpPlayer(*m_Simulation2, cmpPlayerManager->GetPlayerByID(playerID));
+	return cmpPlayer && !cmpPlayer->IsActive();
 }

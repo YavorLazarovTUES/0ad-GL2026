@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,19 +21,24 @@
 	TDD		:	http://www.wildfiregames.com/forum/index.php?showtopic=1125
 	OVERVIEW:
 
-	JavaScript: Check this documentation: http://trac.wildfiregames.com/wiki/Exposed_ConfigDB_Functions
+	JavaScript: Check this documentation: https://gitea.wildfiregames.com/0ad/0ad/wiki/Exposed_ConfigDB_Functions
 */
 
 #ifndef INCLUDED_CONFIGDB
 #define INCLUDED_CONFIGDB
 
 #include "lib/file/vfs/vfs_path.h"
+#include "lib/types.h"
 #include "ps/CStr.h"
 
 #include <array>
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 /**
@@ -61,8 +66,6 @@ using CConfigValueSet = std::vector<CStr>;
 // Actually defined below - requires access to CConfigDB.
 class CConfigDBHook;
 
-#define g_ConfigDB (*CConfigDB::Instance())
-
 class CConfigDB
 {
 	friend CConfigDBHook;
@@ -82,17 +85,31 @@ public:
 	 * will search CFG_COMMAND first, and then all namespaces from the specified
 	 * namespace down.
 	 */
-	void GetValue(EConfigNamespace ns, const CStr& name, bool& value);
+	void GetValue(EConfigNamespace ns, const std::string_view name, bool& value);
 	///@copydoc CConfigDB::GetValue
-	void GetValue(EConfigNamespace ns, const CStr& name, int& value);
+	void GetValue(EConfigNamespace ns, const std::string_view name, int& value);
 	///@copydoc CConfigDB::GetValue
-	void GetValue(EConfigNamespace ns, const CStr& name, u32& value);
+	void GetValue(EConfigNamespace ns, const std::string_view name, u32& value);
 	///@copydoc CConfigDB::GetValue
-	void GetValue(EConfigNamespace ns, const CStr& name, float& value);
+	void GetValue(EConfigNamespace ns, const std::string_view name, float& value);
 	///@copydoc CConfigDB::GetValue
-	void GetValue(EConfigNamespace ns, const CStr& name, double& value);
+	void GetValue(EConfigNamespace ns, const std::string_view name, double& value);
 	///@copydoc CConfigDB::GetValue
-	void GetValue(EConfigNamespace ns, const CStr& name, std::string& value);
+	void GetValue(EConfigNamespace ns, const std::string_view name, std::string& value);
+
+	template<typename T>
+	[[nodiscard]] T Get(const std::string_view name, T value, const EConfigNamespace ns = CFG_USER)
+	{
+		GetValue(ns, name, value);
+		return value;
+	}
+
+	template<typename T>
+	[[nodiscard]] static T GetIfInitialised(const std::string_view name, T defaultValue,
+		const EConfigNamespace ns = CFG_USER)
+	{
+		return IsInitialised() ? Instance()->Get(name, std::move(defaultValue), ns) : defaultValue;
+	}
 
 	/**
 	 * Returns true if changed with respect to last write on file
@@ -200,7 +217,8 @@ public:
 	void UnregisterHook(std::unique_ptr<CConfigDBHook> hook);
 
 private:
-	std::array<std::map<CStr, CConfigValueSet>, CFG_LAST> m_Map;
+	using TConfigMap = std::map<CStr, CConfigValueSet, std::less<>>;
+	std::array<TConfigMap, CFG_LAST> m_Map;
 	std::multimap<CStr, std::function<void()>> m_Hooks;
 	std::array<VfsPath, CFG_LAST> m_ConfigFile;
 	std::array<bool, CFG_LAST> m_HasChanges;
@@ -235,10 +253,6 @@ private:
 	CConfigDB& m_ConfigDB;
 };
 
-
-// stores the value of the given key into <destination>. this quasi-template
-// convenience wrapper on top of GetValue simplifies user code
-#define CFG_GET_VAL(name, destination)\
-	g_ConfigDB.GetValue(CFG_USER, name, destination)
+#define g_ConfigDB (*CConfigDB::Instance())
 
 #endif // INCLUDED_CONFIGDB

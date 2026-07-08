@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,11 +19,15 @@
 
 #include "SubmitScheduler.h"
 
+#include "lib/debug.h"
+#include "ps/CLogger.h"
 #include "ps/ConfigDB.h"
 #include "renderer/backend/vulkan/Device.h"
 #include "renderer/backend/vulkan/RingCommandContext.h"
-#include "renderer/backend/vulkan/SwapChain.h"
 #include "renderer/backend/vulkan/Utilities.h"
+
+#include <cstddef>
+#include <limits>
 
 namespace Renderer
 {
@@ -34,43 +38,30 @@ namespace Backend
 namespace Vulkan
 {
 
-CSubmitScheduler::CSubmitScheduler(
-	CDevice* device, const uint32_t queueFamilyIndex, VkQueue queue)
-	: m_Device(device), m_Queue(queue)
+std::unique_ptr<CSubmitScheduler> CSubmitScheduler::Create(
+	CDevice* device, VkQueue queue)
 {
+	std::unique_ptr<CSubmitScheduler> submitScheduler{new CSubmitScheduler{device, queue}};
+
 	// Currently we need exactly NUMBER_OF_FRAMES_IN_FLIGHT fences to avoid
 	// possible overlapping of different work between frames.
 	constexpr size_t numberOfFences = NUMBER_OF_FRAMES_IN_FLIGHT;
-	m_Fences.reserve(numberOfFences);
+	submitScheduler->m_Fences.reserve(numberOfFences);
 	for (size_t index = 0; index < numberOfFences; ++index)
 	{
 		VkFenceCreateInfo fenceCreateInfo{};
 		fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 		VkFence fence = VK_NULL_HANDLE;
-		ENSURE_VK_SUCCESS(vkCreateFence(
-			m_Device->GetVkDevice(), &fenceCreateInfo, nullptr, &fence));
-		m_Fences.push_back({fence, INVALID_SUBMIT_HANDLE});
+		RETURN_NULLPTR_IF_NOT_VK_SUCCESS(vkCreateFence(
+			device->GetVkDevice(), &fenceCreateInfo, nullptr, &fence));
+		submitScheduler->m_Fences.push_back({fence, INVALID_SUBMIT_HANDLE});
 	}
+	return submitScheduler;
+}
 
-	for (FrameObject& frameObject : m_FrameObjects)
-	{
-		VkSemaphoreCreateInfo semaphoreCreateInfo{};
-		semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-		ENSURE_VK_SUCCESS(vkCreateSemaphore(
-			device->GetVkDevice(), &semaphoreCreateInfo, nullptr, &frameObject.acquireImageSemaphore));
-
-		ENSURE_VK_SUCCESS(vkCreateSemaphore(
-			device->GetVkDevice(), &semaphoreCreateInfo, nullptr, &frameObject.submitDone));
-	}
-
-	m_AcquireCommandContext = std::make_unique<CRingCommandContext>(
-		device, NUMBER_OF_FRAMES_IN_FLIGHT, queueFamilyIndex, *this);
-	m_PresentCommandContext = std::make_unique<CRingCommandContext>(
-		device, NUMBER_OF_FRAMES_IN_FLIGHT, queueFamilyIndex, *this);
-
-	CFG_GET_VAL("renderer.backend.vulkan.debugwaitidlebeforeacquire", m_DebugWaitIdleBeforeAcquire);
-	CFG_GET_VAL("renderer.backend.vulkan.debugwaitidlebeforepresent", m_DebugWaitIdleBeforePresent);
-	CFG_GET_VAL("renderer.backend.vulkan.debugwaitidleafterpresent", m_DebugWaitIdleAfterPresent);
+CSubmitScheduler::CSubmitScheduler(CDevice* device, VkQueue queue)
+	: m_Device(device), m_Queue(queue)
+{
 }
 
 CSubmitScheduler::~CSubmitScheduler()
@@ -80,48 +71,6 @@ CSubmitScheduler::~CSubmitScheduler()
 	for (Fence& fence : m_Fences)
 		if (fence.value != VK_NULL_HANDLE)
 			vkDestroyFence(device, fence.value, nullptr);
-
-	for (FrameObject& frameObject : m_FrameObjects)
-	{
-		if (frameObject.acquireImageSemaphore != VK_NULL_HANDLE)
-			vkDestroySemaphore(device, frameObject.acquireImageSemaphore, nullptr);
-
-		if (frameObject.submitDone != VK_NULL_HANDLE)
-			vkDestroySemaphore(device, frameObject.submitDone, nullptr);
-	}
-}
-
-bool CSubmitScheduler::AcquireNextImage(CSwapChain& swapChain)
-{
-	if (m_DebugWaitIdleBeforeAcquire)
-		vkDeviceWaitIdle(m_Device->GetVkDevice());
-
-	FrameObject& frameObject = m_FrameObjects[m_FrameID % m_FrameObjects.size()];
-	if (!swapChain.AcquireNextImage(frameObject.acquireImageSemaphore))
-		return false;
-	swapChain.SubmitCommandsAfterAcquireNextImage(*m_AcquireCommandContext);
-	
-	m_NextWaitSemaphore = frameObject.acquireImageSemaphore;
-	m_NextWaitDstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	m_AcquireCommandContext->Flush();
-	return true;
-}
-
-void CSubmitScheduler::Present(CSwapChain& swapChain)
-{
-	FrameObject& frameObject = m_FrameObjects[m_FrameID % m_FrameObjects.size()];
-	swapChain.SubmitCommandsBeforePresent(*m_PresentCommandContext);
-	m_NextSubmitSignalSemaphore = frameObject.submitDone;
-	m_PresentCommandContext->Flush();
-	Flush();
-
-	if (m_DebugWaitIdleBeforePresent)
-		vkDeviceWaitIdle(m_Device->GetVkDevice());
-
-	swapChain.Present(frameObject.submitDone, m_Queue);
-
-	if (m_DebugWaitIdleAfterPresent)
-		vkDeviceWaitIdle(m_Device->GetVkDevice());
 }
 
 CSubmitScheduler::SubmitHandle CSubmitScheduler::Submit(VkCommandBuffer commandBuffer)
@@ -149,7 +98,7 @@ void CSubmitScheduler::WaitUntilFree(const SubmitHandle handle)
 	}
 }
 
-void CSubmitScheduler::Flush()
+CSubmitScheduler::SubmitHandle CSubmitScheduler::Flush()
 {
 	ENSURE(!m_SubmittedCommandBuffers.empty());
 
@@ -164,27 +113,43 @@ void CSubmitScheduler::Flush()
 
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	if (m_NextWaitSemaphore != VK_NULL_HANDLE)
+	if (!m_NextWaitSemaphores.empty())
 	{
-		submitInfo.waitSemaphoreCount = 1;
-		submitInfo.pWaitSemaphores = &m_NextWaitSemaphore;
-		submitInfo.pWaitDstStageMask = &m_NextWaitDstStageMask;
+		ENSURE(m_NextWaitSemaphores.size() == m_NextWaitDstStageMasks.size());
+		submitInfo.waitSemaphoreCount = m_NextWaitSemaphores.size();
+		submitInfo.pWaitSemaphores = m_NextWaitSemaphores.data();
+		submitInfo.pWaitDstStageMask = m_NextWaitDstStageMasks.data();
 	}
-	if (m_NextSubmitSignalSemaphore != VK_NULL_HANDLE)
+	if (!m_NextSubmitSignalSemaphores.empty())
 	{
-		submitInfo.signalSemaphoreCount = 1;
-		submitInfo.pSignalSemaphores = &m_NextSubmitSignalSemaphore;
+		submitInfo.signalSemaphoreCount = m_NextSubmitSignalSemaphores.size();
+		submitInfo.pSignalSemaphores = m_NextSubmitSignalSemaphores.data();
 	}
 	submitInfo.commandBufferCount = m_SubmittedCommandBuffers.size();
 	submitInfo.pCommandBuffers = m_SubmittedCommandBuffers.data();
 
 	ENSURE_VK_SUCCESS(vkQueueSubmit(m_Queue, 1, &submitInfo, fence.value));
 
-	m_NextWaitSemaphore = VK_NULL_HANDLE;
-	m_NextWaitDstStageMask = 0;
-	m_NextSubmitSignalSemaphore = VK_NULL_HANDLE;
+	m_NextWaitSemaphores.clear();
+	m_NextWaitDstStageMasks.clear();
+	m_NextSubmitSignalSemaphores.clear();
 
 	m_SubmittedCommandBuffers.clear();
+
+	return fence.lastUsedHandle;
+}
+
+void CSubmitScheduler::EnqueueWaitOnNextSubmit(
+	VkSemaphore semaphore, const VkPipelineStageFlags stageMask)
+{
+	m_NextWaitSemaphores.emplace_back(semaphore);
+	m_NextWaitDstStageMasks.emplace_back(stageMask);
+}
+
+void CSubmitScheduler::EnqueueSignalOnNextSubmit(
+	VkSemaphore semaphore)
+{
+	m_NextSubmitSignalSemaphores.emplace_back(semaphore);
 }
 
 } // namespace Vulkan

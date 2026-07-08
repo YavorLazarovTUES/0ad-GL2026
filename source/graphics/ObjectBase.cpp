@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,19 +17,23 @@
 
 #include "precompiled.h"
 
-#include <algorithm>
-#include <queue>
-
 #include "ObjectBase.h"
 
-#include "ObjectManager.h"
-#include "ps/XML/Xeromyces.h"
-#include "ps/Filesystem.h"
-#include "ps/CLogger.h"
-#include "lib/timer.h"
+#include "graphics/ObjectManager.h"
+#include "lib/debug.h"
 #include "maths/MathUtil.h"
+#include "ps/CLogger.h"
+#include "ps/Errors.h"
+#include "ps/Filesystem.h"
+#include "ps/XMB/XMBData.h"
+#include "ps/XMB/XMBStorage.h"
+#include "ps/XML/Xeromyces.h"
 
-#include <boost/random/uniform_int_distribution.hpp>
+#include <algorithm>
+#include <cstddef>
+#include <queue>
+#include <string>
+#include <utility>
 
 namespace
 {
@@ -60,6 +64,7 @@ CObjectBase::CObjectBase(CObjectManager& objectManager, CActorDef& actorDef, u8 
 : m_ObjectManager(objectManager), m_ActorDef(actorDef)
 {
 	m_QualityLevel = qualityLevel;
+	m_Properties.m_AnchorType = "";
 	m_Properties.m_CastShadows = false;
 	m_Properties.m_FloatOnWater = false;
 
@@ -82,6 +87,7 @@ bool CObjectBase::Load(const CXeromyces& XeroFile, const XMBElement& root)
 	// Define all the elements used in the XML file
 #define EL(x) int el_##x = XeroFile.GetElementID(#x)
 #define AT(x) int at_##x = XeroFile.GetAttributeID(#x)
+	EL(anchor);
 	EL(castshadow);
 	EL(float);
 	EL(group);
@@ -143,6 +149,8 @@ bool CObjectBase::Load(const CXeromyces& XeroFile, const XMBElement& root)
 				return false;
 			}
 		}
+		else if (child_name == el_anchor)
+			m_Properties.m_AnchorType = child.GetText();
 		else if (child_name == el_castshadow)
 			m_Properties.m_CastShadows = true;
 		else if (child_name == el_float)
@@ -195,7 +203,7 @@ bool CObjectBase::LoadVariant(const CXeromyces& XeroFile, const XMBElement& vari
 
 	if (variant.GetNodeName() != el_variant)
 	{
-		LOGERROR("Invalid variant format (unrecognised root element '%s')", XeroFile.GetElementString(variant.GetNodeName()));
+		LOGERROR("Invalid variant format (unrecognized root element '%s')", XeroFile.GetElementString(variant.GetNodeName()));
 		return false;
 	}
 
@@ -590,7 +598,7 @@ std::set<CStr> CObjectBase::CalculateRandomRemainingSelections(rng_t& rng, const
 
 				// Choose a random number in the interval [0..totalFreq) to choose one of the variants.
 				// If the diversity is "none", force 0 to return the first valid variant.
-				int randNum = diversity == CObjectManager::VariantDiversity::NONE ? 0 : boost::random::uniform_int_distribution<int>(0, totalFreq-1)(rng);
+				int randNum = diversity == CObjectManager::VariantDiversity::NONE ? 0 : std::uniform_int_distribution<int>(0, totalFreq - 1)(rng);
 				for (size_t i = 0; i < grp->size(); ++i)
 				{
 					randNum -= (allZero ? 1 : (*grp)[i].m_Frequency);
@@ -840,7 +848,7 @@ bool CActorDef::Load(const VfsPath& pathname)
 
 	if (root.GetNodeName() != el_actor && root.GetNodeName() != el_qualitylevels)
 	{
-		LOGERROR("Invalid actor format (actor '%s', unrecognised root element '%s')",
+		LOGERROR("Invalid actor format (actor '%s', unrecognized root element '%s')",
 				 pathname.string8().c_str(), XeroFile.GetElementString(root.GetNodeName()));
 		return false;
 	}

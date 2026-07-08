@@ -3,17 +3,17 @@
  */
 function createReplaySelectionData(selectedDirectory)
 {
-	let replaySelection = Engine.GetGUIObjectByName("replaySelection");
-	let dateTimeFilter = Engine.GetGUIObjectByName("dateTimeFilter");
-	let playersFilter = Engine.GetGUIObjectByName("playersFilter");
-	let mapNameFilter = Engine.GetGUIObjectByName("mapNameFilter");
-	let mapSizeFilter = Engine.GetGUIObjectByName("mapSizeFilter");
-	let populationFilter = Engine.GetGUIObjectByName("populationFilter");
-	let durationFilter = Engine.GetGUIObjectByName("durationFilter");
-	let compatibilityFilter = Engine.GetGUIObjectByName("compatibilityFilter");
-	let singleplayerFilter = Engine.GetGUIObjectByName("singleplayerFilter");
-	let victoryConFilter = Engine.GetGUIObjectByName("victoryConditionFilter");
-	let ratedGamesFilter = Engine.GetGUIObjectByName("ratedGamesFilter");
+	const replaySelection = Engine.GetGUIObjectByName("replaySelection");
+	const dateTimeFilter = Engine.GetGUIObjectByName("dateTimeFilter");
+	const playersFilter = Engine.GetGUIObjectByName("playersFilter");
+	const mapNameFilter = Engine.GetGUIObjectByName("mapNameFilter");
+	const mapSizeFilter = Engine.GetGUIObjectByName("mapSizeFilter");
+	const populationFilter = Engine.GetGUIObjectByName("populationFilter");
+	const durationFilter = Engine.GetGUIObjectByName("durationFilter");
+	const compatibilityFilter = Engine.GetGUIObjectByName("compatibilityFilter");
+	const singleplayerFilter = Engine.GetGUIObjectByName("singleplayerFilter");
+	const victoryConFilter = Engine.GetGUIObjectByName("victoryConditionFilter");
+	const ratedGamesFilter = Engine.GetGUIObjectByName("ratedGamesFilter");
 
 	return {
 		"directory": selectedDirectory,
@@ -37,17 +37,30 @@ function createReplaySelectionData(selectedDirectory)
 /**
  * Starts the selected visual replay, or shows an error message in case of incompatibility.
  */
-function startReplay()
+function startReplayHandler()
 {
-	var selected = Engine.GetGUIObjectByName("replaySelection").selected;
-	if (selected == -1)
-		return;
+	return new Promise(resolve =>
+	{
+		const startReplay = () =>
+		{
+			const selected = Engine.GetGUIObjectByName("replaySelection").selected;
+			if (selected == -1)
+				return;
 
-	var replay = g_ReplaysFiltered[selected];
-	if (isReplayCompatible(replay))
-		reallyStartVisualReplay(replay.directory);
-	else
-		displayReplayCompatibilityError(replay);
+			const replay = g_ReplaysFiltered[selected];
+			if (!isReplayCompatible(replay))
+			{
+				displayReplayCompatibilityError(replay);
+				return;
+			}
+
+			const ret = reallyStartVisualReplay(replay.directory);
+			if (ret !== undefined)
+				resolve(ret);
+		};
+		Engine.GetGUIObjectByName("startReplayButton").onPress = startReplay;
+		Engine.GetGUIObjectByName("replaySelection").onMouseLeftDoubleClickItem = startReplay;
+	});
 }
 
 /**
@@ -60,20 +73,23 @@ function reallyStartVisualReplay(replayDirectory)
 	if (!Engine.StartVisualReplay(replayDirectory))
 	{
 		warn('Replay "' + escapeText(Engine.GetReplayDirectoryName(replayDirectory)) + '" not found! Please click on reload cache.');
-		return;
+		return undefined;
 	}
 
-	Engine.SwitchGuiPage("page_loading.xml", {
-		"attribs": Engine.GetReplayAttributes(replayDirectory),
-		"playerAssignments": {
-			"local": {
-				"name": singleplayerName(),
-				"player": -1
-			}
-		},
-		"savedGUIData": "",
-		"replaySelectionData": createReplaySelectionData(replayDirectory)
-	});
+	return {
+		"page": "page_loading.xml",
+		"argument": {
+			"attribs": Engine.GetReplayAttributes(replayDirectory),
+			"playerAssignments": {
+				"local": {
+					"name": singleplayerName(),
+					"player": -1
+				}
+			},
+			"savedGUIData": "",
+			"replaySelectionData": createReplaySelectionData(replayDirectory)
+		}
+	};
 }
 
 /**
@@ -84,17 +100,18 @@ function reallyStartVisualReplay(replayDirectory)
 function displayReplayCompatibilityError(replay)
 {
 	var errMsg;
-	if (replayHasSameEngineVersion(replay))
+	if (replayHasCompatibleEngineVersion(replay))
 	{
-		let gameMods = replay.attribs.mods || [];
+		const gameMods = replay.attribs.mods || [];
 		errMsg = translate("This replay needs a different sequence of mods:") + "\n" +
 			comparedModsString(gameMods, g_EngineInfo.mods);
 	}
 	else
 	{
 		errMsg = translate("This replay is not compatible with your version of the game!") + "\n";
-		errMsg += sprintf(translate("Your version: %(version)s"), { "version": g_EngineInfo.engine_version }) + "\n";
-		errMsg += sprintf(translate("Required version: %(version)s"), { "version": replay.attribs.engine_version });
+		errMsg += sprintf(translate("Your version: %(version)s, compatible down to %(compatibleVersion)s"), { "version": g_EngineInfo.engine_version, "compatibleVersion": g_EngineInfo.engine_serialization_version }) + "\n";
+		if (replay.attribs.engine_serialization_version)
+			errMsg += sprintf(translate("Replay version: %(version)s"), { "version": replay.attribs.engine_serialization_version });
 	}
 
 	messageBox(500, 200, errMsg, translate("Incompatible replay"));
@@ -105,43 +122,57 @@ function displayReplayCompatibilityError(replay)
  */
 function showReplaySummary()
 {
-	let selected = Engine.GetGUIObjectByName("replaySelection").selected;
-	if (selected == -1)
-		return;
+	return new Promise(closePageCallback =>
+	{
+		Engine.GetGUIObjectByName("summaryButton").onPress = () =>
+		{
+			const selected = Engine.GetGUIObjectByName("replaySelection").selected;
+			if (selected == -1)
+				return;
 
-	let replay = g_ReplaysFiltered[selected];
-	if (isReplayCompatible(replay))
-		reallyShowReplaySummary(replay.directory);
-	else
-		displayReplayCompatibilityError(replay);
+			const replay = g_ReplaysFiltered[selected];
+			if (!isReplayCompatible(replay))
+			{
+				displayReplayCompatibilityError(replay);
+				return;
+			}
+
+			const ret = reallyShowReplaySummary(replay.directory);
+			if (ret !== undefined)
+				closePageCallback(ret);
+		};
+	});
 }
 
 function reallyShowReplaySummary(directory)
 {
 	// Load summary screen data from the selected replay directory
-	let simData = Engine.GetReplayMetadata(directory);
+	const simData = Engine.GetReplayMetadata(directory);
 
 	if (!simData)
 	{
 		messageBox(500, 200, translate("No summary data available."), translate("Error"));
-		return;
+		return undefined;
 	}
 
-	Engine.SwitchGuiPage("page_summary.xml", {
-		"sim": simData,
-		"gui": {
-			"dialog": false,
-			"isReplay": true,
-			"replayDirectory": directory,
-			"replaySelectionData": createReplaySelectionData(directory),
-			"summarySelection": g_SummarySelection
+	return {
+		"page": "page_summary.xml",
+		"argument": {
+			"sim": simData,
+			"gui": {
+				"dialog": false,
+				"isReplay": true,
+				"replayDirectory": directory,
+				"replaySelectionData": createReplaySelectionData(directory),
+				"summarySelection": g_SummarySelection
+			}
 		}
-	});
+	};
 }
 
 function reloadCache()
 {
-	let selected = Engine.GetGUIObjectByName("replaySelection").selected;
+	const selected = Engine.GetGUIObjectByName("replaySelection").selected;
 	loadReplays(selected > -1 ? createReplaySelectionData(g_ReplaysFiltered[selected].directory) : "", true);
 }
 

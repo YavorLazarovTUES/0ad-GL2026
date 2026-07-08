@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,38 +21,27 @@
 
 #include "gui/CGUI.h"
 #include "gui/GUIManager.h"
-#include "gui/ObjectBases/IGUIObject.h"
 #include "lib/external_libraries/libsdl.h"
-#include "ps/GameSetup/Config.h"
+#include "ps/CStr.h"
 #include "ps/VideoMode.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "scriptinterface/StructuredClone.h"
+#include "simulation2/system/Component.h"
+
+#include <js/RootingAPI.h>
+#include <js/TypeDecls.h>
+#include <js/Value.h>
+#include <string>
 
 namespace JSI_GUIManager
 {
 // Note that the initData argument may only contain clonable data.
 // Functions aren't supported for example!
 // It returns a promise.
-JS::Value PushGuiPage(const ScriptRequest& rq, const std::wstring& name, JS::HandleValue initData)
+JS::Value OpenChildPage(const Script::Request& rq, const std::wstring& name, JS::HandleValue initData)
 {
-	return g_GUI->PushPage(name, Script::WriteStructuredClone(rq, initData));
-}
-
-void SwitchGuiPage(const ScriptInterface& scriptInterface, const std::wstring& name, JS::HandleValue initData)
-{
-	g_GUI->SwitchPage(name, &scriptInterface, initData);
-}
-
-void PopGuiPage(const ScriptRequest& rq, JS::HandleValue args)
-{
-	if (g_GUI->GetPageCount() < 2)
-	{
-		ScriptException::Raise(rq, "Can't pop GUI pages when less than two pages are opened!");
-		return;
-	}
-
-	g_GUI->PopPage(Script::WriteStructuredClone(rq, args));
+	return g_GUI->OpenChildPage(name, Script::WriteStructuredClone(rq, initData));
 }
 
 void SetCursor(const std::wstring& name)
@@ -82,19 +71,18 @@ CParamNode GetTemplate(const std::string& templateName)
 }
 
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
-	ScriptFunction::Register<&PushGuiPage>(rq, "PushGuiPage");
-	ScriptFunction::Register<&SwitchGuiPage>(rq, "SwitchGuiPage");
-	ScriptFunction::Register<&PopGuiPage>(rq, "PopGuiPage");
-	ScriptFunction::Register<&SetCursor>(rq, "SetCursor");
-	ScriptFunction::Register<&ResetCursor>(rq, "ResetCursor");
-	ScriptFunction::Register<&MinimizeWindow>(rq, "MinimizeWindow");
-	ScriptFunction::Register<&TemplateExists>(rq, "TemplateExists");
-	ScriptFunction::Register<&GetTemplate>(rq, "GetTemplate");
+	Script::Function::Register<&OpenChildPage>(rq, "OpenChildPage");
+	Script::Function::Register<&SetCursor>(rq, "SetCursor");
+	Script::Function::Register<&ResetCursor>(rq, "ResetCursor");
+	Script::Function::Register<&MinimizeWindow>(rq, "MinimizeWindow");
+	Script::Function::Register<&TemplateExists>(rq, "TemplateExists");
+	Script::Function::Register<&GetTemplate>(rq, "GetTemplate");
 
-	ScriptFunction::Register<&CGUI::FindObjectByName, &ScriptInterface::ObjectFromCBData<CGUI>>(rq, "GetGUIObjectByName");
-	ScriptFunction::Register<&CGUI::SetGlobalHotkey, &ScriptInterface::ObjectFromCBData<CGUI>>(rq, "SetGlobalHotkey");
-	ScriptFunction::Register<&CGUI::UnsetGlobalHotkey, &ScriptInterface::ObjectFromCBData<CGUI>>(rq, "UnsetGlobalHotkey");
+	Script::Function::Register<&CGUI::TryFindObjectByName, &Script::Interface::ObjectFromCBData<CGUI>>(rq, "TryGetGUIObjectByName");
+	Script::Function::Register<&CGUI::FindObjectByName, &Script::Interface::ObjectFromCBData<CGUI>>(rq, "GetGUIObjectByName");
+	Script::Function::Register<&CGUI::SetGlobalHotkey, &Script::Interface::ObjectFromCBData<CGUI>>(rq, "SetGlobalHotkey");
+	Script::Function::Register<&CGUI::UnsetGlobalHotkey, &Script::Interface::ObjectFromCBData<CGUI>>(rq, "UnsetGlobalHotkey");
 }
 }

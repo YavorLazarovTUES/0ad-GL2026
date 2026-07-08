@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,14 +18,13 @@
 #ifndef INCLUDED_SHADOWMAP
 #define INCLUDED_SHADOWMAP
 
-#include "renderer/backend/IDeviceCommandContext.h"
-#include "renderer/backend/IShaderProgram.h"
-
 class CBoundingBoxAligned;
 class CCamera;
 class CFrustum;
 class CVector3D;
-
+namespace Renderer::Backend { class IDevice; }
+namespace Renderer::Backend { class IDeviceCommandContext; }
+namespace Renderer::Backend { class IShaderProgram; }
 struct ShadowMapInternals;
 
 /**
@@ -47,22 +46,6 @@ public:
 	 * should be resized too.
 	 */
 	void RecreateTexture();
-
-	/**
-	 * GetDepthTextureBits: Return the number of bits to use for depth textures when
-	 * enabled.
-	 *
-	 * @return depth texture bit depth
-	 */
-	int GetDepthTextureBits() const;
-
-	/**
-	 * SetDepthTextureBits: Sets the number of bits to use for depth textures when enabled.
-	 * Possible values are 16, 24, 32 and 0 (= use default)
-	 *
-	 * @param bits number of bits
-	 */
-	void SetDepthTextureBits(int bits);
 
 	/**
 	 * SetupFrame: Configure light space for the given camera and light direction,
@@ -131,7 +114,7 @@ public:
 	 * Visualize shadow mapping calculations to help in
 	 * debugging and optimal shadow map usage.
 	 */
-	void RenderDebugBounds();
+	void RenderDebugBounds(Renderer::Backend::IDeviceCommandContext& deviceCommandContext);
 
 private:
 	ShadowMapInternals* m;

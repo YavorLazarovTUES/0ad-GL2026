@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,11 +19,9 @@
 #define INCLUDED_RENDERER_BACKEND_VULKAN_VMA
 
 #include "lib/debug.h"
-#include "lib/sysdep/os.h"
-#include "ps/CLogger.h"
+#include "lib/sysdep/compiler.h"
 
 #include <glad/vulkan.h>
-#include <mutex>
 
 #define VMA_VULKAN_VERSION 1001000
 #define VMA_ASSERT(EXPR) ASSERT(EXPR)
@@ -38,11 +36,6 @@
 #else
 #define VMA_DEBUG_LOG(...)
 #define VMA_STATS_STRING_ENABLED 0
-#endif
-
-#if OS_WIN
-// MSVC doesn't enable std::shared_mutex for XP toolkit.
-#define VMA_USE_STL_SHARED_MUTEX 0
 #endif
 
 #if GCC_VERSION

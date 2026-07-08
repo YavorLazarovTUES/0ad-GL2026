@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -20,10 +20,15 @@
 #include "CTooltip.h"
 
 #include "gui/CGUI.h"
-#include "gui/SettingTypes/CGUIString.h"
 #include "gui/CGUIText.h"
+#include "gui/SettingTypes/CGUISize.h"
+#include "gui/SettingTypes/CGUIString.h"
+#include "gui/SettingTypes/EAlign.h"
+#include "lib/debug.h"
+#include "maths/Rect.h"
+#include "maths/Size2D.h"
 
-#include <algorithm>
+#include <vector>
 
 CTooltip::CTooltip(CGUI& pGUI)
 	: IGUIObject(pGUI),
@@ -46,13 +51,10 @@ CTooltip::CTooltip(CGUI& pGUI)
 	  m_UseObject(this, "use_object"),
 	  m_HideObject(this, "hide_object")
 {
+	m_Ghost.GetMutable() = true;
 	// Set up a blank piece of text, to be replaced with a more
 	// interesting message later
 	AddText();
-}
-
-CTooltip::~CTooltip()
-{
 }
 
 void CTooltip::SetupText()
@@ -119,10 +121,10 @@ void CTooltip::SetupText()
 	m_Size.Set(size, true);
 }
 
-void CTooltip::UpdateCachedSize()
+void CTooltip::HandleSizeChanged()
 {
-	IGUIObject::UpdateCachedSize();
-	IGUITextOwner::UpdateCachedSize();
+	IGUIObject::HandleSizeChanged();
+	IGUITextOwner::HandleSizeChanged();
 }
 
 void CTooltip::HandleMessage(SGUIMessage& Message)
@@ -141,8 +143,8 @@ void CTooltip::Draw(CCanvas2D& canvas)
 		m_GeneratedTextsValid = true;
 	}
 
-	m_pGUI.DrawSprite(m_Sprite, canvas, m_CachedActualSize);
-	DrawText(canvas, 0, m_TextColor, m_CachedActualSize.TopLeft());
+	m_pGUI.DrawSprite(m_Sprite, canvas, GetActualSize());
+	DrawText(canvas, 0, m_TextColor, GetActualSize().TopLeft());
 }
 
 float CTooltip::GetBufferedZ() const
