@@ -118,19 +118,4 @@ extern void ogl_WarnIfErrorLoc(const char *file, int line);
 **/
 extern const char* ogl_GetErrorName(GLenum err);
 
-/**
- * ignore and reset the specified OpenGL error.
- *
- * this is useful for suppressing annoying error messages, e.g.
- * "invalid enum" for GL_CLAMP_TO_EDGE even though we've already
- * warned the user that their OpenGL implementation is too old.
- *
- * call after the fact, i.e. the error has been raised. if another or
- * different error is pending, those are reported immediately.
- *
- * @param err_to_ignore: one of the glGetError enums.
- * @return true if the requested error was seen and ignored
- **/
-extern bool ogl_SquelchError(GLenum err_to_ignore);
-
 #endif	// INCLUDED_OGL

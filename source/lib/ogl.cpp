@@ -293,46 +293,6 @@ void ogl_WarnIfErrorLoc(const char *file, int line)
 		debug_printf("%s:%d: OpenGL error(s) occurred: %s (%04x)\n", file, line, ogl_GetErrorName(first_error), (unsigned int)first_error);
 }
 
-// ignore and reset the specified error (as returned by glGetError).
-// any other errors that have occurred are reported as ogl_WarnIfError would.
-//
-// this is useful for suppressing annoying error messages, e.g.
-// "invalid enum" for GL_CLAMP_TO_EDGE even though we've already
-// warned the user that their OpenGL implementation is too old.
-bool ogl_SquelchError(GLenum err_to_ignore)
-{
-	// glGetError may return multiple errors, so we poll it in a loop.
-	// the debug_printf should only happen once (if this is set), though.
-	bool error_enountered = false;
-	bool error_ignored = false;
-	GLenum first_error = 0;
-
-	for(;;)
-	{
-		GLenum err = glGetError();
-		if(err == GL_NO_ERROR)
-			break;
-
-		if(err == err_to_ignore)
-		{
-			error_ignored = true;
-			continue;
-		}
-
-		if(!error_enountered)
-			first_error = err;
-
-		error_enountered = true;
-		dump_gl_error(err);
-	}
-
-	if(error_enountered)
-		debug_printf("OpenGL error(s) occurred: %04x\n", (unsigned int)first_error);
-
-	return error_ignored;
-}
-
-
 //----------------------------------------------------------------------------
 // feature and limit detect
 //----------------------------------------------------------------------------
