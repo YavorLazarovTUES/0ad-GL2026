@@ -225,7 +225,7 @@ void ReportParameter(
 	{
 		std::fill(std::begin(values), std::end(values), -1);
 		if constexpr (doQueryCounterBits)
-			glGetQueryivARB(parameter, GL_QUERY_COUNTER_BITS, values);
+			glGetQueryiv(parameter, GL_QUERY_COUNTER_BITS, values);
 		else
 			glGetIntegerv(parameter, values);
 	}
@@ -293,9 +293,13 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 
 	ogl_Init(SDL_GL_GetProcAddress);
 
-	if (!ogl_HaveVersion(2, 0)
-		|| !ogl_HaveExtension("GL_ARB_vertex_buffer_object")
-		|| ogl_HaveExtensions(0, "GL_ARB_multitexture", "GL_EXT_draw_range_elements", nullptr)
+#if CONFIG2_GLES
+	const bool minimumRequiredGLVersionSupported{ogl_HaveVersion(2, 1)};
+#else
+	const bool minimumRequiredGLVersionSupported{ogl_HaveVersion(2, 0)};
+#endif
+
+	if (!minimumRequiredGLVersionSupported
 		|| (!ogl_HaveExtension("GL_EXT_framebuffer_object") && !ogl_HaveExtension("GL_ARB_framebuffer_object")))
 	{
 		// It doesn't make sense to continue working here, because we're not
@@ -332,11 +336,11 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 #if CONFIG2_GLES
 	// Some GLES implementations have GL_EXT_texture_compression_dxt1
 	// but that only supports DXT1 so we can't use it.
-	capabilities.S3TC = ogl_HaveExtensions(0, "GL_EXT_texture_compression_s3tc", nullptr) == 0;
+	capabilities.S3TC = ogl_HaveExtension("GL_EXT_texture_compression_s3tc");
 #else
 	// Note: we don't bother checking for GL_S3_s3tc - it is incompatible
 	// and irrelevant (was never widespread).
-	capabilities.S3TC = ogl_HaveExtensions(0, "GL_ARB_texture_compression", "GL_EXT_texture_compression_s3tc", nullptr) == 0;
+	capabilities.S3TC = ogl_HaveExtension("GL_EXT_texture_compression_s3tc");
 #endif
 #if CONFIG2_GLES
 	capabilities.multisampling = false;
@@ -344,7 +348,6 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 #else
 	capabilities.multisampling =
 		ogl_HaveVersion(3, 3) &&
-		ogl_HaveExtension("GL_ARB_multisample") &&
 		ogl_HaveExtension("GL_ARB_texture_multisample");
 	if (capabilities.multisampling)
 	{
@@ -444,7 +447,7 @@ CDevice::~CDevice()
 	for (Query& query : m_Queries)
 	{
 		ENSURE(!query.occupied);
-		glDeleteQueriesARB(1, &query.query);
+		glDeleteQueries(1, &query.query);
 	}
 	ogl_WarnIfError();
 #endif
@@ -523,48 +526,26 @@ void CDevice::Report(const Script::Request& rq, JS::HandleValue settings)
 
 #if !CONFIG2_GLES
 
-	// Core OpenGL 2.0 (treated as extensions):
+	// Core OpenGL 2.1:
 
-	if (ogl_HaveExtension("GL_EXT_texture_lod_bias"))
-	{
-		FLOAT(MAX_TEXTURE_LOD_BIAS_EXT);
-	}
+	FLOAT(MAX_TEXTURE_LOD_BIAS);
 
-	if (ogl_HaveExtension("GL_ARB_occlusion_query"))
-	{
-		QUERY_COUNTER_BITS(SAMPLES_PASSED);
-	}
+	QUERY_COUNTER_BITS(SAMPLES_PASSED);
 
-	if (ogl_HaveExtension("GL_ARB_shading_language_100"))
-	{
-		STRING(SHADING_LANGUAGE_VERSION_ARB);
-	}
+	STRING(SHADING_LANGUAGE_VERSION);
 
-	if (ogl_HaveExtension("GL_ARB_vertex_shader"))
-	{
-		INTEGER(MAX_VERTEX_ATTRIBS_ARB);
-		INTEGER(MAX_VERTEX_UNIFORM_COMPONENTS_ARB);
-		INTEGER(MAX_VARYING_FLOATS_ARB);
-		INTEGER(MAX_COMBINED_TEXTURE_IMAGE_UNITS_ARB);
-		INTEGER(MAX_VERTEX_TEXTURE_IMAGE_UNITS_ARB);
-	}
+	INTEGER(MAX_VERTEX_ATTRIBS);
+	INTEGER(MAX_VERTEX_UNIFORM_COMPONENTS);
+	INTEGER(MAX_VARYING_FLOATS);
+	INTEGER(MAX_COMBINED_TEXTURE_IMAGE_UNITS);
+	INTEGER(MAX_VERTEX_TEXTURE_IMAGE_UNITS);
 
-	if (ogl_HaveExtension("GL_ARB_fragment_shader"))
-	{
-		INTEGER(MAX_FRAGMENT_UNIFORM_COMPONENTS_ARB);
-	}
+	INTEGER(MAX_FRAGMENT_UNIFORM_COMPONENTS);
 
-	if (ogl_HaveExtension("GL_ARB_vertex_shader") || ogl_HaveExtension("GL_ARB_fragment_shader") ||
-		ogl_HaveExtension("GL_ARB_vertex_program") || ogl_HaveExtension("GL_ARB_fragment_program"))
-	{
-		INTEGER(MAX_TEXTURE_IMAGE_UNITS_ARB);
-		INTEGER(MAX_TEXTURE_COORDS_ARB);
-	}
+	INTEGER(MAX_TEXTURE_IMAGE_UNITS);
+	INTEGER(MAX_TEXTURE_COORDS);
 
-	if (ogl_HaveExtension("GL_ARB_draw_buffers"))
-	{
-		INTEGER(MAX_DRAW_BUFFERS_ARB);
-	}
+	INTEGER(MAX_DRAW_BUFFERS);
 
 	// Core OpenGL 3.0:
 
@@ -842,7 +823,7 @@ uint32_t CDevice::AllocateQuery()
 	{
 		m_Queries.emplace_back();
 #if !CONFIG2_GLES
-		glGenQueriesARB(1, &m_Queries.back().query);
+		glGenQueries(1, &m_Queries.back().query);
 		ogl_WarnIfError();
 #endif
 		it = prev(m_Queries.end());
@@ -864,7 +845,7 @@ bool CDevice::IsQueryResultAvailable(const uint32_t handle) const
 
 	GLint available{};
 #if !CONFIG2_GLES
-	glGetQueryObjectivARB(m_Queries[handle].query, GL_QUERY_RESULT_AVAILABLE, &available);
+	glGetQueryObjectiv(m_Queries[handle].query, GL_QUERY_RESULT_AVAILABLE, &available);
 	ogl_WarnIfError();
 #endif
 	return available;

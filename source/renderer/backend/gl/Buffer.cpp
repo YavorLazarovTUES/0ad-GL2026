@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -68,17 +68,17 @@ std::unique_ptr<CBuffer> CBuffer::Create(
 	buffer->m_Type = type;
 	buffer->m_Size = size;
 	buffer->m_Usage = usage;
-	glGenBuffersARB(1, &buffer->m_Handle);
+	glGenBuffers(1, &buffer->m_Handle);
 	const GLenum target{GetTargetFromBufferType(type)};
-	glBindBufferARB(target, buffer->m_Handle);
-	glBufferDataARB(target, size, nullptr, (usage & IBuffer::Usage::DYNAMIC) ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+	glBindBuffer(target, buffer->m_Handle);
+	glBufferData(target, size, nullptr, (usage & IBuffer::Usage::DYNAMIC) ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
 #if !CONFIG2_GLES
 	if (buffer->m_Device->GetCapabilities().debugLabels)
 	{
 		glObjectLabel(GL_BUFFER, buffer->m_Handle, -1, name);
 	}
 #endif
-	glBindBufferARB(target, 0);
+	glBindBuffer(target, 0);
 	return buffer;
 }
 
@@ -87,7 +87,7 @@ CBuffer::CBuffer() = default;
 CBuffer::~CBuffer()
 {
 	if (m_Handle)
-		glDeleteBuffersARB(1, &m_Handle);
+		glDeleteBuffers(1, &m_Handle);
 }
 
 IDevice* CBuffer::GetDevice()

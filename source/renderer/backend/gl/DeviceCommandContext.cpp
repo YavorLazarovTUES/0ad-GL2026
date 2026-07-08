@@ -134,7 +134,7 @@ void UploadDynamicBufferRegionImpl(
 {
 	ENSURE(dataOffset < dataSize);
 	// Tell the driver that it can reallocate the whole VBO
-	glBufferDataARB(target, bufferSize, nullptr, GL_DYNAMIC_DRAW);
+	glBufferData(target, bufferSize, nullptr, GL_DYNAMIC_DRAW);
 	ogl_WarnIfError();
 
 	while (true)
@@ -143,7 +143,7 @@ void UploadDynamicBufferRegionImpl(
 		// here instead of glBufferData(..., NULL, ...) plus glMapBuffer(), but with
 		// current Intel Windows GPU drivers (as of 2015-01) it's much faster if you do
 		// the explicit glBufferData.)
-		void* mappedData = glMapBufferARB(target, GL_WRITE_ONLY);
+		void* mappedData = glMapBuffer(target, GL_WRITE_ONLY);
 		if (mappedData == nullptr)
 		{
 			// This shouldn't happen unless we run out of virtual address space
@@ -153,7 +153,7 @@ void UploadDynamicBufferRegionImpl(
 
 		uploadFunction(static_cast<u8*>(mappedData) + dataOffset);
 
-		if (glUnmapBufferARB(target) == GL_TRUE)
+		if (glUnmapBuffer(target) == GL_TRUE)
 			break;
 
 		// Unmap might fail on e.g. resolution switches, so just try again
@@ -409,7 +409,7 @@ void CDeviceCommandContext::UploadTextureRegion(
 			}
 
 			ScopedBind scopedBind(this, GL_TEXTURE_2D, texture->GetHandle());
-			glCompressedTexImage2DARB(GL_TEXTURE_2D, level, internalFormat, width, height, 0, dataSize, data);
+			glCompressedTexImage2D(GL_TEXTURE_2D, level, internalFormat, width, height, 0, dataSize, data);
 			ogl_WarnIfError();
 		}
 		else
@@ -480,7 +480,7 @@ void CDeviceCommandContext::UploadBufferRegion(
 	}
 	else
 	{
-		glBufferSubDataARB(target, dataOffset, dataSize, data);
+		glBufferSubData(target, dataOffset, dataSize, data);
 		ogl_WarnIfError();
 	}
 }
@@ -564,7 +564,7 @@ void CDeviceCommandContext::BindBuffer(const IBuffer::Type type, CBuffer* buffer
 	}
 	const GLenum target = BufferTypeToGLTarget(type);
 	const GLuint handle = buffer ? buffer->GetHandle() : 0;
-	glBindBufferARB(target, handle);
+	glBindBuffer(target, handle);
 	ogl_WarnIfError();
 	const size_t cacheIndex = static_cast<size_t>(type);
 	ENSURE(cacheIndex < m_BoundBuffers.size());
@@ -1451,7 +1451,7 @@ CDeviceCommandContext::ScopedBufferBind::ScopedBufferBind(
 	}
 	else
 	{
-		glBindBufferARB(target, handle);
+		glBindBuffer(target, handle);
 	}
 }
 
@@ -1459,7 +1459,7 @@ CDeviceCommandContext::ScopedBufferBind::~ScopedBufferBind()
 {
 	if (m_CacheIndex >= m_DeviceCommandContext->m_BoundBuffers.size())
 		return;
-	glBindBufferARB(
+	glBindBuffer(
 		m_DeviceCommandContext->m_BoundBuffers[m_CacheIndex].first,
 		m_DeviceCommandContext->m_BoundBuffers[m_CacheIndex].second);
 }

@@ -38,12 +38,6 @@
 static const char* exts = nullptr;
 
 static bool have_30 = false;
-static bool have_21 = false;
-static bool have_20 = false;
-static bool have_15 = false;
-static bool have_14 = false;
-static bool have_13 = false;
-static bool have_12 = false;
 
 
 // return a C string of unspecified length containing a space-separated
@@ -90,75 +84,6 @@ static bool isImplementedInCore(const char* ext)
 		MATCH(GL_EXT_transform_feedback);
 		MATCH(GL_APPLE_vertex_array_object);
 		MATCH(GL_EXT_framebuffer_sRGB);
-	}
-	if(have_21)
-	{
-		MATCH(GL_ARB_pixel_buffer_object);
-		MATCH(GL_EXT_texture_sRGB);
-	}
-	if(have_20)
-	{
-		MATCH(GL_ARB_shader_objects);
-		MATCH(GL_ARB_vertex_shader);
-		MATCH(GL_ARB_fragment_shader);
-		MATCH(GL_ARB_shading_language_100);
-		MATCH(GL_ARB_draw_buffers);
-		MATCH(GL_ARB_texture_non_power_of_two);
-		MATCH(GL_ARB_point_sprite);
-		MATCH(GL_EXT_blend_equation_separate);
-	}
-	if(have_15)
-	{
-		MATCH(GL_ARB_vertex_buffer_object);
-		MATCH(GL_ARB_occlusion_query);
-		MATCH(GL_EXT_shadow_funcs);
-	}
-	if(have_14)
-	{
-		MATCH(GL_SGIS_generate_mipmap);
-		MATCH(GL_NV_blend_square);
-		MATCH(GL_ARB_depth_texture);
-		MATCH(GL_ARB_shadow);
-		MATCH(GL_EXT_fog_coord);
-		MATCH(GL_EXT_multi_draw_arrays);
-		MATCH(GL_ARB_point_parameters);
-		MATCH(GL_EXT_secondary_color);
-		MATCH(GL_EXT_blend_func_separate);
-		MATCH(GL_EXT_stencil_wrap);
-		MATCH(GL_ARB_texture_env_crossbar);
-		MATCH(GL_EXT_texture_lod_bias);
-		MATCH(GL_ARB_texture_mirrored_repeat);
-		MATCH(GL_ARB_window_pos);
-
-		// These extensions were added to GL 1.2, but as part of the optional
-		// imaging subset; they're only guaranteed as of GL 1.4:
-		MATCH(GL_EXT_blend_color);
-		MATCH(GL_EXT_blend_minmax);
-		MATCH(GL_EXT_blend_subtract);
-	}
-	if(have_13)
-	{
-		MATCH(GL_ARB_texture_compression);
-		MATCH(GL_ARB_texture_cube_map);
-		MATCH(GL_ARB_multisample);
-		MATCH(GL_ARB_multitexture);
-		MATCH(GL_ARB_transpose_matrix);
-		MATCH(GL_ARB_texture_env_add);
-		MATCH(GL_ARB_texture_env_combine);
-		MATCH(GL_ARB_texture_env_dot3);
-		MATCH(GL_ARB_texture_border_clamp);
-	}
-	if(have_12)
-	{
-		MATCH(GL_EXT_texture3D);
-		MATCH(GL_EXT_bgra);
-		MATCH(GL_EXT_packed_pixels);
-		MATCH(GL_EXT_rescale_normal);
-		MATCH(GL_EXT_separate_specular_color);
-		MATCH(GL_SGIS_texture_edge_clamp);
-		MATCH(GL_SGIS_texture_lod);
-		MATCH(GL_EXT_draw_range_elements);
-		// Skip the extensions that only affect the imaging subset
 	}
 
 #undef MATCH
@@ -331,12 +256,6 @@ bool ogl_Init(void* (load)(const char*))
 	// time-critical) than centralizing the 'OpenGL is ready' check.
 	exts = reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
 	ENSURE(exts);	// else: called before OpenGL is ready for use
-	have_12 = ogl_HaveVersion(1, 2);
-	have_13 = ogl_HaveVersion(1, 3);
-	have_14 = ogl_HaveVersion(1, 4);
-	have_15 = ogl_HaveVersion(1, 5);
-	have_20 = ogl_HaveVersion(2, 0);
-	have_21 = ogl_HaveVersion(2, 1);
 	have_30 = ogl_HaveVersion(3, 0);
 
 	return true;

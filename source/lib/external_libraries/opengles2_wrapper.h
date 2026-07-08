@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -61,11 +61,11 @@
 #define glUniformMatrix4fvARB glUniformMatrix4fv
 #define glUseProgramObjectARB glUseProgram
 #define glVertexAttribPointerARB glVertexAttribPointer
-#define glBindBufferARB glBindBuffer
-#define glBufferDataARB glBufferData
-#define glBufferSubDataARB glBufferSubData
-#define glDeleteBuffersARB glDeleteBuffers
-#define glGenBuffersARB glGenBuffers
+#define glBindBuffer glBindBuffer
+#define glBufferData glBufferData
+#define glBufferSubData glBufferSubData
+#define glDeleteBuffers glDeleteBuffers
+#define glGenBuffers glGenBuffers
 #define glBindFramebufferEXT glBindFramebuffer
 #define glCheckFramebufferStatusEXT glCheckFramebufferStatus
 #define glDeleteFramebuffersEXT glDeleteFramebuffers
@@ -82,8 +82,8 @@
 #define GL_RGBA8 GL_RGBA8_OES
 
 // GL_OES_mapbuffer
-#define glMapBufferARB glMapBufferOES
-#define glUnmapBufferARB glUnmapBufferOES
+#define glMapBuffer glMapBufferOES
+#define glUnmapBuffer glUnmapBufferOES
 
 // GL_OES_depth32
 #define GL_DEPTH_COMPONENT32 GL_DEPTH_COMPONENT32_OES
