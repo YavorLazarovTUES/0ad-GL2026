@@ -198,7 +198,8 @@ public:
 				if (!m_Generator.has_value())
 				{
 					m_Generator.emplace(pos.X.ToInt_RoundToNearest() * pos.Z.ToInt_RoundToNearest());
-					m_NextSink = m_Distribution(m_Generator.value());
+					if (m_Stochastic)
+						m_NextSink = m_Distribution(m_Generator.value());
 				}
 
 				CmpPtr<ICmpTerrain> cmpTerrain(GetSystemEntity());
@@ -228,7 +229,8 @@ public:
 				//If the entity should sink stochastically, use the negative binomial distribution to see if it should sink each frame.
 				if ((m_Stochastic && (m_NextSink-- == 0)) || !m_Stochastic)
 				{
-					m_NextSink = m_Distribution(m_Generator.value());
+					if (m_Stochastic)
+						m_NextSink = m_Distribution(m_Generator.value());
 					float t = m_CurrentTime - m_DelayTime;
 					float depth = (m_SinkRate * t) + (m_SinkAccel * t * t);
 
