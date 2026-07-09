@@ -52,6 +52,7 @@
 #include <map>
 #include <string>
 #include <type_traits>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -543,9 +544,9 @@ public:
 private:
 	// Dynamic updates for the long-range pathfinder
 	GridUpdateInformation m_UpdateInformations;
-	// These vectors might contain shapes that were deleted
-	std::vector<u32> m_DirtyStaticShapes;
-	std::vector<u32> m_DirtyUnitShapes;
+	// These sets might contain shapes that were deleted
+	std::unordered_set<u32> m_DirtyStaticShapes;
+	std::unordered_set<u32> m_DirtyUnitShapes;
 
 	/**
 	 * Mark all previous Rasterize()d grids as dirty, and the debug display.
@@ -604,8 +605,7 @@ private:
 		{
 			m_UpdateInformations.dirty = true;
 
-			if (std::find(m_DirtyStaticShapes.begin(), m_DirtyStaticShapes.end(), index) == m_DirtyStaticShapes.end())
-				m_DirtyStaticShapes.push_back(index);
+			m_DirtyStaticShapes.insert(index);
 
 			// All shapes overlapping the updated part of the grid should be dirtied too.
 			// We are going to invalidate the region of the grid corresponding to the modified shape plus its clearance,
@@ -618,15 +618,11 @@ private:
 
 			std::vector<u32> staticsNear;
 			m_StaticSubdivision.GetInRange(staticsNear, center - hbox - expand*2, center + hbox + expand*2);
-			for (u32& staticId : staticsNear)
-				if (std::find(m_DirtyStaticShapes.begin(), m_DirtyStaticShapes.end(), staticId) == m_DirtyStaticShapes.end())
-					m_DirtyStaticShapes.push_back(staticId);
+			m_DirtyStaticShapes.insert(staticsNear.begin(), staticsNear.end());
 
 			std::vector<u32> unitsNear;
 			m_UnitSubdivision.GetInRange(unitsNear, center - hbox - expand*2, center + hbox + expand*2);
-			for (u32& unitId : unitsNear)
-				if (std::find(m_DirtyUnitShapes.begin(), m_DirtyUnitShapes.end(), unitId) == m_DirtyUnitShapes.end())
-					m_DirtyUnitShapes.push_back(unitId);
+			m_DirtyUnitShapes.insert(unitsNear.begin(), unitsNear.end());
 
 			MarkDirtinessGrid(shape.x, shape.z, hbox + expand);
 		}
@@ -648,8 +644,7 @@ private:
 		{
 			m_UpdateInformations.dirty = true;
 
-			if (std::find(m_DirtyUnitShapes.begin(), m_DirtyUnitShapes.end(), index) == m_DirtyUnitShapes.end())
-				m_DirtyUnitShapes.push_back(index);
+			m_DirtyUnitShapes.insert(index);
 
 			// All shapes overlapping the updated part of the grid should be dirtied too.
 			// We are going to invalidate the region of the grid corresponding to the modified shape plus its clearance,
@@ -660,15 +655,11 @@ private:
 
 			std::vector<u32> staticsNear;
 			m_StaticSubdivision.GetNear(staticsNear, center, shape.clearance + m_MaxClearance*2);
-			for (u32& staticId : staticsNear)
-				if (std::find(m_DirtyStaticShapes.begin(), m_DirtyStaticShapes.end(), staticId) == m_DirtyStaticShapes.end())
-					m_DirtyStaticShapes.push_back(staticId);
+			m_DirtyStaticShapes.insert(staticsNear.begin(), staticsNear.end());
 
 			std::vector<u32> unitsNear;
 			m_UnitSubdivision.GetNear(unitsNear, center, shape.clearance + m_MaxClearance*2);
-			for (u32& unitId : unitsNear)
-				if (std::find(m_DirtyUnitShapes.begin(), m_DirtyUnitShapes.end(), unitId) == m_DirtyUnitShapes.end())
-					m_DirtyUnitShapes.push_back(unitId);
+			m_DirtyUnitShapes.insert(unitsNear.begin(), unitsNear.end());
 
 			MarkDirtinessGrid(shape.x, shape.z, shape.clearance + m_MaxClearance);
 		}
@@ -1165,18 +1156,20 @@ void CCmpObstructionManager::Rasterize(Grid<NavcellData>& grid, const std::vecto
 
 void CCmpObstructionManager::RasterizeHelper(Grid<NavcellData>& grid, ICmpObstructionManager::flags_t requireMask, bool fullUpdate, pass_class_t appliedMask, entity_pos_t clearance) const
 {
+	// Reuse the spans vector across shapes to avoid reallocating it for every shape.
+	SimRasterize::Spans spans;
 	for (auto& pair : m_StaticShapes)
 	{
 		const StaticShape& shape = pair.second;
 		if (!(shape.flags & requireMask))
 			continue;
 
-		if (!fullUpdate && std::find(m_DirtyStaticShapes.begin(), m_DirtyStaticShapes.end(), pair.first) == m_DirtyStaticShapes.end())
+		if (!fullUpdate && m_DirtyStaticShapes.find(pair.first) == m_DirtyStaticShapes.end())
 			continue;
 
 		// TODO: it might be nice to rasterize with rounded corners for large 'expand' values.
 		ObstructionSquare square = { shape.x, shape.z, shape.u, shape.v, shape.hw, shape.hh };
-		SimRasterize::Spans spans;
+		spans.clear();
 		SimRasterize::RasterizeRectWithClearance(spans, square, clearance, Pathfinding::NAVCELL_SIZE);
 		for (SimRasterize::Span& span : spans)
 		{
@@ -1194,7 +1187,7 @@ void CCmpObstructionManager::RasterizeHelper(Grid<NavcellData>& grid, ICmpObstru
 		if (!(pair.second.flags & requireMask))
 			continue;
 
-		if (!fullUpdate && std::find(m_DirtyUnitShapes.begin(), m_DirtyUnitShapes.end(), pair.first) == m_DirtyUnitShapes.end())
+		if (!fullUpdate && m_DirtyUnitShapes.find(pair.first) == m_DirtyUnitShapes.end())
 			continue;
 
 		CFixedVector2D center(pair.second.x, pair.second.z);
