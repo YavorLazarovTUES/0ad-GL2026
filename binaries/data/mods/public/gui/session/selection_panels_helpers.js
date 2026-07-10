@@ -6,6 +6,68 @@
 const UPGRADING_NOT_STARTED = -2;
 const UPGRADING_CHOSEN_OTHER = -1;
 
+function getNeededResources(cost, player)
+{
+	const playerState = GetSimState().players[player !== undefined ? player : Engine.GetPlayerID()];
+	if (!playerState)
+		return undefined;
+
+	const neededResources = {};
+	for (const type in cost)
+		if (playerState.resourceCounts[type] != undefined && cost[type] > playerState.resourceCounts[type])
+			neededResources[type] = cost[type] - Math.floor(playerState.resourceCounts[type]);
+
+	return Object.keys(neededResources).length ? neededResources : undefined;
+}
+
+var g_RequirementsMetCache = new Map();
+
+function areRequirementsMetCached(templateName, requirements, player)
+{
+	if (!requirements)
+		return true;
+
+	const key = player + "|" + templateName;
+	let met = g_RequirementsMetCache.get(key);
+	if (met === undefined)
+	{
+		met = Engine.GuiInterfaceCall("AreRequirementsMet", {
+			"requirements": requirements,
+			"player": player
+		});
+		g_RequirementsMetCache.set(key, met);
+	}
+	return met;
+}
+
+var g_ConstructionTooltips = new WeakMap();
+
+function getConstructionButtonTooltip(template, player)
+{
+	let byPlayer = g_ConstructionTooltips.get(template);
+	if (!byPlayer)
+	{
+		byPlayer = new Map();
+		g_ConstructionTooltips.set(template, byPlayer);
+	}
+
+	if (!byPlayer.has(player))
+		byPlayer.set(player, [
+			getEntityNamesFormatted(template),
+			getVisibleEntityClassesFormatted(template),
+			getAurasTooltip(template),
+			getEntityTooltip(template),
+			getEntityCostTooltip(template, player),
+			getResourceDropsiteTooltip(template),
+			getGarrisonTooltip(template),
+			getTurretsTooltip(template),
+			getPopulationBonusTooltip(template),
+			getTemplateViewerOnRightClickTooltip(template)
+		].filter(tip => tip).join("\n"));
+
+	return byPlayer.get(player);
+}
+
 function canMoveSelectionIntoFormation(formationTemplate)
 {
 	if (formationTemplate == NULL_FORMATION)
@@ -419,7 +481,7 @@ function unloadTemplate(template, owner)
 		// Filter out all entities that aren't garrisonable.
 		"garrisonHolders": g_Selection.filter(ent =>
 		{
-			const state = GetEntityState(ent);
+			const state = GetEntityStateBasic(ent);
 			return state && !!state.garrisonHolder;
 		})
 	});
@@ -429,7 +491,7 @@ function unloadAll()
 {
 	const garrisonHolders = g_Selection.filter(e =>
 	{
-		const state = GetEntityState(e);
+		const state = GetEntityStateBasic(e);
 		return state && !!state.garrisonHolder;
 	});
 
@@ -441,7 +503,7 @@ function unloadAll()
 
 	for (const ent of garrisonHolders)
 	{
-		if (controlsPlayer(GetEntityState(ent).player))
+		if (controlsPlayer(GetEntityStateBasic(ent).player))
 			ownEnts.push(ent);
 		else
 			otherEnts.push(ent);
@@ -464,7 +526,7 @@ function unloadAllTurrets()
 {
 	const turretHolders = g_Selection.filter(e =>
 	{
-		const state = GetEntityState(e);
+		const state = GetEntityStateBasic(e);
 		return state && !!state.turretHolder;
 	});
 
@@ -475,7 +537,7 @@ function unloadAllTurrets()
 	const ejectables = [];
 	for (const ent of turretHolders)
 	{
-		const turretHolderState = GetEntityState(ent);
+		const turretHolderState = GetEntityStateBasic(ent);
 		if (controlsPlayer(turretHolderState.player))
 			ownedHolders.push(ent);
 		else
@@ -503,7 +565,7 @@ function leaveTurretPoints()
 {
 	const entities = g_Selection.filter(entity =>
 	{
-		const entState = GetEntityState(entity);
+		const entState = GetEntityStateBasic(entity);
 		return entState && entState.turretable &&
 			entState.turretable.holder != INVALID_ENTITY;
 	});
@@ -521,7 +583,7 @@ function backToWork()
 		// Filter out all entities that can't go back to work.
 		"entities": g_Selection.filter(ent =>
 		{
-			const state = GetEntityState(ent);
+			const state = GetEntityStateBasic(ent);
 			return state && state.unitAI && state.unitAI.hasWorkOrders;
 		})
 	});
@@ -534,7 +596,7 @@ function removeGuard()
 		// Filter out all entities that are currently guarding/escorting.
 		"entities": g_Selection.filter(ent =>
 		{
-			const state = GetEntityState(ent);
+			const state = GetEntityStateBasic(ent);
 			return state && state.unitAI && state.unitAI.isGuarding;
 		})
 	});
@@ -546,7 +608,7 @@ function raiseAlert()
 		"type": "alert-raise",
 		"entities": g_Selection.filter(ent =>
 		{
-			const state = GetEntityState(ent);
+			const state = GetEntityStateBasic(ent);
 			return state && !!state.alertRaiser;
 		})
 	});
@@ -558,7 +620,7 @@ function endOfAlert()
 		"type": "alert-end",
 		"entities": g_Selection.filter(ent =>
 		{
-			const state = GetEntityState(ent);
+			const state = GetEntityStateBasic(ent);
 			return state && !!state.alertRaiser;
 		})
 	});
@@ -570,7 +632,7 @@ function turnAutoQueueOn()
 		"type": "autoqueue-on",
 		"entities": g_Selection.filter(ent =>
 		{
-			const state = GetEntityState(ent);
+			const state = GetEntityStateBasic(ent);
 			return !!state?.trainer?.entities?.length &&
 				!state.production.autoqueue;
 		})
@@ -583,7 +645,7 @@ function turnAutoQueueOff()
 		"type": "autoqueue-off",
 		"entities": g_Selection.filter(ent =>
 		{
-			const state = GetEntityState(ent);
+			const state = GetEntityStateBasic(ent);
 			return !!state?.trainer?.entities?.length &&
 				state.production.autoqueue;
 		})

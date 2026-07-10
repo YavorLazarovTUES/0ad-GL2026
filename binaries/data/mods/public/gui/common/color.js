@@ -172,10 +172,33 @@ function hslToRgb(h, s, l)
 	return [r, g, b].map(n => Math.round(n * 255));
 }
 
+var g_HotkeyMapCache;
+var g_HotkeyMapCacheWatching = false;
+
+function getHotkeyMapCached()
+{
+	if (!g_HotkeyMapCache)
+	{
+		g_HotkeyMapCache = Engine.GetHotkeyMap();
+		if (!g_HotkeyMapCacheWatching && typeof registerConfigChangeHandler == "function")
+		{
+			g_HotkeyMapCacheWatching = true;
+			registerConfigChangeHandler(changes => {
+				for (const change of changes)
+					if (change.startsWith("hotkey."))
+					{
+						g_HotkeyMapCache = undefined;
+						return;
+					}
+			});
+		}
+	}
+	return g_HotkeyMapCache;
+}
+
 function colorizeHotkey(text, hotkey)
 {
-	// TODO: Be more efficient in retrieving the mapping(s) for a specific hotkey
-	let key = Engine.GetHotkeyMap()[hotkey];
+	let key = getHotkeyMapCached()[hotkey];
 
 	if (!key)
 		key = sprintf(translate("Unassigned hotkey: %(hotkeyName)s"), {

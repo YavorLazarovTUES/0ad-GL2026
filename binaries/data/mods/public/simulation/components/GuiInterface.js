@@ -253,7 +253,7 @@ GuiInterface.prototype.AddMiragedEntity = function(player, entity, mirage)
 /**
  * Get common entity info, often used in the gui.
  */
-GuiInterface.prototype.GetEntityState = function(player, ent)
+GuiInterface.prototype.GetEntityState = function(player, ent, full = true)
 {
 	if (!ent)
 		return null;
@@ -269,8 +269,11 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 		"template": template
 	};
 
+	if (!full)
+		ret.partial = true;
+
 	const cmpAuras = Engine.QueryInterface(ent, IID_Auras);
-	if (cmpAuras)
+	if (full && cmpAuras)
 		ret.auras = cmpAuras.GetDescriptions();
 
 	const cmpMirage = Engine.QueryInterface(ent, IID_Mirage);
@@ -355,7 +358,7 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 		};
 
 	const cmpStatusEffects = Engine.QueryInterface(ent, IID_StatusEffectsReceiver);
-	if (cmpStatusEffects)
+	if (full && cmpStatusEffects)
 		ret.statusEffects = cmpStatusEffects.GetActiveStatuses();
 
 	const cmpProductionQueue = Engine.QueryInterface(ent, IID_ProductionQueue);
@@ -439,9 +442,11 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 			"isGuarding": cmpUnitAI.IsGuardOf(),
 			"canPatrol": cmpUnitAI.CanPatrol(),
 			"selectableStances": cmpUnitAI.GetSelectableStances(),
+			"stance": cmpUnitAI.GetStanceName(),
 			"isIdle": cmpUnitAI.IsIdle(),
 			"formations": cmpUnitAI.GetFormationsList(),
-			"formation": cmpUnitAI.GetFormationController()
+			"formation": cmpUnitAI.GetFormationController(),
+			"formationTemplate": cmpUnitAI.GetFormationTemplate()
 		};
 
 	const cmpGuard = Engine.QueryInterface(ent, IID_Guard);
@@ -479,7 +484,7 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 		if (types.length)
 			ret.attack = {};
 
-		for (const type of types)
+		for (const type of full ? types : [])
 		{
 			ret.attack[type] = {};
 
@@ -517,10 +522,10 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 	}
 
 	const cmpResistance = QueryMiragedInterface(ent, IID_Resistance);
-	if (cmpResistance)
+	if (full && cmpResistance)
 		ret.resistance = cmpResistance.GetResistanceOfForm(cmpFoundation ? "Foundation" : "Entity");
 
-	const cmpBuildingAI = Engine.QueryInterface(ent, IID_BuildingAI);
+	const cmpBuildingAI = full && Engine.QueryInterface(ent, IID_BuildingAI);
 	if (cmpBuildingAI)
 		ret.buildingAI = {
 			"defaultArrowCount": cmpBuildingAI.GetDefaultArrowCount(),
@@ -553,7 +558,7 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 			"shared": cmpResourceDropsite.IsShared()
 		};
 
-	const cmpPromotion = Engine.QueryInterface(ent, IID_Promotion);
+	const cmpPromotion = full && Engine.QueryInterface(ent, IID_Promotion);
 	if (cmpPromotion)
 		ret.promotion = {
 			"curr": cmpPromotion.GetCurrentXp(),
@@ -580,14 +585,14 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 		ret.loot.xp = cmpLoot.GetXp();
 	}
 
-	const cmpResourceTrickle = Engine.QueryInterface(ent, IID_ResourceTrickle);
+	const cmpResourceTrickle = full && Engine.QueryInterface(ent, IID_ResourceTrickle);
 	if (cmpResourceTrickle)
 		ret.resourceTrickle = {
 			"interval": cmpResourceTrickle.GetInterval(),
 			"rates": cmpResourceTrickle.GetRates()
 		};
 
-	const cmpTreasure = Engine.QueryInterface(ent, IID_Treasure);
+	const cmpTreasure = full && Engine.QueryInterface(ent, IID_Treasure);
 	if (cmpTreasure)
 		ret.treasure = {
 			"collectTime": cmpTreasure.CollectionTime(),
@@ -598,7 +603,7 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 	if (cmpTreasureCollector)
 		ret.treasureCollector = true;
 
-	const cmpUnitMotion = Engine.QueryInterface(ent, IID_UnitMotion);
+	const cmpUnitMotion = full && Engine.QueryInterface(ent, IID_UnitMotion);
 	if (cmpUnitMotion)
 		ret.speed = {
 			"walk": cmpUnitMotion.GetWalkSpeed(),
@@ -606,7 +611,7 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 			"acceleration": cmpUnitMotion.GetAcceleration()
 		};
 
-	const cmpUpkeep = Engine.QueryInterface(ent, IID_Upkeep);
+	const cmpUpkeep = full && Engine.QueryInterface(ent, IID_Upkeep);
 	if (cmpUpkeep)
 		ret.upkeep = {
 			"interval": cmpUpkeep.GetInterval(),
@@ -618,7 +623,8 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 
 GuiInterface.prototype.GetMultipleEntityStates = function(player, ents)
 {
-	return ents.map(ent => ({ "entId": ent, "state": this.GetEntityState(player, ent) }));
+	const full = ents.length <= 1;
+	return ents.map(ent => ({ "entId": ent, "state": this.GetEntityState(player, ent, full) }));
 };
 
 GuiInterface.prototype.GetAverageRangeForBuildings = function(player, cmd)
@@ -850,6 +856,14 @@ GuiInterface.prototype.CanMoveEntsIntoFormation = function(player, data)
 	return CanMoveEntsIntoFormation(data.ents, data.formationTemplate);
 };
 
+GuiInterface.prototype.CanMoveEntsIntoFormations = function(player, data)
+{
+	const result = {};
+	for (const formationTemplate of data.formationTemplates)
+		result[formationTemplate] = CanMoveEntsIntoFormation(data.ents, formationTemplate);
+	return result;
+};
+
 GuiInterface.prototype.GetFormationInfoFromTemplate = function(player, data)
 {
 	const cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
@@ -888,7 +902,7 @@ GuiInterface.prototype.IsStanceSelected = function(player, data)
 
 GuiInterface.prototype.GetAllBuildableEntities = function(player, cmd)
 {
-	const buildableEnts = [];
+	const buildableEnts = new Set();
 	for (const ent of cmd.entities)
 	{
 		const cmpBuilder = Engine.QueryInterface(ent, IID_Builder);
@@ -896,10 +910,9 @@ GuiInterface.prototype.GetAllBuildableEntities = function(player, cmd)
 			continue;
 
 		for (const building of cmpBuilder.GetEntitiesList())
-			if (buildableEnts.indexOf(building) == -1)
-				buildableEnts.push(building);
+			buildableEnts.add(building);
 	}
-	return buildableEnts;
+	return Array.from(buildableEnts);
 };
 
 GuiInterface.prototype.UpdateDisplayedPlayerColors = function(player, data)
@@ -2118,6 +2131,7 @@ GuiInterface.prototype.exposedFunctions = {
 	"GetAvailableFormations": 1,
 	"GetFormationRequirements": 1,
 	"CanMoveEntsIntoFormation": 1,
+	"CanMoveEntsIntoFormations": 1,
 	"IsFormationSelected": 1,
 	"GetFormationInfoFromTemplate": 1,
 	"IsStanceSelected": 1,

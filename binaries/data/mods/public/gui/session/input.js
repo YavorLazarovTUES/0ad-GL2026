@@ -259,7 +259,7 @@ function determineAction(x, y, fromMiniMap)
 		return undefined;
 	}
 
-	const entState = GetEntityState(selection[0]);
+	const entState = GetEntityStateBasic(selection[0]);
 	if (!entState)
 		return undefined;
 
@@ -314,13 +314,13 @@ function determineAction(x, y, fromMiniMap)
 
 function ownsEntity(ent)
 {
-	const entState = GetEntityState(ent);
+	const entState = GetEntityStateBasic(ent);
 	return entState && entState.player == g_ViewedPlayer;
 }
 
 function isMutualAllyBuilding(ent)
 {
-	const entState = GetEntityState(ent);
+	const entState = GetEntityStateBasic(ent);
 	return entState && entState.rallyPoint &&
 		g_Players[entState.player]?.isMutualAlly[g_ViewedPlayer];
 }
@@ -463,30 +463,30 @@ function updateBandbox(bandbox, ev, hidden)
 var unitFilters = {
 	"isUnit": entity =>
 	{
-		const entState = GetEntityState(entity);
+		const entState = GetEntityStateBasic(entity);
 		return entState && hasClass(entState, "Unit");
 	},
 	"isDefensive": entity =>
 	{
-		const entState = GetEntityState(entity);
+		const entState = GetEntityStateBasic(entity);
 		return entState && hasClass(entState, "Defensive");
 	},
 	"isMilitary": entity =>
 	{
-		const entState = GetEntityState(entity);
+		const entState = GetEntityStateBasic(entity);
 		return entState &&
 			g_MilitaryTypes.some(c => hasClass(entState, c));
 	},
 	"isNonMilitary": entity =>
 	{
-		const entState = GetEntityState(entity);
+		const entState = GetEntityStateBasic(entity);
 		return entState &&
 			hasClass(entState, "Unit") &&
 			!g_MilitaryTypes.some(c => hasClass(entState, c));
 	},
 	"isIdle": entity =>
 	{
-		const entState = GetEntityState(entity);
+		const entState = GetEntityStateBasic(entity);
 		return entState &&
 			hasClass(entState, "Unit") &&
 			entState.unitAI &&
@@ -495,7 +495,7 @@ var unitFilters = {
 	},
 	"isWounded": entity =>
 	{
-		const entState = GetEntityState(entity);
+		const entState = GetEntityStateBasic(entity);
 		return entState &&
 			hasClass(entState, "Unit") &&
 			entState.maxHitpoints &&
@@ -511,6 +511,8 @@ var unitFilters = {
 // We may use several entity filters, until one returns at least one element.
 function getPreferredEntities(ents)
 {
+	PrefetchEntityStates(ents);
+
 	let filters = [unitFilters.isUnit, unitFilters.isDefensive, unitFilters.isAnything];
 
 	if (Engine.HotkeyIsPressed("selection.militaryonly"))
@@ -873,8 +875,9 @@ function handleInputAfterGui(ev)
 		});
 		if (!playerEntities || !playerEntities.length)
 			return false;
+		PrefetchEntityStates(playerEntities);
 		const ents = playerEntities.filter(ent =>
-			GetEntityState(ent)?.identity?.classes.includes(targetClass)
+			GetEntityStateBasic(ent)?.identity?.classes.includes(targetClass)
 		);
 		if (!ents.length)
 			return false;
@@ -904,8 +907,9 @@ function handleInputAfterGui(ev)
 		});
 		if (!playerEntities || !playerEntities.length)
 			return false;
+		PrefetchEntityStates(playerEntities);
 		const ents = playerEntities.filter(ent =>
-			GetEntityState(ent)?.template?.endsWith(buildingId)
+			GetEntityStateBasic(ent)?.template?.endsWith(buildingId)
 		);
 		if (!ents.length)
 			return false;
@@ -1371,7 +1375,7 @@ function positionUnitsFreehandSelectionMouseUp(ev)
 	for (let i = 1; i < inputLine.length; ++i)
 		lengthOfLine += inputLine[i].distanceTo(inputLine[i - 1]);
 
-	const selection = g_Selection.filter(ent => !!GetEntityState(ent).unitAI).sort((a, b) => a - b);
+	const selection = g_Selection.filter(ent => !!GetEntityStateBasic(ent).unitAI).sort((a, b) => a - b);
 
 	// Checking the line for a minimum length to save performance.
 	if (lengthOfLine < g_FreehandSelection_MinLengthOfLine || selection.length < g_FreehandSelection_MinNumberOfUnits)
@@ -1403,10 +1407,10 @@ function positionUnitsFreehandSelectionMouseUp(ev)
 	entityDistribution = entityDistribution.slice(0, selection.length);
 	entityDistribution = entityDistribution.concat(new Array(selection.length - entityDistribution.length).fill(inputLine[inputLine.length - 1]));
 
-	if (Vector2D.from3D(GetEntityState(selection[0]).position).distanceTo(entityDistribution[0]) +
-	    Vector2D.from3D(GetEntityState(selection[selection.length - 1]).position).distanceTo(entityDistribution[selection.length - 1]) >
-	    Vector2D.from3D(GetEntityState(selection[0]).position).distanceTo(entityDistribution[selection.length - 1]) +
-	    Vector2D.from3D(GetEntityState(selection[selection.length - 1]).position).distanceTo(entityDistribution[0]))
+	if (Vector2D.from3D(GetEntityStateBasic(selection[0]).position).distanceTo(entityDistribution[0]) +
+	    Vector2D.from3D(GetEntityStateBasic(selection[selection.length - 1]).position).distanceTo(entityDistribution[selection.length - 1]) >
+	    Vector2D.from3D(GetEntityStateBasic(selection[0]).position).distanceTo(entityDistribution[selection.length - 1]) +
+	    Vector2D.from3D(GetEntityStateBasic(selection[selection.length - 1]).position).distanceTo(entityDistribution[0]))
 		entityDistribution.reverse();
 
 	Engine.PostNetworkCommand({
@@ -1572,7 +1576,7 @@ function getBuildingsWhichCanTrainEntity(entitiesToCheck, trainEntType)
 {
 	return entitiesToCheck.filter(entity =>
 	{
-		const state = GetEntityState(entity);
+		const state = GetEntityStateBasic(entity);
 		return state?.trainer?.entities?.includes(trainEntType) &&
 			(!state.upgrade || !state.upgrade.isUpgrading);
 	});
@@ -1620,7 +1624,7 @@ function getBuildingsSortedByQueueTime(entities)
 {
 	return entities.map(entity =>
 	{
-		const state = GetEntityState(entity);
+		const state = GetEntityStateBasic(entity);
 		const queue = state?.production?.queue;
 		if (!Array.isArray(queue))
 			return null;

@@ -36,6 +36,10 @@ function testEntitiesList()
 
 	TS_ASSERT_UNEVAL_EQUALS(cmpBuilder.GetEntitiesList(), []);
 
+	AddMock(SYSTEM_ENTITY, IID_GuiInterface, {
+		"SetSelectionDirty": () => {}
+	});
+
 	AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
 		"GetPlayerByID": id => playerEntityID
 	});
@@ -57,11 +61,15 @@ function testEntitiesList()
 		"GetCiv": () => "iber"
 	});
 
+	cmpBuilder.OnOwnershipChanged({ "to": playerId });
+
 	TS_ASSERT_UNEVAL_EQUALS(cmpBuilder.GetEntitiesList(), ["structures/iber/barracks", "structures/iber/civil_centre", "structures/iber/house"]);
 
 	AddMock(SYSTEM_ENTITY, IID_TemplateManager, {
 		"TemplateExists": name => name == "structures/iber/civil_centre"
 	});
+
+	cmpBuilder.OnValueModification({ "component": "Builder", "valueNames": ["Builder/Entities/_string"], "entities": [builderId] });
 
 	TS_ASSERT_UNEVAL_EQUALS(cmpBuilder.GetEntitiesList(), ["structures/iber/civil_centre"]);
 
@@ -74,12 +82,16 @@ function testEntitiesList()
 		"GetPlayerID": () => playerId
 	});
 
+	cmpBuilder.OnDisabledTemplatesChanged({});
+
 	TS_ASSERT_UNEVAL_EQUALS(cmpBuilder.GetEntitiesList(), ["structures/iber/barracks", "structures/iber/civil_centre", "structures/iber/house"]);
 
 	AddMock(playerEntityID, IID_Player, {
 		"GetDisabledTemplates": () => ({ "structures/iber/barracks": true }),
 		"GetPlayerID": () => playerId
 	});
+
+	cmpBuilder.OnDisabledTemplatesChanged({});
 
 	TS_ASSERT_UNEVAL_EQUALS(cmpBuilder.GetEntitiesList(), ["structures/iber/civil_centre", "structures/iber/house"]);
 
@@ -91,6 +103,8 @@ function testEntitiesList()
 	AddMock(playerEntityID, IID_Identity, {
 		"GetCiv": () => "athen",
 	});
+
+	cmpBuilder.OnOwnershipChanged({ "to": playerId });
 
 	TS_ASSERT_UNEVAL_EQUALS(cmpBuilder.GetEntitiesList(), ["structures/athen/civil_centre", "structures/iber/house"]);
 

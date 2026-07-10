@@ -200,6 +200,16 @@ function GetMultipleEntityStates(ents)
 	return entityStates;
 }
 
+function PrefetchEntityStates(ents)
+{
+	const uncached = [];
+	for (const ent of ents)
+		if (ent && ent != INVALID_ENTITY && !g_EntityStates[ent])
+			uncached.push(+ent);
+	if (uncached.length)
+		GetMultipleEntityStates(uncached);
+}
+
 /**
  * Get the current state of a given entity. The data is pulled from the simulation.
  * The state is null, if the ID is undefined, invalid or no entity with the ID exists (anymore).
@@ -209,13 +219,21 @@ function GetEntityState(entId)
 	if (!entId || entId == INVALID_ENTITY)
 		return null;
 
-	if (!g_EntityStates[entId])
+	if (!g_EntityStates[entId] || g_EntityStates[entId].partial)
 	{
 		const entityState = Engine.GuiInterfaceCall("GetEntityState", entId);
 		g_EntityStates[entId] = entityState && deepfreeze(entityState);
 	}
 
 	return g_EntityStates[entId];
+}
+
+function GetEntityStateBasic(entId)
+{
+	if (!entId || entId == INVALID_ENTITY)
+		return null;
+
+	return g_EntityStates[entId] || GetEntityState(entId);
 }
 
 /**
@@ -459,7 +477,7 @@ function updatePlayerData()
  */
 function getEntityOrHolder(ent)
 {
-	const entState = GetEntityState(ent);
+	const entState = GetEntityStateBasic(ent);
 	if (entState && !entState.position && entState.garrisonable && entState.garrisonable.holder != INVALID_ENTITY)
 		return getEntityOrHolder(entState.garrisonable.holder);
 
@@ -684,6 +702,7 @@ function onSimulationUpdate(closePageCallback)
 	// Templates change depending on technologies and auras, so they have to be reloaded after such a change.
 	// g_TechnologyData data never changes, so it shouldn't be deleted.
 	g_EntityStates = {};
+	g_RequirementsMetCache.clear();
 	if (Engine.GuiInterfaceCall("IsTemplateModified"))
 	{
 		g_TemplateData = {};
@@ -763,7 +782,7 @@ function updateGroups()
 	// Determine the sum of the costs of a given template
 	const getCostSum = (ent) =>
 	{
-		const cost = GetTemplateData(GetEntityState(ent).template).cost;
+		const cost = GetTemplateData(GetEntityStateBasic(ent).template).cost;
 		return cost ? Object.keys(cost).map(key => cost[key]).reduce((sum, cur) => sum + cur) : 0;
 	};
 
@@ -780,7 +799,7 @@ function updateGroups()
 		// Choose the icon of the most common template (or the most costly if it's not unique)
 		if (g_Groups.groups[i].getTotalCount() > 0)
 		{
-			const icon = GetTemplateData(GetEntityState(g_Groups.groups[i].getEntsGrouped().reduce((pre, cur) =>
+			const icon = GetTemplateData(GetEntityStateBasic(g_Groups.groups[i].getEntsGrouped().reduce((pre, cur) =>
 			{
 				if (pre.ents.length == cur.ents.length)
 					return getCostSum(pre.ents[0]) > getCostSum(cur.ents[0]) ? pre : cur;
@@ -868,7 +887,7 @@ function updateAdditionalHighlight()
 		// flag the guarding entities to add in this additional highlight
 		for (const sel of g_Selection.toList())
 		{
-			const state = GetEntityState(sel);
+			const state = GetEntityStateBasic(sel);
 			if (!state.guard || !state.guard.entities.length)
 				continue;
 
@@ -881,7 +900,7 @@ function updateAdditionalHighlight()
 		// flag the guarded entities to add in this additional highlight
 		for (const sel of g_Selection.toList())
 		{
-			const state = GetEntityState(sel);
+			const state = GetEntityStateBasic(sel);
 			if (!state.unitAI || !state.unitAI.isGuarding)
 				continue;
 			const ent = state.unitAI.isGuarding;

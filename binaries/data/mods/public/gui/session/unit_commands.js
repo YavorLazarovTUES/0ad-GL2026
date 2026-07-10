@@ -196,7 +196,7 @@ function getAllTrainableEntities(selection)
 	// Get all buildable and trainable entities
 	for (const ent of selection)
 	{
-		const state = GetEntityState(ent);
+		const state = GetEntityStateBasic(ent);
 		if (state?.trainer?.entities?.length)
 		{
 			if (!state.production)

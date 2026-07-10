@@ -187,38 +187,18 @@ g_SelectionPanels.Construction = {
 		if (!template)
 			return false;
 
-		const requirementsMet = Engine.GuiInterfaceCall("AreRequirementsMet", {
-			"requirements": template.requirements,
-			"player": data.player
-		});
+		const requirementsMet = areRequirementsMetCached(data.item, template.requirements, data.player);
 
 		let neededResources;
 		if (template.cost)
-			neededResources = Engine.GuiInterfaceCall("GetNeededResources", {
-				"cost": multiplyEntityCosts(template, 1),
-				"player": data.player
-			});
+			neededResources = getNeededResources(multiplyEntityCosts(template, 1), data.player);
 
 		data.button.onPress = function() { startBuildingPlacement(data.item, data.playerState); };
 		const showTemplateFunc = () => { showTemplateDetails(data.item, data.playerState.civ); };
 		data.button.onPressRight = showTemplateFunc;
 		data.button.onPressRightDisabled = showTemplateFunc;
 
-		const tooltips = [
-			getEntityNamesFormatted,
-			getVisibleEntityClassesFormatted,
-			getAurasTooltip,
-			getEntityTooltip
-		].map(func => func(template));
-		tooltips.push(
-			getEntityCostTooltip(template, data.player),
-			getResourceDropsiteTooltip(template),
-			getGarrisonTooltip(template),
-			getTurretsTooltip(template),
-			getPopulationBonusTooltip(template),
-			getTemplateViewerOnRightClickTooltip(template)
-		);
-
+		const tooltips = [getConstructionButtonTooltip(template, data.player)];
 
 		const limits = getEntityLimitAndCount(data.playerState, data.item);
 		tooltips.push(
@@ -269,7 +249,17 @@ g_SelectionPanels.Formation = {
 		if (!g_AvailableFormations.has(unitEntStates[0].player))
 			g_AvailableFormations.set(unitEntStates[0].player, Engine.GuiInterfaceCall("GetAvailableFormations", unitEntStates[0].player));
 
-		return g_AvailableFormations.get(unitEntStates[0].player).filter(formation => unitEntStates.some(state => !!state.unitAI && state.unitAI.formations.includes(formation)));
+		const formations = g_AvailableFormations.get(unitEntStates[0].player).filter(formation => unitEntStates.some(state => !!state.unitAI && state.unitAI.formations.includes(formation)));
+
+		const uncachedFormations = formations.filter(formation =>
+			formation != NULL_FORMATION && !(formation in g_canMoveIntoFormation));
+		if (uncachedFormations.length)
+			Object.assign(g_canMoveIntoFormation, Engine.GuiInterfaceCall("CanMoveEntsIntoFormations", {
+				"ents": g_Selection.toList(),
+				"formationTemplates": uncachedFormations
+			}));
+
+		return formations;
 	},
 	"setupButton": function(data)
 	{
@@ -278,10 +268,8 @@ g_SelectionPanels.Formation = {
 
 		const formationOk = canMoveSelectionIntoFormation(data.item);
 		const unitIds = data.unitEntStates.map(state => state.id);
-		const formationSelected = Engine.GuiInterfaceCall("IsFormationSelected", {
-			"ents": unitIds,
-			"formationTemplate": data.item
-		});
+		const formationSelected = data.unitEntStates.some(state =>
+			state.unitAI && state.unitAI.formationTemplate == data.item);
 
 		data.button.onPress = function()
 		{
@@ -976,10 +964,7 @@ g_SelectionPanels.Research = {
 				adaptedTemplate.cost[res] *=
 					baseData.item.techCostMultiplier[res] !== undefined ? baseData.item.techCostMultiplier[res] : 1;
 
-			const neededResources = Engine.GuiInterfaceCall("GetNeededResources", {
-				"cost": adaptedTemplate.cost,
-				"player": baseData.player
-			});
+			const neededResources = getNeededResources(adaptedTemplate.cost, baseData.player);
 
 			const requirementsPassed = Engine.GuiInterfaceCall("CheckTechnologyRequirements", {
 				"tech": techName,
@@ -1112,14 +1097,14 @@ g_SelectionPanels.Selection = {
 	},
 	"setupButton": function(data)
 	{
-		const entState = GetEntityState(data.item.ents[0]);
+		const entState = GetEntityStateBasic(data.item.ents[0]);
 		const template = GetTemplateData(entState.template);
 		if (!template)
 			return false;
 
 		for (const ent of data.item.ents)
 		{
-			const state = GetEntityState(ent);
+			const state = GetEntityStateBasic(ent);
 
 			if (state.resourceCarrying && state.resourceCarrying.length !== 0)
 			{
@@ -1150,7 +1135,7 @@ g_SelectionPanels.Selection = {
 			}
 		}
 
-		const unitOwner = GetEntityState(data.item.ents[0]).player;
+		const unitOwner = entState.player;
 		let tooltip = getEntityNames(template);
 		if (data.carried)
 			tooltip += "\n" + Object.keys(data.carried).map(res =>
@@ -1203,10 +1188,8 @@ g_SelectionPanels.Stance = {
 
 		data.button.tooltip = getStanceDisplayName(data.item) + "\n" + bodyFont(getStanceTooltip(data.item));
 
-		data.guiSelection.hidden = !Engine.GuiInterfaceCall("IsStanceSelected", {
-			"ents": unitIds,
-			"stance": data.item
-		});
+		data.guiSelection.hidden = !data.unitEntStates.some(state =>
+			state.unitAI && state.unitAI.stance == data.item);
 		data.icon.sprite = "stretched:session/icons/stances/" + data.item + ".png";
 		data.button.enabled = controlsPlayer(data.player);
 
@@ -1231,10 +1214,7 @@ g_SelectionPanels.Training = {
 		if (!template)
 			return false;
 
-		const requirementsMet = Engine.GuiInterfaceCall("AreRequirementsMet", {
-			"requirements": template.requirements,
-			"player": data.player
-		});
+		const requirementsMet = areRequirementsMetCached(data.item, template.requirements, data.player);
 
 		const unitIds = data.unitEntStates.map(status => status.id);
 		const [buildingsCountToTrainFullBatch, fullBatchSize, remainderBatch] =
@@ -1244,10 +1224,7 @@ g_SelectionPanels.Training = {
 
 		let neededResources;
 		if (template.cost)
-			neededResources = Engine.GuiInterfaceCall("GetNeededResources", {
-				"cost": multiplyEntityCosts(template, trainNum),
-				"player": data.player
-			});
+			neededResources = getNeededResources(multiplyEntityCosts(template, trainNum), data.player);
 
 		data.button.onPress = function()
 		{
@@ -1360,10 +1337,8 @@ g_SelectionPanels.Upgrade = {
 			!state.upgrade.progress &&
 			(!state.production || !state.production.queue || !state.production.queue.length));
 
-		const neededResources = data.item.cost && Engine.GuiInterfaceCall("GetNeededResources", {
-			"cost": multiplyEntityCosts(data.item, upgradableEntStates.length),
-			"player": data.player
-		});
+		const neededResources = data.item.cost &&
+			getNeededResources(multiplyEntityCosts(data.item, upgradableEntStates.length), data.player);
 
 		let tooltip;
 		let modifier = "";

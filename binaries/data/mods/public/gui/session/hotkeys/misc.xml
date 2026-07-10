@@ -25,7 +25,7 @@
 	</object>
 
 	<object hotkey="session.kill">
-		<action on="KeyDown">performCommand(g_Selection.toList().map(ent => GetEntityState(ent)), "delete");</action>
+		<action on="KeyDown">performCommand(g_Selection.toList().map(ent => GetEntityStateBasic(ent)), "delete");</action>
 	</object>
 
 	<object hotkey="session.unload">

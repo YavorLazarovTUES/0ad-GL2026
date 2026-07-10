@@ -19,16 +19,19 @@ function updateGarrisonHealthBar(entState, selection)
 	// Summing up the Health of every single unit
 	let totalGarrisonHealth = 0;
 	let maxGarrisonHealth = 0;
+	const garrisonedEnts = [];
 	for (const selEnt of selection)
 	{
-		const selEntState = GetEntityState(selEnt);
-		if (selEntState.garrisonHolder)
-			for (const ent of selEntState.garrisonHolder.entities)
-			{
-				const state = GetEntityState(ent);
-				totalGarrisonHealth += state.hitpoints || 0;
-				maxGarrisonHealth += state.maxHitpoints || 0;
-			}
+		const selEntState = GetEntityStateBasic(selEnt);
+		if (selEntState?.garrisonHolder)
+			garrisonedEnts.push(...selEntState.garrisonHolder.entities);
+	}
+	PrefetchEntityStates(garrisonedEnts);
+	for (const ent of garrisonedEnts)
+	{
+		const state = GetEntityStateBasic(ent);
+		totalGarrisonHealth += state && state.hitpoints || 0;
+		maxGarrisonHealth += state && state.maxHitpoints || 0;
 	}
 
 	// Configuring the health bar
@@ -519,7 +522,7 @@ function updateSelectionDetails()
 
 	for (const sel of g_Selection.toList())
 	{
-		const entState = GetEntityState(sel);
+		const entState = GetEntityStateBasic(sel);
 		if (!entState)
 			continue;
 		entStates.push(entState);
@@ -541,7 +544,7 @@ function updateSelectionDetails()
 	if (entStates.length == 1)
 	{
 		Engine.ProfileStart("displaySingle");
-		displaySingle(entStates[0]);
+		displaySingle(GetEntityState(entStates[0].id));
 		Engine.ProfileStop();
 	}
 	else

@@ -74,7 +74,7 @@ EntityGroups.prototype.add = function(ents)
 	{
 		if (this.ents[ent])
 			continue;
-		var entState = GetEntityState(ent);
+		var entState = GetEntityStateBasic(ent);
 
 		// When this function is called during group rebuild, deleted
 		// entities will not yet have been removed, so entities might
@@ -233,7 +233,7 @@ EntitySelection.prototype.getTemplateNames = function()
 	const templateNames = [];
 	for (const ent of this.selected)
 	{
-		const entState = GetEntityState(ent);
+		const entState = GetEntityStateBasic(ent);
 		if (entState)
 			templateNames.push(entState.template);
 	}
@@ -254,7 +254,7 @@ EntitySelection.prototype.update = function()
 
 	for (const ent of this.selected)
 	{
-		const entState = GetEntityState(ent);
+		const entState = GetEntityStateBasic(ent);
 
 		if (!entState)
 		{
@@ -320,13 +320,18 @@ EntitySelection.prototype.addList = function(ents, quiet, force = false, addForm
 {
 	force = force || g_SimState.players[g_ViewedPlayer]?.controlsAll;
 	// If someone else's player is the sole selected unit, don't allow adding to the selection.
-	const firstEntState = this.selected.size == 1 && GetEntityState(this.getFirstSelected());
+	const firstEntState = this.selected.size == 1 && GetEntityStateBasic(this.getFirstSelected());
 	if (firstEntState && firstEntState.player != g_ViewedPlayer && !force)
 		return;
 
 	const added = [];
 
-	for (const ent of addFormationMembers ? this.addFormationMembers(ents) : ents)
+	PrefetchEntityStates(ents);
+	const candidates = addFormationMembers ? this.addFormationMembers(ents) : ents;
+	if (candidates != ents)
+		PrefetchEntityStates(candidates);
+
+	for (const ent of candidates)
 	{
 		if (this.selected.size >= g_MaxSelectionSize)
 			break;
@@ -334,7 +339,7 @@ EntitySelection.prototype.addList = function(ents, quiet, force = false, addForm
 		if (this.selected.has(ent))
 			continue;
 
-		const entState = GetEntityState(ent);
+		const entState = GetEntityStateBasic(ent);
 		if (!entState)
 			continue;
 
@@ -354,7 +359,7 @@ EntitySelection.prototype.addList = function(ents, quiet, force = false, addForm
 	if (added.length)
 	{
 		// Play the sound if the entity is controllable by us or Gaia-owned.
-		var owner = GetEntityState(added[0]).player;
+		var owner = GetEntityStateBasic(added[0]).player;
 		if (!quiet && (controlsPlayer(owner) || g_IsObserver || owner == 0))
 			_playSound(added[0]);
 	}
@@ -518,9 +523,9 @@ EntitySelection.prototype.addFormationMembers = function(entities)
 	const result = new Set(entities);
 	for (const entity of entities)
 	{
-		const entState = GetEntityState(+entity);
+		const entState = GetEntityStateBasic(+entity);
 		if (entState?.unitAI?.formation)
-			for (const member of GetEntityState(+entState.unitAI.formation).formation.members)
+			for (const member of GetEntityStateBasic(+entState.unitAI.formation).formation.members)
 				result.add(member);
 	}
 
@@ -576,9 +581,11 @@ EntityGroupsContainer.prototype.update = function()
 {
 	this.checkRenamedEntities();
 	for (const group of this.groups)
+		PrefetchEntityStates(Object.keys(group.ents));
+	for (const group of this.groups)
 		for (var ent in group.ents)
 		{
-			var entState = GetEntityState(+ent);
+			var entState = GetEntityStateBasic(+ent);
 			// Remove deleted units
 			if (!entState)
 				group.removeEnt(ent);

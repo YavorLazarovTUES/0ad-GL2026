@@ -29,13 +29,22 @@ Builder.prototype.Init = function()
 
 Builder.prototype.GetEntitiesList = function()
 {
+	if (this.entitiesList === undefined)
+		this.CalculateEntitiesList();
+	return this.entitiesList;
+};
+
+Builder.prototype.CalculateEntitiesList = function()
+{
+	this.entitiesList = [];
+
 	let string = this.template.Entities._string;
 	if (!string)
-		return [];
+		return;
 
 	const cmpPlayer = QueryOwnerInterface(this.entity);
 	if (!cmpPlayer)
-		return [];
+		return;
 
 	string = ApplyValueModificationsToEntity("Builder/Entities/_string", string, this.entity);
 
@@ -49,7 +58,7 @@ Builder.prototype.GetEntitiesList = function()
 
 	const cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
 
-	return entities.filter(ent => !disabledTemplates[ent] && cmpTemplateManager.TemplateExists(ent));
+	this.entitiesList = entities.filter(ent => !disabledTemplates[ent] && cmpTemplateManager.TemplateExists(ent));
 };
 
 Builder.prototype.GetRange = function()
@@ -199,10 +208,23 @@ Builder.prototype.OnValueModification = function(msg)
 	if (msg.component != "Builder" || !msg.valueNames.some(name => name.endsWith('_string')))
 		return;
 
+	this.CalculateEntitiesList();
+
 	// Token changes may require selection updates.
 	const cmpPlayer = QueryOwnerInterface(this.entity, IID_Player);
 	if (cmpPlayer)
 		Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface).SetSelectionDirty(cmpPlayer.GetPlayerID());
+};
+
+Builder.prototype.OnOwnershipChanged = function(msg)
+{
+	if (msg.to != INVALID_PLAYER)
+		this.CalculateEntitiesList();
+};
+
+Builder.prototype.OnDisabledTemplatesChanged = function(msg)
+{
+	this.CalculateEntitiesList();
 };
 
 Engine.RegisterComponentType(IID_Builder, "Builder", Builder);

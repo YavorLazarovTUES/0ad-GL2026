@@ -414,7 +414,7 @@ var g_UnitActions =
 		{
 			"preSelectedActionCheck": function(target, selection)
 			{
-				const state = GetEntityState(selection[0]);
+				const state = GetEntityStateBasic(selection[0]);
 				if (state && state.builder &&
 						target && target.constructor && target.constructor.name == "PlacementSupport")
 					return { "type": "construct" };
@@ -1094,7 +1094,7 @@ var g_UnitActions =
 				// We want commands to units take precedence.
 				if (selection.some(ent =>
 				{
-					const entState = GetEntityState(ent);
+					const entState = GetEntityStateBasic(ent);
 					return entState && !!entState.unitAI;
 				}))
 					return false;
@@ -1323,7 +1323,7 @@ var g_UnitActions =
 				// We want commands to units take precedence.
 				if (selection.some(ent =>
 				{
-					const entState = GetEntityState(ent);
+					const entState = GetEntityStateBasic(ent);
 					return entState && !!entState.unitAI;
 				}))
 					return false;
@@ -1400,7 +1400,7 @@ var g_UnitActions =
 				const playerState = g_SimState.players[g_ViewedPlayer];
 				if (playerState && playerState.controlsAll || selection.some(ent =>
 				{
-					const entState = GetEntityState(ent);
+					const entState = GetEntityStateBasic(ent);
 					return entState && entState.identity && entState.identity.controllable;
 				}))
 					return false;
@@ -2058,7 +2058,7 @@ function getCommandInfo(command, entStates)
 
 function getActionInfo(action, target, selection)
 {
-	if (!selection || !selection.length || !GetEntityState(selection[0]))
+	if (!selection || !selection.length || !GetEntityStateBasic(selection[0]))
 		return { "possible": false };
 
 	// Look at the first targeted entity
@@ -2072,7 +2072,7 @@ function getActionInfo(action, target, selection)
 	// Check if any entities in the selection can do some of the available actions.
 	for (const entityID of selection)
 	{
-		const entState = GetEntityState(entityID);
+		const entState = GetEntityStateBasic(entityID);
 		if (!entState)
 			continue;
 
