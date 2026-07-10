@@ -55,6 +55,7 @@ function setupUnitPanel(guiName, unitEntStates, playerState)
 		return;
 	}
 
+	Engine.ProfileStart("setupUnitPanel " + guiName);
 	const items = g_SelectionPanels[guiName].getItems(unitEntStates) || [];
 	const numberOfItems = Math.min(items.length, g_SelectionPanels[guiName].getMaxNumberOfItems());
 	const rowLength = g_SelectionPanels[guiName].rowLength || 8;
@@ -108,6 +109,7 @@ function setupUnitPanel(guiName, unitEntStates, playerState)
 
 	g_unitPanelButtons[guiName] = numberOfItems;
 	g_SelectionPanels[guiName].used = numberOfItems > 0;
+	Engine.ProfileStop();
 }
 
 /**

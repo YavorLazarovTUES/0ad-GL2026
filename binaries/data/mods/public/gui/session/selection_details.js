@@ -539,15 +539,25 @@ function updateSelectionDetails()
 
 	// Fill out general info and display it
 	if (entStates.length == 1)
+	{
+		Engine.ProfileStart("displaySingle");
 		displaySingle(entStates[0]);
+		Engine.ProfileStop();
+	}
 	else
+	{
+		Engine.ProfileStart("displayMultiple");
 		displayMultiple(entStates);
+		Engine.ProfileStop();
+	}
 
 	// Show basic details.
 	detailsPanel.hidden = false;
 
 	// Fill out commands panel for specific unit selected (or first unit of primary group)
+	Engine.ProfileStart("updateUnitCommands");
 	updateUnitCommands(entStates, supplementalDetailsPanel, commandsPanel);
+	Engine.ProfileStop();
 
 	// Show health bar for garrisoned units if the garrison panel is visible
 	if (Engine.GetGUIObjectByName("unitGarrisonPanel") && !Engine.GetGUIObjectByName("unitGarrisonPanel").hidden)

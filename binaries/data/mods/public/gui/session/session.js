@@ -192,9 +192,11 @@ function GetMultipleEntityStates(ents)
 {
 	if (!ents.length)
 		return null;
+	Engine.ProfileStart("GetMultipleEntityStates");
 	const entityStates = Engine.GuiInterfaceCall("GetMultipleEntityStates", ents);
 	for (const item of entityStates)
 		g_EntityStates[item.entId] = item.state && deepfreeze(item.state);
+	Engine.ProfileStop();
 	return entityStates;
 }
 
@@ -701,12 +703,18 @@ function onSimulationUpdate(closePageCallback)
 
 	GetMultipleEntityStates(g_Selection.toList());
 
+	Engine.ProfileStart("simulationUpdateHandlers");
 	for (const handler of g_SimulationUpdateHandlers)
 		handler();
+	Engine.ProfileStop();
 
 	// TODO: Move to handlers
+	Engine.ProfileStart("handleNotifications");
 	handleNotifications(closePageCallback);
+	Engine.ProfileStop();
+	Engine.ProfileStart("updateGUIObjects");
 	updateGUIObjects();
+	Engine.ProfileStop();
 }
 
 function toggleGUI()
@@ -719,7 +727,9 @@ function toggleGUI()
 // TODO: Use event subscription onSimulationUpdate, onEntitySelectionChange, onPlayerViewChange, ... instead
 function updateGUIObjects()
 {
+	Engine.ProfileStart("updateSelection");
 	g_Selection.update();
+	Engine.ProfileStop();
 
 	if (g_ShowAllStatusBars)
 		recalculateStatusBarDisplay();
@@ -727,9 +737,15 @@ function updateGUIObjects()
 	if (g_ShowGuarding || g_ShowGuarded)
 		updateAdditionalHighlight();
 
+	Engine.ProfileStart("updateGroups");
 	updateGroups();
+	Engine.ProfileStop();
+	Engine.ProfileStart("updateSelectionDetails");
 	updateSelectionDetails();
+	Engine.ProfileStop();
+	Engine.ProfileStart("updateBuildingPlacementPreview");
 	updateBuildingPlacementPreview();
+	Engine.ProfileStop();
 
 	if (!g_IsObserver)
 	{
