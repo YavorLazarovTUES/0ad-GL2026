@@ -25,10 +25,12 @@
 #include "StdSkeletons.h"
 
 #include <FCollada.h>
+#include <FUtils/FUAssert.h>
 #include <cassert>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
+#include <set>
 #include <string>
 
 void default_logger(void*, int severity, const char* message)
@@ -63,6 +65,30 @@ void Log(int severity, const char* msg, ...)
 	va_end(ap);
 
 	g_Logger(g_LoggerCBData, severity, buffer);
+}
+
+static bool OnColladaAssertionFailed(const char* message)
+{
+	std::string text = message ? message : "(no message)";
+	const size_t eol = text.find('\n');
+	if (eol != std::string::npos)
+		text.erase(eol);
+
+	static std::set<std::string> reported;
+	if (reported.insert(text).second)
+		Log(LOG_WARNING, "FCollada internal assertion: %s", text.c_str());
+
+	return true;
+}
+
+static void EnsureAssertionCallback()
+{
+	static bool installed = false;
+	if (installed)
+		return;
+	FUAssertion::SetAssertionFailedCallback(
+		new FUAssertion::FUAssertCallback(&OnColladaAssertionFailed));
+	installed = true;
 }
 
 struct BufferedOutputCallback : public OutputCB
@@ -113,6 +139,7 @@ int convert_dae_to_whatever(const char* dae, OutputFn writer, void* cb_data, voi
 {
 	Log(LOG_INFO, "Starting conversion");
 
+	EnsureAssertionCallback();
 	FCollada::Initialize();
 
 	std::string xmlErrors;
@@ -157,6 +184,8 @@ EXPORT int convert_dae_to_psa(const char* dae, OutputFn psa_writer, void* cb_dat
 
 EXPORT int set_skeleton_definitions(const char* xml, int length)
 {
+	EnsureAssertionCallback();
+
 	std::string xmlErrors;
 	try
 	{
