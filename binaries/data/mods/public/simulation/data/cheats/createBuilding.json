@@ -1,0 +1,7 @@
+{
+	"Name": "house of cards",
+	"Data": {
+		"Action": "createbuilding",
+		"isNumeric": false
+	}
+}

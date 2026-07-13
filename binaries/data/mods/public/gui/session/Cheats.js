@@ -65,7 +65,8 @@ class Cheats
 			"player": Engine.GetPlayerID(),
 			"parameter": parameter,
 			"templates": cheat.Templates,
-			"selected": g_Selection.toList()
+			"selected": g_Selection.toList(),
+			"position": Engine.GetTerrainAtScreenPoint(mouseX, mouseY)
 		});
 
 		return true;

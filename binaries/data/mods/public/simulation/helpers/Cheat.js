@@ -91,6 +91,62 @@ function Cheat(input)
 		}
 		return;
 	}
+	case "createbuilding":
+	{
+		if (!input.parameter)
+			return;
+
+		const templateName = "structures/" + input.parameter;
+
+		const cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
+		if (!cmpTemplateManager.TemplateExists(templateName))
+		{
+			warn("Cheat 'createbuilding' failed: template '" + templateName + "' does not exist");
+			return;
+		}
+
+		if (!input.position)
+		{
+			warn("Cheat 'createbuilding' failed: no valid position under the cursor");
+			cmpGuiInterface.PushNotification({
+				"type": "text",
+				"players": [input.player],
+				"message": markForTranslation("You need to point at a valid position on the map."),
+				"translateMessage": true
+			});
+			return;
+		}
+
+		const ent = Engine.AddEntity(templateName);
+		if (ent == INVALID_ENTITY)
+		{
+			warn("Cheat 'createbuilding' failed: could not create entity from template '" + templateName + "'");
+			return;
+		}
+
+		const cmpPosition = Engine.QueryInterface(ent, IID_Position);
+		cmpPosition.JumpTo(input.position.x, input.position.z);
+
+		Engine.QueryInterface(ent, IID_Ownership)?.SetOwner(input.player);
+
+		// Make sure the building is actually allowed here (not overlapping other
+		// entities, in valid territory, on suitable terrain, etc.), just like a
+		// normally constructed building would be checked.
+		const cmpBuildRestrictions = Engine.QueryInterface(ent, IID_BuildRestrictions);
+		const ret = cmpBuildRestrictions && cmpBuildRestrictions.CheckPlacement();
+		if (ret && !ret.success)
+		{
+			warn("Cheat 'createbuilding' failed: position is not available for '" + templateName + "' (" + ret.message + ")");
+			ret.players = [input.player];
+			cmpGuiInterface.PushNotification(ret);
+
+			cmpPosition.MoveOutOfWorld();
+			Engine.DestroyEntity(ent);
+			return;
+		}
+
+		return;
+	}
 	case "fastactions":
 	{
 		const cmpModifiersManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_ModifiersManager);
