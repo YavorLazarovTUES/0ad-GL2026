@@ -20,6 +20,7 @@
 
 #include <vector>
 
+class BrushShape;
 class wxSizer;
 class wxWindow;
 
@@ -54,8 +55,9 @@ private:
 	// If active, send SetBrush message to the game
 	void Send();
 
-	enum BrushShape { CIRCLE = 0, SQUARE};
-	BrushShape m_Shape;
+	const BrushShape& GetShape() const;
+
+	int m_Shape;
 	int m_Size;
 	float m_Strength;
 	bool m_IsActive;

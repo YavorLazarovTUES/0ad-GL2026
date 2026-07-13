@@ -19,14 +19,13 @@
 
 #include "Brushes.h"
 
+#include "BrushShapes.h"
 #include "tools/atlas/GameInterface/MessagePasser.h"
 #include "tools/atlas/GameInterface/Messages.h"
 
-#include <cmath>
 #include <cstddef>
 #include <wx/arrstr.h>
 #include <wx/chartype.h>
-#include <wx/debug.h>
 #include <wx/event.h>
 #include <wx/radiobox.h>
 #include <wx/sizer.h>
@@ -44,7 +43,7 @@ static Brush* g_Brush_CurrentlyActive = NULL; // only one brush can be active at
 const float Brush::STRENGTH_MULTIPLIER = 1024.f;
 
 Brush::Brush()
-: m_Shape(CIRCLE), m_Size(4), m_Strength(1.f), m_IsActive(false)
+: m_Shape(BrushShape::CIRCLE), m_Size(4), m_Strength(1.f), m_IsActive(false)
 {
 }
 
@@ -72,76 +71,24 @@ void Brush::Send()
 		POST_MESSAGE(Brush, (GetWidth(), GetHeight(), GetData()));
 }
 
+const BrushShape& Brush::GetShape() const
+{
+	return *BrushShape::GetShapes()[m_Shape];
+}
+
 int Brush::GetWidth() const
 {
-	switch (m_Shape)
-	{
-	case CIRCLE:
-		return m_Size;
-	case SQUARE:
-		return m_Size;
-	default:
-		wxFAIL;
-		return -1;
-	}
+	return m_Size;
 }
 
 int Brush::GetHeight() const
 {
-/*
-	switch (m_Shape)
-	{
-	case RECTANGLE or something:
-	default:
-		return GetWidth();
-	}
-*/
-	return GetWidth();
+	return m_Size;
 }
 
 std::vector<float> Brush::GetData() const
 {
-	int width = GetWidth();
-	int height = GetHeight();
-
-	std::vector<float> data (width*height);
-
-	switch (m_Shape)
-	{
-	case CIRCLE:
-		{
-			int i = 0;
-			// All calculations are done in units of half-tiles, since that
-			// is the required precision
-			int mid_x = m_Size-1;
-			int mid_y = m_Size-1;
-			for (int y = 0; y < m_Size; ++y)
-			{
-				for (int x = 0; x < m_Size; ++x)
-				{
-					float dist_sq = // scaled to 0 in centre, 1 on edge
-						((2*x - mid_x)*(2*x - mid_x) +
-						 (2*y - mid_y)*(2*y - mid_y)) / (float)(m_Size*m_Size);
-					if (dist_sq <= 1.f)
-						data[i++] = (sqrtf(2.f - dist_sq) - 1.f) / (sqrt(2.f) - 1.f);
-					else
-						data[i++] = 0.f;
-				}
-			}
-			break;
-		}
-
-	case SQUARE:
-		{
-			int i = 0;
-			for (int y = 0; y < height; ++y)
-				for (int x = 0; x < width; ++x)
-					data[i++] = 1.f;
-			break;
-		}
-	}
-
-	return data;
+	return GetShape().GetData(m_Size);
 }
 
 float Brush::GetStrength() const
@@ -156,13 +103,13 @@ void Brush::SetStrength(float strength)
 
 void Brush::SetCircle(int size)
 {
-	m_Shape = CIRCLE;
+	m_Shape = BrushShape::CIRCLE;
 	m_Size = size;
 }
 
 void Brush::SetSquare(int size)
 {
-	m_Shape = SQUARE;
+	m_Shape = BrushShape::SQUARE;
 	m_Size = size;
 }
 
@@ -183,7 +130,7 @@ private:
 
 	void OnChange(wxCommandEvent& WXUNUSED(evt))
 	{
-		m_Brush.m_Shape = (Brush::BrushShape)GetSelection();
+		m_Brush.m_Shape = GetSelection();
 		m_Brush.Send();
 	}
 
@@ -247,9 +194,9 @@ END_EVENT_TABLE()
 
 void Brush::CreateUI(wxWindow* parent, wxSizer* sizer)
 {
-	wxArrayString shapes; // Must match order of BrushShape enum
-	shapes.Add(_("Circle"));
-	shapes.Add(_("Square"));
+	wxArrayString shapes;
+	for (const BrushShape* shape : BrushShape::GetShapes())
+		shapes.Add(shape->GetName());
 	// TODO (maybe): get rid of the extra static box, by not using wxRadioBox
 	sizer->Add(new BrushShapeCtrl(parent, shapes, *this), wxSizerFlags().Expand().Border(wxALL, 5));
 
